@@ -1,9 +1,19 @@
 # CLAUDE.md
 
 Project context and working rules for Civic Field Services. See
-`claude-prompt-initial.md` for the full project brief (goals, architecture,
+`docs/claude-prompt-initial.md` for the full project brief (goals, architecture,
 domain model, build order). This file governs *how* work gets done, not *what*
 gets built — treat it as binding.
+
+## Efficiency Loop
+
+Read all context in the /claude-logs file to learn what you could perform better. As you work, when you encounter something that operates suboptimally, you will stop what you're doing to write the content into a file in the claude-logs directory with the filename MMM-DD-YYYY.md in the following format. This will be treated as a painpoints log that I can fix at a later time with investigation. None of the painpoints shall exceed 200 caharacters. YOU MUST log this painpoint when you encounter it, not summarize anything after you complete actions, and then continue work, rather than wait until after task completion.
+
+---------
+
+<datetime> - <action attempted> - <painpoint> - <how to mitigate>
+
+---------
 
 ---
 
@@ -14,6 +24,7 @@ The repo root will contain exactly three top-level working directories:
 - `web-app/` — React + Vite SPA
 - `backend/` — Lambda/application code
 - `cdk/` — AWS CDK (TypeScript) infrastructure
+- `docs/` - design docs, prompts, and other documents for the app
 
 No further structure exists inside any of these yet.
 
@@ -38,6 +49,10 @@ If asked to write code into a locked directory, the correct response is to
 propose the missing structure section for review, not to write the code.
 This rule can only be lifted by editing this file to add the relevant
 section — not by in-conversation persuasion.
+
+### Docs
+
+The documents folder is freeform with few rules and contains design docs, prompts and other docs. 
 
 ---
 
@@ -94,3 +109,11 @@ to one, even if a choice seems obviously correct.
 
 *(Empty. Add a subsection here per directory — `## 5.1 web-app/`, etc. —
 before any code may be written into it, per §1.1.)*
+
+---
+
+## 6. Code Commits
+
+The repo is hosted at https://github.com/seththeeke/nyc-311 and already setup. When you are asked to commit anything, you will commit all outstanding changes as a single commit rather than breaking the work down in any way unless instructed separately, this will prevent the chance of committing chunks that are not feasible piecewise. You will commit changes in the following format.
+
+[<feat> or <bugfi>] - Claude Commit: <Commit message>

@@ -69,21 +69,124 @@ volume and patterns. **[OPEN: revisit after initial ingestion is running.]**
 
 ---
 
-## 3. Domain Model (starting point)
+## 3. Domain Model (negotiated 2026-07-20)
 
-- **Work Order** — created from an ingested 311 record. Represents a dispatched job.
-- **Case** — created when a Work Order's workflow fails in a way that needs handling
-  (exhausted retries, unrecoverable error, ambiguous state). Has its own lifecycle,
-  independent of the originating Work Order.
-- **Property/Location** — derived from the 311 record's address/borough/zip. Public
-  users can also register a fake property to generate synthetic Work Orders against.
-- **Agent Investigation** — a record of what the AI agent did when investigating a
-  Case: what it concluded, what action it took or recommended, confidence, and whether
-  it escalated.
+Six primitives. Two different audit strategies are used deliberately, on
+different entities, to demonstrate both patterns:
 
-**[OPEN]** Exact DynamoDB table design (single-table vs. multi-table), key schema,
-and GSIs — this is a good early exercise for Claude Code to propose and for you to
-review, given DynamoDB access-pattern-first design.
+- **Order** is **fully event-sourced** — there is no independently-mutable
+  "status" field; current state is a projection derived by folding its
+  `OrderEvent` stream.
+- **Case** uses **mutable state + a supplementary append-only audit log**
+  (`CaseEvent`) — simpler to reason about, still gives full history.
+
+### 3.1 User
+
+Represents an actor, not necessarily a full account:
+
+- `admin` — the single authenticated operator (Cognito).
+- `public_actor` — an unauthenticated/pseudo-identified visitor to the
+  public sandbox. Exists so public-created Requests/Cases/Properties can be
+  attributed (e.g. for rate-limiting or a "my sandbox activity" view)
+  without requiring login.
+
+Fields (draft): `user_id`, `type` (`admin` | `public_actor`), `created_at`,
+plus type-specific fields (`cognito_sub`/`email` for admin; an
+anonymous/session identifier for public_actor).
+
+### 3.2 Property
+
+Normalized location entity — NYC 311 location data is richer than a zip
+code (full address, BBL, borough, community board, lat/long), and a given
+address can recur across many Requests over time. Also needed cleanly for
+the public "register a fake property, generate synthetic Orders against
+it" flow.
+
+Fields (draft): `property_id`, `bbl` (real) or a synthetic identifier
+(fake), `address`, `borough`, `community_board`, `zip`, `latitude`,
+`longitude`, `is_fake`, `registered_by` (`user_id`, null for real
+311-derived properties), `created_at`.
+
+Relationship: one Property → many Requests, over time.
+
+### 3.3 Request
+
+The raw intake record — either a real ingested NYC 311 record or a
+public-submitted fake request. **Not every Request becomes an Order** —
+promotion, filtering, dedup, and rejection are tracked on the Request
+itself rather than gating what gets persisted.
+
+Fields (draft): `request_id`, `source` (`nyc_311` | `public_demo`),
+`external_unique_key` (311's `unique_key`, null for fake), `property_id`
+(FK), `complaint_type`, `descriptor`, `agency`, `raw_payload` (original
+JSON, for real records), `status` (`pending` | `promoted` | `filtered` |
+`duplicate` | `rejected`), `created_by` (`user_id`, null for
+system-ingested real records), `created_at`.
+
+Relationship: Request 0..1 → Order (a promoted Request has exactly one
+Order; most Requests may never be promoted, especially once scope narrows
+per §1's [OPEN] note).
+
+### 3.4 Order (event-sourced)
+
+Represents a dispatched job moving through the Order Workflow
+(`Ingest → Schedule → Plan → Execute → Resolve`, §4.1). Two layers:
+
+- **`OrderEvent`** (source of truth, immutable, append-only): `order_id`,
+  `sequence_number`, `event_type` (e.g. `OrderCreated`, `StageStarted`,
+  `StageSucceeded`, `StageFailed`, `StageRetried`, `FailureInjected`,
+  `CaseCreated`, `OrderResolved`, `OrderFailedTerminal`), `stage`
+  (nullable — one of the 5 workflow stages), `payload`, `occurred_at`,
+  `actor` (`system` | `agent` | `admin`).
+- **Order projection** (materialized, read-optimized current-state view —
+  *derived*, not independent truth): `order_id`, `request_id` (FK),
+  `property_id` (FK), `current_stage`, `status`, per-stage retry counts,
+  `case_id` (nullable FK), `created_at`, `updated_at`,
+  `last_event_sequence`.
+
+Invariant: the projection must always be re-derivable by replaying
+`OrderEvent`s for that `order_id` from sequence 0 — it's a cache, not a
+second source of truth.
+
+### 3.5 Case
+
+Created when an Order's workflow fails in a way that needs handling, **or**
+directly by a public sandbox user (no originating Order). Uses direct
+mutable state plus a supplementary event log:
+
+- **Case**: `case_id`, `order_id` (nullable FK — null for public-sandbox
+  cases), `status` (`created` | `under_investigation` | `auto_resolved` |
+  `escalated` | `resolved_by_admin` | `closed`), `source`
+  (`order_failure` | `public_demo`), `created_by` (`user_id`),
+  `assigned_admin` (nullable), `created_at`, `updated_at`.
+- **`CaseEvent`** (append-only audit log): `case_id`, `sequence_number`,
+  `event_type` (`CaseCreated`, `AgentInvestigationStarted`,
+  `AgentInvestigationCompleted`, `AutoResolved`, `EscalatedToHuman`,
+  `AdminResolved`, `Closed`), `payload`, `occurred_at`, `actor`.
+
+Note: this folds the previously-separate "Agent Investigation" primitive
+into `CaseEvent` as an event type — an investigation's model input/output,
+action taken, confidence, and reasoning live in the
+`AgentInvestigationCompleted` event payload rather than a standalone
+table. Still fully satisfies the audit/transparency requirement in §5.
+
+### 3.6 Relationship summary
+
+```
+User (public_actor) --registers (optional)--> Property
+Property <--1:many-- Request
+Request --0..1 promotes to--> Order
+Order --event stream--> OrderEvent  (source of truth)
+Order (projection) <--derived from-- OrderEvent
+Order --0..1 spawns--> Case
+Case --event log--> CaseEvent
+User (public_actor) --optionally creates directly--> Case  (sandbox path, no Order)
+```
+
+**[OPEN]** Exact DynamoDB table design (single-table vs. multi-table), key
+schema, and GSIs for the above entities — a good next exercise now that
+the entities and their access relationships are defined, still to be
+proposed by Claude Code and reviewed by you.
 
 ---
 
