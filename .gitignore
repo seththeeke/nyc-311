@@ -9,3 +9,4 @@ build/
 cdk.out/
 coverage/
 .claude/settings.local.json
+311-test-data/*.json

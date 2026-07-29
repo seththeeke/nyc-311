@@ -66,6 +66,12 @@ volume and patterns. **[OPEN: revisit after initial ingestion is running.]**
     "status": "In Progress"
   }
   ```
+- **Real sample data:** `311-test-data/` holds a reusable puller
+  (`pull-nyc-311-data.js`) and gitignored sample pulls, used to sanity-check
+  the data model against real records rather than guessing at field
+  coverage/shape. See `311-test-data/README.md` to refresh, and
+  `docs/data-model.md` (Appendix A) for the entity-design conclusions drawn
+  from it.
 
 ---
 
@@ -86,7 +92,7 @@ Represents an actor, not necessarily a full account:
 
 - `admin` — the single authenticated operator (Cognito).
 - `public_actor` — an unauthenticated/pseudo-identified visitor to the
-  public sandbox. Exists so public-created Requests/Cases/Properties can be
+  public sandbox. Exists so public-created Requests/Cases/Locations can be
   attributed (e.g. for rate-limiting or a "my sandbox activity" view)
   without requiring login.
 
@@ -94,20 +100,20 @@ Fields (draft): `user_id`, `type` (`admin` | `public_actor`), `created_at`,
 plus type-specific fields (`cognito_sub`/`email` for admin; an
 anonymous/session identifier for public_actor).
 
-### 3.2 Property
+### 3.2 Location
 
 Normalized location entity — NYC 311 location data is richer than a zip
 code (full address, BBL, borough, community board, lat/long), and a given
 address can recur across many Requests over time. Also needed cleanly for
-the public "register a fake property, generate synthetic Orders against
+the public "register a fake location, generate synthetic Orders against
 it" flow.
 
-Fields (draft): `property_id`, `bbl` (real) or a synthetic identifier
+Fields (draft): `location_id`, `bbl` (real) or a synthetic identifier
 (fake), `address`, `borough`, `community_board`, `zip`, `latitude`,
 `longitude`, `is_fake`, `registered_by` (`user_id`, null for real
-311-derived properties), `created_at`.
+311-derived locations), `created_at`.
 
-Relationship: one Property → many Requests, over time.
+Relationship: one Location → many Requests, over time.
 
 ### 3.3 Request
 
@@ -117,7 +123,7 @@ promotion, filtering, dedup, and rejection are tracked on the Request
 itself rather than gating what gets persisted.
 
 Fields (draft): `request_id`, `source` (`nyc_311` | `public_demo`),
-`external_unique_key` (311's `unique_key`, null for fake), `property_id`
+`external_unique_key` (311's `unique_key`, null for fake), `location_id`
 (FK), `complaint_type`, `descriptor`, `agency`, `raw_payload` (original
 JSON, for real records), `status` (`pending` | `promoted` | `filtered` |
 `duplicate` | `rejected`), `created_by` (`user_id`, null for
@@ -140,7 +146,7 @@ Represents a dispatched job moving through the Order Workflow
   `actor` (`system` | `agent` | `admin`).
 - **Order projection** (materialized, read-optimized current-state view —
   *derived*, not independent truth): `order_id`, `request_id` (FK),
-  `property_id` (FK), `current_stage`, `status`, per-stage retry counts,
+  `location_id` (FK), `current_stage`, `status`, per-stage retry counts,
   `case_id` (nullable FK), `created_at`, `updated_at`,
   `last_event_sequence`.
 
@@ -173,8 +179,8 @@ table. Still fully satisfies the audit/transparency requirement in §5.
 ### 3.6 Relationship summary
 
 ```
-User (public_actor) --registers (optional)--> Property
-Property <--1:many-- Request
+User (public_actor) --registers (optional)--> Location
+Location <--1:many-- Request
 Request --0..1 promotes to--> Order
 Order --event stream--> OrderEvent  (source of truth)
 Order (projection) <--derived from-- OrderEvent
