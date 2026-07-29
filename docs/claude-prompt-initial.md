@@ -195,6 +195,12 @@ proposed by Claude Code and reviewed by you.
 ### 4.1 Order Workflow (Step Functions state machine #1)
 `Ingest → Schedule → Plan → Execute → Resolve`
 
+> **Amended 2026-07-29** — see `docs/capacity-model.md`. The `Plan` stage has been
+> removed (`Ingest → Schedule → Execute → Resolve`), and `Schedule` has been
+> redefined as the capacity-aware queueing step. That document also splits Case
+> handling (§4.2 below) into two owner-specific queues with isolated agents. Treat
+> `capacity-model.md` as authoritative over this section where the two disagree.
+
 - Each stage is a Lambda (or set of Lambdas) invoked as a Step Functions task.
 - Built-in retry policies per stage (exponential backoff, max attempts) using Step
   Functions' native `Retry` blocks.
