@@ -281,8 +281,9 @@ Order breaches its queue-wait SLA, or when a Request can't be located.
 | `case_type` | See table below. Replaces the original brief's coarser `source` field. |
 | `queue` | `system-failure` \| `capacity-escalation` — owner-routing field. Derived from `case_type` but stored explicitly since it's what agent routing / IAM boundaries and queue-scoped queries key off (`capacity-model.md` §7). |
 | `status` | `created` \| `under_investigation` \| `auto_resolved` \| `escalated` \| `resolved_by_admin` \| `closed`. |
+| `sla_deadline` | The **Case resolution-time SLA** deadline (`business-insights.md` §2.2) — stamped at `CaseCreated` from the admin-configurable per-`case_type` resolution-time threshold. Distinct from `Order.sla_deadline` (the queue-wait SLA, a different clock that only applies pre-Case). Added 2026-07-29; not live-queried operationally for now — see `ddb-design.md`. |
 | `created_by` | `user_id`. |
-| `assigned_admin` | Nullable. |
+| `assigned_owner` | Nullable. The admin (`User`, `type = admin`) currently handling this Case. Named `assigned_owner` rather than `assigned_operator` to avoid colliding with the `Operator` entity (the event-sourced field-crew persona) elsewhere in this model — same person/semantics as the original `assigned_admin`, renamed 2026-07-29. |
 | `created_at` / `updated_at` | Timestamps. |
 
 Every remaining `case_type` now has a real originating Order or Request —
