@@ -110,6 +110,87 @@ to one, even if a choice seems obviously correct.
 *(Empty. Add a subsection here per directory — `## 5.1 web-app/`, etc. —
 before any code may be written into it, per §1.1.)*
 
+### 5.1 web-app/
+
+The directory structure for the web-app will follow a layered service architecture. All models will be defined in their own files and all types will be hard typed as typescript objects with no use of (any) for typing. There will be a service layer for each major service controller based on entity REST path. The application will be broken into re-usable web components, with a rule of thumb that any web component over 200 lines of code should be refactored into components and will be part of the linter. The frontend will always be capable of running an "in memory" mode which will mock out all service calls into a mock in memory data base which will have both sample data as well as generate data on the fly for any write operations. It will follow the below file structure. 
+
+web-app/
+ -> routes - route definitions + one access-guard per visibility tier (public
+    dashboard vs. authenticated admin), rather than per-page auth checks
+    scattered through components/pages
+ -> services
+ -> hooks - data-fetching/caching per entity, built on TanStack Query;
+    components call hooks, never services, directly
+ -> components
+  -> pages - for top level page components
+ -> models - one file per entity: the TypeScript type plus a matching
+    runtime (zod) schema; services parse every response through it
+ -> config.ts - environment-specific values (API base URL, mock/live flag)
+    resolved from Vite's `import.meta.env` (`.env.test` / `.env.production`);
+    no secrets committed
+ -> tests - has mirrored structure as the web-app to ensure tests follow the same structure
+  -> routes
+  -> services
+  -> hooks
+  -> components
+   -> pages
+  -> models
+ -> test-data - this is baked test data for any "in memory" modes and should be lightweight
+
+**Decisions filled in below (Claude's best guess — flag anything that should
+go the other way):**
+
+- **State & data-fetching: TanStack Query**, wrapped in `hooks/`. Several
+  entities (Order, Case, Operator) are effectively live/polling data — a
+  caching layer with built-in refetch/dedup is worth the dependency; hand-rolled
+  `useEffect` fetching would just reinvent it, worse.
+- **Routing: React Router.** Config lives in `routes/`; each visibility tier
+  gets one guard component rather than ad-hoc checks per page.
+- **Styling: Tailwind CSS.** Utility-first, integrates natively with Vite,
+  keeps component styles colocated instead of a parallel CSS file per
+  component.
+- **Runtime validation at the network boundary.** "No `any`" is a
+  compile-time guarantee only — it says nothing about what a Lambda actually
+  returns at 2am. Every `models/` file pairs a TypeScript type with a `zod`
+  schema; the service layer parses every response through it before it
+  reaches a component, so a malformed API response fails loudly at the
+  boundary instead of surfacing as a blank chart three components later.
+- **In-memory mode, mechanically.** Each service module exports one
+  interface with two implementations — a real `fetch`-based one and an
+  in-memory one backed by `test-data/` — selected by the `mock`/`live` flag
+  in `config.ts`. Keeping the swap inside the service layer (rather than
+  intercepting at the network level) means the same mock implementation is
+  directly importable in Vitest/RTL tests too, no separate test-only mocking
+  story needed.
+- **Accessibility is a baseline, not optional:** semantic HTML, full keyboard
+  navigation, `aria-label` on every icon-only control. Enforced via
+  `eslint-plugin-jsx-a11y`, not left to code review.
+- **Naming:** component files are `PascalCase.tsx` matching their exported
+  component name, one component per file; hooks/services/utilities are
+  `camelCase.ts`.
+- **Linting: ESLint**, with `typescript-eslint`, `eslint-plugin-react-hooks`,
+  and `eslint-plugin-jsx-a11y`. The 200-line component rule above is enforced
+  via ESLint's `max-lines` rule on `components/**`, not left to review.
+
+---
+
+### Building and Testing the web-app
+
+Per `testing-framework.md` §1/§2/§6: **Vitest** + `@vitest/coverage-v8`,
+**React Testing Library** for component tests, **90% coverage gate, per
+file** (lines/functions/branches/statements) — no exception for `web-app`.
+
+| Command | Purpose |
+|---|---|
+| `npm run build` | `tsc -b && vite build` — typecheck, then production bundle |
+| `npm run dev` | `vite` — local dev server; `mock`/`live` mode toggled via `.env.local` |
+| `npm run lint` | `eslint .` |
+| `npm run test` | `vitest run` |
+| `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% (`testing-framework.md` §2) |
+
+These are the concrete commands CLAUDE.md §2's Operational Loop runs against
+this package once code exists here.
+
 ---
 
 ## 6. Code Commits
