@@ -91,14 +91,13 @@ different entities, to demonstrate both patterns:
 Represents an actor, not necessarily a full account:
 
 - `admin` — the single authenticated operator (Cognito).
-- `public_actor` — an unauthenticated/pseudo-identified visitor to the
-  public sandbox. Exists so public-created Requests/Cases/Locations can be
-  attributed (e.g. for rate-limiting or a "my sandbox activity" view)
-  without requiring login.
 
-Fields (draft): `user_id`, `type` (`admin` | `public_actor`), `created_at`,
-plus type-specific fields (`cognito_sub`/`email` for admin; an
-anonymous/session identifier for public_actor).
+`public_actor` (an unauthenticated visitor attributed to public-created
+writes) is dropped — see §5's 2026-08-08 amendment. No public write path
+exists to attach it to; `data-model.md` already reflects this.
+
+Fields (draft): `user_id`, `type` (`admin`), `created_at`, `cognito_sub`,
+`email`.
 
 ### 3.2 Location
 
@@ -117,17 +116,16 @@ Relationship: one Location → many Requests, over time.
 
 ### 3.3 Request
 
-The raw intake record — either a real ingested NYC 311 record or a
-public-submitted fake request. **Not every Request becomes an Order** —
-promotion, filtering, dedup, and rejection are tracked on the Request
-itself rather than gating what gets persisted.
+The raw intake record for a real ingested NYC 311 record. (Public-submitted
+fake requests were part of the original sandbox sketch — dropped, §5's
+2026-08-08 amendment.) **Not every Request becomes an Order** — promotion,
+filtering, dedup, and rejection are tracked on the Request itself rather
+than gating what gets persisted.
 
-Fields (draft): `request_id`, `source` (`nyc_311` | `public_demo`),
-`external_unique_key` (311's `unique_key`, null for fake), `location_id`
-(FK), `complaint_type`, `descriptor`, `agency`, `raw_payload` (original
-JSON, for real records), `status` (`pending` | `promoted` | `filtered` |
-`duplicate` | `rejected`), `created_by` (`user_id`, null for
-system-ingested real records), `created_at`.
+Fields (draft): `request_id`, `source` (`nyc_311`), `external_unique_key`
+(311's `unique_key`), `location_id` (FK), `complaint_type`, `descriptor`,
+`agency`, `raw_payload` (original JSON), `status` (`pending` | `promoted` |
+`filtered` | `duplicate` | `rejected`), `created_at`.
 
 Relationship: Request 0..1 → Order (a promoted Request has exactly one
 Order; most Requests may never be promoted, especially once scope narrows
@@ -156,15 +154,17 @@ second source of truth.
 
 ### 3.5 Case
 
-Created when an Order's workflow fails in a way that needs handling, **or**
-directly by a public sandbox user (no originating Order). Uses direct
-mutable state plus a supplementary event log:
+Created when an Order's workflow fails in a way that needs handling. (The
+public-sandbox path — a Case created directly by a public user, no
+originating Order — was part of the original sandbox sketch; dropped, §5's
+2026-08-08 amendment.) Uses direct mutable state plus a supplementary
+event log:
 
-- **Case**: `case_id`, `order_id` (nullable FK — null for public-sandbox
-  cases), `status` (`created` | `under_investigation` | `auto_resolved` |
-  `escalated` | `resolved_by_admin` | `closed`), `source`
-  (`order_failure` | `public_demo`), `created_by` (`user_id`),
-  `assigned_admin` (nullable), `created_at`, `updated_at`.
+- **Case**: `case_id`, `order_id` (FK), `status` (`created` |
+  `under_investigation` | `auto_resolved` | `escalated` |
+  `resolved_by_admin` | `closed`), `source` (`order_failure`),
+  `created_by` (`user_id`), `assigned_admin` (nullable), `created_at`,
+  `updated_at`.
 - **`CaseEvent`** (append-only audit log): `case_id`, `sequence_number`,
   `event_type` (`CaseCreated`, `AgentInvestigationStarted`,
   `AgentInvestigationCompleted`, `AutoResolved`, `EscalatedToHuman`,
@@ -179,14 +179,12 @@ table. Still fully satisfies the audit/transparency requirement in §5.
 ### 3.6 Relationship summary
 
 ```
-User (public_actor) --registers (optional)--> Location
 Location <--1:many-- Request
 Request --0..1 promotes to--> Order
 Order --event stream--> OrderEvent  (source of truth)
 Order (projection) <--derived from-- OrderEvent
 Order --0..1 spawns--> Case
 Case --event log--> CaseEvent
-User (public_actor) --optionally creates directly--> Case  (sandbox path, no Order)
 ```
 
 **[OPEN]** Exact DynamoDB table design (single-table vs. multi-table), key
@@ -240,20 +238,28 @@ designing carefully once you see real failure patterns rather than guessing upfr
 
 ## 5. Public Site (single React + Vite SPA)
 
-One site, three tiers of visibility:
+> **Amended 2026-08-08** — the public-write "sandbox" tier (create a fake
+> Case, track it live) originally sketched below is **dropped, not just
+> deferred**. `data-model.md`'s [Deferred](data-model.md#deferred--out-of-scope-for-now)
+> section already removed `User.type = public_actor`,
+> `Request.source = public_demo`, and `Case.case_type = public_demo` from
+> the active data model (2026-07-29) on the same reasoning: no public write
+> path exists to attach them to. This amendment aligns §5 itself, which
+> still described the old tier as if active. In its place, "Public
+> dashboard" absorbs the portfolio "show off" role the sandbox was meant to
+> serve — a read-only birds-eye view (metrics + live incident/vehicle map +
+> an "About This" explainer page) rather than a public write flow. Two
+> public tiers now, not three.
 
 | Tier | Who | Can do |
 |---|---|---|
-| Public dashboard | Anyone | Read-only view of real aggregate metrics: order volume, resolution rates, error/case rates, borough/category breakdowns |
-| Public sandbox | Anyone | Create a **fake** Case via a public API endpoint, track it live through the Case Workflow (agentic investigation → resolve/escalate), see the outcome |
+| Public dashboard | Anyone | Read-only birds-eye view: aggregate metrics (order volume, resolution rates, error/case rates, borough/category breakdowns), a live map of incidents and vehicle/operator tracking (same map component the Admin uses, no controls), resource/shift stats, and an "About This" page explaining the simulation. |
 | Public admin view | Anyone | Read-only mirror of everything the Admin can see — full transparency, portfolio-friendly |
 | Admin | You (authenticated) | Everything above, plus: manually resolve escalated Cases, trigger/toggle failure injection, manage service catalog, view raw execution history |
 
-- **Auth:** Amazon Cognito for the Admin login. Public tiers are unauthenticated but
-  should be rate-limited (API Gateway usage plans / throttling, and consider AWS WAF)
-  since public users can write data (fake cases).
-- Fake cases created by the public should be clearly namespaced/flagged (e.g., a
-  `source: "public_demo"` field) so they never get mixed into real 311-derived metrics.
+- **Auth:** Amazon Cognito for the Admin login. Public tiers are unauthenticated,
+  read-only, and rate-limited (API Gateway usage plans / throttling, and consider
+  AWS WAF) — no public write path exists (see amendment above).
 - Hosting: S3 + CloudFront for the SPA; API Gateway + Lambda for the API layer.
 
 ---
@@ -316,7 +322,6 @@ feature, not an afterthought:
   end-to-end resolution time.
 - Case Workflow: case volume, auto-resolve rate vs. escalation rate, time-to-resolution,
   agent confidence distribution, human-resolution time once escalated.
-- Public sandbox: fake-case volume and outcomes (kept separate from real metrics).
 
 ---
 
@@ -332,7 +337,7 @@ feature, not an afterthought:
 4. Swap the stub resolution step for the real Bedrock/Claude agentic step.
 5. Failure injection framework on the Order Workflow stages.
 6. Admin API + authenticated Admin UI (read/write).
-7. Public dashboard + public sandbox (read-only + fake-case creation).
+7. Public dashboard (birds-eye metrics + live map) + read-only public admin mirror.
 8. CodePipeline/CodeBuild CD pipeline with `test`/`prod` promotion.
 9. Observability dashboards and alarms.
 
@@ -341,7 +346,7 @@ feature, not an afterthought:
 ## 11. Explicit Non-Goals
 
 - No real work is performed — this is a simulation. No real dispatch, no real crews.
-- No PII collection from public users beyond what's needed for the demo sandbox
-  (and even then, keep it minimal — this is a portfolio project, not a product).
+- No PII collection — the public tiers are read-only (§5's 2026-08-08 amendment), so
+  this is largely moot, but keep it in mind if a public write path ever comes back.
 - Not attempting to replicate NYC's actual 311 resolution process — the "resolution"
   logic in this system is entirely fictional/simulated.

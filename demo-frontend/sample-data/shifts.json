@@ -1,0 +1,101 @@
+[
+  {
+    "shift_id": "shift_0001",
+    "pool": "DSNY#QUEENS",
+    "depot_id": "4131117",
+    "rate_per_hour": 52,
+    "scheduled_start": "2026-08-09T02:00:34.798Z",
+    "scheduled_end": "2026-08-09T07:14:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T03:12:34.798Z"
+  },
+  {
+    "shift_id": "shift_0002",
+    "pool": "DSNY#BROOKLYN",
+    "depot_id": "3551661",
+    "rate_per_hour": 52,
+    "scheduled_start": "2026-08-09T01:32:34.798Z",
+    "scheduled_end": "2026-08-09T05:14:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:47:34.798Z"
+  },
+  {
+    "shift_id": "shift_0003",
+    "pool": "NYPD#MANHATTAN",
+    "depot_id": "1863173",
+    "rate_per_hour": 42,
+    "scheduled_start": "2026-08-09T01:31:34.798Z",
+    "scheduled_end": "2026-08-09T06:22:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:51:34.798Z"
+  },
+  {
+    "shift_id": "shift_0004",
+    "pool": "NYPD#BRONX",
+    "depot_id": "2512630",
+    "rate_per_hour": 38,
+    "scheduled_start": "2026-08-09T08:10:34.798Z",
+    "scheduled_end": "2026-08-09T12:07:34.798Z",
+    "status": "scheduled",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T03:10:34.798Z"
+  },
+  {
+    "shift_id": "shift_0005",
+    "pool": "DOT#BROOKLYN",
+    "depot_id": "3774871",
+    "rate_per_hour": 52,
+    "scheduled_start": "2026-08-09T01:36:34.798Z",
+    "scheduled_end": "2026-08-09T05:33:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:55:34.798Z"
+  },
+  {
+    "shift_id": "shift_0006",
+    "pool": "DOT#QUEENS",
+    "depot_id": "4470672",
+    "rate_per_hour": 38,
+    "scheduled_start": "2026-08-08T23:47:34.798Z",
+    "scheduled_end": "2026-08-09T06:30:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:47:34.798Z"
+  },
+  {
+    "shift_id": "shift_0007",
+    "pool": "HPD#MANHATTAN",
+    "depot_id": "1350987",
+    "rate_per_hour": 45,
+    "scheduled_start": "2026-08-09T00:51:34.798Z",
+    "scheduled_end": "2026-08-09T05:46:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:52:34.798Z"
+  },
+  {
+    "shift_id": "shift_0008",
+    "pool": "HPD#BRONX",
+    "depot_id": "2115360",
+    "rate_per_hour": 38,
+    "scheduled_start": "2026-08-09T07:20:34.798Z",
+    "scheduled_end": "2026-08-09T11:37:34.798Z",
+    "status": "scheduled",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T02:51:34.798Z"
+  },
+  {
+    "shift_id": "shift_0009",
+    "pool": "DSNY#STATEN ISLAND",
+    "depot_id": "5941029",
+    "rate_per_hour": 52,
+    "scheduled_start": "2026-08-09T01:06:34.798Z",
+    "scheduled_end": "2026-08-09T06:48:34.798Z",
+    "status": "active",
+    "created_at": "2026-08-06T03:15:34.798Z",
+    "updated_at": "2026-08-09T03:05:34.798Z"
+  }
+]

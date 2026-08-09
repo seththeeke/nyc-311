@@ -1,0 +1,742 @@
+[
+  {
+    "operator_id": "operator_0001",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0001",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0151"
+    },
+    "occurred_at": "2026-08-09T03:10:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0002",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0002",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0153"
+    },
+    "occurred_at": "2026-08-09T03:10:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0003",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0003",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0154"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0004",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0004",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0163"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0005",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0005",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0167"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0006",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0001"
+    },
+    "occurred_at": "2026-08-09T02:00:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0006",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0170"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0007",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0007",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0173"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0008",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0008",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0179"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0009",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0009",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0180"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0010",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0010",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0181"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0011",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0012",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0002"
+    },
+    "occurred_at": "2026-08-09T01:32:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0013",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0013",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0143"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0014",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0014",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0144"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0015",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0015",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0146"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0016",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0016",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0148"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0017",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0017",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0150"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0018",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0003"
+    },
+    "occurred_at": "2026-08-09T01:31:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0018",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0157"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0019",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0019",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0141"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0020",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0020",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0145"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0021",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0021",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0160"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0022",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0022",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0166"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0023",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0023",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0171"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0024",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0024",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0172"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0025",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0005"
+    },
+    "occurred_at": "2026-08-09T01:36:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0025",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0183"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0026",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0026",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0184"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0027",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0027",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0188"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0028",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0029",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0030",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0031",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0006"
+    },
+    "occurred_at": "2026-08-08T23:47:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0032",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0032",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0149"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0033",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0033",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0159"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0034",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0034",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0169"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0035",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0035",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0176"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0036",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0036",
+    "sequence_number": 1,
+    "event_type": "TransitStarted",
+    "payload": {
+      "order_id": "order_0186"
+    },
+    "occurred_at": "2026-08-09T03:10:34.799Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0037",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0038",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0007"
+    },
+    "occurred_at": "2026-08-09T00:51:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0039",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0040",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0041",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0042",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0043",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  },
+  {
+    "operator_id": "operator_0044",
+    "sequence_number": 0,
+    "event_type": "CheckedIn",
+    "payload": {
+      "shift_id": "shift_0009"
+    },
+    "occurred_at": "2026-08-09T01:06:34.798Z",
+    "actor": "system"
+  }
+]
