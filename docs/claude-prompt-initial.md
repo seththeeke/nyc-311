@@ -51,6 +51,13 @@ volume and patterns. **[OPEN: revisit after initial ingestion is running.]**
   Scheduler** triggering a Lambda ("311 Poller") that pulls new records since the last
   successful poll (store last-poll timestamp/cursor in DynamoDB) and emits one event
   per record onto an EventBridge custom bus or SQS queue to kick off the Order Workflow.
+  **Sequenced across two slices** (`1-data-ingestion.md`, negotiated 2026-08-10): the
+  first slice is raw ingest only — poll, dedup, store as a `draft` Request — with no
+  event emission at all, since a `draft` Request was never promoted and there's nothing
+  yet for the Order Workflow to act on. The event-bus/queue emission described here
+  belongs to whichever later slice actually promotes a Request. `1-data-ingestion.md`
+  also designs the cursor storage only gestured at here (§2: a sentinel item inside the
+  `Requests` table, not a new table).
 - **Record shape (real example):**
   ```json
   {
@@ -328,7 +335,9 @@ feature, not an afterthought:
 ## 10. Suggested Build Order
 
 1. NYC 311 poller Lambda + EventBridge Scheduler + DynamoDB cursor storage (get real
-   data flowing before building anything else).
+   data flowing before building anything else). Fully designed in
+   `1-data-ingestion.md` — scope, cursor design, backfill/pagination, failure
+   handling, ID scheme, testing, and observability are all decided there.
 2. Order Workflow Step Functions state machine with the 5 stages as stub Lambdas
    (no real logic yet — just prove the state machine, retries, and Case-creation
    handoff work).

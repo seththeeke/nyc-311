@@ -441,6 +441,15 @@ Requests populate this.
   `order_id`: this is a rare, one-directional lookup ("does this draft
   Request have an open Case"), not worth a reverse GSI on the Cases table
   for.
+- **Ingestion cursor lives here too, as a sentinel item.** `request_id =
+  "CURSOR#nyc_311"` (a fixed string — safe from colliding with real
+  `request_id`s once those are ULIDs, per the "Still Open" ID-generation
+  item below) holds the poller's last-drained watermark and, when a run
+  hits its per-invocation record cap mid-window, a resume offset. It sets
+  none of `external_unique_key`, `status`, or `location_id`, so it never
+  appears in any of the three GSIs above (all sparse) — only reachable via
+  direct `GetItem`/`PutItem` on its known PK. Full design and rationale:
+  `1-data-ingestion.md` §2.
 
 ### CDK
 
@@ -628,6 +637,7 @@ it yet.
 | 24 | Upcoming/scheduled Shifts for a pool (staffing/forecasting) | Shifts `gsi1-pool` (unfiltered) |
 | 25 | Get User by `user_id` | Users table, `GetItem` |
 | 26 | Get User by `cognito_sub` (login) | Users `gsi1-cognito-sub` |
+| 27 | Get/update the NYC 311 ingestion cursor (watermark + resume offset) | Requests table, `GetItem`/`PutItem` on sentinel PK `"CURSOR#nyc_311"` — see Requests table design notes and `1-data-ingestion.md` §2 |
 
 ---
 
@@ -640,10 +650,12 @@ it yet.
   volume (a few 311 polls/day) — if this were a real production system,
   these would need write-sharding (e.g. a random suffix on the partition
   key, fanned back in at read time).
-- **ID generation scheme** (UUID v4 vs. ULID/KSUID for natural
-  time-sortability) not yet decided for any entity's primary id. Doesn't
-  block the table design above but affects whether some of the `created_at`
-  sort keys used throughout are actually redundant with the id itself.
+- ~~**ID generation scheme** (UUID v4 vs. ULID/KSUID)~~ — **Resolved
+  2026-08-10: ULID, project-wide**, decided in `1-data-ingestion.md` §6
+  while designing the ingestion cursor's sentinel-PK collision-safety. Still
+  true that this doesn't require changing any key schema above — `created_at`
+  sort keys stay as designed, ULID just makes some of them incidentally
+  redundant with the id itself, not worth removing for the small win.
 - **TTL/archival policy for event-log items** (`OrderEvent`, `CaseEvent`,
   `OperatorEvent`) — none proposed yet. These grow unboundedly per
   aggregate; the analytics pipeline already drains them into S3, so a

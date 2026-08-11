@@ -140,7 +140,14 @@ construct instantiation, so writing fine-grained assertions tends to yield
 high coverage as a side effect of writing them, not extra work — the
 exception is any real branching (e.g. an environment-conditional like
 `RemovalPolicy: env === 'prod' ? RETAIN : DESTROY`, once `cdk/` reaches
-that point), which needs one test per branch to actually hit each path.
+that point), which needs one test per branch to actually hit each path. A
+concrete instance of this now exists, not just a hypothetical: the NYC 311
+ingestion Lambda's custom `logs.MetricFilter`s are only created for `prod`,
+never `test` (`1-data-ingestion.md` §8) — its CDK assertion tests need one
+case asserting the filter exists for a `prod`-configured stack and one
+asserting it's absent for `test`, plus a third assertion (or a CDK Aspect)
+counting total `MetricFilter` instantiations to enforce the ≤10 custom-metric
+cap from that same section.
 
 Assumed (not yet explicitly re-confirmed): the `cdk/` package inherits the
 same 90% per-file gate as `web-app`/`backend` from §2 — no CDK-specific
@@ -181,6 +188,17 @@ container would be.
 SAM CLI works against a CDK-synthesized template directly
 (`sam local invoke -t cdk.out/Stack.template.json`) — no SAM-authored
 template format needed despite this being a CDK project.
+
+**Fixtures for third-party API responses:** default to a small,
+deliberately hand-written fixture set per external API, not a snapshot of
+real pulled data — even when real sample data already exists in the repo.
+Curated edge cases (missing fields, unusual enum values, boundary
+conditions) give more reliable, intentional coverage of what a Lambda
+actually needs to handle than whatever happened to be present in one real
+pull. First applied to the NYC 311 poller (`1-data-ingestion.md` §7), which
+deliberately does *not* reuse `311-test-data/`'s real sample pulls for this
+reason — that directory remains a reference for real field coverage
+(`data-model.md` Appendix A), not a source of test fixtures.
 
 ---
 

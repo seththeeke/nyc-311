@@ -193,7 +193,146 @@ this package once code exists here.
 
 ---
 
-## 6. Code Commits
+### 5.2 backend/
+
+The backend will follow a basic controller, service, and data access object(DAO) paradigm for any logical endpoints. The service layer will be re-usable across both the sync and async components of the application. Any input to the backend service will come through a controller, whether async or not. For example, if the API gateway is connected to a Lambda function, it will have a controller endpoint to service the request. If a step function step invokes a Lambda, it will also first enter through a controller endpoint call. Likewise, if EventBridge Scheduler invokes a Lambda directly (e.g. the NYC 311 poller, `1-data-ingestion.md`), that Lambda also enters through a controller endpoint — the same pattern applies regardless of trigger type. Additionally, every controller will consume a Request and Response as a wrapper object over the body and any additional request metadata rather than consuming raw responses. The backend will use Typescript and all modeled will be strictly typed with no use of (any). The directory structure will be.
+
+-> backend
+ -> logger.ts - shared structured-JSON logging (console.log/warn/error under
+    the hood), used by every layer per the "Logging by layer" rule below
+ -> controller
+  -> web-api - controller endpoints for the public web api
+  -> ingestion - controller endpoints for scheduled external-data ingestion
+     (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
+     EventBridge Scheduler trigger, not API Gateway or Step Functions
+  -> order-request-processing - controller endpoints for the order intake processing steps
+  -> order-processing - controller endpoints for the main order step function workflow
+  -> data-archival - controller endpoints for any callback or fetching information during archival
+ -> service
+  -> grouped into logical processing services, not necessarily by entity
+ -> dao - explicitely grouped by entity we store, names matching
+    data-model.md exactly
+  -> request
+  -> order
+  -> case
+  -> operator
+  -> location
+  -> shift
+  -> user
+ -> models - all shared types live here, one file each (TS type + zod
+    schema), consumed by dao/service/controller — same pattern as
+    web-app's models/. This includes data-model.md entities (named to
+    match it exactly) *and* other shared-but-not-a-domain-entity types
+    (e.g. the NYC 311 ingestion cursor, 1-data-ingestion.md §2) — anything
+    used across layers belongs in models/, not colocated next to whichever
+    DAO happens to use it most. Plus the typed error hierarchy (e.g.
+    ValidationError, NotFoundError, TransientError, TerminalError) thrown
+    by service/dao and caught by controllers. API Gateway controllers map
+    errors to HTTP status codes; Step-Functions-invoked controllers let
+    them propagate with a distinguishable `.name` so cdk/'s Catch/Retry
+    blocks can route on error type (retry Transient, go straight to
+    Case-creation on Terminal, per claude-prompt-initial.md §4.1).
+ -> tests - the test file structure will mirror the overall code structure to ensure even coverage throughout and easy navigation.
+  -> fixtures - hand-written fixture sets per external API/data source (e.g.
+     `fixtures/nyc-311/` for the poller's edge-case records), per
+     testing-framework.md's "fixtures for third-party API responses" default
+
+**Decisions filled in below (Claude's suggestions, reviewed one by one):**
+
+- **Runtime validation at every trust boundary.** "No `any`" is compile-time
+  only. Every controller validates its incoming payload (API Gateway body,
+  Step Functions input, EventBridge detail) through a `zod` schema before it
+  reaches a service; every DAO validates external API responses (e.g. the
+  NYC 311 SODA API, proven inconsistent per `1-data-ingestion.md` §4) the
+  same way before writing them. A malformed payload fails loudly at the
+  boundary, not three calls deep.
+- **DAO layer splits along ddb-design.md's two table shapes, not just by
+  entity.** Rather than every DAO reimplementing the transactional
+  append-and-fold logic independently, `dao/` gets two small shared base
+  abstractions: an `EventSourcedDao<TProjection, TEvent>` (append event +
+  update projection atomically via TransactWriteItems, condition-checked
+  against `last_event_sequence`) that `order/`, `case/`, and `operator/`
+  extend, and a plain `Dao<TEntity>` for `location/`, `request/`, `shift/`,
+  `user/`. Per-entity folders stay exactly as sketched — this just factors
+  out the repeated transactional logic instead of copy-pasting it three
+  times.
+- **Failure injection reuses the real error path, per claude-prompt-initial.md
+  §6.** Order Workflow stage controllers check a chaos-config flag (a
+  DynamoDB config item or Parameter Store, per the brief) before delegating
+  to their service; if injection is active for that stage, the controller
+  throws the configured `models/` error type (TransientError,
+  TerminalError, ...) directly, rather than running a separate simulated
+  failure path. This guarantees an injected failure exercises the exact
+  same retry policy and Case-creation transition as a genuine one.
+- **Linting: ESLint** with `typescript-eslint`, matching `web-app` for one
+  lint philosophy across the TS monorepo (no React-specific plugins needed
+  here). `@typescript-eslint/no-explicit-any` is what actually enforces
+  "no `any`" — a lint failure, not a review nitpick.
+- **Naming:** all backend files are `camelCase.ts`, one exported
+  handler/class/function per file, filename matching the primary export
+  (e.g. `getOrders.ts` exports `getOrders`). No components here, so no
+  PascalCase split like web-app's.
+- **Logging by layer**, via the shared `logger.ts` (structured JSON —
+  the same substrate `1-data-ingestion.md` §8's CDK-declared `MetricFilter`s
+  extract custom metrics from, so consistent shape matters, not just
+  readability):
+  - `controller/` logs the full request and response for every call — the
+    one place that captures "what came in, what went out" for a given
+    invocation, regardless of trigger type.
+  - `service/` logs at critical logic points for tracing — a branch taken,
+    a business decision made — not every line, just what someone debugging
+    a production incident would actually want to see.
+  - `dao/` logs the inputs to every read/write it performs (table,
+    operation, the value(s) given). In practice this mostly lives in the
+    shared `Dao` base class's `getItem`/`putItem` (covers every plain DAO
+    automatically); a DAO method that bypasses those primitives (e.g. a GSI
+    query) logs its own inputs directly.
+
+---
+
+### Building and Testing the backend
+
+Per `testing-framework.md` §1/§2/§4: **Vitest** + `@vitest/coverage-v8`, AWS
+SDK calls (DynamoDB, EventBridge, Bedrock, ...) mocked via
+`aws-sdk-client-mock`, **90% coverage gate, per file** — no exception for
+`backend`.
+
+Lambda bundling happens in `cdk/`, not here: each `controller/**` entry file
+is referenced directly by path from an `aws-lambda-nodejs.NodejsFunction`
+construct, which bundles it with esbuild at synth/deploy time. `backend/`
+never produces its own deployable artifact.
+
+| Command | Purpose |
+|---|---|
+| `npm run build` | `tsc --noEmit` — typecheck only, no bundle |
+| `npm run lint` | `eslint .` |
+| `npm run test` | `vitest run` |
+| `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
+
+---
+
+## 6. Coding Conventions
+
+Apply across every package (`web-app`, `backend`, `cdk`), not just one
+directory's structure section.
+
+- **Enums and constant string values are `ALL_CAPS`.** E.g. a `RequestStatus`
+  value is `"DRAFT"`, not `"draft"`. `data-model.md` documents these same
+  values in lowercase for readability — the code representation is the
+  `ALL_CAPS` form; the two aren't meant to be the same string.
+  - Applies to: the *values* a categorical/enum-like field can take (status
+    codes, type discriminators, source tags).
+  - Does **not** apply to: variable/file naming (each directory's own
+    convention governs that), identifier/key strings we construct (e.g. a
+    DynamoDB sentinel partition key like `"CURSOR#NYC_311"` — its *embedded*
+    enum fragment follows the rule, but the key pattern itself isn't an enum
+    value), `Error.name` (follows the platform's own PascalCase convention —
+    `ValidationError`, `TerminalError` — so Step Functions `Catch` blocks
+    can pattern-match on it as documented in `models/errors.ts`), or
+    physical infrastructure names (DynamoDB table/index names) already
+    locked in `ddb-design.md`.
+
+## 7. Code Commits
 
 The repo is hosted at https://github.com/seththeeke/nyc-311 and already setup. When you are asked to commit anything, you will commit all outstanding changes as a single commit rather than breaking the work down in any way unless instructed separately, this will prevent the chance of committing chunks that are not feasible piecewise. You will commit changes in the following format.
 
