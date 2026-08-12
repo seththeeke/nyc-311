@@ -5,16 +5,6 @@ Project context and working rules for Civic Field Services. See
 domain model, build order). This file governs *how* work gets done, not *what*
 gets built — treat it as binding.
 
-## Efficiency Loop
-
-Read all context in the /claude-logs file to learn what you could perform better. As you work, when you encounter something that operates suboptimally, you will stop what you're doing to write the content into a file in the claude-logs directory with the filename MMM-DD-YYYY.md in the following format. This will be treated as a painpoints log that I can fix at a later time with investigation. None of the painpoints shall exceed 200 caharacters. YOU MUST log this painpoint when you encounter it, not summarize anything after you complete actions, and then continue work, rather than wait until after task completion.
-
----------
-
-<datetime> - <action attempted> - <painpoint> - <how to mitigate>
-
----------
-
 ---
 
 ## 1. Repository Structure
@@ -233,9 +223,6 @@ The backend will follow a basic controller, service, and data access object(DAO)
     blocks can route on error type (retry Transient, go straight to
     Case-creation on Terminal, per claude-prompt-initial.md §4.1).
  -> tests - the test file structure will mirror the overall code structure to ensure even coverage throughout and easy navigation.
-  -> fixtures - hand-written fixture sets per external API/data source (e.g.
-     `fixtures/nyc-311/` for the poller's edge-case records), per
-     testing-framework.md's "fixtures for third-party API responses" default
 
 **Decisions filled in below (Claude's suggestions, reviewed one by one):**
 
@@ -276,12 +263,21 @@ The backend will follow a basic controller, service, and data access object(DAO)
   the same substrate `1-data-ingestion.md` §8's CDK-declared `MetricFilter`s
   extract custom metrics from, so consistent shape matters, not just
   readability):
+  - **Logging is pessimistic, not optimistic: when in doubt, log it.**
+    Default to more log lines, not fewer. An unlogged branch or step is
+    invisible when debugging a production incident after the fact — there's
+    no going back to add the log line that would have shown what happened.
+    Log volume is cheap; a blind spot during an incident is not. This
+    applies at every layer below, including `service/` — favor logging
+    every meaningful step/branch over guessing in advance which ones will
+    turn out to matter.
   - `controller/` logs the full request and response for every call — the
     one place that captures "what came in, what went out" for a given
     invocation, regardless of trigger type.
-  - `service/` logs at critical logic points for tracing — a branch taken,
-    a business decision made — not every line, just what someone debugging
-    a production incident would actually want to see.
+  - `service/` logs at every meaningful step for tracing — each branch
+    taken, each business decision made, each record/item's outcome when
+    processing a batch (not just a final summary count) — per the
+    pessimistic-logging rule above.
   - `dao/` logs the inputs to every read/write it performs (table,
     operation, the value(s) given). In practice this mostly lives in the
     shared `Dao` base class's `getItem`/`putItem` (covers every plain DAO

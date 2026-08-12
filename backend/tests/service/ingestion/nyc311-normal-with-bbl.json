@@ -1,0 +1,22 @@
+{
+  "unique_key": "69860415",
+  "created_date": "2026-07-27T21:03:35.000",
+  "closed_date": "2026-07-28T00:48:28.000",
+  "agency": "NYPD",
+  "agency_name": "New York City Police Department",
+  "complaint_type": "Noise - Street/Sidewalk",
+  "descriptor": "Loud Talking",
+  "location_type": "Street/Sidewalk",
+  "incident_zip": "10462",
+  "incident_address": "2106 WALLACE AVENUE",
+  "street_name": "WALLACE AVENUE",
+  "address_type": "ADDRESS",
+  "city": "BRONX",
+  "status": "Closed",
+  "community_board": "11 BRONX",
+  "bbl": "2042920014",
+  "borough": "BRONX",
+  "latitude": "40.8534000790689",
+  "longitude": "-73.86483648294009",
+  "location": { "type": "Point", "coordinates": [-73.86483648294, 40.853400079069] }
+}
