@@ -2,10 +2,10 @@ import { Stack, StackProps, Tags } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 
 // Enum-like discriminator, ALL_CAPS per CLAUDE.md §6.
-export type CivicFieldServicesEnvironment = "TEST" | "PROD";
+export type Nyc311Environment = "TEST" | "PROD";
 
-export interface CivicFieldServicesStackProps extends StackProps {
-  envName: CivicFieldServicesEnvironment;
+export interface Nyc311StackProps extends StackProps {
+  envName: Nyc311Environment;
 }
 
 /**
@@ -16,8 +16,8 @@ export interface CivicFieldServicesStackProps extends StackProps {
  * `claude-prompt-initial.md`'s build order is unlocked; this is
  * deliberately the skeleton, not the full application.
  */
-export class CivicFieldServicesStack extends Stack {
-  constructor(scope: Construct, id: string, props: CivicFieldServicesStackProps) {
+export class Nyc311Stack extends Stack {
+  constructor(scope: Construct, id: string, props: Nyc311StackProps) {
     super(scope, id, props);
 
     Tags.of(this).add("Environment", props.envName);

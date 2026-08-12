@@ -4,8 +4,8 @@ export function AboutPage() {
       <h1 className="text-xl font-semibold text-[var(--color-ink)]">About This</h1>
 
       <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-soft)]">
-        <strong className="text-[var(--color-ink)]">Civic Field Services</strong> is a fictional field-service
-        dispatch company built to demonstrate a realistic, production-shaped AWS architecture. It ingests real,
+        <strong className="text-[var(--color-ink)]">NYC 311</strong> is a fictional field-service
+        dispatch simulation built to demonstrate a realistic, production-shaped AWS architecture. It ingests real,
         public NYC 311 service requests (noise complaints, sanitation issues, illegal parking, and more) and runs
         them through a simulated dispatch workflow &mdash; scheduling crews, executing the "work," and handling
         failures the way a real ops platform would.

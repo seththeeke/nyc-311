@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Project context and working rules for Civic Field Services. See
+Project context and working rules for NYC 311. See
 `docs/claude-prompt-initial.md` for the full project brief (goals, architecture,
 domain model, build order). This file governs *how* work gets done, not *what*
 gets built — treat it as binding.
@@ -312,7 +312,7 @@ never produces its own deployable artifact.
 There is a single stack for the entire application. We will not create another stack unless explictely specified. We will leverage custom constructs per resource, e.g. we will not instantiate a Lambda function with a new name, but rather create a construct which extends the Lambda construct and then instantiate that custom construct from within the main stack application. 
 
 -> cdk
- -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`CivicFieldServices-Test`, `CivicFieldServices-Prod`), per the "single stack" rule above — not two different stack classes.
+ -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`Nyc311-Test`, `Nyc311-Prod`), per the "single stack" rule above — not two different stack classes.
  -> stack
  -> lambda
  -> data - contains any data related constructs like DDB, Data Lake, etc

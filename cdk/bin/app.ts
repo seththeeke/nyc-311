@@ -1,5 +1,5 @@
 import { App } from "aws-cdk-lib";
-import { CivicFieldServicesStack } from "../stack/CivicFieldServicesStack";
+import { Nyc311Stack } from "../stack/Nyc311Stack";
 
 const app = new App();
 
@@ -8,5 +8,5 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION,
 };
 
-new CivicFieldServicesStack(app, "CivicFieldServices-Test", { envName: "TEST", env });
-new CivicFieldServicesStack(app, "CivicFieldServices-Prod", { envName: "PROD", env });
+new Nyc311Stack(app, "Nyc311-Test", { envName: "TEST", env });
+new Nyc311Stack(app, "Nyc311-Prod", { envName: "PROD", env });

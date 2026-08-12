@@ -1,4 +1,4 @@
-# Project Context: [Working Title] Civic Field Services
+# Project Context: NYC 311
 
 > A learning project simulating a real field-service business, built entirely on AWS,
 > that ingests real NYC 311 data, runs it through a dispatch workflow, and demonstrates
