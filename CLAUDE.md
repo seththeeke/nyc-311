@@ -307,6 +307,40 @@ never produces its own deployable artifact.
 
 ---
 
+### 5.3 cdk/
+
+There is a single stack for the entire application. We will not create another stack unless explictely specified. We will leverage custom constructs per resource, e.g. we will not instantiate a Lambda function with a new name, but rather create a construct which extends the Lambda construct and then instantiate that custom construct from within the main stack application. 
+
+-> cdk
+ -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`CivicFieldServices-Test`, `CivicFieldServices-Prod`), per the "single stack" rule above — not two different stack classes.
+ -> stack
+ -> lambda
+ -> data - contains any data related constructs like DDB, Data Lake, etc
+ -> step-function - contains the step function construct and its composition, importing lambdas where needed
+ -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
+
+---
+
+### Building and Testing the cdk/ app
+
+Per `testing-framework.md` §1/§2/§3: **Vitest** + `@vitest/coverage-v8`
+(same runner/provider as `web-app`/`backend`), **CDK assertion tests**
+(`aws-cdk-lib/assertions`, fine-grained `template.hasResourceProperties(...)`
+— no snapshot testing) run as plain Vitest test files under `tests/`, **90%
+coverage gate, per file** — no exception for `cdk`. `bin/*.ts` is excluded
+from the coverage gate (app entrypoint, just instantiates stacks, per
+`testing-framework.md` §2).
+
+| Command | Purpose |
+|---|---|
+| `npm run build` | `tsc --noEmit` — typecheck only, no bundle (per-Lambda esbuild bundling happens at `cdk synth`/`deploy` time via `NodejsFunction`, not here) |
+| `npm run lint` | `eslint .` |
+| `npm run test` | `vitest run` |
+| `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
+| `npm run synth` | `cdk synth` — read-only, no Deploy Safety Gate confirmation needed (CLAUDE.md §3) |
+| `npm run diff` | `cdk diff` — read-only, no confirmation needed |
+| `npm run deploy` | `cdk deploy` — **mutates real AWS resources; requires explicit user confirmation immediately before every run, per CLAUDE.md §3** |
+
 ## 6. Coding Conventions
 
 Apply across every package (`web-app`, `backend`, `cdk`), not just one
