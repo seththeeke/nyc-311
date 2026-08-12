@@ -15,5 +15,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["dao", "models", "service", "tests"]
+  "include": ["controller", "dao", "models", "service", "tests"]
 }
