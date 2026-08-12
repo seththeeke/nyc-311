@@ -8,9 +8,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "synth": "cdk synth",
-    "diff": "cdk diff",
-    "deploy": "cdk deploy"
+    "synth": "cdk synth --profile nyc311",
+    "diff": "cdk diff --profile nyc311",
+    "deploy": "cdk deploy --profile nyc311"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.264.0",

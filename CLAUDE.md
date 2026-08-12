@@ -331,15 +331,23 @@ coverage gate, per file** — no exception for `cdk`. `bin/*.ts` is excluded
 from the coverage gate (app entrypoint, just instantiates stacks, per
 `testing-framework.md` §2).
 
+When executing any mutative commands, you must use the profile nyc311
+
+Every `cdk`/`aws` CLI invocation against this project — `synth`/`diff`/`deploy`
+and any direct AWS CLI call alike, not just the mutative ones — uses
+`--profile nyc311`, wired into the `npm run` scripts below rather than
+relied on as an ambient default (`~/.aws/config`'s `[default]`), so the
+target account/region is always explicit in the command itself.
+
 | Command | Purpose |
 |---|---|
 | `npm run build` | `tsc --noEmit` — typecheck only, no bundle (per-Lambda esbuild bundling happens at `cdk synth`/`deploy` time via `NodejsFunction`, not here) |
 | `npm run lint` | `eslint .` |
 | `npm run test` | `vitest run` |
 | `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
-| `npm run synth` | `cdk synth` — read-only, no Deploy Safety Gate confirmation needed (CLAUDE.md §3) |
-| `npm run diff` | `cdk diff` — read-only, no confirmation needed |
-| `npm run deploy` | `cdk deploy` — **mutates real AWS resources; requires explicit user confirmation immediately before every run, per CLAUDE.md §3** |
+| `npm run synth` | `cdk synth --profile nyc311` — read-only, no Deploy Safety Gate confirmation needed (CLAUDE.md §3) |
+| `npm run diff` | `cdk diff --profile nyc311` — read-only, no confirmation needed |
+| `npm run deploy` | `cdk deploy --profile nyc311` — **mutates real AWS resources; requires explicit user confirmation immediately before every run, per CLAUDE.md §3** |
 
 ## 6. Coding Conventions
 
