@@ -33,6 +33,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("pollNyc311", () => {
@@ -195,5 +197,40 @@ describe("pollNyc311", () => {
       last_watermark: "2026-08-10T12:00:00",
       resume_offset: 2000,
     });
+  });
+
+  it("defaults `now` to the real Date when not injected", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(PutCommand).resolves({});
+
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const fetchPage = vi.fn().mockResolvedValue([]);
+
+    await pollNyc311({ requestDao, fetchPage });
+
+    expect(fetchPage).toHaveBeenCalledWith({
+      sinceExclusive: "2026-08-10T12:00:00",
+      offset: 0,
+      limit: 1000,
+    });
+  });
+
+  it("defaults `fetchPage` to the real SODA client when not injected", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(PutCommand).resolves({});
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await pollNyc311({ requestDao, now });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const calledUrl = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(calledUrl.origin + calledUrl.pathname).toBe(
+      "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
+    );
   });
 });
