@@ -53,12 +53,19 @@ export class Nyc311PipelineStack extends Stack {
     // backend/ and cdk/, then cdk synth. Each command returns to repo
     // root before the next so ordering doesn't depend on whether the
     // CodeBuild shell persists `cd` across buildspec lines.
+    //
+    // Must synth against `bin/pipeline.ts` explicitly, not `cdk.json`'s
+    // default app (`bin/app.ts`, which only defines the bare
+    // Nyc311-Test/Nyc311-Prod stacks). Self-mutation and the pipeline's
+    // own deploy actions need the assembly that actually contains
+    // `Nyc311PipelineStack` and the Stage-wrapped Test/Prod structure —
+    // `bin/app.ts` produces neither.
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
         "cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
-        "cd cdk && npx cdk synth",
+        'cd cdk && npx cdk synth --app "npx ts-node --prefer-ts-exts bin/pipeline.ts"',
       ],
       primaryOutputDirectory: "cdk/cdk.out",
     });
@@ -107,7 +114,9 @@ export class Nyc311PipelineStack extends Stack {
     // errors.
     const prodDiff = new pipelines.ShellStep("ProdDiff", {
       input: source,
-      commands: ["cd cdk && npm ci && npx cdk diff Nyc311-Prod || true"],
+      commands: [
+        'cd cdk && npm ci && npx cdk diff Nyc311-Prod --app "npx ts-node --prefer-ts-exts bin/pipeline.ts" || true',
+      ],
     });
 
     pipeline.addStage(
