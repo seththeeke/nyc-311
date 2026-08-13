@@ -14,14 +14,7 @@ function synthesize(): Template {
 }
 
 describe("Nyc311PipelineStack", () => {
-  it("creates a pending GitHub CodeStar Connection", () => {
-    synthesize().hasResourceProperties("AWS::CodeStarConnections::Connection", {
-      ConnectionName: "nyc311-github-connection",
-      ProviderType: "GitHub",
-    });
-  });
-
-  it("creates a V2, self-mutating CodePipeline sourced from GitHub main", () => {
+  it("creates a V2, self-mutating CodePipeline sourced from the externally-authorized GitHub connection", () => {
     const template = synthesize();
 
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
@@ -35,6 +28,8 @@ describe("Nyc311PipelineStack", () => {
           Actions: Match.arrayWith([
             Match.objectLike({
               Configuration: Match.objectLike({
+                ConnectionArn:
+                  "arn:aws:codeconnections:us-east-1:178280182163:connection/48eddf51-8724-497c-8ff1-c4507a78e793",
                 FullRepositoryId: "seththeeke/nyc-311",
                 BranchName: "main",
               }),

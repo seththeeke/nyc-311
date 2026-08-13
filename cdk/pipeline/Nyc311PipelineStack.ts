@@ -1,7 +1,6 @@
 import { Stack, StackProps } from "aws-cdk-lib";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
-import * as codestarconnections from "aws-cdk-lib/aws-codestarconnections";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
@@ -13,6 +12,15 @@ import { Nyc311AppStage } from "./Nyc311AppStage";
 const GITHUB_OWNER = "seththeeke";
 const GITHUB_REPO = "nyc-311";
 const GITHUB_BRANCH = "main";
+
+// The GitHub CodeConnections connection, authorized once by hand in the
+// AWS/GitHub console flow (aws-code-pipeline-plan.md §6) — its lifecycle
+// (creation + GitHub App repo authorization) is managed outside CDK.
+// Referencing it by ARN, rather than having CDK create its own
+// `AWS::CodeStarConnections::Connection`, avoids the connection/GitHub-App
+// mismatch that a CDK-owned connection produced during setup.
+const GITHUB_CONNECTION_ARN =
+  "arn:aws:codeconnections:us-east-1:178280182163:connection/48eddf51-8724-497c-8ff1-c4507a78e793";
 
 // aws-code-pipeline-plan.md §4.1.
 const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
@@ -35,19 +43,10 @@ export class Nyc311PipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps) {
     super(scope, id, props);
 
-    const connection = new codestarconnections.CfnConnection(
-      this,
-      "GitHubConnection",
-      {
-        connectionName: "nyc311-github-connection",
-        providerType: "GitHub",
-      },
-    );
-
     const source = pipelines.CodePipelineSource.connection(
       `${GITHUB_OWNER}/${GITHUB_REPO}`,
       GITHUB_BRANCH,
-      { connectionArn: connection.attrConnectionArn },
+      { connectionArn: GITHUB_CONNECTION_ARN },
     );
 
     // §4 "Synth (Build/Test)" row: lint + unit test + coverage for
