@@ -10,7 +10,10 @@
     "test:coverage": "vitest run --coverage",
     "synth": "cdk synth --profile nyc311",
     "diff": "cdk diff --profile nyc311",
-    "deploy": "cdk deploy --profile nyc311"
+    "deploy": "cdk deploy --profile nyc311",
+    "synth:pipeline": "cdk synth --profile nyc311 --app \"npx ts-node --prefer-ts-exts bin/pipeline.ts\"",
+    "diff:pipeline": "cdk diff --profile nyc311 --app \"npx ts-node --prefer-ts-exts bin/pipeline.ts\"",
+    "deploy:pipeline": "cdk deploy --profile nyc311 --app \"npx ts-node --prefer-ts-exts bin/pipeline.ts\""
   },
   "dependencies": {
     "aws-cdk-lib": "^2.264.0",

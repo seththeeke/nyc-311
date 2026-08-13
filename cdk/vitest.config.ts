@@ -5,7 +5,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["bin/**/*.ts", "stack/**/*.ts"],
+      include: ["bin/**/*.ts", "stack/**/*.ts", "pipeline/**/*.ts"],
       exclude: [
         "**/*.d.ts",
         "**/*.types.ts",

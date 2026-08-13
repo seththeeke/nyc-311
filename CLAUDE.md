@@ -311,9 +311,17 @@ never produces its own deployable artifact.
 
 There is a single stack for the entire application. We will not create another stack unless explictely specified. We will leverage custom constructs per resource, e.g. we will not instantiate a Lambda function with a new name, but rather create a construct which extends the Lambda construct and then instantiate that custom construct from within the main stack application. 
 
+**Standing exception — the CI/CD pipeline.** The self-mutating AWS
+CodePipeline (`aws-code-pipeline-plan.md`) is CI/CD tooling, not
+application infrastructure, and is permitted its own CloudFormation stack
+(`Nyc311PipelineStack`, under `cdk/pipeline/`), separate from `Nyc311Stack`.
+This is the only standing exception to the single-stack rule; any further
+exception still requires the explicit-specification bar this rule sets.
+
 -> cdk
- -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`Nyc311-Test`, `Nyc311-Prod`), per the "single stack" rule above — not two different stack classes.
+ -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`Nyc311-Test`, `Nyc311-Prod`), per the "single stack" rule above — not two different stack classes. The pipeline's own entrypoint (`bin/pipeline.ts`) is separate, per the standing exception above.
  -> stack
+ -> pipeline - the self-mutating CodePipeline stack/constructs (`Nyc311PipelineStack`), the standing exception to the single-stack rule above
  -> lambda
  -> data - contains any data related constructs like DDB, Data Lake, etc
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
