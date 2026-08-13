@@ -1,6 +1,6 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
@@ -97,7 +97,7 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("also denies the nyc311 CLI user direct CloudFormation mutation on the governed stacks, closing the AdministratorAccess fallback", () => {
+  it("also denies the nyc311 CLI user direct CloudFormation mutation on Nyc311-Test/Nyc311-Prod only, closing the AdministratorAccess fallback", () => {
     const template = synthesize();
 
     template.hasResourceProperties("AWS::IAM::Policy", {
@@ -119,11 +119,29 @@ describe("Nyc311PipelineStack", () => {
             Resource: [
               "arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311-Test/*",
               "arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311-Prod/*",
-              "arn:aws:cloudformation:us-east-1:178280182163:stack/TestPipelineStack/*",
             ],
           }),
         ]),
       }),
     });
+  });
+
+  it("does not restrict direct deploys of the pipeline stack itself, the recovery path for a broken Synth step", () => {
+    const template = synthesize();
+
+    const [{ Properties }] = Object.values(
+      template.findResources("AWS::IAM::Policy", {
+        Properties: { PolicyName: "Nyc311DenyDirectDeploy" },
+      }),
+    ) as { Properties: { PolicyDocument: { Statement: { Sid: string; Resource: string[] }[] } } }[];
+
+    const cfnStatement = Properties.PolicyDocument.Statement.find(
+      (s) => s.Sid === "DenyDirectCloudFormationMutation",
+    );
+    const coversPipelineStack = cfnStatement?.Resource.some((r) =>
+      r.includes("TestPipelineStack"),
+    );
+
+    expect(coversPipelineStack).toBe(false);
   });
 });

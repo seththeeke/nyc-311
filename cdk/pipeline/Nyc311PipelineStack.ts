@@ -161,9 +161,16 @@ export class Nyc311PipelineStack extends Stack {
         // directly, so when it can't assume the deploy role, the CDK CLI
         // falls back to mutating CloudFormation with the ambient
         // credentials directly — the AssumeRole deny above alone doesn't
-        // stop that. This denies the actual mutating actions on the three
-        // governed stacks specifically, regardless of which credentials
+        // stop that. This denies the actual mutating actions on the two
+        // application stacks specifically, regardless of which credentials
         // or role performed the call, so the fallback path is closed too.
+        // Deliberately does NOT cover this pipeline stack itself: a
+        // self-mutating pipeline can't fix a bug in its own Synth step
+        // (self-mutation only runs after Synth succeeds), so `nyc311`
+        // keeps direct deploy access here as the recovery path for
+        // exactly that class of bug. Test/Prod have no such bootstrap
+        // problem — the pipeline can always redeploy them once it's
+        // healthy — so they stay fully pipeline-only.
         new iam.PolicyStatement({
           sid: "DenyDirectCloudFormationMutation",
           effect: iam.Effect.DENY,
@@ -178,7 +185,6 @@ export class Nyc311PipelineStack extends Stack {
           resources: [
             `arn:aws:cloudformation:${this.region}:${this.account}:stack/Nyc311-Test/*`,
             `arn:aws:cloudformation:${this.region}:${this.account}:stack/Nyc311-Prod/*`,
-            `arn:aws:cloudformation:${this.region}:${this.account}:stack/${this.stackName}/*`,
           ],
         }),
       ],
