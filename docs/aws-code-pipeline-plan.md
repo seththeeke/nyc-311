@@ -86,7 +86,16 @@ existing stacks, not a create. Nothing gets torn down.
 
 ## 3. Source & trigger
 
-- **Source: GitHub, via a CodeStar Connection.**
+- **Source: GitHub, via a CodeConnections connection**
+  (`arn:aws:codeconnections:us-east-1:178280182163:connection/48eddf51-8724-497c-8ff1-c4507a78e793`,
+  named `nyc-311-github-repo`). The connection's entire lifecycle —
+  creation and GitHub App repository authorization — is managed outside
+  CDK, by hand, once; `Nyc311PipelineStack` references it by ARN as a
+  constant rather than creating its own `CfnConnection` resource. §6
+  covers why: a CDK-owned connection and its GitHub App installation can
+  end up out of sync in a way that's easier to fix by pointing at a
+  known-good, manually-authorized connection than by fighting the console
+  flow back into updating the original one.
 - **Trigger: push to `main`.** Trunk-based — no long-lived
   per-environment branches. Environment promotion happens through the
   pipeline's stage sequence (Test, then Prod), not through separate git
@@ -156,30 +165,44 @@ pipeline — no new manual bootstrap needed:**
 
 ## 6. One-time manual steps
 
-Two steps in this plan are manual, both strictly one-time — AWS platform
-limits (no API completes an OAuth/App-install handshake headlessly, and
-nothing exists yet to trigger the pipeline the very first time), not gaps
-in the design.
+Two categories of manual step exist — connection setup (done, see below
+for what actually happened) and the pipeline's own bootstrap deploy.
+Neither is an AWS API gap CDK could paper over: no API completes an
+OAuth/App-install handshake headlessly, and nothing exists yet to trigger
+the pipeline the very first time.
 
-1. **Authorize the GitHub CodeStar Connection, in the AWS Console.**
-   `cdk`/CloudFormation creates the
-   `AWS::CodeStarConnections::Connection` resource, but it comes up in
-   `PENDING` status. In the AWS Console (Developer Tools → Settings →
-   Connections), click "Update pending connection" and complete GitHub's
-   App-authorization flow, granting access to `seththeeke/nyc-311`. The
-   connection stays authorized indefinitely afterward.
+1. **Authorize a GitHub connection, entirely by hand, outside CDK.**
+   Originally this plan had CDK create an `AWS::CodeStarConnections::Connection`
+   resource (`PENDING` status) for a human to authorize in the console.
+   In practice, fixing the GitHub App's repository access for that
+   CDK-created connection funneled the console flow into creating a
+   *second*, separate connection (`nyc-311-github-repo`, under the
+   renamed `codeconnections` ARN namespace) rather than updating the
+   first one's installation. Rather than fight that flow, the plan
+   changed (§3): CDK no longer creates the connection at all. The
+   connection is created and authorized entirely by hand — via
+   `github.com/settings/installations` → "AWS Connector for GitHub" →
+   Configure → repository access — and `Nyc311PipelineStack` references
+   the resulting ARN as a constant. One connection exists going forward;
+   the original CDK-created one was removed by the same deploy that
+   dropped it from the stack's definition.
 2. **Deploy `Nyc311PipelineStack` once, from a local machine, under the
    Deploy Safety Gate.** `cdk deploy Nyc311PipelineStack --profile
-   nyc311`, confirmed the same way today's `Nyc311-Test`/`Nyc311-Prod`
-   deploys were. This deploy includes the IAM restriction from §7, so it
-   is the last deploy the `nyc311` profile ever runs directly. Every
-   deploy after this one — pipeline-definition changes and every future
-   Test/Prod release — is automatic.
+   nyc311` (via `bin/pipeline.ts` — see §8 for why that specific entrypoint
+   matters), confirmed the same way today's `Nyc311-Test`/`Nyc311-Prod`
+   deploys were. Unlike the original plan, this is *not* the last direct
+   deploy the `nyc311` profile can run against this specific stack — §7
+   permanently exempts `Nyc311PipelineStack` from the deploy lockdown, as
+   the recovery path for bugs a self-mutating pipeline can't fix in
+   itself. It remains the last direct deploy against `Nyc311-Test`/
+   `Nyc311-Prod`, which stay pipeline-only.
 
-No approval click exists anywhere in the day-one pipeline. Pushing to
-`main` after step 2 drives everything through Test and straight to Prod
-automatically. The only thing that pulls a human in afterward is the
-failure notification (§4.1).
+No approval click exists anywhere in the day-one pipeline. Once the
+pipeline is healthy, pushing to `main` drives everything through Test and
+straight to Prod automatically. The only thing that pulls a human in
+afterward is the failure notification (§4.1) — confirm the SNS email
+subscription (`seththeeke@gmail.com`) via the link AWS sends on first
+setup, or notifications won't actually deliver.
 
 ---
 
@@ -188,44 +211,68 @@ failure notification (§4.1).
 Once `Nyc311PipelineStack` is deployed (§6, item 2), the `nyc311` IAM
 principal (`arn:aws:iam::178280182163:user/seththeeke-cli` — the identity
 behind every `--profile nyc311` command, Claude-run or otherwise) loses
-the ability to deploy. From that point on, the only path that can mutate
-`Nyc311-Test`, `Nyc311-Prod`, or `Nyc311PipelineStack` is the pipeline's
-own CodeBuild/CodePipeline service roles.
+the ability to deploy `Nyc311-Test` and `Nyc311-Prod` directly. From that
+point on, the only path that can mutate those two stacks is the
+pipeline's own CodeBuild/CodePipeline service roles.
 
-**Mechanism:** an explicit IAM `Deny` on `sts:AssumeRole`, scoped to the
-`nyc311` principal, against the CDK bootstrap's deploy-time roles —
-`cdk-hnb659fds-deploy-role-*` and `cdk-hnb659fds-cfn-exec-role-*` — which
-is what `cdk deploy`/`cdk destroy` assume to mutate CloudFormation. The
-`lookup-role` is left untouched, so `cdk synth`/`cdk diff` keep working
-locally for inspection; only the mutating path is cut off.
+**`Nyc311PipelineStack` itself is deliberately exempt from this
+restriction** — a permanent design choice, not a gap. A self-mutating
+pipeline cannot fix a bug in its own Synth step: Self-Mutate only runs
+*after* Synth succeeds, so a bug that makes Synth fail (or, as happened
+in practice, makes it succeed while producing the wrong CDK cloud
+assembly) can never be corrected by the pipeline correcting itself — the
+fix has to be deployed directly. `nyc311` keeps that direct path open for
+`Nyc311PipelineStack` specifically, as the recovery mechanism, while
+`Nyc311-Test`/`Nyc311-Prod` have no such bootstrap problem (the pipeline
+can always redeploy them once it's healthy again) and stay fully
+pipeline-only.
 
-**For `CLAUDE.md` §3 (Deploy Safety Gate):** for `Nyc311Stack`
-(Test/Prod) and `Nyc311PipelineStack`, the gate becomes structurally
-enforced rather than procedural — the `nyc311` profile is unable to run a
-mutating deploy against these stacks at all, confirmation prompt or not.
-`CLAUDE.md` §3's text is unchanged and still fully governs the one-time
-bootstrap deploy in §6. For anything outside pipeline scope (ad-hoc AWS
-CLI calls, resources not yet modeled in `cdk/`), §3 applies exactly as
-written — this restriction is scoped to the two deploy roles, not a
-blanket IAM lockout.
+**Mechanism — two IAM statements, both `Deny`, both scoped to the
+`nyc311` principal only:**
 
-**Break-glass, if the pipeline is ever broken and can't self-heal:**
+1. **`DenyAssumeCdkDeployRoles`** — denies `sts:AssumeRole` on the CDK
+   bootstrap's deploy-time roles (`cdk-hnb659fds-deploy-role-*`,
+   `cdk-hnb659fds-cfn-exec-role-*`), which is what `cdk deploy`/`destroy`
+   assume to mutate CloudFormation. The `lookup-role` is left untouched,
+   so `cdk synth`/`cdk diff` keep working locally for inspection.
+2. **`DenyDirectCloudFormationMutation`** — denies the actual
+   `cloudformation:CreateStack`/`UpdateStack`/`DeleteStack`/
+   `CreateChangeSet`/`ExecuteChangeSet`/`DeleteChangeSet` actions, scoped
+   to `Nyc311-Test`'s and `Nyc311-Prod`'s stack ARNs specifically (not
+   `Nyc311PipelineStack`'s). This statement exists because
+   `seththeeke-cli` has `AdministratorAccess` attached directly — when the
+   CLI can't assume the deploy role (statement 1), it silently falls back
+   to mutating CloudFormation with the ambient credentials instead of
+   failing outright. Statement 1 alone was verified *not* to block a
+   direct deploy for exactly this reason; statement 2 is what actually
+   closes it.
 
-1. Temporarily remove the `Deny` statement (or attach a higher-precedence
-   `Allow` is not viable — IAM has no such override; the `Deny` statement
-   itself must be removed or the affected policy detached).
-2. Fix and manually redeploy `Nyc311PipelineStack` via `bin/app.ts` under
-   the Deploy Safety Gate, exactly as in §6's original bootstrap deploy.
-3. Confirm the pipeline runs a clean execution end to end.
-4. Re-apply the `Deny` — either by re-running the pipeline (since the
-   restriction is part of `Nyc311PipelineStack`'s own CDK definition, a
-   successful self-mutation restores it automatically) or by re-attaching
-   it manually if the pipeline itself is what's broken.
+**For `CLAUDE.md` §3 (Deploy Safety Gate):** for `Nyc311-Test`/
+`Nyc311-Prod`, the gate is now structurally enforced rather than
+procedural — `nyc311` is unable to run a mutating deploy against them at
+all, confirmation prompt or not. For `Nyc311PipelineStack` and anything
+outside pipeline scope, §3 applies exactly as written, unchanged — a
+Claude-run deploy of the pipeline stack still needs explicit confirmation
+immediately before every run.
+
+**Break-glass, only relevant for `Nyc311-Test`/`Nyc311-Prod` now** (a
+`Nyc311PipelineStack` fix no longer needs it — see above):
+
+1. Temporarily delete the `Nyc311DenyDirectDeploy` inline policy from
+   `seththeeke-cli` (`aws iam delete-user-policy`) — IAM has no
+   higher-precedence-`Allow` override, so the `Deny` itself must be
+   removed.
+2. Fix and redeploy `Nyc311PipelineStack` directly (now unblocked, since
+   step 1 removed the *old* policy — the deploy will re-add whatever
+   policy is currently in the stack's own CDK code).
+3. Confirm the fix, then either let a pipeline execution's self-mutation
+   restore the policy (if the fix didn't change the policy itself), or
+   confirm the redeploy already restored it (if it did).
 
 **Current baseline this restriction layers onto:** `seththeeke-cli` has
 `AdministratorAccess` attached directly (no groups, no inline policies),
 confirmed via `aws iam list-attached-user-policies`. An explicit `Deny`
-overrides this grant for the two scoped role ARNs regardless.
+overrides this grant for the resources/actions it targets regardless.
 
 ---
 
@@ -245,11 +292,25 @@ cdk/
                               # synth/diff entrypoint after §6/§7)
 ```
 
-`bin/app.ts` (existing) stays as the local `synth`/`diff` entrypoint for
-either stack. It is not used for deploys after §6/§7's bootstrap: once
-the `nyc311` profile's deploy-role access is revoked, a `cdk deploy` via
-`bin/app.ts` fails the same way a pipeline-external deploy of
-`Nyc311PipelineStack` would.
+`bin/app.ts` (existing) stays as a separate, simpler app defining only
+the bare `Nyc311-Test`/`Nyc311-Prod` stacks, for local `synth`/`diff`
+convenience. It is not used for deploys after §6/§7's bootstrap for those
+two stacks: once `nyc311`'s deploy access to them is revoked, a `cdk
+deploy` via `bin/app.ts` fails the same way a pipeline-external deploy
+would (`Nyc311PipelineStack` deploys still work directly, per §7).
+
+**`cdk.json`'s default app is `bin/app.ts`, not `bin/pipeline.ts` — this
+matters inside the pipeline itself, not just for local commands.** The
+Synth step's `cdk synth` and the ProdDiff step's `cdk diff` both pass
+`--app "npx ts-node --prefer-ts-exts bin/pipeline.ts"` explicitly, rather
+than relying on the default. Omitting it was a real bug hit during setup:
+`bin/app.ts` synthesizes cleanly on its own (it's a valid, complete app),
+but it only contains the bare `Nyc311Stack` instances — no
+`Nyc311PipelineStack`, no `Stage`-wrapped structure. Self-mutation and
+the pipeline's own deploy actions need the assembly that `bin/pipeline.ts`
+produces specifically; against `bin/app.ts`'s assembly, Self-Mutate failed
+with "No stacks match the name(s) Nyc311PipelineStack" even though Synth
+itself reported success.
 
 ---
 
@@ -262,24 +323,33 @@ the `nyc311` profile's deploy-role access is revoked, a `cdk deploy` via
 - The `privileged: true` CodeBuild environment for SAM CLI/Step Functions
   Local (§5) runs in its own, separately-permissioned CodeBuild project,
   not the deploy-capable one, when it's added.
-- The `nyc311` deploy restriction (§7) is an inline or managed IAM policy
-  attached to `seththeeke-cli` with an explicit `Deny` on
-  `sts:AssumeRole`, scoped by resource ARN to:
-  - `arn:aws:iam::178280182163:role/cdk-hnb659fds-deploy-role-178280182163-us-east-1`
-  - `arn:aws:iam::178280182163:role/cdk-hnb659fds-cfn-exec-role-178280182163-us-east-1`
-
-  Left untouched: `cdk-hnb659fds-lookup-role-*` (backs `cdk diff`/
-  `synth`), `cdk-hnb659fds-file-publishing-role-*` and
-  `cdk-hnb659fds-image-publishing-role-*` (asset staging isn't itself a
-  mutation — the deploy/exec-role deny is what blocks the CloudFormation
-  change).
-  - This policy is part of `Nyc311PipelineStack`'s CDK definition from
-    its first deploy, not a separate follow-up step. Because the `Deny`
-    is scoped to the `nyc311` principal, it doesn't affect the pipeline's
-    own service-role principal assuming the same bootstrap role ARNs — so
-    the one bootstrap deploy in §6 both stands up the pipeline and
-    revokes the `nyc311` profile's own deploy access, atomically, in the
-    same changeset.
+- The `nyc311` deploy restriction (§7) is an inline IAM policy
+  (`Nyc311DenyDirectDeploy`) attached to `seththeeke-cli`, with two `Deny`
+  statements:
+  - `DenyAssumeCdkDeployRoles` — `sts:AssumeRole` on
+    `arn:aws:iam::178280182163:role/cdk-hnb659fds-deploy-role-178280182163-us-east-1`
+    and `...cdk-hnb659fds-cfn-exec-role-178280182163-us-east-1`. Left
+    untouched: `cdk-hnb659fds-lookup-role-*` (backs `cdk diff`/`synth`),
+    `cdk-hnb659fds-file-publishing-role-*` and
+    `cdk-hnb659fds-image-publishing-role-*` (asset staging isn't itself a
+    mutation).
+  - `DenyDirectCloudFormationMutation` — `cloudformation:CreateStack` /
+    `UpdateStack` / `DeleteStack` / `CreateChangeSet` / `ExecuteChangeSet`
+    / `DeleteChangeSet`, scoped to
+    `arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311-Test/*`
+    and `.../Nyc311-Prod/*` only — deliberately **not**
+    `Nyc311PipelineStack`'s ARN (§7's exemption). Needed because
+    `seththeeke-cli`'s `AdministratorAccess` lets `cdk deploy` fall back
+    to mutating CloudFormation directly when it can't assume the deploy
+    role; statement 1 alone doesn't stop that fallback.
+  - Both statements are part of `Nyc311PipelineStack`'s CDK definition
+    from its first deploy, not a separate follow-up step. Because they're
+    scoped to the `nyc311` principal, neither affects the pipeline's own
+    service-role principal assuming the same bootstrap role ARNs or
+    deploying the same stacks — so the one bootstrap deploy in §6 both
+    stands up the pipeline and revokes `nyc311`'s direct
+    `Nyc311-Test`/`Nyc311-Prod` deploy access, atomically, in the same
+    changeset.
 
 ---
 
@@ -305,9 +375,33 @@ this project's scale.
 - [x] CDK assertion tests for `Nyc311PipelineStack` and `Nyc311AppStage`; `pipeline/**/*.ts` added to `vitest.config.ts` coverage `include`
 - [x] `npm run build` / `lint` / `test:coverage` passing for the new `cdk/pipeline/` code — 100% per-file, both files (`CLAUDE.md` §2)
 - [x] `npm run synth` and `npm run synth:pipeline` both synthesize cleanly; `Nyc311-Test`/`Nyc311-Prod` template stack names confirmed to match the already-deployed stacks
-- [ ] Authorize the GitHub CodeStar Connection in the AWS Console (§6, item 1)
-- [ ] Deploy `Nyc311PipelineStack` once via `bin/pipeline.ts` (`npm run deploy:pipeline`), under the Deploy Safety Gate (§6, item 2)
-- [ ] Confirm the `nyc311` profile can no longer `cdk deploy` (AccessDenied), while `cdk diff`/`synth` still work (§7)
-- [ ] Confirm a full pipeline execution succeeds end to end: Source → Synth → Self-Mutate → Deploy `test` → `cdk diff` → Deploy `prod`
-- [ ] Push a trivial change to `cdk/pipeline/*.ts` and confirm the self-mutation smoke test (§1.1) — the run picks up the new structure, no stale steps
-- [ ] Confirm the failure-notification email arrives on an induced failure
+- [x] Authorize a GitHub connection outside CDK (§6, item 1) — ended up as `nyc-311-github-repo` (`codeconnections` ARN), referenced by constant rather than CDK-created (§3)
+- [x] Deploy `Nyc311PipelineStack` via `bin/pipeline.ts` (`npm run deploy:pipeline`), under the Deploy Safety Gate (§6, item 2) — several rounds, see fixes below
+- [x] Confirm `nyc311` can no longer `cdk deploy` `Nyc311-Test`/`Nyc311-Prod` (AccessDenied on `DeleteChangeSet`, confirmed empirically), while `cdk diff`/`synth` still work — `Nyc311PipelineStack` itself deliberately stays deployable directly (§7)
+- [x] Confirm a full pipeline execution succeeds end to end: Source → Synth → Self-Mutate → Deploy `test` → `cdk diff` → Deploy `prod` — confirmed `Succeeded` on all five stages
+- [x] Confirm the SNS topic delivers to `seththeeke@gmail.com` — **subscription confirmation is still pending**; click the link in AWS's confirmation email or failure notifications won't arrive
+- [ ] Push a change to `cdk/pipeline/*.ts` under normal (non-bootstrap) circumstances and confirm the self-mutation smoke test (§1.1) — the run picks up the new structure, no stale steps. Not yet directly observed: every pipeline-definition change so far was applied via a direct bootstrap-style deploy first, so self-mutation has only been confirmed to run cleanly with *no* pending change, not to actually apply one mid-execution.
+
+### Fixes applied beyond the original plan (real issues hit during setup)
+
+- **CodeStar Notifications service-linked role propagation** — first
+  `NotificationRule` creation failed (`ConfigurationException`) because
+  `AWSServiceRoleForCodeStarNotifications` didn't exist yet on this fresh
+  account; AWS creates it on first attempt but needs up to 15 minutes.
+  Resolved by retrying, not a code change.
+- **Connection ownership moved from CDK-created to externally-authorized**
+  — §3/§6.
+- **`nyc311`'s `AdministratorAccess` fallback around the AssumeRole deny**
+  — §7/§9's second `Deny` statement.
+- **CodeBuild's default Node (18, via `STANDARD_7_0`) too old for Vite
+  7/Vitest** — pinned to Node 20 via `codeBuildDefaults.partialBuildSpec`
+  (`runtime-versions`).
+- **Vitest's default 5s test timeout too tight for CodeBuild's `SMALL`
+  compute synthesizing the full pipeline stack** — raised to 20s in
+  `vitest.config.ts`, CI-only headroom.
+- **Synth/ProdDiff steps synthesizing against `cdk.json`'s default app
+  (`bin/app.ts`) instead of `bin/pipeline.ts`** — the actual
+  self-mutation blocker; §8 covers it in full. This is also why
+  `Nyc311PipelineStack` needed a *permanent* deploy-lockdown exemption
+  (§7): a bug in the Synth step can't be fixed by a pipeline that can
+  never get past that same Synth step to self-mutate.
