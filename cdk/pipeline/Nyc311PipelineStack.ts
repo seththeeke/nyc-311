@@ -80,6 +80,17 @@ export class Nyc311PipelineStack extends Stack {
         buildEnvironment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
         },
+        // STANDARD_7_0's default Node (18) is too old for this repo's
+        // tooling (Vite 7/Vitest require Node >=20) — pin it explicitly
+        // for every CodeBuild-backed step rather than relying on the
+        // image default.
+        partialBuildSpec: codebuild.BuildSpec.fromObject({
+          phases: {
+            install: {
+              "runtime-versions": { nodejs: "20" },
+            },
+          },
+        }),
       },
     });
 
