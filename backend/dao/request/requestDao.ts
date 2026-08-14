@@ -19,7 +19,35 @@ export class RequestDao extends Dao<Request> {
 
   /** Never silently overwrites — request_id is a freshly-minted ULID per record. */
   async putRequest(request: Request): Promise<void> {
-    await this.putItem(request, { conditionExpression: "attribute_not_exists(request_id)" });
+    await this.putItem(request, {
+      conditionExpression: "attribute_not_exists(request_id)",
+      additionalAttributes: this.gsiAttributesFor(request),
+    });
+  }
+
+  /**
+   * Derives the three GSI key attributes ddb-design.md's Requests table
+   * defines (`gsi1-external-key`, `gsi2-status`, `gsi3-location`) from the
+   * domain fields already on `request`. These are deliberately not part of
+   * `RequestSchema` — merged in via `Dao.putItem`'s `additionalAttributes`
+   * instead — so `Request` stays the pure domain shape everywhere it's
+   * read back (`getRequestById`/`findByExternalUniqueKey` naturally strip
+   * them back out via zod's default parsing).
+   *
+   * gsi3pk/gsi3sk are omitted (not set to null) while `location_id` is
+   * null, per ddb-design.md's "sparse — null while status = DRAFT" note —
+   * DynamoDB requires a GSI key attribute to be entirely absent from the
+   * item for that item to stay out of the index, not merely null-valued.
+   */
+  private gsiAttributesFor(request: Request): Record<string, unknown> {
+    return {
+      gsi1pk: request.external_unique_key,
+      gsi2pk: request.status,
+      gsi2sk: request.created_at,
+      ...(request.location_id !== null
+        ? { gsi3pk: request.location_id, gsi3sk: request.created_at }
+        : {}),
+    };
   }
 
   async getRequestById(requestId: string): Promise<Request | null> {

@@ -49,6 +49,30 @@ describe("putRequest", () => {
     });
   });
 
+  it("derives gsi1pk/gsi2pk/gsi2sk, and omits gsi3pk/gsi3sk while location_id is null", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.putRequest(validRequest);
+    const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
+    expect(item).toMatchObject({
+      gsi1pk: validRequest.external_unique_key,
+      gsi2pk: validRequest.status,
+      gsi2sk: validRequest.created_at,
+    });
+    expect(item).not.toHaveProperty("gsi3pk");
+    expect(item).not.toHaveProperty("gsi3sk");
+  });
+
+  it("also derives gsi3pk/gsi3sk once location_id is set", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    const resolvedRequest: Request = { ...validRequest, location_id: "1234567890" };
+    await dao.putRequest(resolvedRequest);
+    const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
+    expect(item).toMatchObject({
+      gsi3pk: "1234567890",
+      gsi3sk: resolvedRequest.created_at,
+    });
+  });
+
   it("throws ValidationError for a malformed Request", async () => {
     ddbMock.on(PutCommand).resolves({});
     // @ts-expect-error intentionally invalid for the test

@@ -15,6 +15,17 @@ export interface PutItemOptions {
    * {@link TerminalError} — never silently overwrite an item by accident.
    */
   conditionExpression?: string;
+  /**
+   * Extra attributes merged onto the item after validation — for
+   * storage-layer-only concerns (e.g. a table's `gsiNpk`/`gsiNsk` GSI key
+   * attributes, per `ddb-design.md`) that deliberately aren't part of
+   * `TEntity`'s domain schema. They're merged in *after* {@link validate}
+   * runs, not validated themselves — zod's default `z.object()` behavior
+   * strips unrecognized keys, so passing them as part of `entity` would
+   * silently vanish before the write. Omit for entities with no GSIs, or
+   * whose GSI keys are already domain fields.
+   */
+  additionalAttributes?: Record<string, unknown>;
 }
 
 /**
@@ -73,10 +84,11 @@ export abstract class Dao<TEntity> {
   }
 
   /**
-   * Validates `entity` against `schema`, then writes it as-is (the whole
-   * object becomes the DynamoDB `Item` — no partial updates). Logs its
-   * input (table, entity, condition expression) before validating, so a
-   * rejected write is still visible in the logs with what was attempted.
+   * Validates `entity` against `schema`, merges in any
+   * `options.additionalAttributes`, then writes the result as-is (no
+   * partial updates). Logs its input (table, entity, condition expression,
+   * additional attributes) before validating, so a rejected write is still
+   * visible in the logs with what was attempted.
    *
    * @param entity - The entity to write. Must already be fully formed;
    * this method does not merge with an existing item.
@@ -96,13 +108,15 @@ export abstract class Dao<TEntity> {
       table: this.tableName,
       entity,
       conditionExpression: options.conditionExpression,
+      additionalAttributes: options.additionalAttributes,
     });
     const validated = this.validate(entity);
+    const item = { ...validated, ...options.additionalAttributes } as Record<string, unknown>;
     try {
       await this.client.send(
         new PutCommand({
           TableName: this.tableName,
-          Item: validated as Record<string, unknown>,
+          Item: item,
           ...(options.conditionExpression
             ? { ConditionExpression: options.conditionExpression }
             : {}),

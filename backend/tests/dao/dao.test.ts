@@ -86,6 +86,24 @@ describe("Dao.putItem (via TestDao.put)", () => {
     expect(input).toMatchObject({ ConditionExpression: "attribute_not_exists(id)" });
   });
 
+  it("merges additionalAttributes onto the written item without validating them", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.put({ id: "a", value: 1 }, { additionalAttributes: { gsi1pk: "derived-key" } });
+    const input = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(input).toEqual({
+      TableName: "TestTable",
+      Item: { id: "a", value: 1, gsi1pk: "derived-key" },
+    });
+  });
+
+  it("would otherwise strip an unrecognized field if passed as part of the entity, not additionalAttributes", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    // @ts-expect-error intentionally passing a field the schema doesn't recognize
+    await dao.put({ id: "a", value: 1, gsi1pk: "should-be-stripped" });
+    const input = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(input).toEqual({ TableName: "TestTable", Item: { id: "a", value: 1 } });
+  });
+
   it("throws ValidationError before writing when the entity is invalid", async () => {
     ddbMock.on(PutCommand).resolves({});
     // @ts-expect-error intentionally invalid for the test
