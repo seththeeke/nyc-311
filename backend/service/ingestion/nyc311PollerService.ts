@@ -26,13 +26,22 @@ const PER_RUN_RECORD_CAP = 2000;
  * (`311-test-data/pull-nyc-311-data.js`) — without this floor, a record
  * that publishes late with an earlier `created_date` than an
  * already-advanced watermark would never be queried for again
- * (`created_date > watermark` permanently excludes it). Set equal to
- * {@link INITIAL_WINDOW_HOURS} on the same "often a day+" evidence.
+ * (`created_date > watermark` permanently excludes it).
+ *
+ * Originally set to 24h on that "often a day+" estimate, matching
+ * {@link INITIAL_WINDOW_HOURS}. Raised to 72h (2026-08-14) after a live
+ * Test-environment run observed the feed running ~47h behind real time —
+ * with a 24h floor, the very first poll's window already sat entirely
+ * ahead of anything the feed had published yet, permanently starving
+ * ingestion (the watermark never advances, so the stuck window never
+ * shrinks). {@link INITIAL_WINDOW_HOURS} deliberately stays at 24h — it
+ * only bounds the one-time first-ever-run backfill (1-data-ingestion.md
+ * §3), a separate concern from this floor, which applies to every run.
  * Re-querying the lag buffer on every run is safe, not wasteful — dedup via
  * `findByExternalUniqueKey` makes re-seeing an already-ingested record a
  * no-op (1-data-ingestion.md §2).
  */
-const SAFETY_LAG_HOURS = 24;
+const SAFETY_LAG_HOURS = 72;
 
 /**
  * Dependencies for {@link pollNyc311}. `requestDao` is constructed by the

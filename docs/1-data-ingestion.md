@@ -228,6 +228,18 @@ call out explicitly when it happens, not an incidental renaming.
   now, not a real open question, but worth revisiting if polling frequency
   or record volume ever changes materially.
 
+## Resolved (2026-08-14, Test-environment manual ingestion test)
+
+- **`SAFETY_LAG_HOURS` raised from 24h to 72h** (§2's cursor design,
+  `backend/service/ingestion/nyc311PollerService.ts`). A manual poll
+  against `Nyc311-Test` (`test-scripts/1-ingestion-test.py`) surfaced the
+  live Socrata feed running ~47h behind real time — beyond the original
+  24h estimate. With a 24h floor, the very first poll's window already sat
+  entirely ahead of anything the feed had published, so the watermark
+  never advanced and ingestion stayed permanently stuck at 0 records.
+  `INITIAL_WINDOW_HOURS` (first-ever-run backfill bound, §3) stays at
+  24h — a separate concern from this floor, which applies to every run.
+
 ## Resolved (2026-08-13, `cdk/` build-out)
 
 - **Exact SoQL query shape** — `backend/service/ingestion/nyc311Client.ts`:

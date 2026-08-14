@@ -75,7 +75,7 @@ describe("pollNyc311", () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     ddbMock.on(PutCommand).resolves({});
 
-    // created_date is well within the 24h safety-lag window relative to `now` —
+    // created_date is well within the 72h safety-lag window relative to `now` —
     // the watermark should NOT advance all the way to it.
     const recentRecord = { unique_key: "recent-1", created_date: "2026-08-11T11:00:00.000" };
     const fetchPage = vi.fn().mockResolvedValueOnce([recentRecord]).mockResolvedValue([]);
@@ -86,9 +86,11 @@ describe("pollNyc311", () => {
       .commandCalls(PutCommand)
       .find((c) => c.args[0].input.Item?.["request_id"] === "CURSOR#NYC_311");
     expect(cursorPut).toBeDefined();
-    // now (12:00) - 24h safety lag = 2026-08-10T12:00:00, the initial window start —
-    // the record's created_date (11:00 the next day) is inside the lag window, so
-    // the watermark stays at the window start rather than jumping to it.
+    // No cursor item -> windowStartDate = now (12:00) - 24h INITIAL_WINDOW_HOURS
+    // = 2026-08-10T12:00:00. The 72h safety-lag cutoff (2026-08-08T12:00:00) is
+    // even earlier, so windowStartDate itself is the binding floor here — the
+    // record's created_date (11:00 the next day) never enters into it either
+    // way, since cappedWatermark never regresses below windowStartDate.
     expect(cursorPut?.args[0].input.Item).toMatchObject({
       last_watermark: "2026-08-10T12:00:00",
       resume_offset: null,
