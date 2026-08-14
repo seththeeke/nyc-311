@@ -327,6 +327,22 @@ exception still requires the explicit-specification bar this rule sets.
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
+**Per-environment physical resource naming.** `Nyc311-Test` and `Nyc311-Prod`
+deploy into the same AWS account/region (`bin/app.ts`), so every *named*
+resource (Lambda functions, log groups, queues, topics, alarms, schedules,
+tables, ...) must get an explicit, env-suffixed physical name — never left
+to CloudFormation's auto-generated default. An unsuffixed name risks an
+outright collision between the two stacks (as `ddb-design.md`'s originally
+unsuffixed `Requests` table name would have); an auto-generated one avoids
+collision but isn't identifiable at a glance in the console/CLI, which
+matters just as much operationally — the stack-level `Environment` tag
+alone isn't a substitute. Use the shared suffix map exported from
+`stack/Nyc311Stack.ts` (`ENV_NAME_SUFFIX: Record<Nyc311Environment, "Test" |
+"Prod">`) rather than each construct inventing its own — e.g.
+`` `Nyc311Poller-${ENV_NAME_SUFFIX[envName]}` ``. Title-case suffix, not
+ALL_CAPS — physical infrastructure names follow their own convention per
+§6's carve-out, not the enum-value rule.
+
 ---
 
 ### Building and Testing the cdk/ app

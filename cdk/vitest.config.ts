@@ -9,7 +9,7 @@ export default defineConfig({
     testTimeout: 20000,
     coverage: {
       provider: "v8",
-      include: ["bin/**/*.ts", "stack/**/*.ts", "pipeline/**/*.ts"],
+      include: ["bin/**/*.ts", "stack/**/*.ts", "pipeline/**/*.ts", "data/**/*.ts", "lambda/**/*.ts"],
       exclude: [
         "**/*.d.ts",
         "**/*.types.ts",

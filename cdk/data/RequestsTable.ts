@@ -1,0 +1,64 @@
+import { RemovalPolicy } from "aws-cdk-lib";
+import { AttributeType, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
+import type { Construct } from "constructs";
+import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+
+export interface RequestsTableProps {
+  envName: Nyc311Environment;
+}
+
+// "Requests" is the physical name ddb-design.md's Requests table section
+// locks in, but Nyc311-Test and Nyc311-Prod deploy into the same
+// account/region (bin/app.ts) — an unsuffixed name would collide across
+// the two stacks. Suffixing by environment (CLAUDE.md §5.3's shared
+// per-environment naming convention) resolves that without changing
+// anything ddb-design.md actually locked (key schema, GSIs, billing mode,
+// PITR, removal policy all as designed).
+
+/**
+ * Backs `Request` (`data-model.md#request`), per `ddb-design.md`'s Requests
+ * table design — including the NYC 311 ingestion cursor sentinel item
+ * (`1-data-ingestion.md` §2), which lives in this same table rather than a
+ * dedicated one.
+ */
+export class RequestsTable extends TableV2 {
+  constructor(scope: Construct, id: string, props: RequestsTableProps) {
+    super(scope, id, {
+      tableName: `Requests-${ENV_NAME_SUFFIX[props.envName]}`,
+      partitionKey: { name: "request_id", type: AttributeType.STRING },
+      // Intended access pattern: GetItem(request_id) for direct lookup;
+      // GetItem/PutItem on the fixed "CURSOR#NYC_311" sentinel PK for the
+      // ingestion cursor.
+
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: RemovalPolicy.RETAIN, // all environments, per ddb-design.md
+
+      globalSecondaryIndexes: [
+        {
+          indexName: "gsi1-external-key",
+          // Intended access pattern: ingestion dedup check by 311
+          // unique_key — the highest-frequency query on this table.
+          // Sparse — only NYC_311-sourced Requests populate gsi1pk; the
+          // cursor sentinel item never sets it either.
+          partitionKey: { name: "gsi1pk", type: AttributeType.STRING }, // external_unique_key
+          projectionType: ProjectionType.ALL,
+        },
+        {
+          indexName: "gsi2-status",
+          // Intended access pattern: draft/pending processing queues.
+          partitionKey: { name: "gsi2pk", type: AttributeType.STRING }, // status
+          sortKey: { name: "gsi2sk", type: AttributeType.STRING }, // created_at
+          projectionType: ProjectionType.ALL,
+        },
+        {
+          indexName: "gsi3-location",
+          // Intended access pattern: recurring-requests-at-this-address view.
+          // Sparse — null while status = DRAFT.
+          partitionKey: { name: "gsi3pk", type: AttributeType.STRING }, // location_id
+          sortKey: { name: "gsi3sk", type: AttributeType.STRING }, // created_at
+          projectionType: ProjectionType.ALL,
+        },
+      ],
+    });
+  }
+}

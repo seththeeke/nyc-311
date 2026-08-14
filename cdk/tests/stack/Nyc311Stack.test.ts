@@ -3,29 +3,44 @@ import { Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { Nyc311Stack } from "../../stack/Nyc311Stack";
 
-// This stack is still a skeleton — no resources yet, so there's nothing for
-// fine-grained `template.hasResourceProperties(...)` assertions (the norm
-// per testing-framework.md §3) to check. Once real constructs land here,
-// tests should shift to asserting on those; for now this just proves the
-// stack synthesizes cleanly and the env-conditional tag takes each branch.
+function synthesize(id: string, envName: "TEST" | "PROD") {
+  const app = new App();
+  const stack = new Nyc311Stack(app, id, { envName, env: { region: "us-east-1" } });
+  return { stack, template: Template.fromStack(stack) };
+}
 
 describe("Nyc311Stack", () => {
   it("synthesizes and tags the stack for TEST", () => {
-    const app = new App();
-    const stack = new Nyc311Stack(app, "TestStack", { envName: "TEST" });
+    const { stack, template } = synthesize("TestStack", "TEST");
 
     // Tags.of(...).add(...) applies via an Aspect, only visited during
     // synthesis — so synthesize (Template.fromStack triggers it) before
     // reading stack.tags back.
-    expect(Template.fromStack(stack).toJSON()).toBeDefined();
+    expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "TEST" });
   });
 
   it("synthesizes and tags the stack for PROD", () => {
-    const app = new App();
-    const stack = new Nyc311Stack(app, "ProdStack", { envName: "PROD" });
+    const { stack, template } = synthesize("ProdStack", "PROD");
 
-    expect(Template.fromStack(stack).toJSON()).toBeDefined();
+    expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "PROD" });
+  });
+
+  it("wires the Requests table, poller Lambda, and its schedule together (first ingestion slice)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.resourceCountIs("AWS::DynamoDB::GlobalTable", 1);
+    template.resourceCountIs("AWS::Lambda::Function", 1);
+    template.resourceCountIs("AWS::Scheduler::Schedule", 1);
+  });
+
+  it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
+    expect(
+      Object.keys(synthesize("TestStack", "TEST").template.findResources("AWS::Logs::MetricFilter")).length,
+    ).toBeLessThanOrEqual(10);
+    expect(
+      Object.keys(synthesize("ProdStack", "PROD").template.findResources("AWS::Logs::MetricFilter")).length,
+    ).toBeLessThanOrEqual(10);
   });
 });

@@ -223,13 +223,33 @@ call out explicitly when it happens, not an incidental renaming.
 
 ## Still Open
 
-- **Exact SoQL query shape** (which fields to select, `$where` clause
-  construction from the watermark) — mechanical, not yet written.
-- **IAM scoping** for the poller Lambda (least-privilege policy against the
-  `Requests` table and its DLQ) — not yet designed.
-- **Exact EventBridge Scheduler cadence** — `claude-prompt-initial.md` §2
-  targets "a few times a day" but no specific cron expression is chosen yet.
 - **`X-App-Token` usage** — the brief notes it's optional and raises rate
   limits but "isn't necessary at this volume." Treated as a non-issue for
   now, not a real open question, but worth revisiting if polling frequency
   or record volume ever changes materially.
+
+## Resolved (2026-08-13, `cdk/` build-out)
+
+- **Exact SoQL query shape** — `backend/service/ingestion/nyc311Client.ts`:
+  `$where=created_date > '<watermark>'`, `$order=created_date ASC,
+  unique_key ASC` (tie-break for stable offset pagination), paged via
+  `$limit`/`$offset`.
+- **IAM scoping** for the poller Lambda — `cdk/lambda/Nyc311PollerLambda.ts`
+  grants exactly `dynamodb:GetItem`/`PutItem`/`Query` against the
+  `Requests` table (table + index ARNs), matching the three DynamoDB calls
+  `RequestDao` actually issues. Nothing broader (no `Scan`, `DeleteItem`,
+  `UpdateItem`, `BatchWrite*`).
+- **EventBridge Scheduler cadence: every 6 hours.** Chosen to keep each
+  poll window comfortably inside the 6–24h bound from §3.
+- **On-failure handling: SQS dead-letter queue** on the Schedule's target
+  (`cdk/lambda/Nyc311PollerSchedule.ts`), plus a CloudWatch Alarm on 3
+  consecutive 6-hour periods of Lambda `Errors` (18h of no forward
+  progress), emailing `seththeeke@gmail.com` — the same address
+  `Nyc311PipelineStack` already notifies on pipeline failure.
+- **Requests table physical naming.** `ddb-design.md`'s locked CDK snippet
+  hardcodes `tableName: 'Requests'`, which would collide across
+  `Nyc311-Test`/`Nyc311-Prod` (same account/region, per `bin/app.ts`).
+  Resolved by suffixing per environment — `Requests-Test` /
+  `Requests-Prod` — matching the existing `Nyc311-Test`/`Nyc311-Prod`
+  stack-naming convention. Key schema, GSIs, billing mode, PITR, and
+  removal policy are unchanged from what `ddb-design.md` locked.
