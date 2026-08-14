@@ -325,6 +325,7 @@ exception still requires the explicit-specification bar this rule sets.
  -> lambda
  -> data - contains any data related constructs like DDB, Data Lake, etc
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
+ -> web - static-site hosting constructs (S3 + CloudFront) for `web-app/`, per `claude-prompt-initial.md` §5/§7's hosting decision
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
 **Per-environment physical resource naming.** `Nyc311-Test` and `Nyc311-Prod`

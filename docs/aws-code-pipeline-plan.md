@@ -113,7 +113,7 @@ the pipeline and triggers the notification in the last row.
 | Stage | CDK Pipelines construct | What runs | Gates |
 |---|---|---|---|
 | Source | `CodePipelineSource.connection(...)` | Pulls `main` on push | N/A |
-| Synth (Build/Test) | `ShellStep` (the pipeline's required synth step) | 1. `cd backend && npm ci && npm run lint && npm run test:coverage` → 2. `cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build` → 3. `cdk synth` (bundles Lambda code from `backend/controller/**` via `NodejsFunction`'s esbuild step automatically, per `CLAUDE.md` §5.2) | Unit + CDK coverage ≥90% per-file (`testing-framework.md` §2/§3) — a failed `npm run test:coverage` fails the step, which fails the pipeline |
+| Synth (Build/Test) | `ShellStep` (the pipeline's required synth step) | 1. `cd backend && npm ci && npm run lint && npm run test:coverage` → 2. `cd web-app && npm ci && npm run lint && npm run test:coverage && npm run build` → 3. `cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build` → 4. `cdk synth` (bundles Lambda code from `backend/controller/**` via `NodejsFunction`'s esbuild step automatically, per `CLAUDE.md` §5.2; stages `web-app/dist` — built in step 2 — into `cdk/web/WebsiteHosting.ts`'s `BucketDeployment` asset) | Unit + CDK coverage ≥90% per-file (`testing-framework.md` §2/§3) — a failed `npm run test:coverage` fails the step, which fails the pipeline |
 | Self-mutate | Built into CDK Pipelines (`selfMutation: true`) — see §1.1 | Diffs the pipeline's own definition against `Nyc311PipelineStack`, redeploys if changed, before any deploy stage runs | A failed self-mutate fails the pipeline |
 | Deploy to `test` | `pipeline.addStage(new Nyc311AppStage(..., { envName: 'TEST' }))` | `cdk deploy Nyc311-Test` equivalent | N/A — deploy succeeds or fails |
 | Integration tests against `test` | `CodeBuildStep` as a `post` step on the Test stage — added once real integration coverage exists (§5) | Real-integration suite (`testing-framework.md` §4) against the live `test` environment | Endpoint coverage ≥90%; Step Functions path coverage reported only (`testing-framework.md` §5) |
@@ -122,9 +122,10 @@ the pipeline and triggers the notification in the last row.
 | Failure notification | `pipeline.notifyOn(...)` → SNS → email | Fires on any stage `FAILED` state | This is the human-intervention trigger — see §6/§7 |
 
 Not included yet, added per §5: the SAM CLI / Step Functions Local "local
-sanity" tier (`testing-framework.md` §4/§7) and `web-app/` build+test —
-neither has real infrastructure to sanity-check yet. When added, both are
-automated pass/fail gates, not manual approvals.
+sanity" tier (`testing-framework.md` §4/§7) — no Step Functions state
+machine exists yet to sanity-check. `web-app/` build+test is now included
+(above) now that `web-app/` has code and `cdk/web/WebsiteHosting.ts` hosts
+it. When added, these are automated pass/fail gates, not manual approvals.
 
 ### 4.1 Failure notifications
 
@@ -159,7 +160,10 @@ pipeline — no new manual bootstrap needed:**
   broader build credentials with the deploy-capable project.
 - Real-integration test stage against `test`, once there's a meaningful
   API surface to hit.
-- `web-app/` lint/build/test step in Synth, once `web-app/` has code.
+- ~~`web-app/` lint/build/test step in Synth, once `web-app/` has
+  code.~~ **Done** — added to the Synth `ShellStep` alongside
+  `cdk/web/WebsiteHosting.ts` (S3 + CloudFront hosting for `web-app/`),
+  once `web-app/` had a real scaffold to build.
 
 ---
 
@@ -381,6 +385,10 @@ this project's scale.
 - [x] Confirm a full pipeline execution succeeds end to end: Source → Synth → Self-Mutate → Deploy `test` → `cdk diff` → Deploy `prod` — confirmed `Succeeded` on all five stages
 - [x] Confirm the SNS topic delivers to `seththeeke@gmail.com` — **subscription confirmation is still pending**; click the link in AWS's confirmation email or failure notifications won't arrive
 - [ ] Push a change to `cdk/pipeline/*.ts` under normal (non-bootstrap) circumstances and confirm the self-mutation smoke test (§1.1) — the run picks up the new structure, no stale steps. Not yet directly observed: every pipeline-definition change so far was applied via a direct bootstrap-style deploy first, so self-mutation has only been confirmed to run cleanly with *no* pending change, not to actually apply one mid-execution.
+- [x] Add `cdk/web/WebsiteHosting.ts` (S3, OAC-fronted CloudFront, SPA 403/404→`/index.html` rewrite, `BucketDeployment` of `web-app/dist`) and wire it into `Nyc311Stack` (2026-08-14)
+- [x] Add the `web-app/` lint/build/test:coverage step to the Synth `ShellStep`, ordered before `cdk/`'s own step (its assertion tests, and `cdk synth`, both need `web-app/dist` staged) (2026-08-14)
+- [x] `npm run build` / `lint` / `test:coverage` passing for `cdk/web/` — 100% per-file; `npm run synth` and `npm run synth:pipeline` both synthesize cleanly with the new construct (`CLAUDE.md` §2)
+- [ ] Push and let the pipeline actually deploy `WebsiteHosting` to `Nyc311-Test`/`Nyc311-Prod` — not yet run through a real pipeline execution, only synthesized locally
 
 ### Fixes applied beyond the original plan (real issues hit during setup)
 

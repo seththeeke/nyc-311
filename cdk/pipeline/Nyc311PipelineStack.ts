@@ -50,9 +50,16 @@ export class Nyc311PipelineStack extends Stack {
     );
 
     // §4 "Synth (Build/Test)" row: lint + unit test + coverage for
-    // backend/ and cdk/, then cdk synth. Each command returns to repo
-    // root before the next so ordering doesn't depend on whether the
+    // backend/, web-app/, and cdk/, then cdk synth. Each command returns to
+    // repo root before the next so ordering doesn't depend on whether the
     // CodeBuild shell persists `cd` across buildspec lines.
+    //
+    // web-app/ must build before cdk/'s own step, not just before `cdk
+    // synth` — cdk/web/WebsiteHosting.ts's `BucketDeployment` stages
+    // `web-app/dist` as an asset, and that construct is exercised by
+    // cdk/'s own assertion tests (`npm run test:coverage`), so the dist/
+    // directory has to exist before that step runs too, not only before
+    // synth.
     //
     // Must synth against `bin/pipeline.ts` explicitly, not `cdk.json`'s
     // default app (`bin/app.ts`, which only defines the bare
@@ -64,6 +71,7 @@ export class Nyc311PipelineStack extends Stack {
       input: source,
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
+        "cd web-app && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
         "cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
         'cd cdk && npx cdk synth --app "npx ts-node --prefer-ts-exts bin/pipeline.ts"',
       ],

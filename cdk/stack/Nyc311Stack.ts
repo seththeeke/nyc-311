@@ -3,6 +3,7 @@ import type { Construct } from "constructs";
 import { RequestsTable } from "../data/RequestsTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
+import { WebsiteHosting } from "../web/WebsiteHosting";
 
 // Enum-like discriminator, ALL_CAPS per CLAUDE.md §6.
 export type Nyc311Environment = "TEST" | "PROD";
@@ -30,8 +31,8 @@ const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
  * The application's single stack shape, per CLAUDE.md §5.3 — one Stack
  * class, instantiated once per environment from `bin/app.ts` rather than
  * split into multiple stack types. Resources get added here (via custom
- * constructs under `lambda/`, `data/`, `step-function/`) as each slice of
- * `claude-prompt-initial.md`'s build order is unlocked.
+ * constructs under `lambda/`, `data/`, `step-function/`, `web/`) as each
+ * slice of `claude-prompt-initial.md`'s build order is unlocked.
  *
  * First slice: the NYC 311 poller (`1-data-ingestion.md`) — raw ingest
  * only, EventBridge Scheduler → Lambda → DynamoDB, no event bus/queue
@@ -55,5 +56,7 @@ export class Nyc311Stack extends Stack {
       pollerLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
+
+    new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
   }
 }

@@ -31,8 +31,19 @@ describe("Nyc311Stack", () => {
     const { template } = synthesize("TestStack", "TEST");
 
     template.resourceCountIs("AWS::DynamoDB::GlobalTable", 1);
-    template.resourceCountIs("AWS::Lambda::Function", 1);
+    // Not resourceCountIs(1) here — WebsiteHosting's BucketDeployment and
+    // autoDeleteObjects each wire their own custom-resource Lambda, so the
+    // poller is one of several AWS::Lambda::Function resources in this
+    // stack, not the only one.
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Poller-Test" });
     template.resourceCountIs("AWS::Scheduler::Schedule", 1);
+  });
+
+  it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-web-test" });
+    template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   });
 
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
