@@ -228,6 +228,21 @@ call out explicitly when it happens, not an incidental renaming.
   now, not a real open question, but worth revisiting if polling frequency
   or record volume ever changes materially.
 
+## Resolved (2026-08-14, GSI key attribute bug)
+
+- **`RequestDao.putRequest` never populated `gsi1pk`/`gsi2pk`/`gsi2sk`/
+  `gsi3pk`/`gsi3sk`**, so all three GSIs on the `Requests` table (§2's
+  dedup lookup included) had been silently non-functional since the
+  poller was first built — `findByExternalUniqueKey` always returned "not
+  found," meaning re-polling an overlapping window would have inserted
+  outright duplicates instead of skipping them. Found via a manual
+  Test-environment run: 2000 records landed in the base table but a
+  `gsi2-status` query returned zero. Fixed by giving `Dao.putItem` an
+  `additionalAttributes` option (merged onto the item post-validation,
+  since zod's default `z.object()` strips unrecognized keys) so
+  `RequestDao` can derive and attach the GSI keys without adding them to
+  the domain-facing `Request` schema.
+
 ## Resolved (2026-08-14, Test-environment manual ingestion test)
 
 - **`SAFETY_LAG_HOURS` raised from 24h to 72h** (§2's cursor design,
@@ -265,3 +280,46 @@ call out explicitly when it happens, not an incidental renaming.
   `Requests-Prod` — matching the existing `Nyc311-Test`/`Nyc311-Prod`
   stack-naming convention. Key schema, GSIs, billing mode, PITR, and
   removal policy are unchanged from what `ddb-design.md` locked.
+
+---
+
+## Outstanding Items (as of 2026-08-14, end of session)
+
+- **Dedup not yet empirically re-verified.** The passing ingestion test
+  started from an empty `Requests-Test`, so `findByExternalUniqueKey`'s
+  `gsi1-external-key` lookup never actually had an existing match to find.
+  The write side (§2's "Resolved, GSI key attribute bug" above) is
+  confirmed fixed, but no run has yet proven that re-polling
+  already-ingested data produces `duplicates_skipped > 0` instead of
+  inserting new rows.
+- **Resumed pagination not yet empirically re-verified.** The cursor
+  correctly persisted `resume_offset: 2000` after the last capped run
+  (§3), but no follow-up run has confirmed the *next* poll actually
+  resumes pagination from that offset rather than restarting or skipping
+  ahead.
+- **First-run window (`INITIAL_WINDOW_HOURS`, §3) vs. real feed lag.**
+  `SAFETY_LAG_HOURS` was raised to 72h, but the first-ever-run window is
+  still locked at §3's original 6–24h bound. The Socrata feed's lag was
+  observed at ~47h this session — a from-scratch environment (a reset
+  Test, or Prod's eventual real bootstrap) would hit the same 0-records
+  starvation on its very first run. Worth deciding whether to widen the
+  bound, add a manual override, or accept it as a known one-time hiccup.
+- **`Nyc311-Prod` unverified and paused.** `Nyc311PollerSchedule-Prod` was
+  disabled mid-session once the GSI/dedup bug was found, since Prod had
+  likely already run autonomously on its 6h schedule with the broken
+  code, writing untrusted (possibly duplicate) data into `Requests-Prod`.
+  Remaining: assess what's actually in `Requests-Prod`, decide whether it
+  needs cleanup before re-enabling, then re-enable the schedule and
+  confirm a clean Prod poll.
+- **No on-demand/parameterized poll trigger.** Also logged in
+  `docs/99-things-to-come-back-to.md`. Every manual verification this
+  session required hand-editing the DynamoDB cursor item directly. A real
+  trigger-payload override (e.g. a validated `sinceOverride`) would make
+  both future debugging and `test-scripts/1-ingestion-test.py` itself
+  less fragile.
+- **Minor doc/code naming drift in §8.** The example log shape there uses
+  `event: "PollCompleted"`; the actual `logger.ts`/
+  `nyc311PollerService.ts` implementation uses `message: "PollCompleted"`
+  instead. Functionally harmless — the `MetricFilter`s already key off
+  the right field — just needs the doc's example corrected on the next
+  real edit to that section.
