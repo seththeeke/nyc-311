@@ -16,6 +16,7 @@ export default defineConfig({
         "data/**/*.ts",
         "lambda/**/*.ts",
         "web/**/*.ts",
+        "api/**/*.ts",
       ],
       exclude: [
         "**/*.d.ts",

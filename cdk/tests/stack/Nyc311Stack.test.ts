@@ -46,6 +46,15 @@ describe("Nyc311Stack", () => {
     template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   });
 
+  it("wires the public API Gateway with its first route, GET /ingestion/metrics (1-data-ingestion.md §8a)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311Api-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311MetricsApi-Test" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /ingestion/metrics" });
+    template.hasOutput("Nyc311ApiUrl", {});
+  });
+
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
     expect(
       Object.keys(synthesize("TestStack", "TEST").template.findResources("AWS::Logs::MetricFilter")).length,

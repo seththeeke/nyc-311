@@ -1,8 +1,10 @@
-import { Stack, StackProps, Tags } from "aws-cdk-lib";
+import { CfnOutput, Stack, StackProps, Tags } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 import { RequestsTable } from "../data/RequestsTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
+import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
+import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 
 // Enum-like discriminator, ALL_CAPS per CLAUDE.md §6.
@@ -57,6 +59,23 @@ export class Nyc311Stack extends Stack {
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
-    new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
+    const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
+
+    const metricsApiLambda = new Nyc311MetricsApiLambda(this, "Nyc311MetricsApiLambda", {
+      envName: props.envName,
+      requestsTable,
+    });
+
+    const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
+      envName: props.envName,
+      metricsApiLambda,
+      webAppDomainName: websiteHosting.distribution.domainName,
+    });
+
+    // Read by test-scripts/2-metrics-api-test.py (and any future
+    // integration test) via `aws cloudformation describe-stacks`, so the
+    // deployed API's base URL doesn't have to be hand-copied out of the
+    // console.
+    new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
   }
 }
