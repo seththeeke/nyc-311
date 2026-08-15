@@ -1,3 +1,4 @@
+import { ulid } from "ulid";
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Dao } from "../dao";
 import { logInfo } from "../../logger";
@@ -9,8 +10,10 @@ import {
   IngestionCursorSchema,
   type IngestionCursor,
 } from "../../models/ingestionCursor";
+import { POLLER_METRICS_GSI_PK, PollerMetricsSchema, type PollerMetrics } from "../../models/pollerMetrics";
 
 const EXTERNAL_KEY_INDEX = "gsi1-external-key";
+const POLLER_METRICS_INDEX = "gsi4-poller-metrics";
 
 export class RequestDao extends Dao<Request> {
   constructor(client: DynamoDBDocumentClient, tableName: string) {
@@ -99,6 +102,51 @@ export class RequestDao extends Dao<Request> {
     const parsed = IngestionCursorSchema.safeParse(item);
     if (!parsed.success) {
       throw new ValidationError("Failed to validate the ingestion cursor item", parsed.error.issues);
+    }
+    return parsed.data;
+  }
+
+  /**
+   * Appends one poller run's outcome as a new item, per 1-data-ingestion.md
+   * §8a. Never overwrites a prior run — each write gets a freshly-minted
+   * `METRIC#<ulid>` base key, with `gsi4pk`/`gsi4sk` set so
+   * {@link listPollerMetrics} can retrieve the full history in one Query.
+   */
+  async putPollerMetrics(metrics: PollerMetrics): Promise<void> {
+    logInfo("RequestDao.putPollerMetrics", { table: this.tableName, metrics });
+    const validated = this.validatePollerMetrics(metrics);
+    await this.client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          [this.partitionKeyName]: `METRIC#${ulid()}`,
+          gsi4pk: POLLER_METRICS_GSI_PK,
+          gsi4sk: validated.ran_at,
+          ...validated,
+        },
+      })
+    );
+  }
+
+  /** The NYC 311 poller's full run history, most recent first — backs the public ingestion-metrics API. */
+  async listPollerMetrics(): Promise<PollerMetrics[]> {
+    logInfo("RequestDao.listPollerMetrics", { table: this.tableName });
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: POLLER_METRICS_INDEX,
+        KeyConditionExpression: "gsi4pk = :pk",
+        ExpressionAttributeValues: { ":pk": POLLER_METRICS_GSI_PK },
+        ScanIndexForward: false,
+      })
+    );
+    return (result.Items ?? []).map((item) => this.validatePollerMetrics(item));
+  }
+
+  private validatePollerMetrics(item: unknown): PollerMetrics {
+    const parsed = PollerMetricsSchema.safeParse(item);
+    if (!parsed.success) {
+      throw new ValidationError("Failed to validate a poller metrics item", parsed.error.issues);
     }
     return parsed.data;
   }

@@ -429,6 +429,22 @@ Requests populate this.
   theoretical: `data-model.md` Appendix A found ~12% of addresses repeat
   within a single 6-hour sample window.
 
+**GSI4 — `gsi4-poller-metrics`** (added 2026-08-15, `1-data-ingestion.md`
+§8a)
+`gsi4pk = "POLLER#METRICS"` (fixed constant, every poller-metrics item sets
+the same value), `gsi4sk = ran_at`. Sparse — only poller-metrics items set
+`gsi4pk`/`gsi4sk`; real Request items and the `CURSOR#NYC_311` sentinel
+never do.
+
+**Intended access pattern(s):**
+- The public ingestion-metrics API's only query: `Query gsi4pk =
+  "POLLER#METRICS"`, `ScanIndexForward: false` — every recorded poller run,
+  most recent first. This table has no sort key on its base key schema, so
+  a growing, listable history of items genuinely requires a composite key
+  *somewhere*; putting it on a sparse GSI rather than the base table avoids
+  any change to the Requests table's existing (request_id-only) primary key,
+  and thus any risk to already-ingested Test/Prod data.
+
 ### Design notes
 
 - **Denormalized `order_id`** is written onto the `Request` item at
@@ -450,6 +466,13 @@ Requests populate this.
   appears in any of the three GSIs above (all sparse) — only reachable via
   direct `GetItem`/`PutItem` on its known PK. Full design and rationale:
   `1-data-ingestion.md` §2.
+- **Poller-metrics history also lives here** (added 2026-08-15,
+  `1-data-ingestion.md` §8a) — one item per poller invocation, keyed
+  `request_id = "METRIC#<ulid>"` (unique per run, never a real Request's id
+  or the cursor sentinel) with `gsi4pk`/`gsi4sk` set for GSI4 above. Same
+  "sentinel-shaped item sharing the base table" pattern as the cursor, just
+  one-item-per-run instead of a single overwritten item, since this needs
+  to be listable as a history rather than looked up by a known key.
 
 ### CDK
 
@@ -484,6 +507,15 @@ const requestsTable = new TableV2(this, 'RequestsTable', {
       // Sparse — null while status = draft.
       partitionKey: { name: 'gsi3pk', type: AttributeType.STRING }, // location_id
       sortKey: { name: 'gsi3sk', type: AttributeType.STRING },      // created_at
+      projectionType: ProjectionType.ALL,
+    },
+    {
+      indexName: 'gsi4-poller-metrics',
+      // Intended access pattern: NYC 311 poller run history, most recent
+      // first — the public ingestion-metrics API's only query. Sparse —
+      // only poller-metrics items set gsi4pk/gsi4sk.
+      partitionKey: { name: 'gsi4pk', type: AttributeType.STRING }, // "POLLER#METRICS" constant
+      sortKey: { name: 'gsi4sk', type: AttributeType.STRING },      // ran_at
       projectionType: ProjectionType.ALL,
     },
   ],
@@ -638,6 +670,7 @@ it yet.
 | 25 | Get User by `user_id` | Users table, `GetItem` |
 | 26 | Get User by `cognito_sub` (login) | Users `gsi1-cognito-sub` |
 | 27 | Get/update the NYC 311 ingestion cursor (watermark + resume offset) | Requests table, `GetItem`/`PutItem` on sentinel PK `"CURSOR#nyc_311"` — see Requests table design notes and `1-data-ingestion.md` §2 |
+| 28 | List the NYC 311 poller's full run history, most recent first (public ingestion-metrics API) | Requests `gsi4-poller-metrics` — see Requests table design notes and `1-data-ingestion.md` §8a |
 
 ---
 

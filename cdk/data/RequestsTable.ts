@@ -58,6 +58,17 @@ export class RequestsTable extends TableV2 {
           sortKey: { name: "gsi3sk", type: AttributeType.STRING }, // created_at
           projectionType: ProjectionType.ALL,
         },
+        {
+          indexName: "gsi4-poller-metrics",
+          // Intended access pattern: NYC 311 poller run history
+          // (1-data-ingestion.md §8a) — Query(gsi4pk="POLLER#METRICS")
+          // sorted by gsi4sk (ran_at) backs the public ingestion-metrics
+          // API. Sparse — only poller-metrics items set gsi4pk/gsi4sk; real
+          // Request items and the CURSOR#NYC_311 sentinel never do.
+          partitionKey: { name: "gsi4pk", type: AttributeType.STRING }, // "POLLER#METRICS" constant
+          sortKey: { name: "gsi4sk", type: AttributeType.STRING }, // ran_at
+          projectionType: ProjectionType.ALL,
+        },
       ],
     });
   }

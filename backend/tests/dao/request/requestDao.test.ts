@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDao } from "../../../dao/request/requestDao";
 import { ValidationError } from "../../../models/errors";
 import type { Request } from "../../../models/request";
+import type { PollerMetrics } from "../../../models/pollerMetrics";
 
 const TABLE_NAME = "Requests";
 
@@ -201,5 +202,78 @@ describe("putCursor", () => {
       ValidationError
     );
     expect(ddbMock.commandCalls(PutCommand)).toHaveLength(0);
+  });
+});
+
+const validMetrics: PollerMetrics = {
+  ran_at: "2026-08-15T00:00:00.000Z",
+  success: true,
+  records_ingested: 12,
+  duplicates_skipped: 3,
+  records_rejected: 1,
+  error_message: null,
+};
+
+describe("putPollerMetrics", () => {
+  it("writes a new item keyed by a fresh METRIC#<ulid>, with gsi4pk/gsi4sk set", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.putPollerMetrics(validMetrics);
+    const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.TableName).toBe(TABLE_NAME);
+    expect(item.request_id).toMatch(/^METRIC#/);
+    expect(item).toMatchObject({
+      gsi4pk: "POLLER#METRICS",
+      gsi4sk: validMetrics.ran_at,
+      ...validMetrics,
+    });
+  });
+
+  it("mints a different key on every call, so runs never overwrite each other", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.putPollerMetrics(validMetrics);
+    await dao.putPollerMetrics(validMetrics);
+    const [first, second] = ddbMock.commandCalls(PutCommand);
+    expect((first.args[0].input.Item as Record<string, unknown>).request_id).not.toBe(
+      (second.args[0].input.Item as Record<string, unknown>).request_id
+    );
+  });
+
+  it("logs the metrics input", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.putPollerMetrics(validMetrics);
+    const logged = JSON.parse(logSpy.mock.calls[0][0] as string);
+    expect(logged).toMatchObject({ table: TABLE_NAME, metrics: validMetrics });
+  });
+
+  it("throws ValidationError for a malformed metrics record, without writing", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await expect(
+      dao.putPollerMetrics({ ...validMetrics, records_ingested: -1 })
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(ddbMock.commandCalls(PutCommand)).toHaveLength(0);
+  });
+});
+
+describe("listPollerMetrics", () => {
+  it("queries gsi4-poller-metrics for the fixed partition key, most recent first", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [validMetrics] });
+    await expect(dao.listPollerMetrics()).resolves.toEqual([validMetrics]);
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({
+      TableName: TABLE_NAME,
+      IndexName: "gsi4-poller-metrics",
+      ExpressionAttributeValues: { ":pk": "POLLER#METRICS" },
+      ScanIndexForward: false,
+    });
+  });
+
+  it("returns an empty array when no metrics have ever been recorded", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+    await expect(dao.listPollerMetrics()).resolves.toEqual([]);
+  });
+
+  it("throws ValidationError when a stored metrics item is malformed", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [{ ran_at: "x" }] });
+    await expect(dao.listPollerMetrics()).rejects.toBeInstanceOf(ValidationError);
   });
 });

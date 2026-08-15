@@ -57,6 +57,14 @@ describe("RequestsTable", () => {
           ],
           Projection: { ProjectionType: "ALL" },
         }),
+        Match.objectLike({
+          IndexName: "gsi4-poller-metrics",
+          KeySchema: [
+            { AttributeName: "gsi4pk", KeyType: "HASH" },
+            { AttributeName: "gsi4sk", KeyType: "RANGE" },
+          ],
+          Projection: { ProjectionType: "ALL" },
+        }),
       ],
     });
   });
