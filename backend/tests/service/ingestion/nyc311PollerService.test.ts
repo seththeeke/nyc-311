@@ -3,8 +3,9 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@a
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDao } from "../../../dao/request/requestDao";
-import { pollNyc311 } from "../../../service/ingestion/nyc311PollerService";
+import { pollNyc311, recordPollerMetrics, listPollerMetrics } from "../../../service/ingestion/nyc311PollerService";
 import type { Request } from "../../../models/request";
+import type { PollerMetrics } from "../../../models/pollerMetrics";
 import normalWithBbl from "./nyc311-normal-with-bbl.json";
 import missingUniqueKey from "./nyc311-missing-unique-key.json";
 
@@ -234,5 +235,79 @@ describe("pollNyc311", () => {
     expect(calledUrl.origin + calledUrl.pathname).toBe(
       "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
     );
+  });
+
+  it("defaults `requestDao` to the module's own instance when not injected", async () => {
+    // ddbMock (aws-sdk-client-mock) patches DynamoDBDocumentClient.prototype.send,
+    // so it intercepts the service module's own default-constructed DAO too,
+    // not just the `requestDao` built above for explicit-override tests.
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(PutCommand).resolves({});
+
+    const fetchPage = vi.fn().mockResolvedValue([]);
+    await expect(pollNyc311({ now, fetchPage })).resolves.toEqual({
+      recordsIngested: 0,
+      duplicatesSkipped: 0,
+      recordsRejected: 0,
+    });
+  });
+});
+
+const validMetrics: PollerMetrics = {
+  ran_at: "2026-08-15T00:00:00.000Z",
+  success: true,
+  records_ingested: 5,
+  duplicates_skipped: 1,
+  records_rejected: 0,
+  error_message: null,
+};
+
+describe("recordPollerMetrics", () => {
+  it("writes the metrics via the injected requestDao's putPollerMetrics", async () => {
+    ddbMock.on(PutCommand).resolves({});
+
+    await recordPollerMetrics(validMetrics, { requestDao });
+
+    const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
+    expect(item).toMatchObject(validMetrics);
+  });
+
+  it("defaults `requestDao` to the module's own instance when not injected", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await expect(recordPollerMetrics(validMetrics)).resolves.toBeUndefined();
+  });
+});
+
+describe("listPollerMetrics", () => {
+  it("returns the injected requestDao's full run history", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [validMetrics] });
+
+    await expect(listPollerMetrics({ requestDao })).resolves.toEqual([validMetrics]);
+  });
+
+  it("returns an empty array when no runs have ever been recorded", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+    await expect(listPollerMetrics({ requestDao })).resolves.toEqual([]);
+  });
+
+  it("defaults `requestDao` to the module's own instance when not injected", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [validMetrics] });
+    await expect(listPollerMetrics()).resolves.toEqual([validMetrics]);
+  });
+});
+
+describe("module wiring", () => {
+  it("throws at load time when REQUESTS_TABLE_NAME is unset", async () => {
+    const previous = process.env.REQUESTS_TABLE_NAME;
+    delete process.env.REQUESTS_TABLE_NAME;
+    vi.resetModules();
+
+    await expect(
+      import("../../../service/ingestion/nyc311PollerService.js")
+    ).rejects.toThrow("Missing required environment variable: REQUESTS_TABLE_NAME");
+
+    process.env.REQUESTS_TABLE_NAME = previous;
+    vi.resetModules();
   });
 });

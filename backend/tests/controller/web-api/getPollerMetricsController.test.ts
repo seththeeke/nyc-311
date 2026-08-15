@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listPollerMetrics } from "../../../service/metrics/pollerMetricsService";
+import { listPollerMetrics } from "../../../service/ingestion/nyc311PollerService";
 import { getPollerMetricsController } from "../../../controller/web-api/getPollerMetricsController";
 import { ValidationError } from "../../../models/errors";
 import type { PollerMetrics } from "../../../models/pollerMetrics";
 
-vi.mock("../../../service/metrics/pollerMetricsService", () => ({
+vi.mock("../../../service/ingestion/nyc311PollerService", () => ({
   listPollerMetrics: vi.fn(),
 }));
 
@@ -76,20 +76,5 @@ describe("getPollerMetricsController", () => {
     const result = await getPollerMetricsController(validEvent);
 
     expect(result.statusCode).toBe(500);
-  });
-});
-
-describe("module wiring", () => {
-  it("throws at load time when REQUESTS_TABLE_NAME is unset", async () => {
-    const previous = process.env.REQUESTS_TABLE_NAME;
-    delete process.env.REQUESTS_TABLE_NAME;
-    vi.resetModules();
-
-    await expect(
-      import("../../../controller/web-api/getPollerMetricsController.js")
-    ).rejects.toThrow("Missing required environment variable: REQUESTS_TABLE_NAME");
-
-    process.env.REQUESTS_TABLE_NAME = previous;
-    vi.resetModules();
   });
 });

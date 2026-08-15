@@ -1,24 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { RequestDao } from "../../dao/request/requestDao";
-import { listPollerMetrics } from "../../service/metrics/pollerMetricsService";
+import { listPollerMetrics } from "../../service/ingestion/nyc311PollerService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-// Constructed once at module scope (Lambda cold start) and reused across
-// warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2.
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const requestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -34,7 +18,7 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
  * drives branching yet), delegates to `listPollerMetrics`, and — unlike the
  * Step-Functions-invoked poller controller, which lets errors propagate —
  * maps any failure to an HTTP status code, since API Gateway is this
- * controller's caller.
+ * controller's caller. Never touches a DAO directly (CLAUDE.md §5.2).
  */
 export const getPollerMetricsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("GetPollerMetricsControllerInvoked", { event });
@@ -46,7 +30,7 @@ export const getPollerMetricsController = async (event: unknown): Promise<APIGat
   }
 
   try {
-    const metrics = await listPollerMetrics({ requestDao });
+    const metrics = await listPollerMetrics();
     logInfo("GetPollerMetricsControllerCompleted", { count: metrics.length });
     return jsonResponse(200, { metrics });
   } catch (err) {

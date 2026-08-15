@@ -1,23 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "aws-lambda";
-import { pollNyc311 } from "../../../service/ingestion/nyc311PollerService";
+import { pollNyc311, recordPollerMetrics } from "../../../service/ingestion/nyc311PollerService";
 import { nyc311PollerController } from "../../../controller/ingestion/nyc311PollerController";
-import { RequestDao } from "../../../dao/request/requestDao";
 import { ValidationError } from "../../../models/errors";
 import type { PollResult } from "../../../models/pollResult";
 
 vi.mock("../../../service/ingestion/nyc311PollerService", () => ({
   pollNyc311: vi.fn(),
+  recordPollerMetrics: vi.fn(),
 }));
 
 const mockedPollNyc311 = vi.mocked(pollNyc311);
+const mockedRecordPollerMetrics = vi.mocked(recordPollerMetrics);
 const fakeContext = { awsRequestId: "req-123" } as Context;
-
-let putPollerMetricsSpy: MockInstance<typeof RequestDao.prototype.putPollerMetrics>;
 
 beforeEach(() => {
   mockedPollNyc311.mockReset();
-  putPollerMetricsSpy = vi.spyOn(RequestDao.prototype, "putPollerMetrics").mockResolvedValue(undefined);
+  mockedRecordPollerMetrics.mockReset().mockResolvedValue(undefined);
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -36,14 +35,14 @@ describe("nyc311PollerController", () => {
     expect(mockedPollNyc311).toHaveBeenCalledTimes(1);
   });
 
-  it("records a success metrics row with the poll result's counts", async () => {
+  it("records a success metrics row via the service, with the poll result's counts", async () => {
     const result: PollResult = { recordsIngested: 3, duplicatesSkipped: 1, recordsRejected: 0 };
     mockedPollNyc311.mockResolvedValue(result);
 
     await nyc311PollerController({}, fakeContext);
 
-    expect(putPollerMetricsSpy).toHaveBeenCalledTimes(1);
-    expect(putPollerMetricsSpy).toHaveBeenCalledWith(
+    expect(mockedRecordPollerMetrics).toHaveBeenCalledTimes(1);
+    expect(mockedRecordPollerMetrics).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
         records_ingested: 3,
@@ -59,7 +58,7 @@ describe("nyc311PollerController", () => {
       ValidationError
     );
     expect(mockedPollNyc311).not.toHaveBeenCalled();
-    expect(putPollerMetricsSpy).not.toHaveBeenCalled();
+    expect(mockedRecordPollerMetrics).not.toHaveBeenCalled();
   });
 
   it("lets a service failure propagate (after logging it) so the Lambda on-failure Destination fires", async () => {
@@ -69,12 +68,12 @@ describe("nyc311PollerController", () => {
     await expect(nyc311PollerController({}, fakeContext)).rejects.toBe(failure);
   });
 
-  it("records a zeroed, failed metrics row with the error message on a service failure", async () => {
+  it("records a zeroed, failed metrics row via the service with the error message on a service failure", async () => {
     mockedPollNyc311.mockRejectedValue(new Error("SODA API down"));
 
     await expect(nyc311PollerController({}, fakeContext)).rejects.toThrow("SODA API down");
 
-    expect(putPollerMetricsSpy).toHaveBeenCalledWith(
+    expect(mockedRecordPollerMetrics).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
         records_ingested: 0,
@@ -89,7 +88,7 @@ describe("nyc311PollerController", () => {
     mockedPollNyc311.mockRejectedValue("string rejection");
 
     await expect(nyc311PollerController({}, fakeContext)).rejects.toBe("string rejection");
-    expect(putPollerMetricsSpy).toHaveBeenCalledWith(
+    expect(mockedRecordPollerMetrics).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error_message: "string rejection" })
     );
   });
@@ -97,7 +96,7 @@ describe("nyc311PollerController", () => {
   it("still propagates the original failure even if recording the failure metrics itself fails", async () => {
     const failure = new Error("SODA API down");
     mockedPollNyc311.mockRejectedValue(failure);
-    putPollerMetricsSpy.mockRejectedValue(new Error("DynamoDB throttled"));
+    mockedRecordPollerMetrics.mockRejectedValue(new Error("DynamoDB throttled"));
 
     await expect(nyc311PollerController({}, fakeContext)).rejects.toBe(failure);
   });
@@ -105,7 +104,7 @@ describe("nyc311PollerController", () => {
   it("does not fail the invocation if recording the success metrics itself fails", async () => {
     const result: PollResult = { recordsIngested: 3, duplicatesSkipped: 1, recordsRejected: 0 };
     mockedPollNyc311.mockResolvedValue(result);
-    putPollerMetricsSpy.mockRejectedValue(new Error("DynamoDB throttled"));
+    mockedRecordPollerMetrics.mockRejectedValue(new Error("DynamoDB throttled"));
 
     await expect(nyc311PollerController({}, fakeContext)).resolves.toEqual(result);
   });
@@ -113,23 +112,8 @@ describe("nyc311PollerController", () => {
   it("logs a non-Error rejection from the metrics write without throwing", async () => {
     const result: PollResult = { recordsIngested: 3, duplicatesSkipped: 1, recordsRejected: 0 };
     mockedPollNyc311.mockResolvedValue(result);
-    putPollerMetricsSpy.mockRejectedValue("write failed");
+    mockedRecordPollerMetrics.mockRejectedValue("write failed");
 
     await expect(nyc311PollerController({}, fakeContext)).resolves.toEqual(result);
-  });
-});
-
-describe("module wiring", () => {
-  it("throws at load time when REQUESTS_TABLE_NAME is unset", async () => {
-    const previous = process.env.REQUESTS_TABLE_NAME;
-    delete process.env.REQUESTS_TABLE_NAME;
-    vi.resetModules();
-
-    await expect(
-      import("../../../controller/ingestion/nyc311PollerController.js")
-    ).rejects.toThrow("Missing required environment variable: REQUESTS_TABLE_NAME");
-
-    process.env.REQUESTS_TABLE_NAME = previous;
-    vi.resetModules();
   });
 });

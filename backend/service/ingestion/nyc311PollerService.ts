@@ -1,11 +1,32 @@
 import { ulid } from "ulid";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
-import type { RequestDao } from "../../dao/request/requestDao";
+import { RequestDao } from "../../dao/request/requestDao";
 import type { Request } from "../../models/request";
 import { Nyc311RawRecordSchema } from "../../models/nyc311RawRecord";
 import type { IngestionCursor } from "../../models/ingestionCursor";
 import type { PollResult } from "../../models/pollResult";
+import type { PollerMetrics } from "../../models/pollerMetrics";
 import { fetchNyc311Page, toSoqlTimestamp } from "./nyc311Client";
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+// Constructed once at module scope (Lambda cold start) and reused across
+// warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2. This
+// is the one place `backend/dao/request/requestDao.ts` gets instantiated
+// for the ingestion slice; every `controller/` handler that needs it goes
+// through this service's exported functions instead of constructing or
+// calling a DAO itself (CLAUDE.md §5.2's "always go through a service to
+// reach a DAO" rule).
+const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const defaultRequestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
 
 /**
  * No unbounded historical backfill on the very first-ever run (no cursor
@@ -44,13 +65,13 @@ const PER_RUN_RECORD_CAP = 2000;
 const SAFETY_LAG_HOURS = 72;
 
 /**
- * Dependencies for {@link pollNyc311}. `requestDao` is constructed by the
- * caller (`controller/ingestion/`), not here — that construction needs a
- * DynamoDB table name from a Lambda environment variable, which is the
- * controller's concern, not this service's.
+ * Dependencies for {@link pollNyc311}. `requestDao` defaults to this
+ * module's own `defaultRequestDao` — tests override it with a mock;
+ * `controller/ingestion/` never passes one, since controllers don't
+ * construct or touch a DAO at all (CLAUDE.md §5.2).
  */
 export interface PollNyc311Deps {
-  requestDao: RequestDao;
+  requestDao?: RequestDao;
   now?: () => Date;
   fetchPage?: typeof fetchNyc311Page;
 }
@@ -74,8 +95,8 @@ function cappedWatermark(now: Date, windowStartDate: Date, lastCreatedDateSeen: 
  * EventBridge Scheduler trigger — see 1-data-ingestion.md for the full
  * design (cursor semantics §2, pagination/cap §3, lenient validation §4).
  */
-export async function pollNyc311(deps: PollNyc311Deps): Promise<PollResult> {
-  const { requestDao } = deps;
+export async function pollNyc311(deps: PollNyc311Deps = {}): Promise<PollResult> {
+  const requestDao = deps.requestDao ?? defaultRequestDao;
   const now = deps.now ?? (() => new Date());
   const fetchPage = deps.fetchPage ?? fetchNyc311Page;
 
@@ -185,4 +206,38 @@ export async function pollNyc311(deps: PollNyc311Deps): Promise<PollResult> {
   });
 
   return { recordsIngested, duplicatesSkipped, recordsRejected };
+}
+
+/** Dependencies for {@link recordPollerMetrics} and {@link listPollerMetrics} — see {@link PollNyc311Deps}. */
+export interface RequestDaoDeps {
+  requestDao?: RequestDao;
+}
+
+/**
+ * Persists one poller run's outcome (1-data-ingestion.md §8a). Entered by
+ * both `controller/ingestion/nyc311PollerController.ts` (after every run,
+ * success or failure) and, indirectly, nothing else — kept alongside
+ * `pollNyc311` rather than a separate `service/metrics/` module since it's
+ * describing the exact same poll this file already runs, not a distinct
+ * concern.
+ */
+export async function recordPollerMetrics(metrics: PollerMetrics, deps: RequestDaoDeps = {}): Promise<void> {
+  const requestDao = deps.requestDao ?? defaultRequestDao;
+  logInfo("RecordPollerMetricsStarted", { metrics });
+  await requestDao.putPollerMetrics(metrics);
+  logInfo("RecordPollerMetricsCompleted", {});
+}
+
+/**
+ * Returns the NYC 311 poller's full run history, most recent first — the
+ * only query behind the public ingestion-metrics API
+ * (`controller/web-api/getPollerMetricsController.ts`, 1-data-ingestion.md
+ * §8a).
+ */
+export async function listPollerMetrics(deps: RequestDaoDeps = {}): Promise<PollerMetrics[]> {
+  const requestDao = deps.requestDao ?? defaultRequestDao;
+  logInfo("ListPollerMetricsStarted", {});
+  const metrics = await requestDao.listPollerMetrics();
+  logInfo("ListPollerMetricsCompleted", { count: metrics.length });
+  return metrics;
 }

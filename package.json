@@ -1,0 +1,10 @@
+{
+  "name": "nyc-311",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "description": "Root-level tooling only — web-app/, backend/, and cdk/ each remain their own npm package (CLAUDE.md §5). Not a workspace root; no dependencies live here.",
+  "scripts": {
+    "coverage:rollup": "node scripts/rollup-coverage.js"
+  }
+}

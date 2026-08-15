@@ -1,26 +1,10 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { Context } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { RequestDao } from "../../dao/request/requestDao";
-import { pollNyc311 } from "../../service/ingestion/nyc311PollerService";
+import { pollNyc311, recordPollerMetrics } from "../../service/ingestion/nyc311PollerService";
 import type { PollResult } from "../../models/pollResult";
 import { IngestionPollTriggerSchema } from "../../models/ingestionPollTrigger";
 import { ValidationError } from "../../models/errors";
 import type { PollerMetrics } from "../../models/pollerMetrics";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-// Constructed once at module scope (Lambda cold start) and reused across
-// warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2.
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const requestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
 
 /**
  * Entry point for the NYC 311 poller — invoked directly by an EventBridge
@@ -30,6 +14,9 @@ const requestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
  * `pollNyc311`, and lets any failure propagate so the Lambda's
  * on-failure Destination (1-data-ingestion.md §5) actually fires — this
  * controller never swallows an error, only logs it on the way out.
+ *
+ * Never touches a DAO directly (CLAUDE.md §5.2) — both the poll itself and
+ * recording its outcome go through `service/ingestion/nyc311PollerService`.
  */
 export const nyc311PollerController = async (event: unknown, context: Context): Promise<PollResult> => {
   logInfo("Nyc311PollerControllerInvoked", { event, awsRequestId: context.awsRequestId });
@@ -40,9 +27,9 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
   }
 
   try {
-    const result = await pollNyc311({ requestDao });
+    const result = await pollNyc311();
     logInfo("Nyc311PollerControllerCompleted", { result, awsRequestId: context.awsRequestId });
-    await recordPollerMetrics({
+    await safelyRecordPollerMetrics({
       ran_at: new Date().toISOString(),
       success: true,
       records_ingested: result.recordsIngested,
@@ -56,7 +43,7 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
       error: err instanceof Error ? err.message : err,
       awsRequestId: context.awsRequestId,
     });
-    await recordPollerMetrics({
+    await safelyRecordPollerMetrics({
       ran_at: new Date().toISOString(),
       success: false,
       records_ingested: 0,
@@ -69,17 +56,17 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
 };
 
 /**
- * Writes one poller run's outcome (1-data-ingestion.md §8a), swallowing any
- * failure of the write itself — a metrics-recording problem must never mask
- * or replace the real success/failure of the poll it's describing, on
- * either path. On the failure path in particular, this runs *after*
- * `Nyc311PollerControllerFailed` is already logged and *before* the
+ * Writes one poller run's outcome via `nyc311PollerService.recordPollerMetrics`,
+ * swallowing any failure of the write itself — a metrics-recording problem
+ * must never mask or replace the real success/failure of the poll it's
+ * describing, on either path. On the failure path in particular, this runs
+ * *after* `Nyc311PollerControllerFailed` is already logged and *before* the
  * original error is rethrown, so the Lambda's on-failure Destination still
  * fires exactly as it did before this existed.
  */
-async function recordPollerMetrics(metrics: PollerMetrics): Promise<void> {
+async function safelyRecordPollerMetrics(metrics: PollerMetrics): Promise<void> {
   try {
-    await requestDao.putPollerMetrics(metrics);
+    await recordPollerMetrics(metrics);
   } catch (err) {
     logError("Nyc311PollerControllerMetricsWriteFailed", {
       error: err instanceof Error ? err.message : err,

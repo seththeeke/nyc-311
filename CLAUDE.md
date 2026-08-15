@@ -233,6 +233,19 @@ The backend will follow a basic controller, service, and data access object(DAO)
   NYC 311 SODA API, proven inconsistent per `1-data-ingestion.md` §4) the
   same way before writing them. A malformed payload fails loudly at the
   boundary, not three calls deep.
+- **Controllers always go through a service to reach a DAO — never import,
+  construct, or call one directly.** The service layer owns constructing
+  its DAOs (module-scope singletons, same Lambda-cold-start-reuse pattern
+  controllers used to own — see `service/ingestion/nyc311PollerService.ts`)
+  and exposes plain functions a controller calls instead. This keeps the
+  service layer genuinely reusable across sync/async trigger types (a
+  controller swap should never require duplicating persistence logic) and
+  keeps every DAO call sitting next to the business logic that explains
+  *why* it's happening, not scattered into whichever controller happened to
+  need it first. Enforced by `eslint.config.js`'s `no-restricted-imports`
+  rule on `controller/**/*.ts` (bans any import path matching `**/dao/**`),
+  not just review — a controller that imports a DAO fails lint, not a
+  human catching it later.
 - **DAO layer splits along ddb-design.md's two table shapes, not just by
   entity.** Rather than every DAO reimplementing the transactional
   append-and-fold logic independently, `dao/` gets two small shared base
@@ -401,3 +414,26 @@ directory's structure section.
 The repo is hosted at https://github.com/seththeeke/nyc-311 and already setup. When you are asked to commit anything, you will commit all outstanding changes as a single commit rather than breaking the work down in any way unless instructed separately, this will prevent the chance of committing chunks that are not feasible piecewise. You will commit changes in the following format.
 
 [<feat> or <bugfi>] - Claude Commit: <Commit message>
+
+## 8. Coverage Rollup
+
+`web-app/`, `backend/`, and `cdk/` each produce their own local
+`coverage/index.html` (Vitest v8 HTML reporter, per each package's own
+Building-and-Testing section). A repo-root `package.json` — the only file
+at repo root outside `web-app/`, `backend/`, `cdk/`, `docs/` that isn't
+itself one of those locked directories — exposes one script that ties them
+together:
+
+| Command | Purpose |
+|---|---|
+| `npm run coverage:rollup` (repo root) | Runs `scripts/rollup-coverage.js`, which reads whatever `coverage/index.html`/`coverage-summary.json` already exists in each package and writes `build/coverage/index.html` — one page linking to all three, with a package-wide lines/branches/functions/statements % table. |
+
+This is a **local dev convenience, not a build/deploy step** — nothing in
+`cdk/pipeline/Nyc311PipelineStack.ts` calls it, and it runs no tests itself
+(a missing or stale package report just shows as "not yet generated"
+rather than being silently skipped or triggering a test run). Run each
+package's own `npm run test:coverage` first, then `npm run coverage:rollup`
+at the repo root, then open `build/coverage/index.html`. `build/` is
+already `.gitignore`d at the repo root (same as every other generated
+artifact — `cdk.out/`, `dist/`, each package's own `coverage/`), so this
+output is never committed.
