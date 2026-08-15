@@ -1,8 +1,13 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    // Real-integration tests (testing-framework.md §4) hit a live deployed
+    // Nyc311-Test environment over the network — they run only via the
+    // separate `npm run test:integration` (vitest.integration.config.ts),
+    // never as part of this unit-tier run/coverage gate.
+    exclude: [...configDefaults.exclude, "tests/integration/**"],
     // REQUESTS_TABLE_NAME: controller/ingestion/nyc311PollerController.ts
     // constructs its RequestDao at module scope (Lambda cold-start
     // pattern), so this must exist before that module's static imports

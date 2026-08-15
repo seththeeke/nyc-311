@@ -27,6 +27,7 @@
 | [6. ID generation scheme](#6-id-generation-scheme) | **Agreed** (project-wide, not just this slice) |
 | [7. Testing](#7-testing) | **Agreed** |
 | [8. Observability & custom metrics](#8-observability--custom-metrics) | **Agreed** |
+| [8a. Public ingestion-metrics API](#8a-public-ingestion-metrics-api-negotiated-2026-08-15) | **Agreed** |
 | [9. Environment naming note](#9-environment-naming-note) | **Agreed** |
 
 ---
@@ -210,6 +211,108 @@ logs.**
 
 ---
 
+## 8a. Public ingestion-metrics API (negotiated 2026-08-15)
+
+The first public API surface in the project — `GET /ingestion/metrics` —
+built to give the web-app's Monitoring/Ingestion tile something real to
+show. Every decision below was checked in with the project owner one at a
+time before building, per `CLAUDE.md` §4.
+
+**Storage: full run history via a new sparse GSI, not a base-table sort key
+or a single overwritten snapshot.** The Requests table's base key schema
+(`request_id` only, no sort key) is unchanged — see `ddb-design.md`'s
+Requests table section (GSI4 — `gsi4-poller-metrics`) for the design. Each
+poller run writes a new `METRIC#<ulid>` item (never overwrites a prior
+run); `gsi4pk = "POLLER#METRICS"` / `gsi4sk = ran_at` lets the API Query the
+whole history sorted by time. A single-overwritten-snapshot design was
+considered and rejected — it can't back a history/trend view, only "what
+did the last poll do."
+
+**Every run is recorded, success or failure.**
+`nyc311PollerController` now writes a metrics row after every invocation:
+on success, the real `PollResult` counts; on failure, a zeroed row
+(`records_ingested`/`duplicates_skipped`/`records_rejected` all `0`) with
+`error_message` set from the caught error. The zeroing is a real, accepted
+limitation — `pollNyc311` throws before returning counts, so a run that
+ingests 500 records and then fails on record 501 shows as "0 records, 1
+failure," not "500 records, then failed." Recording the metrics write
+itself never masks the real outcome: both the success and failure paths
+wrap the `putPollerMetrics` call in its own try/catch that only logs
+(`Nyc311PollerControllerMetricsWriteFailed`) — a DynamoDB throttle on the
+metrics write can never flip a successful poll into a failed Lambda
+invocation, or swallow a real poll failure that should still reach the
+on-failure Destination/DLQ/Alarm (§5).
+
+**Metrics fields — full breakdown, not one opaque total** (`models/
+pollerMetrics.ts`): `ran_at`, `success`, `records_ingested`,
+`duplicates_skipped`, `records_rejected`, `error_message`. Mirrors
+`PollResult` exactly on the success path since the service already computes
+all three counts — more useful for a dashboard than a single "records
+consumed" number, for negligible extra cost.
+
+**API Gateway: HTTP API (`aws-apigatewayv2`), not REST API
+(`aws-apigateway`).** Cheaper and simpler; nothing about this basic
+GET-only surface needs REST API's extra features (usage plans, request
+validators). CORS is locked to `WebsiteHosting`'s CloudFront domain
+(`distribution.domainName`) plus `http://localhost:5173` (the web-app's
+Vite dev server default) for local "live"-mode development — not `"*"`.
+Construct: `cdk/api/Nyc311Api.ts`; Lambda: `cdk/lambda/
+Nyc311MetricsApiLambda.ts` (grants `dynamodb:Query` only — read-only, never
+writes). `cdk/api/` is a new subdirectory under `cdk/`, added to `CLAUDE.md`
+§5.3 alongside `web/` following the same per-resource-construct convention.
+
+**Response shape:** `{ "metrics": PollerMetrics[] }`, most-recent-first, no
+pagination or limit. Deliberately unaddressed for now (see "Still Open"
+below) — at 4 runs/day this is ~1,460 items/year, not an urgent problem, but
+a real one eventually.
+
+**Backend layering:** `backend/models/apiGatewayHttpEvent.ts` is a new
+shared model — the minimal HTTP API v2 proxy-event shape a
+`controller/web-api` handler needs — validated first per `CLAUDE.md` §5.2,
+even though no field on it drives branching yet. `service/metrics/
+pollerMetricsService.ts` is intentionally thin (one call to
+`RequestDao.listPollerMetrics`) — it exists so the controller never talks
+to a DAO directly, keeping the controller → service → dao layering uniform
+even for a "basic" endpoint. `controller/web-api/
+getPollerMetricsController.ts` maps thrown errors to HTTP status codes
+(`ValidationError` → 400, anything else → 500) — the API-Gateway-controller
+half of `CLAUDE.md` §5.2's error-handling split, as opposed to the
+poller's Step-Functions-style propagate-and-let-the-caller-handle-it path.
+
+**Testing — a new real-integration tier, first use of `testing-framework.md`
+§4's fourth tier.** `backend/tests/integration/
+pollerMetricsApi.integration.test.ts` hits a live deployed `Nyc311-Test`
+over the network (reading `NYC311_API_URL`, an env var pointing at the
+`Nyc311ApiUrl` `CfnOutput` `stack/Nyc311Stack.ts` now emits), run via a new
+`npm run test:integration` (`backend/vitest.integration.config.ts`) —
+entirely separate from the unit-tier `npm run test`/`test:coverage`
+(`backend/vitest.config.ts` now excludes `tests/integration/**` so a
+network-dependent test can never break the unit gate or run unintentionally
+in an offline environment). `test-scripts/2-metrics-api-test.py` is the
+manual/human-triggered counterpart, matching `1-ingestion-test.py`'s
+existing style — looks up the deployed API URL via `cloudformation
+describe-stacks`, then does one plain HTTP GET and checks the shape.
+
+**Deliberately not built this round** — named here so it reads as a scoping
+decision, not an oversight:
+- **No pipeline-native integration-test stage.** `aws-code-pipeline-plan.md`
+  §5 already flagged "real-integration test stage against `test`, once
+  there's a meaningful API surface to hit" as a later addition, not
+  day-one scope. That API surface exists now, but wiring a `CodeBuildStep`
+  post-step onto the `DeployTest` stage (needing the deployed API's URL
+  threaded from that stage's output, plus IAM for CodeBuild to reach the
+  public internet) is real, separate scope — not done here.
+- **No endpoint-coverage gate.** `testing-framework.md` §5's "≥90% of API
+  Gateway routes hit at least once by the integration suite, computed
+  against the CDK synth output" tooling doesn't exist yet — trivial to
+  reason about by hand at 1 route, 1 route tested, but the actual
+  machine-checked mechanism is unbuilt.
+- **No pagination/limit/TTL on the metrics history.** Every run is kept
+  forever; the API always returns the full history. Fine at this volume,
+  not a long-term answer.
+
+---
+
 ## 9. Environment naming note
 
 The docs use **`test`** and **`prod`** as the two environment names
@@ -347,3 +450,85 @@ call out explicitly when it happens, not an incidental renaming.
       controls" entry.
 - [ ] Fix §8's example log field name (`event` → `message`) to match
       `logger.ts`/`nyc311PollerService.ts`.
+
+---
+
+## Addendum: Building the ingestion-metrics API end to end (2026-08-15)
+
+First full-stack (backend + cdk) feature built in one session, from a
+locked directory to a live public API. Notes for next time, mostly about
+this repo's specific mechanics rather than the feature itself (§8a covers
+that).
+
+**Clarify DynamoDB key-shape requests concretely, don't just implement
+them.** The original ask was "PK=POLLER#METRICS, SK=<when it ran>" against
+a table that has no sort key at all. Rather than silently picking an
+interpretation, walking through *why* DynamoDB can't do that as literally
+stated (Query needs a real sort key to return more than one item) — and
+giving the two honest options (single-item snapshot vs. GSI-backed history)
+— got a clear, correct decision in two round-trips instead of guessing.
+General lesson: when a stakeholder's literal key-shape request runs into a
+hard DynamoDB constraint (not a preference, a real limitation), explain the
+constraint and offer the real options rather than picking one silently or
+just building whatever was said literally.
+
+**Adding a GSI to an existing on-demand `TableV2` is safe and additive** —
+confirmed via `cdk synth`/the CDK assertion tests, no replacement/data-loss
+warning the way changing the *base* key schema would trigger. Worth
+remembering as the default lever for "I need a new access pattern" on a
+table that already has real data in it, before ever considering a key
+schema change.
+
+**Testing a Lambda-cold-start-constructed DAO from a controller test:**
+`nyc311PollerController.ts` (and now `getPollerMetricsController.ts`)
+construct their DAO at module scope, not via injected dependencies. To
+intercept that in a test without a real DynamoDB call,
+`vi.spyOn(RequestDao.prototype, "methodName")` works cleanly — it patches
+the method on the prototype chain, which every existing instance (including
+one already constructed at module import time) looks up at call time, not
+construction time. The type has to be declared as `MockInstance<typeof
+RequestDao.prototype.methodName>` (imported from `"vitest"`) — declaring it
+as the untyped `ReturnType<typeof vi.spyOn>` fails `tsc` with a variance
+error once the spied method's parameter type is more specific than
+`unknown`.
+
+**A metrics/observability write must never be allowed to change the real
+outcome of the operation it's describing.** Implemented as: the metrics
+write always runs inside its own try/catch that only logs on failure,
+nested inside the outer success/failure branch, never allowed to throw
+past that inner boundary. Worth reusing as the standard shape any time a
+"also record what happened" side-effect gets added next to an operation
+that already has its own success/failer contract to protect (e.g. whatever
+records Case-creation outcomes later).
+
+**Vitest's `test.exclude` (unlike `coverage.exclude`, per
+`testing-framework.md` §2's documented merge behavior) replaces the
+built-in defaults entirely if you set it directly** — has to be written as
+`[...configDefaults.exclude, "your/pattern/**"]` (importing `configDefaults`
+from `"vitest/config"`), or `node_modules`/`dist`/etc. stop being excluded
+from the unit-test run. Needed this to keep `tests/integration/**` out of
+the default `npm run test`/`test:coverage` run without accidentally
+un-excluding everything else.
+
+**A brand-new top-level `cdk/` subdirectory (`api/`, here) didn't need a
+CLAUDE.md-lock work-stoppage** — `CLAUDE.md` §1.1's Directory Lock is
+specifically about the three *top-level* dirs (`web-app/`, `backend/`,
+`cdk/`); once one of those has *any* structure section, adding a new
+per-resource subfolder that fits the section's own established pattern
+(`lambda/`, `data/`, `web/`, ...) is an extension of what's already agreed,
+not a new unlocked-directory decision — the same way `web/` was added
+without a fresh sign-off round when `WebsiteHosting` was built. Still
+updated `CLAUDE.md` §5.3's tree to list it, matching that precedent, but
+didn't treat it as blocking.
+
+**This was the first API Gateway construct, and CDK's HTTP API L2s are
+fully stable in `aws-cdk-lib` at the pinned version (2.264.0)** —
+`aws-apigatewayv2`/`aws-apigatewayv2-integrations` needed no alpha package,
+unlike some older CDK v2 guidance suggests. Worth checking directly
+(`ls node_modules/aws-cdk-lib/aws-apigatewayv2*`) rather than assuming
+alpha is still required, since that's changed across CDK v2 minor versions.
+
+**Still open, flagged in §8a rather than repeated here:** no pipeline-native
+integration-test stage yet (the real-integration tests exist but aren't
+gating deploys), no endpoint-coverage tooling, no pagination/TTL on the
+metrics history.
