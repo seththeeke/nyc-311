@@ -323,3 +323,27 @@ call out explicitly when it happens, not an incidental renaming.
   instead. Functionally harmless — the `MetricFilter`s already key off
   the right field — just needs the doc's example corrected on the next
   real edit to that section.
+
+---
+
+## Addendum: Next-Session Checklist (as of 2026-08-14)
+
+- [ ] Empirically re-verify dedup: poll `Nyc311-Test` a second time over an
+      already-ingested window and confirm `duplicates_skipped > 0` instead
+      of new rows landing.
+- [ ] Empirically re-verify resumed pagination: force a run that hits the
+      per-invocation record cap, confirm `resume_offset` persists, then
+      confirm the *next* run resumes from it (not restart, not skip-ahead).
+- [ ] Decide `INITIAL_WINDOW_HOURS` (§3, still 6–24h) vs. the ~47h real
+      feed lag observed this session — widen the bound, add a manual
+      override, or explicitly accept the one-time-hiccup risk on any
+      from-scratch environment.
+- [ ] Assess `Requests-Prod` for possibly-duplicate data written by the
+      pre-fix (broken GSI/dedup) code, decide on cleanup if needed, then
+      re-enable `Nyc311PollerSchedule-Prod` and confirm a clean Prod poll.
+- [ ] Design and build an on-demand/parameterized poll trigger (e.g. a
+      validated `sinceOverride` payload) — see also
+      `docs/99-things-to-come-back-to.md`'s "Manual/forced polling
+      controls" entry.
+- [ ] Fix §8's example log field name (`event` → `message`) to match
+      `logger.ts`/`nyc311PollerService.ts`.
