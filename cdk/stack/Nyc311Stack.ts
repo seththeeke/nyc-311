@@ -6,6 +6,7 @@ import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
+import { WebsiteDeployment } from "../web/WebsiteDeployment";
 
 // Enum-like discriminator, ALL_CAPS per CLAUDE.md §6.
 export type Nyc311Environment = "TEST" | "PROD";
@@ -77,5 +78,15 @@ export class Nyc311Stack extends Stack {
     // deployed API's base URL doesn't have to be hand-copied out of the
     // console.
     new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
+
+    // Deploys web-app/dist + the runtime env-config.json last, once both
+    // WebsiteHosting (for the bucket/distribution) and Nyc311Api (for the
+    // API URL that config.json carries) exist — see WebsiteHosting.ts's
+    // doc comment for why this can't happen inside either of those two
+    // constructs without a circular dependency between them.
+    new WebsiteDeployment(this, "WebsiteDeployment", {
+      websiteHosting,
+      apiBaseUrl: nyc311Api.apiEndpoint,
+    });
   }
 }

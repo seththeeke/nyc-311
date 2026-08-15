@@ -63,11 +63,9 @@ describe("WebsiteHosting", () => {
     });
   });
 
-  it("deploys web-app/dist to the bucket and invalidates the distribution on every deploy", () => {
+  it("deploys no content itself — that's WebsiteDeployment's job (see its own tests)", () => {
     const template = synthesize("TEST");
 
-    template.hasResourceProperties("Custom::CDKBucketDeployment", {
-      DistributionPaths: ["/*"],
-    });
+    template.resourceCountIs("Custom::CDKBucketDeployment", 0);
   });
 });

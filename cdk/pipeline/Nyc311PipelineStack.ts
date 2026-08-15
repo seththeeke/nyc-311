@@ -67,11 +67,21 @@ export class Nyc311PipelineStack extends Stack {
     // own deploy actions need the assembly that actually contains
     // `Nyc311PipelineStack` and the Stage-wrapped Test/Prod structure —
     // `bin/app.ts` produces neither.
+    //
+    // VITE_DATA_MODE=live on web-app's own build (not its test:coverage,
+    // which stays deterministic/offline) — this one shared build is
+    // deployed to both Nyc311-Test and Nyc311-Prod (WebsiteDeployment.ts),
+    // and both are real deployed environments that should hit the real
+    // API, never web-app/src/test-data/'s baked fixtures. Only the API
+    // URL itself differs per environment, and that's injected at deploy
+    // time instead (env-config.json, web-app/src/config.ts's
+    // loadRuntimeConfig) — dataMode doesn't need the same per-environment
+    // treatment since "live" is correct for both.
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
-        "cd web-app && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
+        "cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live npm run build && cd ..",
         "cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
         'cd cdk && npx cdk synth --app "npx ts-node --prefer-ts-exts bin/pipeline.ts"',
       ],

@@ -1,34 +1,29 @@
-import * as path from "node:path";
 import { RemovalPolicy } from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
-import { ensureDistDirectory } from "./ensureDistDirectory";
 
 export interface WebsiteHostingProps {
   envName: Nyc311Environment;
 }
 
 /**
- * Static hosting for `web-app/` (S3 + CloudFront), per
+ * Static hosting infrastructure for `web-app/` (S3 + CloudFront), per
  * `claude-prompt-initial.md` §5/§7 — "Hosting: S3 + CloudFront for the
  * SPA." Origin-access-controlled bucket (no public S3 access; CloudFront
  * is the only reader), 403/404 rewritten to `/index.html` so React
  * Router's client-side routes survive a hard refresh/deep link.
  *
- * `BucketDeployment` stages `web-app/dist` as an asset at synth time — the
- * same "cdk/ synth depends on a sibling package's build output already
- * having run" coupling `Nyc311PollerLambda` has with `backend/`, just via a
- * literal pre-built directory instead of `NodejsFunction`'s inline esbuild
- * step (Vite's multi-file bundling can't be inlined the same way). Run
- * `cd web-app && npm run build` first for a real local `synth`/`diff`/
- * `deploy`; the pipeline's Synth step does this before `cdk/`'s own
- * build+test, for the same reason. `ensureDistDirectory` (below) is a
- * fallback for when that hasn't happened yet — see its own doc comment —
- * not a substitute for it.
+ * Deliberately just the bucket + distribution — no content deployment
+ * here. `WebsiteDeployment` (`cdk/web/WebsiteDeployment.ts`) does that
+ * separately, since it needs `Nyc311Api`'s endpoint (for the runtime
+ * `env-config.json`) and `Nyc311Api` needs *this* construct's
+ * `distribution.domainName` (for CORS) — putting the deployment in the
+ * same construct as the domain name it's a dependency of would be
+ * circular. `Nyc311Stack.ts` wires the three in the order that breaks the
+ * cycle: `WebsiteHosting` → `Nyc311Api` → `WebsiteDeployment`.
  */
 export class WebsiteHosting extends s3.Bucket {
   public readonly distribution: cloudfront.Distribution;
@@ -54,7 +49,7 @@ export class WebsiteHosting extends s3.Bucket {
       enforceSSL: true,
     });
 
-    const distribution = new cloudfront.Distribution(this, "Distribution", {
+    this.distribution = new cloudfront.Distribution(this, "Distribution", {
       comment: `Nyc311Web-${suffix}`,
       defaultRootObject: "index.html",
       defaultBehavior: {
@@ -70,17 +65,6 @@ export class WebsiteHosting extends s3.Bucket {
         { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html" },
         { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html" },
       ],
-    });
-    this.distribution = distribution;
-
-    const distDir = path.join(__dirname, "..", "..", "web-app", "dist");
-    ensureDistDirectory(distDir);
-
-    new s3deploy.BucketDeployment(this, "Deployment", {
-      sources: [s3deploy.Source.asset(distDir)],
-      destinationBucket: this,
-      distribution,
-      distributionPaths: ["/*"],
     });
   }
 }
