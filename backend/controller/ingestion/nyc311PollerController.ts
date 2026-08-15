@@ -7,6 +7,7 @@ import { pollNyc311 } from "../../service/ingestion/nyc311PollerService";
 import type { PollResult } from "../../models/pollResult";
 import { IngestionPollTriggerSchema } from "../../models/ingestionPollTrigger";
 import { ValidationError } from "../../models/errors";
+import type { PollerMetrics } from "../../models/pollerMetrics";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -41,12 +42,48 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
   try {
     const result = await pollNyc311({ requestDao });
     logInfo("Nyc311PollerControllerCompleted", { result, awsRequestId: context.awsRequestId });
+    await recordPollerMetrics({
+      ran_at: new Date().toISOString(),
+      success: true,
+      records_ingested: result.recordsIngested,
+      duplicates_skipped: result.duplicatesSkipped,
+      records_rejected: result.recordsRejected,
+      error_message: null,
+    });
     return result;
   } catch (err) {
     logError("Nyc311PollerControllerFailed", {
       error: err instanceof Error ? err.message : err,
       awsRequestId: context.awsRequestId,
     });
+    await recordPollerMetrics({
+      ran_at: new Date().toISOString(),
+      success: false,
+      records_ingested: 0,
+      duplicates_skipped: 0,
+      records_rejected: 0,
+      error_message: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   }
 };
+
+/**
+ * Writes one poller run's outcome (1-data-ingestion.md §8a), swallowing any
+ * failure of the write itself — a metrics-recording problem must never mask
+ * or replace the real success/failure of the poll it's describing, on
+ * either path. On the failure path in particular, this runs *after*
+ * `Nyc311PollerControllerFailed` is already logged and *before* the
+ * original error is rethrown, so the Lambda's on-failure Destination still
+ * fires exactly as it did before this existed.
+ */
+async function recordPollerMetrics(metrics: PollerMetrics): Promise<void> {
+  try {
+    await requestDao.putPollerMetrics(metrics);
+  } catch (err) {
+    logError("Nyc311PollerControllerMetricsWriteFailed", {
+      error: err instanceof Error ? err.message : err,
+      metrics,
+    });
+  }
+}
