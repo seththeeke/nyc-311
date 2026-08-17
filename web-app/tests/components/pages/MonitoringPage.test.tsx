@@ -17,4 +17,17 @@ describe("MonitoringPage", () => {
       "/monitoring/ingestion"
     );
   });
+
+  it("renders a Pipeline tile linking to /monitoring/pipeline", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /pipeline/i })).toHaveAttribute(
+      "href",
+      "/monitoring/pipeline"
+    );
+  });
 });

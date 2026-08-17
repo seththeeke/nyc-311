@@ -2,6 +2,7 @@ export type DataMode = "mock" | "live";
 
 export interface AppConfig {
   apiBaseUrl: string;
+  pipelineApiBaseUrl: string;
   dataMode: DataMode;
 }
 
@@ -19,6 +20,13 @@ export const config: AppConfig = {
   // unset one, and treating them identically is what lets a test stub it
   // to "" without needing to force a genuinely `undefined` env var.
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "",
+  // Deliberately NOT part of loadRuntimeConfig/env-config.json below —
+  // 2-pipeline-monitoring.md §9: unlike apiBaseUrl, this is the exact same
+  // URL in every deployed environment (Nyc311Pipeline is a singleton, not
+  // per-environment), so it doesn't have the "one build, two values"
+  // problem that mechanism exists to solve. Just a plain checked-in
+  // build-time value (web-app/.env, not .env.local).
+  pipelineApiBaseUrl: import.meta.env.VITE_PIPELINE_API_BASE_URL || "",
   dataMode: import.meta.env.VITE_DATA_MODE === "live" ? "live" : "mock",
 };
 

@@ -13,6 +13,11 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     description: "NYC 311 poller run history and status.",
     to: "/monitoring/ingestion",
   },
+  {
+    title: "Pipeline",
+    description: "Nyc311Pipeline stage status and deploy history.",
+    to: "/monitoring/pipeline",
+  },
 ];
 
 export function MonitoringPage(): ReactElement {

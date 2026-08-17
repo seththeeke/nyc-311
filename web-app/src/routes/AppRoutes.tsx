@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { HomePage } from "../components/pages/HomePage";
 import { MonitoringPage } from "../components/pages/MonitoringPage";
 import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoringPage";
+import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
 import { PublicRoute } from "./PublicRoute";
 
 export function AppRoutes(): ReactElement {
@@ -29,6 +30,14 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <IngestionMonitoringPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/monitoring/pipeline"
+        element={
+          <PublicRoute>
+            <PipelineMonitoringPage />
           </PublicRoute>
         }
       />

@@ -4,6 +4,7 @@ build/
 .env
 .env.*
 !.env.example
+!web-app/.env
 *.log
 .DS_Store
 cdk.out/
