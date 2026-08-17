@@ -106,3 +106,36 @@ discussed, roughly in order of how much they change:
 Whichever direction, it's worth re-checking the cursor/logs the same way
 afterward to confirm the window actually starts draining, not just
 assuming the fix worked.
+
+---
+
+## Custom domain names for the site(s) and APIs
+
+Flagged 2026-08-16 while designing `2-pipeline-monitoring.md`. Everything
+public-facing today runs on raw AWS-generated domains — CloudFront's
+`*.cloudfront.net` for the sites, API Gateway's
+`*.execute-api.<region>.amazonaws.com` for both `Nyc311Api` and (once
+built) `Nyc311PipelineStatusApi`. Nothing is broken by this, but it's a
+real "eventually selected, then propagated everywhere" item once real
+domain names are picked (e.g. via Route53 + an ACM cert):
+
+- `cdk/web/WebsiteHosting.ts` — CloudFront distribution needs the
+  domain(s) as aliases + the ACM cert attached.
+- `cdk/api/Nyc311Api.ts` — CORS already reads `webAppDomainName` off
+  `WebsiteHosting.distribution.domainName` dynamically (not hardcoded),
+  so this one mostly self-updates once `WebsiteHosting` has a real domain.
+- `cdk/pipeline/Nyc311PipelineStatusApi.ts` — per
+  `2-pipeline-monitoring.md` §7, this one's CORS allow-list is
+  **hardcoded** (`TEST_WEB_DOMAIN`/`PROD_WEB_DOMAIN` constants), a
+  deliberate tradeoff over cross-stack coupling — a real domain change
+  means updating these two constants by hand.
+- `web-app/.env`/`.env.local` and the deploy-time `env-config.json`
+  mechanism (`1-data-ingestion.md` §8a) — whichever API URLs get baked in
+  or injected would need to point at the new domain-fronted endpoints
+  instead of the raw AWS-generated ones, if the APIs themselves ever get
+  custom domains too (not just the site).
+
+Worth deciding, when this comes up: whether only the site(s) get a custom
+domain (simplest — CloudFront alias only, APIs stay on their AWS-generated
+URLs, nothing else changes) or the APIs do too (a real API Gateway custom
+domain name + Route53 record per API, touching every bullet above).

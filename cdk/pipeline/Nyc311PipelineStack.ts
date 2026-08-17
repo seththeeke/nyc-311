@@ -1,4 +1,4 @@
-import { Stack, StackProps } from "aws-cdk-lib";
+import { CfnOutput, Stack, StackProps } from "aws-cdk-lib";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as iam from "aws-cdk-lib/aws-iam";
@@ -7,6 +7,13 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import type { Construct } from "constructs";
 import { Nyc311AppStage } from "./Nyc311AppStage";
+import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
+import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
+
+// aws-code-pipeline-plan.md §4 / 2-pipeline-monitoring.md — the pipeline's
+// own name, referenced both by the CodePipeline construct below and by
+// Nyc311PipelineStatusLambda (as an env var, not hardcoded a second time).
+const PIPELINE_NAME = "Nyc311Pipeline";
 
 // aws-code-pipeline-plan.md §3 — GitHub is the permanent source host.
 const GITHUB_OWNER = "seththeeke";
@@ -97,7 +104,7 @@ export class Nyc311PipelineStack extends Stack {
     // own behavior of reading each stage's actions from the live
     // pipeline definition.
     const pipeline = new pipelines.CodePipeline(this, "Pipeline", {
-      pipelineName: "Nyc311Pipeline",
+      pipelineName: PIPELINE_NAME,
       synth,
       selfMutation: true,
       pipelineType: codepipeline.PipelineType.V2,
@@ -143,8 +150,25 @@ export class Nyc311PipelineStack extends Stack {
     );
 
     // Must build the pipeline before reaching into the underlying
-    // `codepipeline.Pipeline` for notifications (CDK Pipelines README).
+    // `codepipeline.Pipeline` for notifications (CDK Pipelines README) —
+    // also true for Nyc311PipelineStatusLambda below, which needs
+    // `pipeline.pipeline.pipelineArn` for IAM scoping.
     pipeline.buildPipeline();
+
+    // 2-pipeline-monitoring.md — a read-only mirror of this exact
+    // pipeline's AWS console status view, living here (not in
+    // Nyc311Stack) because the pipeline itself is a singleton, not
+    // per-environment (§2 of that doc).
+    const pipelineStatusLambda = new Nyc311PipelineStatusLambda(this, "Nyc311PipelineStatusLambda", {
+      pipelineName: PIPELINE_NAME,
+      pipelineArn: pipeline.pipeline.pipelineArn,
+    });
+    const pipelineStatusApi = new Nyc311PipelineStatusApi(this, "Nyc311PipelineStatusApi", {
+      pipelineStatusLambda,
+    });
+    // Read once during the bootstrap sequence (2-pipeline-monitoring.md
+    // §10) to fill web-app/.env's VITE_PIPELINE_API_BASE_URL.
+    new CfnOutput(this, "Nyc311PipelineStatusApiUrl", { value: pipelineStatusApi.apiEndpoint });
 
     // §4.1 — the sole human-intervention trigger: any stage failure
     // notifies by email.

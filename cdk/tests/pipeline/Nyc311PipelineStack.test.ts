@@ -150,6 +150,15 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
+  it("wires the pipeline-status API/Lambda, scoped to this pipeline's own ARN", () => {
+    const template = synthesize();
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311PipelineStatus" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311PipelineStatusApi" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /pipeline/status" });
+    template.hasOutput("Nyc311PipelineStatusApiUrl", {});
+  });
+
   it("does not restrict direct deploys of the pipeline stack itself, the recovery path for a broken Synth step", () => {
     const template = synthesize();
 

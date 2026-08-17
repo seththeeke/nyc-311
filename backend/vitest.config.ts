@@ -8,12 +8,13 @@ export default defineConfig({
     // separate `npm run test:integration` (vitest.integration.config.ts),
     // never as part of this unit-tier run/coverage gate.
     exclude: [...configDefaults.exclude, "tests/integration/**"],
-    // REQUESTS_TABLE_NAME: controller/ingestion/nyc311PollerController.ts
-    // constructs its RequestDao at module scope (Lambda cold-start
-    // pattern), so this must exist before that module's static imports
-    // resolve — set here rather than per-test so it's in place before any
-    // test file's own imports run.
-    env: { REQUESTS_TABLE_NAME: "Requests" },
+    // REQUESTS_TABLE_NAME / PIPELINE_NAME: service/ingestion/nyc311PollerService.ts
+    // and service/pipeline/pipelineStatusService.ts construct their DAO/SDK
+    // client at module scope (Lambda cold-start pattern), so these must
+    // exist before those modules' static imports resolve — set here rather
+    // than per-test so they're in place before any test file's own imports
+    // run.
+    env: { REQUESTS_TABLE_NAME: "Requests", PIPELINE_NAME: "Nyc311Pipeline" },
     coverage: {
       provider: "v8",
       include: ["controller/**/*.ts", "dao/**/*.ts", "models/**/*.ts", "service/**/*.ts", "logger.ts"],
