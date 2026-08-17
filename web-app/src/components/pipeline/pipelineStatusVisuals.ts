@@ -15,6 +15,20 @@ export interface StatusVisual {
 
 const NEUTRAL_GRAY = "#898781"; // palette.md's mode-invariant muted/axis token — not a series color, so not in IV_COLORS
 
+/** The category→color mapping, shared by getStatusVisual and any rollup (e.g. a per-stage summary) that only has a category, not a raw status string. */
+export function getCategoryColor(category: StatusCategory): string {
+  switch (category) {
+    case "success":
+      return IV_COLORS.statusGood;
+    case "failure":
+      return IV_COLORS.statusCritical;
+    case "inProgress":
+      return IV_COLORS.seriesIngested;
+    default:
+      return NEUTRAL_GRAY;
+  }
+}
+
 /**
  * CodePipeline's status vocabulary spans action statuses
  * (InProgress/Succeeded/Failed/Cancelled/Stopped/Superseded/Abandoned)
@@ -25,18 +39,18 @@ const NEUTRAL_GRAY = "#898781"; // palette.md's mode-invariant muted/axis token 
  */
 export function getStatusVisual(status: string | null): StatusVisual {
   if (status === null) {
-    return { category: "neutral", color: NEUTRAL_GRAY, label: "Not run yet" };
+    return { category: "neutral", color: getCategoryColor("neutral"), label: "Not run yet" };
   }
   switch (status) {
     case "Succeeded":
-      return { category: "success", color: IV_COLORS.statusGood, label: "Succeeded" };
+      return { category: "success", color: getCategoryColor("success"), label: "Succeeded" };
     case "Failed":
-      return { category: "failure", color: IV_COLORS.statusCritical, label: "Failed" };
+      return { category: "failure", color: getCategoryColor("failure"), label: "Failed" };
     case "InProgress":
-      return { category: "inProgress", color: IV_COLORS.seriesIngested, label: "In progress" };
+      return { category: "inProgress", color: getCategoryColor("inProgress"), label: "In progress" };
     default:
       // Cancelled / Stopped / Superseded / Abandoned / anything future —
       // not a failure, just not currently meaningful to call out in color.
-      return { category: "neutral", color: NEUTRAL_GRAY, label: status };
+      return { category: "neutral", color: getCategoryColor("neutral"), label: status };
   }
 }

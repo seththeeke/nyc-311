@@ -4,6 +4,8 @@ import { usePipelineStatus } from "../../hooks/usePipelineStatus";
 import { PipelineStagesView } from "../pipeline/PipelineStagesView";
 import { PipelineExecutionHistory } from "../pipeline/PipelineExecutionHistory";
 
+const GITHUB_REPO_URL = "https://github.com/seththeeke/nyc-311";
+
 function Section({ title, children }: { title: string; children: ReactElement }): ReactElement {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -17,10 +19,20 @@ export function PipelineMonitoringPage(): ReactElement {
   const { data, isPending, isError, error } = usePipelineStatus();
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-16">
-      <Link to="/monitoring" className="text-sm text-blue-600 underline">
-        &larr; Monitoring
-      </Link>
+    <main className="mx-auto max-w-7xl px-6 py-16">
+      <div className="flex items-center justify-between">
+        <Link to="/monitoring" className="text-sm text-blue-600 underline">
+          &larr; Monitoring
+        </Link>
+        <a
+          href={GITHUB_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 underline"
+        >
+          View on GitHub<span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
       <h1 className="mt-4 text-2xl font-semibold text-slate-900">Pipeline</h1>
       <p className="mt-2 text-slate-600">Nyc311Pipeline status — read-only, refreshes every 30s.</p>
 
