@@ -131,7 +131,7 @@ export function PipelineExecutionHistory({ executions }: PipelineExecutionHistor
     <div data-testid="execution-history-scroll" className="max-h-[26rem] overflow-y-auto rounded-md border border-slate-100">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Nyc311Pipeline execution history, most recent first</caption>
-        <thead className="sticky top-0 bg-white">
+        <thead className="sticky top-0 bg-white/95 backdrop-blur-sm">
           <tr className="border-b border-slate-200 text-left text-slate-500">
             <th scope="col" className="py-2 pr-1 pl-2">
               <span className="sr-only">Expand row</span>

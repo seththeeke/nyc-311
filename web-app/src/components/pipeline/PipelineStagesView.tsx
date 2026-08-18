@@ -27,7 +27,7 @@ function ActionRow({ action }: { action: PipelineAction }): ReactElement {
 
 function StageCard({ stage }: { stage: PipelineStage }): ReactElement {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
       <h3 className="truncate text-[0.65rem] font-semibold tracking-wide text-slate-500 uppercase">
         {stage.stageName}
       </h3>
