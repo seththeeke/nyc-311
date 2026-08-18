@@ -26,6 +26,14 @@ describe("RequestsTable", () => {
     });
   });
 
+  it("streams NEW_AND_OLD_IMAGES, backing the order-ingestion fan-out Lambda's listener (3-order-ingestion.md §2.1)", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      StreamSpecification: { StreamViewType: "NEW_AND_OLD_IMAGES" },
+    });
+  });
+
   it("suffixes the physical table name by environment to avoid a Test/Prod collision in the same account", () => {
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Test" });
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Prod" });

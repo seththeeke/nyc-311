@@ -4,6 +4,8 @@ import { RequestsTable } from "../data/RequestsTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
+import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
+import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -58,6 +60,20 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       pollerLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    // 3-order-ingestion.md §2 — the order-ingestion fan-out Lambda: listens
+    // to the Requests table's DynamoDB Stream and republishes relevant
+    // records onto this queue. The downstream request-processor consuming
+    // from it isn't built yet (out of scope for this slice).
+    const orderIngestionQueue = new Nyc311OrderIngestionQueue(this, "Nyc311OrderIngestionQueue", {
+      envName: props.envName,
+    });
+
+    new Nyc311OrderFanOutLambda(this, "Nyc311OrderFanOutLambda", {
+      envName: props.envName,
+      requestsTable,
+      orderIngestionQueue,
     });
 
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });

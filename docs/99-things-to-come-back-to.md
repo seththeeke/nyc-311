@@ -139,3 +139,26 @@ Worth deciding, when this comes up: whether only the site(s) get a custom
 domain (simplest — CloudFront alias only, APIs stay on their AWS-generated
 URLs, nothing else changes) or the APIs do too (a real API Gateway custom
 domain name + Route53 record per API, touching every bullet above).
+
+---
+
+## Existing draft-Request backlog won't reach the order-ingestion pipeline
+
+Decided 2026-08-18 while designing `3-order-ingestion.md` §6. That doc's
+listener runs off a DynamoDB Stream on the `Requests` table — streams only
+capture writes from the point they're enabled forward, so the ~42,000+
+`draft` Requests already sitting in `Requests-Test` (and whatever's in the
+still-paused `Requests-Prod`, per `1-data-ingestion.md`'s Outstanding
+Items) will never flow through `evaluateRequest` no matter the listener's
+starting position. Accepted as a known gap rather than building a
+backfill now — `3-order-ingestion.md` §1's filters ship as stubs first, so
+backfilling the backlog immediately wouldn't exercise anything real yet
+anyway.
+
+**Revisit once the filters in `3-order-ingestion.md` (`resolveLocation`
+especially) are real, not stubs.** At that point: a script/on-demand
+Lambda that `Query`s `gsi2-status` (`gsi2pk = "DRAFT"`) and feeds each item
+through the same `evaluateRequest` service-layer call the stream listener
+uses (not a duplicate code path) would both clear the backlog and serve as
+a real-data test of the filters — same spirit as `1-ingestion-test.py`
+validating dedup against real data rather than fixtures.

@@ -1,5 +1,5 @@
 import { RemovalPolicy } from "aws-cdk-lib";
-import { AttributeType, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
+import { AttributeType, ProjectionType, StreamViewType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
@@ -32,6 +32,13 @@ export class RequestsTable extends TableV2 {
 
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: RemovalPolicy.RETAIN, // all environments, per ddb-design.md
+      // Agreed 2026-08-18 (3-order-ingestion.md §2.1) — backs the
+      // order-ingestion fan-out Lambda's listener. NEW_AND_OLD_IMAGES even
+      // though that listener only needs the new image: this setting is
+      // table-wide across every stream consumer, and changing it later
+      // would mean tearing down and recreating every existing event source
+      // mapping on this stream, not just adding a new one.
+      dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,
 
       globalSecondaryIndexes: [
         {

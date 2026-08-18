@@ -39,6 +39,14 @@ describe("Nyc311Stack", () => {
     template.resourceCountIs("AWS::Scheduler::Schedule", 1);
   });
 
+  it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Test" });
+    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderIngestionQueue-Test" });
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 1);
+  });
+
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
     const { template } = synthesize("TestStack", "TEST");
 
