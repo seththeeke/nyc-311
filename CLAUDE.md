@@ -194,8 +194,10 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> web-api - controller endpoints for the public web api
   -> ingestion - controller endpoints for scheduled external-data ingestion
      (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
-     EventBridge Scheduler trigger, not API Gateway or Step Functions
-  -> order-request-processing - controller endpoints for the order intake processing steps
+     EventBridge Scheduler trigger, not API Gateway or Step Functions —
+     plus, as of `3-order-ingestion.md` §2, the DynamoDB-Streams-triggered
+     fan-out Lambda that republishes newly-ingested Requests onto SQS; both
+     are "how a Request enters the system," not just the SODA-poll path
   -> order-processing - controller endpoints for the main order step function workflow
   -> data-archival - controller endpoints for any callback or fetching information during archival
  -> service
@@ -236,7 +238,7 @@ The backend will follow a basic controller, service, and data access object(DAO)
 - **Controllers always go through a service to reach a DAO — never import,
   construct, or call one directly.** The service layer owns constructing
   its DAOs (module-scope singletons, same Lambda-cold-start-reuse pattern
-  controllers used to own — see `service/ingestion/nyc311PollerService.ts`)
+  controllers used to own — see `service/ingestion/nyc311RequestService.ts`)
   and exposes plain functions a controller calls instead. This keeps the
   service layer genuinely reusable across sync/async trigger types (a
   controller swap should never require duplicating persistence logic) and

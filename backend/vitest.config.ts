@@ -8,7 +8,7 @@ export default defineConfig({
     // separate `npm run test:integration` (vitest.integration.config.ts),
     // never as part of this unit-tier run/coverage gate.
     exclude: [...configDefaults.exclude, "tests/integration/**"],
-    // REQUESTS_TABLE_NAME / PIPELINE_NAME: service/ingestion/nyc311PollerService.ts
+    // REQUESTS_TABLE_NAME / PIPELINE_NAME: service/ingestion/nyc311RequestService.ts
     // and service/pipeline/pipelineStatusService.ts construct their DAO/SDK
     // client at module scope (Lambda cold-start pattern), so these must
     // exist before those modules' static imports resolve — set here rather

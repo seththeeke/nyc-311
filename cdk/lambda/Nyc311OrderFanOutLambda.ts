@@ -59,7 +59,7 @@ export class Nyc311OrderFanOutLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "order-request-processing", "fanOutRequestEventsController.ts"),
+      entry: path.join(backendRoot, "controller", "ingestion", "fanOutRequestEventsController.ts"),
       handler: "fanOutRequestEventsController",
       runtime: Runtime.NODEJS_22_X,
       timeout: Duration.seconds(30),

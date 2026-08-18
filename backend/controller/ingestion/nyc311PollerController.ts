@@ -1,6 +1,6 @@
 import type { Context } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { pollNyc311, recordPollerMetrics } from "../../service/ingestion/nyc311PollerService";
+import { pollNyc311, recordPollerMetrics } from "../../service/ingestion/nyc311RequestService";
 import type { PollResult } from "../../models/pollResult";
 import { IngestionPollTriggerSchema } from "../../models/ingestionPollTrigger";
 import { ValidationError } from "../../models/errors";
@@ -16,7 +16,7 @@ import type { PollerMetrics } from "../../models/pollerMetrics";
  * controller never swallows an error, only logs it on the way out.
  *
  * Never touches a DAO directly (CLAUDE.md §5.2) — both the poll itself and
- * recording its outcome go through `service/ingestion/nyc311PollerService`.
+ * recording its outcome go through `service/ingestion/nyc311RequestService`.
  */
 export const nyc311PollerController = async (event: unknown, context: Context): Promise<PollResult> => {
   logInfo("Nyc311PollerControllerInvoked", { event, awsRequestId: context.awsRequestId });
@@ -56,7 +56,7 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
 };
 
 /**
- * Writes one poller run's outcome via `nyc311PollerService.recordPollerMetrics`,
+ * Writes one poller run's outcome via `nyc311RequestService.recordPollerMetrics`,
  * swallowing any failure of the write itself — a metrics-recording problem
  * must never mask or replace the real success/failure of the poll it's
  * describing, on either path. On the failure path in particular, this runs

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "aws-lambda";
-import { fanOutRequestRecord } from "../../../service/orderIngestion/requestFanOutService";
-import { fanOutRequestEventsController } from "../../../controller/order-request-processing/fanOutRequestEventsController";
+import { fanOutRequestRecord } from "../../../service/ingestion/nyc311RequestService";
+import { fanOutRequestEventsController } from "../../../controller/ingestion/fanOutRequestEventsController";
 import { ValidationError } from "../../../models/errors";
 
-vi.mock("../../../service/orderIngestion/requestFanOutService", () => ({
+vi.mock("../../../service/ingestion/nyc311RequestService", () => ({
   fanOutRequestRecord: vi.fn(),
 }));
 

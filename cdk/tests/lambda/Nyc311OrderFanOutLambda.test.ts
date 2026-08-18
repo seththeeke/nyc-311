@@ -15,7 +15,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311OrderFanOutLambda", () => {
-  it("bundles backend/controller/order-request-processing/fanOutRequestEventsController's exported handler on Node 22", () => {
+  it("bundles backend/controller/ingestion/fanOutRequestEventsController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {

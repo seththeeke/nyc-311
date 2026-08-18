@@ -306,23 +306,32 @@ owns `evaluateRequest` from §1 and the real DAO calls) gets its own
 controller/service/DAO placement decided when that piece is actually
 designed — out of scope here.
 
-Fits `CLAUDE.md` §5.2's structure — the `order-request-processing`
-controller directory already exists in that doc's tree for "the order
-intake processing steps," and the fan-out Lambda is the first stage of
-that:
+**Revised 2026-08-19, while building this leg.** Originally placed under
+a new `order-request-processing` controller directory and a new
+`service/orderIngestion/` service module, each holding just this one
+file. Moved instead: `fanOutRequestEventsController.ts` into the existing
+`controller/ingestion/` (this is a second way a `Request` enters the
+system, alongside the SODA poller — not a distinct concern deserving its
+own directory), and the fan-out logic folded into the existing poller
+service file rather than a new one-function module — which is also why
+that file is renamed `nyc311RequestService.ts` (was
+`nyc311PollerService.ts`): it now owns *both* how a `Request` gets
+created *and* how one gets noticed downstream, so "poller" no longer
+described its full scope. `order-request-processing` (the directory) is
+deleted; `CLAUDE.md` §5.2's tree updated to match. Current layout:
 
 - **Model:** `backend/models/requestStreamEvent.ts` — the minimal
   DynamoDB Streams Lambda event shape (an array of records, each with a
   `dynamodb.NewImage`/`OldImage` in DynamoDB's own AttributeValue JSON
   format), validated via `zod` as the controller's first move per
   `CLAUDE.md` §5.2.
-- **Controller:** `backend/controller/order-request-processing/
+- **Controller:** `backend/controller/ingestion/
   fanOutRequestEventsController.ts` — parses the stream event via the
   model above, loops the batch, calls the service per record, collects
   per-item failures for `reportBatchItemFailures` (§2.1). Logs full
   request/response per `CLAUDE.md` §5.2's controller logging rule.
-- **Service:** `backend/service/orderIngestion/
-  requestFanOutService.ts` — **agreed (2026-08-18): full layering, even
+- **Service:** `backend/service/ingestion/nyc311RequestService.ts`'s
+  `fanOutRequestRecord` — **agreed (2026-08-18): full layering, even
   though there's no DAO to reach.** Owns exactly two things per record:
   the relevance check (`eventName === "INSERT"` and
   `external_unique_key` present, §2.1's in-handler filtering decision) and
@@ -330,7 +339,11 @@ that:
   controller→service→DAO rule exists specifically to keep DAO calls out
   of controllers, and there simply isn't one here — but the service layer
   still exists to keep every backend Lambda structurally consistent rather
-  than carving out a "thin enough to skip" exception.
+  than carving out a "thin enough to skip" exception. Lives alongside
+  `pollNyc311`/`recordPollerMetrics`/`listPollerMetrics` in the same file
+  now, not a separate module — both are "how a `Request` moves," and
+  `nyc311PollerService.ts` was never a *DAO*-scoped module (the DAO
+  boundary is `requestDao.ts`), just an ingestion-scoped one.
 - **DAO:** none for this Lambda. `requestDao.ts`'s new promote-and-write-
   back method, the new `orderDao.ts`, and the not-yet-built
   `EventSourcedDao<TProjection, TEvent>` base class all belong to the
@@ -459,12 +472,13 @@ what it hands off.
 - [x] ~~**Exact CDK construct naming/file layout**~~ — settled while
       building (below).
 
-### Build — fan-out leg complete (2026-08-18)
+### Build — fan-out leg complete (2026-08-18, reorganized 2026-08-19)
 
 The fan-out leg (§2, already fully agreed) is built, unit-tested, and
-passes each package's build/lint/test/coverage gate. Not yet pushed to
-`Nyc311-Test`/`Nyc311-Prod` — no pipeline run has verified this in a real
-environment yet.
+passes each package's build/lint/test/coverage gate. Pushed to `main`
+2026-08-18; reorganized (controller/service placement, §2.2) and pushed
+again 2026-08-19. Still **not verified against a real deploy** — no
+pipeline run has confirmed this in `Nyc311-Test` yet.
 
 - [x] Enabled `dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES` on
       `cdk/data/RequestsTable.ts`.
@@ -474,10 +488,14 @@ environment yet.
       source mapping's `onFailure` (metadata-only, per §2.3).
 - [x] `backend/models/requestStreamEvent.ts` — DynamoDB Streams Lambda
       event shape, `zod`-validated.
-- [x] `backend/controller/order-request-processing/
-      fanOutRequestEventsController.ts`.
-- [x] `backend/service/orderIngestion/requestFanOutService.ts` — relevance
-      check + `unmarshall` + `SendMessage`.
+- [x] `backend/controller/ingestion/fanOutRequestEventsController.ts`
+      (moved from `order-request-processing/`, 2026-08-19 — that directory
+      no longer exists).
+- [x] `backend/service/ingestion/nyc311RequestService.ts`'s
+      `fanOutRequestRecord` — relevance check + `unmarshall` +
+      `SendMessage` (folded in 2026-08-19; `service/orderIngestion/
+      requestFanOutService.ts` no longer exists, and the file itself is
+      renamed from `nyc311PollerService.ts` — §2.2).
 - [x] `cdk/lambda/Nyc311OrderFanOutLambda.ts` — custom construct extending
       `NodejsFunction`, per `CLAUDE.md` §5.3 — event source mapping:
       `batchSize: 100`, `startingPosition: LATEST`,
@@ -491,11 +509,36 @@ environment yet.
 - [x] Unit tests (fan-out service/controller, 100% coverage) + CDK
       assertion tests for both new constructs (100% coverage) — both
       packages' `test:coverage` gate passes.
-- [ ] **Not done yet:** push to `main`, verify via the pipeline against a
-      real `Nyc311-Test` deploy (deliberately out of scope for this
-      session, per instruction).
+- [ ] **Not done yet:** verify via the pipeline against a real
+      `Nyc311-Test` deploy.
 
 Everything downstream of the SQS queue (the request-processor Lambda:
 `evaluateRequest`, `orderDao.ts`, the new `EventSourcedDao<TProjection,
 TEvent>` base class, the promote-and-write-back on `requestDao.ts`) has no
 build checklist yet — its design (§3/§4/§5) isn't settled.
+
+---
+
+## Addendum: Comment verbosity — a plan to determine (flagged 2026-08-19)
+
+Flagged, not decided. Every file in this slice (and the ingestion slice
+before it) carries dense, doc-cross-referencing comments — full paragraphs
+citing section numbers, dates, and "agreed 2026-08-18" provenance on
+functions/constants that a one-line comment would otherwise cover. That
+density has been deliberate so far (each decision's *why* stays attached
+to the code enforcing it, not just this doc), but it's worth a real
+decision rather than continuing by default:
+
+- Is the current level right, or should it be pared back once a decision
+  is old enough to be "just how the code works" rather than a live
+  rationale worth restating in-line?
+- If pared back, on what trigger — age, a doc reaching "Agreed" status,
+  something else — and does that responsibility belong to whoever touches
+  the file next, or a dedicated pass?
+- Does this apply uniformly across `backend/`/`cdk/`/tests, or do
+  different layers warrant different bars (e.g. a CDK construct's
+  IAM-scoping rationale staying vs. a test file's inline commentary
+  trimming sooner)?
+
+Worth a deliberate pass once there's more code to judge the pattern
+against, not a rule invented from this one slice alone.

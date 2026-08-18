@@ -1,6 +1,6 @@
 import type { Context, DynamoDBBatchResponse } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { fanOutRequestRecord } from "../../service/orderIngestion/requestFanOutService";
+import { fanOutRequestRecord } from "../../service/ingestion/nyc311RequestService";
 import { RequestStreamEventSchema } from "../../models/requestStreamEvent";
 import { ValidationError } from "../../models/errors";
 
@@ -9,7 +9,7 @@ import { ValidationError } from "../../models/errors";
  * `3-order-ingestion.md` §2's "listener," invoked directly by an event
  * source mapping (no Step Functions/API Gateway envelope). Validates the
  * raw stream event into a structured model first (CLAUDE.md §5.2), then
- * delegates each record to `service/orderIngestion/requestFanOutService`.
+ * delegates each record to `service/ingestion/nyc311RequestService`.
  *
  * Never touches a DAO (there isn't one for this Lambda — §2.2) and never
  * applies filter/promotion logic itself; its only job is deciding which

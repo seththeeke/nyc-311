@@ -5,7 +5,7 @@ import { z } from "zod";
 // `Keys` are DynamoDB's own AttributeValue-wrapped JSON — deliberately kept
 // as a loose `Record<string, unknown>` here rather than modeling the full
 // recursive AttributeValue union; `@aws-sdk/util-dynamodb`'s `unmarshall`
-// (called in `service/orderIngestion/requestFanOutService.ts`) is what
+// (called in `service/ingestion/nyc311RequestService.ts`) is what
 // actually interprets that shape, not this schema. `SequenceNumber` is
 // required — it's the `itemIdentifier` `reportBatchItemFailures` needs to
 // report a single failed record without retrying its whole batch

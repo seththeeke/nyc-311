@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "aws-lambda";
-import { pollNyc311, recordPollerMetrics } from "../../../service/ingestion/nyc311PollerService";
+import { pollNyc311, recordPollerMetrics } from "../../../service/ingestion/nyc311RequestService";
 import { nyc311PollerController } from "../../../controller/ingestion/nyc311PollerController";
 import { ValidationError } from "../../../models/errors";
 import type { PollResult } from "../../../models/pollResult";
 
-vi.mock("../../../service/ingestion/nyc311PollerService", () => ({
+vi.mock("../../../service/ingestion/nyc311RequestService", () => ({
   pollNyc311: vi.fn(),
   recordPollerMetrics: vi.fn(),
 }));

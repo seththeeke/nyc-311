@@ -1,6 +1,6 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { listPollerMetrics } from "../../service/ingestion/nyc311PollerService";
+import { listPollerMetrics } from "../../service/ingestion/nyc311RequestService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
 

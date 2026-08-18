@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listPollerMetrics } from "../../../service/ingestion/nyc311PollerService";
+import { listPollerMetrics } from "../../../service/ingestion/nyc311RequestService";
 import { getPollerMetricsController } from "../../../controller/web-api/getPollerMetricsController";
 import { ValidationError } from "../../../models/errors";
 import type { PollerMetrics } from "../../../models/pollerMetrics";
 
-vi.mock("../../../service/ingestion/nyc311PollerService", () => ({
+vi.mock("../../../service/ingestion/nyc311RequestService", () => ({
   listPollerMetrics: vi.fn(),
 }));
 
