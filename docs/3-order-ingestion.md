@@ -519,26 +519,24 @@ build checklist yet — its design (§3/§4/§5) isn't settled.
 
 ---
 
-## Addendum: Comment verbosity — a plan to determine (flagged 2026-08-19)
+## Addendum: Comment verbosity (flagged 2026-08-19, first pass done 2026-08-19)
 
-Flagged, not decided. Every file in this slice (and the ingestion slice
-before it) carries dense, doc-cross-referencing comments — full paragraphs
-citing section numbers, dates, and "agreed 2026-08-18" provenance on
-functions/constants that a one-line comment would otherwise cover. That
-density has been deliberate so far (each decision's *why* stays attached
-to the code enforcing it, not just this doc), but it's worth a real
-decision rather than continuing by default:
+**Update:** the volume half is now addressed, project-wide, not just this
+slice — `CLAUDE.md` §6.1 locks in block-comment-only + a 500-character
+prose cap, enforced by a custom ESLint rule (`local/comment-format`) in
+every package, and every existing comment over the cap was manually
+shortened. What's still genuinely open, unchanged from the original flag:
 
-- Is the current level right, or should it be pared back once a decision
-  is old enough to be "just how the code works" rather than a live
-  rationale worth restating in-line?
-- If pared back, on what trigger — age, a doc reaching "Agreed" status,
-  something else — and does that responsibility belong to whoever touches
-  the file next, or a dedicated pass?
-- Does this apply uniformly across `backend/`/`cdk/`/tests, or do
-  different layers warrant different bars (e.g. a CDK construct's
-  IAM-scoping rationale staying vs. a test file's inline commentary
-  trimming sooner)?
+- Is 500 characters the right steady-state cap, or should it shrink
+  further once a decision is old enough to be "just how the code works"
+  rather than a live rationale worth restating in-line?
+- Does density need to *decay over time* on top of the flat cap — e.g. a
+  trigger (age, a doc reaching "Agreed" status) that prompts trimming an
+  already-compliant comment further, and whose job that is (whoever
+  touches the file next, or a dedicated pass)?
+- Does one cap fit every layer, or do `backend/`/`cdk/`/tests warrant
+  different bars (e.g. a CDK construct's IAM-scoping rationale staying
+  fuller vs. test-file commentary trimming sooner)?
 
 Worth a deliberate pass once there's more code to judge the pattern
 against, not a rule invented from this one slice alone.
