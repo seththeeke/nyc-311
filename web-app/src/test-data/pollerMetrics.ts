@@ -1,9 +1,11 @@
 import type { PollerMetrics } from "../models/pollerMetrics";
 
-// Baked sample data for "mock" data mode (config.ts) — a small, lightweight
-// fixture set, not a snapshot of real production data. Mixes success and
-// failure runs so the ingestion-metrics tile has something realistic to
-// render without a live backend.
+/*
+ * Baked sample data for "mock" data mode (config.ts) — a small, lightweight
+ * fixture set, not a snapshot of real production data. Mixes success and
+ * failure runs so the ingestion-metrics tile has something realistic to
+ * render without a live backend.
+ */
 export const MOCK_POLLER_METRICS: PollerMetrics[] = [
   {
     ran_at: "2026-08-15T18:00:00.000Z",

@@ -11,14 +11,10 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
 }
 
 /**
- * Entry point for `GET /ingestion/metrics` — the first public API Gateway
- * route in the project (1-data-ingestion.md §8a). Validates the HTTP API v2
- * proxy event first (CLAUDE.md §5.2's "every controller parses its raw
- * trigger payload through a zod schema" rule, even though no field here
- * drives branching yet), delegates to `listPollerMetrics`, and — unlike the
- * Step-Functions-invoked poller controller, which lets errors propagate —
- * maps any failure to an HTTP status code, since API Gateway is this
- * controller's caller. Never touches a DAO directly (CLAUDE.md §5.2).
+ * `GET /ingestion/metrics` entry point (1-data-ingestion.md §8a). Validates
+ * the HTTP API v2 event, delegates to `listPollerMetrics`, and — since API
+ * Gateway is the caller here, unlike the Step-Functions poller controller —
+ * maps any failure to an HTTP status code instead of letting it propagate.
  */
 export const getPollerMetricsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("GetPollerMetricsControllerInvoked", { event });

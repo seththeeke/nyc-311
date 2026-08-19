@@ -1,11 +1,13 @@
 import type { PipelineStatusResponse } from "../models/pipelineStatus";
 
-// Baked sample data for "mock" data mode (config.ts) — mirrors this
-// project's own real pipeline shape (Source -> Build -> UpdatePipeline ->
-// DeployTest -> DeployProd) with a mix of statuses, including the
-// self-mutation-restart pattern (a Cancelled execution followed by a
-// StartPipelineExecution-triggered restart with no commit info) that's a
-// real, recurring shape in this pipeline's actual history.
+/*
+ * Baked sample data for "mock" data mode (config.ts) — mirrors this
+ * project's own real pipeline shape (Source -> Build -> UpdatePipeline ->
+ * DeployTest -> DeployProd) with a mix of statuses, including the
+ * self-mutation-restart pattern (a Cancelled execution followed by a
+ * StartPipelineExecution-triggered restart with no commit info) that's a
+ * real, recurring shape in this pipeline's actual history.
+ */
 export const MOCK_PIPELINE_STATUS: PipelineStatusResponse = {
   pipelineName: "Nyc311Pipeline",
   stages: [

@@ -39,9 +39,11 @@ function StatTile({ label, value, sub, sparklineValues }: StatTileProps): ReactE
   );
 }
 
-// The KPI row — a handful of headline numbers, per the dataviz skill's
-// "is it even a chart?" heuristic: this data's job is a few current values,
-// not a plot, so it's a row of stat tiles rather than a bar/line chart.
+/*
+ * The KPI row — a handful of headline numbers, per the dataviz skill's
+ * "is it even a chart?" heuristic: this data's job is a few current values,
+ * not a plot, so it's a row of stat tiles rather than a bar/line chart.
+ */
 export function IngestionStatTiles({ metrics }: IngestionStatTilesProps): ReactElement {
   const totalIngested = metrics.reduce((sum, m) => sum + m.records_ingested, 0);
   const totalRuns = metrics.length;

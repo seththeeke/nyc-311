@@ -32,9 +32,11 @@ function LegendSwatch({ success, label }: { success: boolean; label: string }): 
   );
 }
 
-// Status is a state, not a series identity — it wears the fixed status
-// scale (dataviz skill), never a categorical hue, and every block carries
-// an icon (StatusIcon) alongside the color so it never reads by hue alone.
+/*
+ * Status is a state, not a series identity — it wears the fixed status
+ * scale (dataviz skill), never a categorical hue, and every block carries
+ * an icon (StatusIcon) alongside the color so it never reads by hue alone.
+ */
 export function RunHistoryStrip({ metrics }: RunHistoryStripProps): ReactElement {
   const recent = metrics.slice(0, STRIP_WINDOW);
   const chronological = [...recent].reverse();

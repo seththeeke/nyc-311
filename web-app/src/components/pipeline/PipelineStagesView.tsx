@@ -76,9 +76,11 @@ function VerticalStageList({ stages }: { stages: PipelineStage[] }): ReactElemen
   );
 }
 
-// No hardcoded stage/action names anywhere — whatever the API returns is
-// rendered, in order (2-pipeline-monitoring.md §4's "full proof" property:
-// a new pipeline stage shows up automatically, zero code change here).
+/*
+ * No hardcoded stage/action names anywhere — whatever the API returns is
+ * rendered, in order (2-pipeline-monitoring.md §4's "full proof" property:
+ * a new pipeline stage shows up automatically, zero code change here).
+ */
 export function PipelineStagesView({ stages }: PipelineStagesViewProps): ReactElement {
   const [layout, setLayout] = useState<StageLayout>("horizontal");
 

@@ -33,8 +33,10 @@ describe("WebsiteHosting", () => {
     const template = synthesize("TEST");
 
     template.hasResource("AWS::S3::Bucket", { DeletionPolicy: "Delete" });
-    // autoDeleteObjects wires a custom-resource Lambda that empties the
-    // bucket pre-delete — its presence confirms the option took effect.
+    /*
+     * autoDeleteObjects wires a custom-resource Lambda that empties the
+     * bucket pre-delete — its presence confirms the option took effect.
+     */
     template.resourceCountIs("Custom::S3AutoDeleteObjects", 1);
   });
 

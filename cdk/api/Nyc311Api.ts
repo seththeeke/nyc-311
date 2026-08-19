@@ -12,9 +12,11 @@ export interface Nyc311ApiProps {
   webAppDomainName: string;
 }
 
-// The web-app's Vite dev server default port (web-app/vite.config.ts) —
-// allowed by CORS so the "live" data mode can be exercised against a
-// deployed Test API without a browser-side CORS error during local dev.
+/*
+ * The web-app's Vite dev server default port (web-app/vite.config.ts) —
+ * allowed by CORS so the "live" data mode can be exercised against a
+ * deployed Test API without a browser-side CORS error during local dev.
+ */
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
 /**

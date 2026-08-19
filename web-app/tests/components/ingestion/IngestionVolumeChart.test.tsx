@@ -3,9 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { IngestionVolumeChart } from "../../../src/components/ingestion/IngestionVolumeChart";
 import type { PollerMetrics } from "../../../src/models/pollerMetrics";
 
-// Most-recent-first, matching the real API's ordering — chronologically
-// (oldest first, as the chart renders) this is: 2000/0/3, then the failed
-// run, then 42/5/0 last.
+/*
+ * Most-recent-first, matching the real API's ordering — chronologically
+ * (oldest first, as the chart renders) this is: 2000/0/3, then the failed
+ * run, then 42/5/0 last.
+ */
 const metrics: PollerMetrics[] = [
   {
     ran_at: "2026-08-15T18:00:00.000Z",
@@ -72,9 +74,11 @@ describe("IngestionVolumeChart", () => {
   });
 
   it("renders a date range caption from the oldest to the most recent run", () => {
-    // Matched loosely (not against exact dates) — formatAbsoluteDateTime
-    // renders in the test runner's local timezone, so a UTC-midnight
-    // fixture can legitimately land on the previous local day.
+    /*
+     * Matched loosely (not against exact dates) — formatAbsoluteDateTime
+     * renders in the test runner's local timezone, so a UTC-midnight
+     * fixture can legitimately land on the previous local day.
+     */
     render(<IngestionVolumeChart metrics={metrics} />);
     expect(screen.getByText(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/)).toBeInTheDocument();
   });

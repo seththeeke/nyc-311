@@ -1,13 +1,7 @@
 /**
- * Real-integration tier (testing-framework.md §4) for the public
- * ingestion-metrics endpoint — hits the actual deployed Nyc311-Test API
- * Gateway over the network, not a mock. Requires NYC311_API_URL (the
- * Nyc311ApiUrl CfnOutput from a deployed Nyc311-Test stack — see
- * test-scripts/2-metrics-api-test.py for how to look it up) to be set;
- * skips entirely, rather than failing, when it isn't, so `npm run test`/
- * `test:coverage` (which never set it — see vitest.config.ts's exclude)
- * and any environment without network access to a live stack stay green.
- *
+ * Real-integration tier (testing-framework.md §4) — hits the deployed
+ * Nyc311-Test API over the network. Skips (not fails) when NYC311_API_URL
+ * isn't set (see test-scripts/2-metrics-api-test.py to look it up).
  * Run with: NYC311_API_URL=<url> npm run test:integration
  */
 

@@ -27,9 +27,11 @@ describe("WebsiteDeployment", () => {
   it("stages two sources — web-app/dist and the inline env-config.json — not just one", () => {
     const template = synthesize();
 
-    // Source.asset(distDir) and Source.jsonData("env-config.json", ...)
-    // each stage as their own zip asset; two entries here confirms both
-    // are wired into the same deployment, not just the dist/ directory.
+    /*
+     * Source.asset(distDir) and Source.jsonData("env-config.json", ...)
+     * each stage as their own zip asset; two entries here confirms both
+     * are wired into the same deployment, not just the dist/ directory.
+     */
     template.hasResourceProperties("Custom::CDKBucketDeployment", {
       SourceObjectKeys: Match.arrayWith([Match.stringLikeRegexp(".*\\.zip"), Match.stringLikeRegexp(".*\\.zip")]),
     });

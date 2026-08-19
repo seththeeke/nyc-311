@@ -1,4 +1,4 @@
-// Small formatting helpers shared across the ingestion-metrics dashboard.
+/* Small formatting helpers shared across the ingestion-metrics dashboard. */
 
 /** 1,284 for small values; 12.9K/4.2M once it's large enough to compact. */
 export function formatCompactNumber(value: number): string {
@@ -28,7 +28,7 @@ export function formatAbsoluteDateTime(iso: string): string {
 export function niceMax(value: number): number {
   if (value <= 0) return 10;
   const magnitude = 10 ** Math.floor(Math.log10(value));
-  const normalized = value / magnitude; // always in [1, 10)
+  const normalized = value / magnitude; /* always in [1, 10) */
   const step = normalized <= 1 ? 1 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
   return step * magnitude;
 }

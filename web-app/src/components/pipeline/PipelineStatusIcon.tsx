@@ -8,8 +8,10 @@ export interface PipelineStatusIconProps {
   style?: CSSProperties;
 }
 
-// Status is never color-alone (dataviz skill) — this glyph is the icon
-// half of the icon+label pairing every status mark carries here.
+/*
+ * Status is never color-alone (dataviz skill) — this glyph is the icon
+ * half of the icon+label pairing every status mark carries here.
+ */
 export function PipelineStatusIcon({ category, className, style }: PipelineStatusIconProps): ReactElement {
   if (category === "success") {
     return (

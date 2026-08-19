@@ -13,9 +13,11 @@ describe("Nyc311Stack", () => {
   it("synthesizes and tags the stack for TEST", () => {
     const { stack, template } = synthesize("TestStack", "TEST");
 
-    // Tags.of(...).add(...) applies via an Aspect, only visited during
-    // synthesis — so synthesize (Template.fromStack triggers it) before
-    // reading stack.tags back.
+    /*
+     * Tags.of(...).add(...) applies via an Aspect, only visited during
+     * synthesis — so synthesize (Template.fromStack triggers it) before
+     * reading stack.tags back.
+     */
     expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "TEST" });
   });
@@ -31,10 +33,12 @@ describe("Nyc311Stack", () => {
     const { template } = synthesize("TestStack", "TEST");
 
     template.resourceCountIs("AWS::DynamoDB::GlobalTable", 1);
-    // Not resourceCountIs(1) here — WebsiteHosting's BucketDeployment and
-    // autoDeleteObjects each wire their own custom-resource Lambda, so the
-    // poller is one of several AWS::Lambda::Function resources in this
-    // stack, not the only one.
+    /*
+     * Not resourceCountIs(1) here — WebsiteHosting's BucketDeployment and
+     * autoDeleteObjects each wire their own custom-resource Lambda, so the
+     * poller is one of several AWS::Lambda::Function resources in this
+     * stack, not the only one.
+     */
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Poller-Test" });
     template.resourceCountIs("AWS::Scheduler::Schedule", 1);
   });

@@ -18,13 +18,17 @@ function requireEnv(name: string): string {
   return value;
 }
 
-// Constructed once at module scope (Lambda cold start) and reused across
-// warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2.
+/*
+ * Constructed once at module scope (Lambda cold start) and reused across
+ * warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2.
+ */
 const codePipelineClient = new CodePipelineClient({});
 const defaultPipelineName = requireEnv("PIPELINE_NAME");
 
-// 2-pipeline-monitoring.md §4 — the console's own execution-history list
-// is effectively unbounded (scrolling); this is a deliberate, small cap.
+/*
+ * 2-pipeline-monitoring.md §4 — the console's own execution-history list
+ * is effectively unbounded (scrolling); this is a deliberate, small cap.
+ */
 const EXECUTION_HISTORY_LIMIT = 10;
 
 export interface GetPipelineStatusDeps {

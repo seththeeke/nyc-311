@@ -72,7 +72,7 @@ describe("PipelineStagesView", () => {
     expect(screen.getByRole("button", { name: "Vertical" })).toHaveAttribute("aria-pressed", "true");
     expect(list.queryByText("→")).not.toBeInTheDocument();
     expect(list.getAllByText("↓")).toHaveLength(stages.length - 1);
-    // Stage content is unaffected by the layout switch.
+    /* Stage content is unaffected by the layout switch. */
     expect(screen.getByText("DeployProd")).toBeInTheDocument();
   });
 
@@ -101,7 +101,7 @@ describe("PipelineStagesView", () => {
   it("shows the icon-only at-a-glance summary pill above the stage list", () => {
     render(<PipelineStagesView stages={stages} />);
 
-    // The summary pill's own sr-only text — proof it's rendered here, not just the detailed list.
+    /* The summary pill's own sr-only text — proof it's rendered here, not just the detailed list. */
     expect(screen.getByText(/Source: Succeeded/)).toBeInTheDocument();
   });
 });

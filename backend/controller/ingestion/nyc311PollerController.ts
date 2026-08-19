@@ -7,16 +7,10 @@ import { ValidationError } from "../../models/errors";
 import type { PollerMetrics } from "../../models/pollerMetrics";
 
 /**
- * Entry point for the NYC 311 poller — invoked directly by an EventBridge
- * Scheduler target (no Step Functions/API Gateway envelope; the event is
- * exactly the Scheduler's configured Input), per 1-data-ingestion.md.
- * Validates that payload into a structured model, delegates to
- * `pollNyc311`, and lets any failure propagate so the Lambda's
- * on-failure Destination (1-data-ingestion.md §5) actually fires — this
- * controller never swallows an error, only logs it on the way out.
- *
- * Never touches a DAO directly (CLAUDE.md §5.2) — both the poll itself and
- * recording its outcome go through `service/ingestion/nyc311RequestService`.
+ * NYC 311 poller entry point — invoked directly by an EventBridge Scheduler
+ * target (1-data-ingestion.md). Validates the trigger, delegates to
+ * `pollNyc311`, and lets failures propagate so the on-failure Destination
+ * still fires.
  */
 export const nyc311PollerController = async (event: unknown, context: Context): Promise<PollResult> => {
   logInfo("Nyc311PollerControllerInvoked", { event, awsRequestId: context.awsRequestId });
@@ -56,13 +50,9 @@ export const nyc311PollerController = async (event: unknown, context: Context): 
 };
 
 /**
- * Writes one poller run's outcome via `nyc311RequestService.recordPollerMetrics`,
- * swallowing any failure of the write itself — a metrics-recording problem
- * must never mask or replace the real success/failure of the poll it's
- * describing, on either path. On the failure path in particular, this runs
- * *after* `Nyc311PollerControllerFailed` is already logged and *before* the
- * original error is rethrown, so the Lambda's on-failure Destination still
- * fires exactly as it did before this existed.
+ * Records one poller run's outcome, swallowing its own failure — a
+ * metrics-write problem must never mask the real poll result or block the
+ * on-failure Destination from firing.
  */
 async function safelyRecordPollerMetrics(metrics: PollerMetrics): Promise<void> {
   try {

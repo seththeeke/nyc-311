@@ -1,30 +1,10 @@
 /**
- * Shared typed error hierarchy, per `CLAUDE.md` §5.2 — thrown by
- * `service`/`dao`, caught by `controller`. Two things read these types:
- *
- * - API Gateway-backed controllers map `.name` to an HTTP status code.
- * - Step-Functions-invoked controllers let the error propagate; `cdk/`'s
- *   `Catch`/`Retry` blocks route on `Error.Name` (e.g. retry a
- *   `TransientError`, go straight to Case-creation on a `TerminalError`,
- *   per `claude-prompt-initial.md` §4.1).
- *
- * Both consumers need `.name` to be a stable, small, well-known set — so
- * **only define an error type here once an actual code path needs to throw
- * it**, not speculatively. Before adding a new one, check whether an
- * existing type already fits:
- *
- * - Input/stored data doesn't match its schema, at any boundary (an API
- *   request body, a DynamoDB item, a third-party API response)? →
- *   {@link ValidationError}.
- * - The failure is real but retrying the exact same call would fail again
- *   identically (a conditional-write collision, a business-rule
- *   violation)? → {@link TerminalError}.
- * - Genuinely neither fits — e.g. "the thing wasn't found" or "this looks
- *   transient, retry it" aren't errors either existing type honestly
- *   describes — that's when a new class (`NotFoundError`, `TransientError`,
- *   ...) earns its place. Give it the same shape as these two: extend
- *   `Error`, set `this.name` to the class name in the constructor, document
- *   here when to use it vs. its siblings.
+ * Shared typed error hierarchy (`CLAUDE.md` §5.2) — thrown by
+ * `service`/`dao`, caught by `controller`. API Gateway controllers map
+ * `.name` to an HTTP status; Step-Functions controllers let it propagate for
+ * `cdk/`'s `Catch`/`Retry` blocks to route on. Only add a new type once a
+ * real code path needs it — check {@link ValidationError}/
+ * {@link TerminalError} fit first.
  */
 
 /**
@@ -53,16 +33,10 @@ export class ValidationError extends Error {
 }
 
 /**
- * A failure that is real and not worth retrying as-is — retrying the exact
- * same call would fail again for the same reason (e.g. a
- * `ConditionalCheckFailedException` from a duplicate-guarded write).
- *
- * Named to match `cdk/`'s Step Functions `Catch` vocabulary
- * (`claude-prompt-initial.md` §4.1): a state machine catching a
- * `TerminalError` should go straight to Case-creation rather than retry.
- * API Gateway controllers should map this to a `409`/`500` depending on
- * context, not a `400` (the request wasn't malformed — the operation
- * genuinely can't succeed as attempted).
+ * A real failure not worth retrying as-is (e.g. a
+ * `ConditionalCheckFailedException`). A Step Functions `Catch` on this
+ * should go straight to Case-creation, not retry; API Gateway controllers
+ * should map it to `409`/`500`, not `400`.
  */
 export class TerminalError extends Error {
   /**

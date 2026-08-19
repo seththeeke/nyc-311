@@ -411,6 +411,39 @@ directory's structure section.
     physical infrastructure names (DynamoDB table/index names) already
     locked in `ddb-design.md`.
 
+### 6.1 Comment format
+
+Flagged 2026-08-19 — comment volume/verbosity had gotten out of hand.
+Goal is **less volume, not fewer comments** — still write one wherever the
+*why* isn't obvious from the code; just say it tighter.
+
+- **Block-comment syntax only — no `//` line comments**, except
+  recognized tooling directives (`eslint-disable`, `@ts-check`,
+  `@ts-expect-error`, `prettier-ignore`, ...), which stay as conventional
+  `//` one-liners. Everything else — a one-line note, a multi-line
+  rationale, a JSDoc block — uses `/* ... */` or `/** ... */`.
+- **A comment's free-text prose is capped at 500 characters.** For a
+  JSDoc block, this is the description only — `@param`/`@returns`/
+  `@throws`/`@typeParam` tag lines don't count toward the cap, so a
+  multi-param function can still document every parameter. For a plain
+  `/* */` comment with no tags, the whole thing counts.
+- **Enforced by a custom ESLint rule** (`local/comment-format`, defined
+  inline in each package's own `eslint.config.js` — no published plugin
+  does this) **applied to every package, tests included.** The
+  `//`-vs-block half is auto-fixable (`npx eslint . --fix` mechanically
+  merges a run of `//` lines into one block comment, no meaning lost) —
+  run that first. The length-cap half requires real editing judgment
+  (shortening prose, not truncating it), so it isn't auto-fixed; each
+  violation has to be read and rewritten by hand.
+
+```ts
+/**
+ * Fetches one page from the SODA API — throws on a non-2xx response
+ * rather than returning a partial/empty page silently (§3's pagination
+ * loop needs to distinguish "drained" from "the API broke" cleanly).
+ */
+```
+
 ## 7. Code Commits
 
 The repo is hosted at https://github.com/seththeeke/nyc-311 and already setup. When you are asked to commit anything, you will commit all outstanding changes as a single commit rather than breaking the work down in any way unless instructed separately, this will prevent the chance of committing chunks that are not feasible piecewise. You will commit changes in the following format.

@@ -7,10 +7,12 @@ export interface PipelineStageSummaryProps {
   stages: PipelineStage[];
 }
 
-// Rolls a stage's actions up into one glance-able category: failed if
-// anything in it failed, in-progress if anything is still running,
-// succeeded only if everything is, neutral otherwise (not yet run, or a
-// mixed terminal state like a Cancelled action).
+/*
+ * Rolls a stage's actions up into one glance-able category: failed if
+ * anything in it failed, in-progress if anything is still running,
+ * succeeded only if everything is, neutral otherwise (not yet run, or a
+ * mixed terminal state like a Cancelled action).
+ */
 function aggregateStageCategory(stage: PipelineStage): StatusCategory {
   const categories = stage.actions.map((action) => getStatusVisual(action.status).category);
   if (categories.includes("failure")) return "failure";
@@ -32,9 +34,11 @@ function categoryLabel(category: StatusCategory): string {
   }
 }
 
-// An icon-only, at-a-glance pill — no stage names, just one status glyph
-// per stage in sequence — living inside the Stages view itself rather
-// than as its own separate, text-labeled section.
+/*
+ * An icon-only, at-a-glance pill — no stage names, just one status glyph
+ * per stage in sequence — living inside the Stages view itself rather
+ * than as its own separate, text-labeled section.
+ */
 export function PipelineStageSummary({ stages }: PipelineStageSummaryProps): ReactElement {
   return (
     <ol className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">

@@ -25,7 +25,7 @@ export class Nyc311MetricsApiLambda extends NodejsFunction {
     const functionName = `Nyc311MetricsApi-${ENV_NAME_SUFFIX[props.envName]}`;
 
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, // matches Lambda's own default log group naming convention
+      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
@@ -39,8 +39,10 @@ export class Nyc311MetricsApiLambda extends NodejsFunction {
       timeout: Duration.seconds(10),
       memorySize: 256,
       logGroup,
-      // backend/ is its own npm package (own lockfile/node_modules),
-      // separate from cdk/ — see Nyc311PollerLambda for the same note.
+      /*
+       * backend/ is its own npm package (own lockfile/node_modules),
+       * separate from cdk/ — see Nyc311PollerLambda for the same note.
+       */
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {

@@ -86,18 +86,18 @@ describe("PipelineExecutionHistory", () => {
     render(<PipelineExecutionHistory executions={[restart]} />);
 
     expect(screen.getByText("Pipeline restart (no commit)")).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(2); // Started + Duration, both unavailable without a startTime
+    expect(screen.getAllByText("—")).toHaveLength(2); /* Started + Duration, both unavailable without a startTime */
 
     await user.click(screen.getByRole("button", { name: "Show execution details" }));
 
-    // Two placeholders now: the commit-message detail field and the commit-ID field.
+    /* Two placeholders now: the commit-message detail field and the commit-ID field. */
     expect(screen.getAllByText("Pipeline restart (no commit)")).toHaveLength(2);
   });
 
   it("renders a table row for every execution", () => {
     render(<PipelineExecutionHistory executions={[succeeded, restart]} />);
 
-    expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 condensed data rows
+    expect(screen.getAllByRole("row")).toHaveLength(3); /* header + 2 condensed data rows */
   });
 
   it("renders the list inside a bounded, independently-scrolling container", () => {

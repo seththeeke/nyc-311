@@ -1,9 +1,11 @@
 import { z } from "zod";
 
-// Mirrors backend/models/pipelineStatus.ts exactly — a passthrough of
-// CodePipeline's own status strings (not remapped to a frontend-owned
-// enum), so a new pipeline stage/action never needs a code change here to
-// show up (2-pipeline-monitoring.md §4).
+/*
+ * Mirrors backend/models/pipelineStatus.ts exactly — a passthrough of
+ * CodePipeline's own status strings (not remapped to a frontend-owned
+ * enum), so a new pipeline stage/action never needs a code change here to
+ * show up (2-pipeline-monitoring.md §4).
+ */
 
 export const PipelineActionSchema = z.object({
   actionName: z.string().min(1),

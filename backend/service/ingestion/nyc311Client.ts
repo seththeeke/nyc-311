@@ -1,8 +1,10 @@
 import { logError, logInfo } from "../../logger";
 import { ValidationError } from "../../models/errors";
 
-// The Socrata Open Data ("SODA") dataset backing NYC 311 — same endpoint
-// `311-test-data/pull-nyc-311-data.js` uses to pull sample data.
+/*
+ * The Socrata Open Data ("SODA") dataset backing NYC 311 — same endpoint
+ * `311-test-data/pull-nyc-311-data.js` uses to pull sample data.
+ */
 const SODA_ENDPOINT = "https://data.cityofnewyork.us/resource/erm2-nwe9.json";
 
 export interface FetchNyc311PageParams {

@@ -66,7 +66,7 @@ describe("PipelineMonitoringPage", () => {
     renderPage();
 
     expect(await screen.findByText("Build")).toBeInTheDocument();
-    // The embedded at-a-glance pill's sr-only text, proving it renders on this page.
+    /* The embedded at-a-glance pill's sr-only text, proving it renders on this page. */
     expect(screen.getByText(/Build: Succeeded/)).toBeInTheDocument();
     expect(screen.getByText("fix: thing")).toBeInTheDocument();
   });

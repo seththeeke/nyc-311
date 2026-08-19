@@ -17,10 +17,10 @@ describe("PipelineStageSummary", () => {
 
     const pill = screen.getByRole("list");
     expect(pill).toHaveClass("rounded-full");
-    // No visible "Source"/"Build" text anywhere in the pill — only icons.
+    /* No visible "Source"/"Build" text anywhere in the pill — only icons. */
     expect(screen.queryByText("Source")).not.toBeInTheDocument();
     expect(screen.queryByText("Build")).not.toBeInTheDocument();
-    // The stage names are still exposed to screen readers.
+    /* The stage names are still exposed to screen readers. */
     expect(screen.getByText(/Source: Succeeded/)).toHaveClass("sr-only");
     expect(screen.getByText(/Build: Succeeded/)).toHaveClass("sr-only");
   });
@@ -48,7 +48,7 @@ describe("PipelineStageSummary", () => {
     ];
     const { container } = render(<PipelineStageSummary stages={stages} />);
 
-    // Failure renders as the exclamation glyph: a path + a circle dot.
+    /* Failure renders as the exclamation glyph: a path + a circle dot. */
     expect(container.querySelector("circle")).toBeInTheDocument();
     expect(screen.getByText(/Assets: Failed/)).toBeInTheDocument();
   });

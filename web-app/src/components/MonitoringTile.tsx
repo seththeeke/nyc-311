@@ -11,8 +11,10 @@ export interface MonitoringTileProps {
   icon?: ReactElement;
 }
 
-// Literal class strings (not built from `${accent}` template interpolation)
-// so Tailwind's static scanner can actually see and emit them.
+/*
+ * Literal class strings (not built from `${accent}` template interpolation)
+ * so Tailwind's static scanner can actually see and emit them.
+ */
 const ACCENT_STYLES: Record<MonitoringTileAccent, { glow: string; badge: string; link: string; shadow: string }> = {
   cyan: {
     glow: "bg-cyan-500/20",

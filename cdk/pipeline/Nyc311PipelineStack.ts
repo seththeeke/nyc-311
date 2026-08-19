@@ -10,34 +10,42 @@ import { Nyc311AppStage } from "./Nyc311AppStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
 
-// aws-code-pipeline-plan.md §4 / 2-pipeline-monitoring.md — the pipeline's
-// own name, referenced both by the CodePipeline construct below and by
-// Nyc311PipelineStatusLambda (as an env var, not hardcoded a second time).
+/*
+ * aws-code-pipeline-plan.md §4 / 2-pipeline-monitoring.md — the pipeline's
+ * own name, referenced both by the CodePipeline construct below and by
+ * Nyc311PipelineStatusLambda (as an env var, not hardcoded a second time).
+ */
 const PIPELINE_NAME = "Nyc311Pipeline";
 
-// aws-code-pipeline-plan.md §3 — GitHub is the permanent source host.
+/* aws-code-pipeline-plan.md §3 — GitHub is the permanent source host. */
 const GITHUB_OWNER = "seththeeke";
 const GITHUB_REPO = "nyc-311";
 const GITHUB_BRANCH = "main";
 
-// The GitHub CodeConnections connection, authorized once by hand in the
-// AWS/GitHub console flow (aws-code-pipeline-plan.md §6) — its lifecycle
-// (creation + GitHub App repo authorization) is managed outside CDK.
-// Referencing it by ARN, rather than having CDK create its own
-// `AWS::CodeStarConnections::Connection`, avoids the connection/GitHub-App
-// mismatch that a CDK-owned connection produced during setup.
+/*
+ * The GitHub CodeConnections connection, authorized once by hand in the
+ * AWS/GitHub console flow (aws-code-pipeline-plan.md §6) — its lifecycle
+ * (creation + GitHub App repo authorization) is managed outside CDK.
+ * Referencing it by ARN, rather than having CDK create its own
+ * `AWS::CodeStarConnections::Connection`, avoids the connection/GitHub-App
+ * mismatch that a CDK-owned connection produced during setup.
+ */
 const GITHUB_CONNECTION_ARN =
   "arn:aws:codeconnections:us-east-1:178280182163:connection/48eddf51-8724-497c-8ff1-c4507a78e793";
 
-// aws-code-pipeline-plan.md §4.1.
+/* aws-code-pipeline-plan.md §4.1. */
 const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
 
-// aws-code-pipeline-plan.md §7/§9 — the `nyc311` CLI profile's identity,
-// whose direct deploy access is revoked once this stack is live.
+/*
+ * aws-code-pipeline-plan.md §7/§9 — the `nyc311` CLI profile's identity,
+ * whose direct deploy access is revoked once this stack is live.
+ */
 const NYC311_CLI_USER_NAME = "seththeeke-cli";
 
-// The default CDK bootstrap qualifier this account was bootstrapped with
-// (`cdk bootstrap --profile nyc311`, no `--qualifier` override).
+/*
+ * The default CDK bootstrap qualifier this account was bootstrapped with
+ * (`cdk bootstrap --profile nyc311`, no `--qualifier` override).
+ */
 const CDK_BOOTSTRAP_QUALIFIER = "hnb659fds";
 
 /**
@@ -56,34 +64,15 @@ export class Nyc311PipelineStack extends Stack {
       { connectionArn: GITHUB_CONNECTION_ARN },
     );
 
-    // §4 "Synth (Build/Test)" row: lint + unit test + coverage for
-    // backend/, web-app/, and cdk/, then cdk synth. Each command returns to
-    // repo root before the next so ordering doesn't depend on whether the
-    // CodeBuild shell persists `cd` across buildspec lines.
-    //
-    // web-app/ must build before cdk/'s own step, not just before `cdk
-    // synth` — cdk/web/WebsiteHosting.ts's `BucketDeployment` stages
-    // `web-app/dist` as an asset, and that construct is exercised by
-    // cdk/'s own assertion tests (`npm run test:coverage`), so the dist/
-    // directory has to exist before that step runs too, not only before
-    // synth.
-    //
-    // Must synth against `bin/pipeline.ts` explicitly, not `cdk.json`'s
-    // default app (`bin/app.ts`, which only defines the bare
-    // Nyc311-Test/Nyc311-Prod stacks). Self-mutation and the pipeline's
-    // own deploy actions need the assembly that actually contains
-    // `Nyc311PipelineStack` and the Stage-wrapped Test/Prod structure —
-    // `bin/app.ts` produces neither.
-    //
-    // VITE_DATA_MODE=live on web-app's own build (not its test:coverage,
-    // which stays deterministic/offline) — this one shared build is
-    // deployed to both Nyc311-Test and Nyc311-Prod (WebsiteDeployment.ts),
-    // and both are real deployed environments that should hit the real
-    // API, never web-app/src/test-data/'s baked fixtures. Only the API
-    // URL itself differs per environment, and that's injected at deploy
-    // time instead (env-config.json, web-app/src/config.ts's
-    // loadRuntimeConfig) — dataMode doesn't need the same per-environment
-    // treatment since "live" is correct for both.
+    /*
+     * §4 Synth: lint + test + coverage for backend/, web-app/, cdk/, then
+     * cdk synth. web-app/ builds before cdk/'s step too, since
+     * WebsiteHosting's BucketDeployment stages web-app/dist as an asset
+     * cdk's own tests exercise. Synths against bin/pipeline.ts — bin/app.ts
+     * lacks the Stage-wrapped structure self-mutation needs.
+     * VITE_DATA_MODE=live: this one build deploys to both real
+     * environments, never test-data/'s fixtures.
+     */
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       commands: [
@@ -95,14 +84,16 @@ export class Nyc311PipelineStack extends Stack {
       primaryOutputDirectory: "cdk/cdk.out",
     });
 
-    // §1.1 — self-mutation runs immediately after Synth (the earliest
-    // possible point). `pipelineType: V2` is explicit below; its
-    // underlying `codepipeline.Pipeline` defaults `executionMode` to
-    // `SUPERSEDED` (confirmed against the aws-cdk-lib type definitions —
-    // no override needed), which is the second guarantee against a stale
-    // step running after a structural change, on top of CodePipeline's
-    // own behavior of reading each stage's actions from the live
-    // pipeline definition.
+    /*
+     * §1.1 — self-mutation runs immediately after Synth (the earliest
+     * possible point). `pipelineType: V2` is explicit below; its
+     * underlying `codepipeline.Pipeline` defaults `executionMode` to
+     * `SUPERSEDED` (confirmed against the aws-cdk-lib type definitions —
+     * no override needed), which is the second guarantee against a stale
+     * step running after a structural change, on top of CodePipeline's
+     * own behavior of reading each stage's actions from the live
+     * pipeline definition.
+     */
     const pipeline = new pipelines.CodePipeline(this, "Pipeline", {
       pipelineName: PIPELINE_NAME,
       synth,
@@ -112,10 +103,12 @@ export class Nyc311PipelineStack extends Stack {
         buildEnvironment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
         },
-        // STANDARD_7_0's default Node (18) is too old for this repo's
-        // tooling (Vite 7/Vitest require Node >=20) — pin it explicitly
-        // for every CodeBuild-backed step rather than relying on the
-        // image default.
+        /*
+         * STANDARD_7_0's default Node (18) is too old for this repo's
+         * tooling (Vite 7/Vitest require Node >=20) — pin it explicitly
+         * for every CodeBuild-backed step rather than relying on the
+         * image default.
+         */
         partialBuildSpec: codebuild.BuildSpec.fromObject({
           phases: {
             install: {
@@ -132,11 +125,13 @@ export class Nyc311PipelineStack extends Stack {
       new Nyc311AppStage(this, "DeployTest", { env, envName: "TEST" }),
     );
 
-    // §4 "cdk diff visibility (non-blocking)" row — reuses the same
-    // GitHub source (not the synthesized assembly) so it's a plain,
-    // self-contained `cdk diff` from source; `|| true` guarantees it
-    // never fails the pipeline regardless of diff content or transient
-    // errors.
+    /*
+     * §4 "cdk diff visibility (non-blocking)" row — reuses the same
+     * GitHub source (not the synthesized assembly) so it's a plain,
+     * self-contained `cdk diff` from source; `|| true` guarantees it
+     * never fails the pipeline regardless of diff content or transient
+     * errors.
+     */
     const prodDiff = new pipelines.ShellStep("ProdDiff", {
       input: source,
       commands: [
@@ -149,16 +144,20 @@ export class Nyc311PipelineStack extends Stack {
       { pre: [prodDiff] },
     );
 
-    // Must build the pipeline before reaching into the underlying
-    // `codepipeline.Pipeline` for notifications (CDK Pipelines README) —
-    // also true for Nyc311PipelineStatusLambda below, which needs
-    // `pipeline.pipeline.pipelineArn` for IAM scoping.
+    /*
+     * Must build the pipeline before reaching into the underlying
+     * `codepipeline.Pipeline` for notifications (CDK Pipelines README) —
+     * also true for Nyc311PipelineStatusLambda below, which needs
+     * `pipeline.pipeline.pipelineArn` for IAM scoping.
+     */
     pipeline.buildPipeline();
 
-    // 2-pipeline-monitoring.md — a read-only mirror of this exact
-    // pipeline's AWS console status view, living here (not in
-    // Nyc311Stack) because the pipeline itself is a singleton, not
-    // per-environment (§2 of that doc).
+    /*
+     * 2-pipeline-monitoring.md — a read-only mirror of this exact
+     * pipeline's AWS console status view, living here (not in
+     * Nyc311Stack) because the pipeline itself is a singleton, not
+     * per-environment (§2 of that doc).
+     */
     const pipelineStatusLambda = new Nyc311PipelineStatusLambda(this, "Nyc311PipelineStatusLambda", {
       pipelineName: PIPELINE_NAME,
       pipelineArn: pipeline.pipeline.pipelineArn,
@@ -166,12 +165,16 @@ export class Nyc311PipelineStack extends Stack {
     const pipelineStatusApi = new Nyc311PipelineStatusApi(this, "Nyc311PipelineStatusApi", {
       pipelineStatusLambda,
     });
-    // Read once during the bootstrap sequence (2-pipeline-monitoring.md
-    // §10) to fill web-app/.env's VITE_PIPELINE_API_BASE_URL.
+    /*
+     * Read once during the bootstrap sequence (2-pipeline-monitoring.md
+     * §10) to fill web-app/.env's VITE_PIPELINE_API_BASE_URL.
+     */
     new CfnOutput(this, "Nyc311PipelineStatusApiUrl", { value: pipelineStatusApi.apiEndpoint });
 
-    // §4.1 — the sole human-intervention trigger: any stage failure
-    // notifies by email.
+    /*
+     * §4.1 — the sole human-intervention trigger: any stage failure
+     * notifies by email.
+     */
     const failureTopic = new sns.Topic(this, "PipelineFailureTopic", {
       topicName: "Nyc311PipelineFailures",
     });
@@ -182,12 +185,14 @@ export class Nyc311PipelineStack extends Stack {
       events: [codepipeline.PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED],
     });
 
-    // §7/§9 — revoke the `nyc311` CLI profile's ability to deploy.
-    // Shipped in this stack's own definition, so the one bootstrap deploy
-    // both stands up the pipeline and revokes direct deploy access in the
-    // same changeset — it doesn't affect the pipeline's own service-role
-    // principal, which is different from the `nyc311` user this Deny is
-    // scoped to.
+    /*
+     * §7/§9 — revoke the `nyc311` CLI profile's ability to deploy.
+     * Shipped in this stack's own definition, so the one bootstrap deploy
+     * both stands up the pipeline and revokes direct deploy access in the
+     * same changeset — it doesn't affect the pipeline's own service-role
+     * principal, which is different from the `nyc311` user this Deny is
+     * scoped to.
+     */
     const nyc311CliUser = iam.User.fromUserName(
       this,
       "Nyc311CliUser",
@@ -196,9 +201,11 @@ export class Nyc311PipelineStack extends Stack {
     const denyDirectDeploy = new iam.Policy(this, "DenyNyc311DirectDeploy", {
       policyName: "Nyc311DenyDirectDeploy",
       statements: [
-        // Belt: deny assuming the two roles `cdk deploy`/`destroy` use to
-        // mutate CloudFormation. The lookup role is left untouched so
-        // `cdk diff`/`synth` keep working locally.
+        /*
+         * Belt: deny assuming the two roles `cdk deploy`/`destroy` use to
+         * mutate CloudFormation. The lookup role is left untouched so
+         * `cdk diff`/`synth` keep working locally.
+         */
         new iam.PolicyStatement({
           sid: "DenyAssumeCdkDeployRoles",
           effect: iam.Effect.DENY,
@@ -208,20 +215,14 @@ export class Nyc311PipelineStack extends Stack {
             `arn:aws:iam::${this.account}:role/cdk-${CDK_BOOTSTRAP_QUALIFIER}-cfn-exec-role-${this.account}-${this.region}`,
           ],
         }),
-        // Suspenders: `seththeeke-cli` has `AdministratorAccess` attached
-        // directly, so when it can't assume the deploy role, the CDK CLI
-        // falls back to mutating CloudFormation with the ambient
-        // credentials directly — the AssumeRole deny above alone doesn't
-        // stop that. This denies the actual mutating actions on the two
-        // application stacks specifically, regardless of which credentials
-        // or role performed the call, so the fallback path is closed too.
-        // Deliberately does NOT cover this pipeline stack itself: a
-        // self-mutating pipeline can't fix a bug in its own Synth step
-        // (self-mutation only runs after Synth succeeds), so `nyc311`
-        // keeps direct deploy access here as the recovery path for
-        // exactly that class of bug. Test/Prod have no such bootstrap
-        // problem — the pipeline can always redeploy them once it's
-        // healthy — so they stay fully pipeline-only.
+        /*
+         * Suspenders: `seththeeke-cli` has `AdministratorAccess` directly,
+         * so it could fall back to mutating CloudFormation with ambient
+         * credentials once the AssumeRole deny blocks the deploy role.
+         * This denies that fallback on Test/Prod specifically. Excludes
+         * this pipeline stack itself — `nyc311` keeps direct access here
+         * as the recovery path for a broken Synth step.
+         */
         new iam.PolicyStatement({
           sid: "DenyDirectCloudFormationMutation",
           effect: iam.Effect.DENY,

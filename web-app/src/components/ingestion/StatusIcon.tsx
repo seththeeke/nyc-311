@@ -5,9 +5,11 @@ export interface StatusIconProps {
   className?: string;
 }
 
-// Status is never color-alone (dataviz skill) — this glyph is the icon half
-// of the icon+label pairing every status mark carries; the color half lives
-// wherever this is rendered (background fill, text color).
+/*
+ * Status is never color-alone (dataviz skill) — this glyph is the icon half
+ * of the icon+label pairing every status mark carries; the color half lives
+ * wherever this is rendered (background fill, text color).
+ */
 export function StatusIcon({ success, className }: StatusIconProps): ReactElement {
   return success ? (
     <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={className}>

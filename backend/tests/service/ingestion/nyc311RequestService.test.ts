@@ -25,7 +25,7 @@ const QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/OrderIngesti
 const sqsMock = mockClient(SQSClient);
 const sqsClient = new SQSClient({});
 
-// Fixed "now" so watermark/window assertions are deterministic.
+/* Fixed "now" so watermark/window assertions are deterministic. */
 const NOW = new Date("2026-08-11T12:00:00.000Z");
 const now = () => NOW;
 
@@ -67,13 +67,13 @@ afterEach(() => {
 
 describe("pollNyc311", () => {
   it("first-ever run: computes a 24h initial window and ingests new records", async () => {
-    ddbMock.on(GetCommand).resolves({}); // no cursor item, and no dedup match
+    ddbMock.on(GetCommand).resolves({}); /* no cursor item, and no dedup match */
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     ddbMock.on(PutCommand).resolves({});
 
     const fetchPage = vi
       .fn()
-      .mockResolvedValueOnce([normalWithBbl]) // one page, shorter than the limit -> drained
+      .mockResolvedValueOnce([normalWithBbl]) /* one page, shorter than the limit -> drained */
       .mockResolvedValue([]);
 
     const result = await pollNyc311({ requestDao, now, fetchPage });
@@ -103,8 +103,10 @@ describe("pollNyc311", () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     ddbMock.on(PutCommand).resolves({});
 
-    // created_date is well within the 72h safety-lag window relative to `now` —
-    // the watermark should NOT advance all the way to it.
+    /*
+     * created_date is well within the 72h safety-lag window relative to `now` —
+     * the watermark should NOT advance all the way to it.
+     */
     const recentRecord = { unique_key: "recent-1", created_date: "2026-08-11T11:00:00.000" };
     const fetchPage = vi.fn().mockResolvedValueOnce([recentRecord]).mockResolvedValue([]);
 
@@ -114,11 +116,13 @@ describe("pollNyc311", () => {
       .commandCalls(PutCommand)
       .find((c) => c.args[0].input.Item?.["request_id"] === "CURSOR#NYC_311");
     expect(cursorPut).toBeDefined();
-    // No cursor item -> windowStartDate = now (12:00) - 24h INITIAL_WINDOW_HOURS
-    // = 2026-08-10T12:00:00. The 72h safety-lag cutoff (2026-08-08T12:00:00) is
-    // even earlier, so windowStartDate itself is the binding floor here — the
-    // record's created_date (11:00 the next day) never enters into it either
-    // way, since cappedWatermark never regresses below windowStartDate.
+    /*
+     * No cursor item -> windowStartDate = now (12:00) - 24h INITIAL_WINDOW_HOURS
+     * = 2026-08-10T12:00:00. The 72h safety-lag cutoff (2026-08-08T12:00:00) is
+     * even earlier, so windowStartDate itself is the binding floor here — the
+     * record's created_date (11:00 the next day) never enters into it either
+     * way, since cappedWatermark never regresses below windowStartDate.
+     */
     expect(cursorPut?.args[0].input.Item).toMatchObject({
       last_watermark: "2026-08-10T12:00:00",
       resume_offset: null,
@@ -208,9 +212,11 @@ describe("pollNyc311", () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     ddbMock.on(PutCommand).resolves({});
 
-    // Every page comes back completely full (== the requested limit), so the
-    // poller can never conclude the window drained — it must stop once it
-    // hits the 2000-record per-run cap instead.
+    /*
+     * Every page comes back completely full (== the requested limit), so the
+     * poller can never conclude the window drained — it must stop once it
+     * hits the 2000-record per-run cap instead.
+     */
     const fetchPage = vi.fn().mockImplementation(({ offset, limit }: { offset: number; limit: number }) =>
       Promise.resolve(makeRawRecords(limit, offset))
     );
@@ -265,9 +271,11 @@ describe("pollNyc311", () => {
   });
 
   it("defaults `requestDao` to the module's own instance when not injected", async () => {
-    // ddbMock (aws-sdk-client-mock) patches DynamoDBDocumentClient.prototype.send,
-    // so it intercepts the service module's own default-constructed DAO too,
-    // not just the `requestDao` built above for explicit-override tests.
+    /*
+     * ddbMock (aws-sdk-client-mock) patches DynamoDBDocumentClient.prototype.send,
+     * so it intercepts the service module's own default-constructed DAO too,
+     * not just the `requestDao` built above for explicit-override tests.
+     */
     ddbMock.on(GetCommand).resolves({});
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     ddbMock.on(PutCommand).resolves({});

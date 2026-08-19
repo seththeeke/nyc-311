@@ -47,12 +47,12 @@ describe("PollerMetricsTable", () => {
   it("renders a table row for every metric passed in", () => {
     render(<PollerMetricsTable metrics={[successRun, failedRun]} />);
 
-    expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 data rows
+    expect(screen.getAllByRole("row")).toHaveLength(3); /* header + 2 data rows */
   });
 
   it("renders an empty table body when given no metrics", () => {
     render(<PollerMetricsTable metrics={[]} />);
 
-    expect(screen.getAllByRole("row")).toHaveLength(1); // header only
+    expect(screen.getAllByRole("row")).toHaveLength(1); /* header only */
   });
 });

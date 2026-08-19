@@ -8,19 +8,17 @@ export interface Nyc311PipelineStatusApiProps {
   pipelineStatusLambda: Nyc311PipelineStatusLambda;
 }
 
-// Nyc311Web-Test / Nyc311Web-Prod CloudFront distributions
-// (cdk/web/WebsiteHosting.ts) — hardcoded, not cross-stack-referenced.
-// See 2-pipeline-monitoring.md §7 for why: this API is a singleton living
-// in Nyc311PipelineStack, but both the Test and Prod sites (deployed from
-// the separate, per-environment Nyc311Stack) call it, so its CORS
-// allow-list needs both domains. A cross-stack SSM-parameter lookup was
-// considered and rejected as unnecessary coupling for a scenario (a
-// WebsiteHosting CloudFront distribution being replaced) that's unlikely
-// in practice — if it ever happens, these two lines need a manual update.
+/*
+ * Nyc311Web-Test / Nyc311Web-Prod CloudFront domains — hardcoded, not
+ * cross-stack-referenced (2-pipeline-monitoring.md §7). This API is a
+ * singleton in Nyc311PipelineStack, but both per-environment sites call
+ * it. A cross-stack SSM lookup was rejected as unneeded coupling; update
+ * these two lines by hand if a distribution is ever replaced.
+ */
 const TEST_WEB_DOMAIN = "d3u5wagmbm10bm.cloudfront.net";
 const PROD_WEB_DOMAIN = "d3n0h6hoc7c771.cloudfront.net";
 
-// The web-app's Vite dev server default port (web-app/vite.config.ts).
+/* The web-app's Vite dev server default port (web-app/vite.config.ts). */
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
 /**

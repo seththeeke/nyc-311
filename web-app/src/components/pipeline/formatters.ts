@@ -1,7 +1,9 @@
-// Small formatting helpers scoped to the pipeline-monitoring feature —
-// same functions as components/ingestion/formatters.ts, kept duplicated
-// rather than shared, so each feature folder stays self-contained
-// (matches how the ingestion feature's own formatters.ts is scoped).
+/*
+ * Small formatting helpers scoped to the pipeline-monitoring feature —
+ * same functions as components/ingestion/formatters.ts, kept duplicated
+ * rather than shared, so each feature folder stays self-contained
+ * (matches how the ingestion feature's own formatters.ts is scoped).
+ */
 
 /** "18 hours ago" / "in 2 minutes", relative to `now`. */
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {

@@ -33,13 +33,15 @@ function LegendItem({ color, label }: { color: string; label: string }): ReactEl
   );
 }
 
-// Both the direct label and the tooltip anchor with `bottom: <bar-top>%`,
-// not `top`/`bottom-full` against the bar's own (full chart height) box —
-// the chart row sits in an `overflow-x-auto` wrapper, which per the CSS
-// overflow spec forces overflow-y non-visible too, so anything positioned
-// by poking *above* the box (rather than growing up *from* a bottom
-// offset within it) was silently clipped for short bars. `TOOLTIP_GAP`
-// clears the direct label so both can be visible at once on the last bar.
+/*
+ * Both the direct label and the tooltip anchor with `bottom: <bar-top>%`,
+ * not `top`/`bottom-full` against the bar's own (full chart height) box —
+ * the chart row sits in an `overflow-x-auto` wrapper, which per the CSS
+ * overflow spec forces overflow-y non-visible too, so anything positioned
+ * by poking *above* the box (rather than growing up *from* a bottom
+ * offset within it) was silently clipped for short bars. `TOOLTIP_GAP`
+ * clears the direct label so both can be visible at once on the last bar.
+ */
 const LABEL_GAP_PX = 4;
 const TOOLTIP_GAP_PX = 22;
 
@@ -50,9 +52,11 @@ interface VolumeBarProps {
   isLast: boolean;
 }
 
-// Edge bars get a left/right-anchored tooltip instead of centered — a
-// centered tooltip on the first or last bar overflows past the scroll
-// container's horizontal edge and gets clipped there too.
+/*
+ * Edge bars get a left/right-anchored tooltip instead of centered — a
+ * centered tooltip on the first or last bar overflows past the scroll
+ * container's horizontal edge and gets clipped there too.
+ */
 function tooltipAlignClass(isFirst: boolean, isLast: boolean): string {
   if (isFirst) return "left-0";
   if (isLast) return "right-0";
@@ -112,9 +116,11 @@ function VolumeBar({ run, axisMax, isFirst, isLast }: VolumeBarProps): ReactElem
   );
 }
 
-// Part-to-whole per run (dataviz skill): each bar's total is "records
-// looked at this run" (ingested + duplicates + rejected), stacked in the
-// three fixed categorical slots so composition and volume read together.
+/*
+ * Part-to-whole per run (dataviz skill): each bar's total is "records
+ * looked at this run" (ingested + duplicates + rejected), stacked in the
+ * three fixed categorical slots so composition and volume read together.
+ */
 export function IngestionVolumeChart({ metrics }: IngestionVolumeChartProps): ReactElement {
   const recent = metrics.slice(0, CHART_WINDOW);
   const chronological = [...recent].reverse();

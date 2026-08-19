@@ -1,14 +1,11 @@
 import { z } from "zod";
 
-// Mirrors data-model.md's Request entity exactly (field names, nullability).
-// complaint_type/descriptor/agency are nullable per 1-data-ingestion.md §4's
-// lenient decision: a record missing them still gets stored as a `DRAFT`
-// Request rather than rejected. Only external_unique_key and created_at are
-// genuinely required — dedup and cursor ordering can't function without them.
-//
-// Enum/constant string values are ALL_CAPS, per CLAUDE.md §6 — data-model.md
-// documents these same values in lowercase for readability; the code
-// representation is the ALL_CAPS form.
+/*
+ * Mirrors data-model.md's Request entity. complaint_type/descriptor/agency
+ * are nullable per 1-data-ingestion.md §4's lenient decision; only
+ * external_unique_key and created_at are truly required. Enum values are
+ * ALL_CAPS per CLAUDE.md §6.
+ */
 
 export const REQUEST_STATUSES = [
   "DRAFT",

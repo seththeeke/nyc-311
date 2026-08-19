@@ -7,14 +7,11 @@ import { ensureDistDirectory } from "./ensureDistDirectory";
 export interface WebsiteDeploymentProps {
   websiteHosting: WebsiteHosting;
   /**
-   * The public API's base URL (`Nyc311Api.apiEndpoint`), written into
-   * `env-config.json` alongside the built SPA. API Gateway's domain is
-   * AWS-generated and only known at CDK deploy time, and the pipeline
-   * builds `web-app/dist` once for both Nyc311-Test/Nyc311-Prod
-   * (`Nyc311PipelineStack.ts`'s Synth step) — a Vite build-time env var
-   * can't hold two different values for one shared build. This runtime
-   * file is what lets `web-app/src/config.ts`'s `loadRuntimeConfig` give
-   * each deployed environment its own API URL without a rebuild.
+   * The public API's base URL, written into `env-config.json` alongside
+   * the built SPA. Known only at deploy time, and the pipeline builds
+   * `web-app/dist` once for both environments — a Vite build-time env var
+   * can't hold two values for one build, so this runtime file is what lets
+   * `loadRuntimeConfig` give each environment its own URL.
    */
   apiBaseUrl: string;
 }

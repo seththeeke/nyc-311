@@ -1,10 +1,12 @@
 import { z } from "zod";
 
-// Mirrors backend/models/pollerMetrics.ts exactly — one NYC 311 poller run,
-// as returned by GET /ingestion/metrics (backend/controller/web-api/
-// getPollerMetricsController.ts). Every service response is parsed through
-// this schema before it reaches a component (CLAUDE.md §5.1's "runtime
-// validation at the network boundary" rule).
+/*
+ * Mirrors backend/models/pollerMetrics.ts exactly — one NYC 311 poller run,
+ * as returned by GET /ingestion/metrics (backend/controller/web-api/
+ * getPollerMetricsController.ts). Every service response is parsed through
+ * this schema before it reaches a component (CLAUDE.md §5.1's "runtime
+ * validation at the network boundary" rule).
+ */
 
 export const PollerMetricsSchema = z.object({
   ran_at: z.string().min(1),

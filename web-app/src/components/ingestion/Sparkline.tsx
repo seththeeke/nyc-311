@@ -10,16 +10,20 @@ const WIDTH = 100;
 const HEIGHT = 24;
 const PADDING = 2;
 
-// Figure contract (dataviz skill): a 12-point trend line in the de-emphasis
-// hue, with the current period picked out in the accent. Renders nothing
-// below two points — a single-point "trend" has no line to draw.
+/*
+ * Figure contract (dataviz skill): a 12-point trend line in the de-emphasis
+ * hue, with the current period picked out in the accent. Renders nothing
+ * below two points — a single-point "trend" has no line to draw.
+ */
 export function Sparkline({ values, accentColor = IV_COLORS.seriesIngested }: SparklineProps): ReactElement | null {
   if (values.length < 2) return null;
 
-  // Scaled to the series' own min/max (not a forced zero-baseline) — the
-  // standard sparkline convention, since the point is relative movement,
-  // not magnitude. `|| 1` only matters for a genuinely flat series (every
-  // value equal), where max - min is exactly 0.
+  /*
+   * Scaled to the series' own min/max (not a forced zero-baseline) — the
+   * standard sparkline convention, since the point is relative movement,
+   * not magnitude. `|| 1` only matters for a genuinely flat series (every
+   * value equal), where max - min is exactly 0.
+   */
   const max = Math.max(...values);
   const min = Math.min(...values);
   const range = max - min || 1;

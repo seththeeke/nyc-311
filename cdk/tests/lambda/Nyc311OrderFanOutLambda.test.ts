@@ -68,10 +68,12 @@ describe("Nyc311OrderFanOutLambda", () => {
     );
     const allActions = allStatements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
     expect(allActions.some((a) => typeof a === "string" && /^dynamodb:(Put|Update|Delete)/.test(a))).toBe(false);
-    // grantStreamRead (DescribeStream/GetRecords/GetShardIterator/ListStreams)
-    // is granted automatically by DynamoEventSource.bind() — asserted by the
-    // event source mapping existing at all (next test), not a separate
-    // hand-rolled IAM statement here.
+    /*
+     * grantStreamRead (DescribeStream/GetRecords/GetShardIterator/ListStreams)
+     * is granted automatically by DynamoEventSource.bind() — asserted by the
+     * event source mapping existing at all (next test), not a separate
+     * hand-rolled IAM statement here.
+     */
   });
 
   it("wires an event source mapping on the Requests table stream: batch 100, LATEST, per-item failure reporting, 3 retries, no FilterCriteria", () => {

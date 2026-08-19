@@ -7,11 +7,13 @@ describe("config", () => {
   });
 
   it("defaults to mock data mode and empty apiBaseUrl/pipelineApiBaseUrl when env vars are unset", async () => {
-    // Stubbed explicitly rather than relying on ambient absence — a
-    // developer's local .env.local (e.g. for pointing local dev at a real
-    // deployed API) — or web-app/.env's own checked-in
-    // VITE_PIPELINE_API_BASE_URL= — would otherwise silently break this
-    // test's premise.
+    /*
+     * Stubbed explicitly rather than relying on ambient absence — a
+     * developer's local .env.local (e.g. for pointing local dev at a real
+     * deployed API) — or web-app/.env's own checked-in
+     * VITE_PIPELINE_API_BASE_URL= — would otherwise silently break this
+     * test's premise.
+     */
     vi.stubEnv("VITE_DATA_MODE", "");
     vi.stubEnv("VITE_API_BASE_URL", "");
     vi.stubEnv("VITE_PIPELINE_API_BASE_URL", "");

@@ -1,15 +1,11 @@
 import { z } from "zod";
 
-// The minimal DynamoDB Streams Lambda event shape this controller needs,
-// per CLAUDE.md §5.2 ("parse the raw trigger payload first"). `NewImage`/
-// `Keys` are DynamoDB's own AttributeValue-wrapped JSON — deliberately kept
-// as a loose `Record<string, unknown>` here rather than modeling the full
-// recursive AttributeValue union; `@aws-sdk/util-dynamodb`'s `unmarshall`
-// (called in `service/ingestion/nyc311RequestService.ts`) is what
-// actually interprets that shape, not this schema. `SequenceNumber` is
-// required — it's the `itemIdentifier` `reportBatchItemFailures` needs to
-// report a single failed record without retrying its whole batch
-// (`3-order-ingestion.md` §2.3).
+/*
+ * Minimal DynamoDB Streams event shape (CLAUDE.md §5.2). `NewImage` stays a
+ * loose AttributeValue map — `unmarshall` interprets it, not this schema.
+ * `SequenceNumber` is required as the `itemIdentifier`
+ * `reportBatchItemFailures` needs (`3-order-ingestion.md` §2.3).
+ */
 
 const AttributeValueMapSchema = z.record(z.string(), z.unknown());
 

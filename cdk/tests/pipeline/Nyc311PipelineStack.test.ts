@@ -49,11 +49,13 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("synths and diffs against bin/pipeline.ts explicitly, not cdk.json's default app", () => {
-    // Regression test: cdk.json's default app (bin/app.ts) only defines
-    // the bare Nyc311-Test/Nyc311-Prod stacks, not Nyc311PipelineStack or
-    // the Stage-wrapped structure self-mutation and the deploy actions
-    // need — omitting --app here previously produced a cloud assembly
-    // self-mutation couldn't find its own stack in.
+    /*
+     * Regression test: cdk.json's default app (bin/app.ts) only defines
+     * the bare Nyc311-Test/Nyc311-Prod stacks, not Nyc311PipelineStack or
+     * the Stage-wrapped structure self-mutation and the deploy actions
+     * need — omitting --app here previously produced a cloud assembly
+     * self-mutation couldn't find its own stack in.
+     */
     const template = synthesize();
 
     template.hasResourceProperties("AWS::CodeBuild::Project", {

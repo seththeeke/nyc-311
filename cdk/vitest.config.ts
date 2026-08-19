@@ -3,9 +3,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
-    // Default 5s is fine locally but too tight for CodeBuild's SMALL
-    // compute type synthesizing the full pipeline stack (many CodeBuild
-    // projects, IAM roles, two nested app stages) — CI-only headroom.
+    /*
+     * Default 5s is fine locally but too tight for CodeBuild's SMALL
+     * compute type synthesizing the full pipeline stack (many CodeBuild
+     * projects, IAM roles, two nested app stages) — CI-only headroom.
+     */
     testTimeout: 20000,
     coverage: {
       provider: "v8",
@@ -23,7 +25,7 @@ export default defineConfig({
         "**/*.types.ts",
         "**/constants.ts",
         "**/index.ts",
-        "bin/*.ts", // CDK app entrypoint — just instantiates stacks, per testing-framework.md §2
+        "bin/*.ts", /* CDK app entrypoint — just instantiates stacks, per testing-framework.md §2 */
       ],
       thresholds: {
         lines: 90,

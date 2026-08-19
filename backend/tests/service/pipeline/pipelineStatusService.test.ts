@@ -169,10 +169,12 @@ describe("getPipelineStatus", () => {
   });
 
   it("logs a genuinely non-Error rejection from GetPipelineExecution without throwing", async () => {
-    // aws-sdk-client-mock's .rejects(string) wraps the string into a real
-    // Error, so it can't exercise the `err instanceof Error` false branch
-    // — this bypasses that wrapping to reject with a bare string directly,
-    // for the (rare but real) case of a non-Error thrown by SDK middleware.
+    /*
+     * aws-sdk-client-mock's .rejects(string) wraps the string into a real
+     * Error, so it can't exercise the `err instanceof Error` false branch
+     * — this bypasses that wrapping to reject with a bare string directly,
+     * for the (rare but real) case of a non-Error thrown by SDK middleware.
+     */
     ppMock.on(GetPipelineStateCommand).resolves({});
     ppMock
       .on(ListPipelineExecutionsCommand)

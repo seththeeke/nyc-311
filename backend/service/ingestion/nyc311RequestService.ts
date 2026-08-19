@@ -22,13 +22,15 @@ function requireEnv(name: string): string {
   return value;
 }
 
-// Constructed once at module scope (Lambda cold start) and reused across
-// warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2. This
-// is the one place `backend/dao/request/requestDao.ts` gets instantiated
-// for the ingestion slice; every `controller/` handler that needs it goes
-// through this service's exported functions instead of constructing or
-// calling a DAO itself (CLAUDE.md §5.2's "always go through a service to
-// reach a DAO" rule).
+/*
+ * Constructed once at module scope (Lambda cold start) and reused across
+ * warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2. This
+ * is the one place `backend/dao/request/requestDao.ts` gets instantiated
+ * for the ingestion slice; every `controller/` handler that needs it goes
+ * through this service's exported functions instead of constructing or
+ * calling a DAO itself (CLAUDE.md §5.2's "always go through a service to
+ * reach a DAO" rule).
+ */
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const defaultRequestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
 
@@ -45,26 +47,13 @@ const PAGE_SIZE = 1000;
 const PER_RUN_RECORD_CAP = 2000;
 
 /**
- * A drained window's watermark never advances past `now - SAFETY_LAG_HOURS`,
- * even if every record actually seen has a later `created_date`. The
- * Socrata feed's publish lag can be "a day+" behind `created_date`
- * (`311-test-data/pull-nyc-311-data.js`) — without this floor, a record
- * that publishes late with an earlier `created_date` than an
- * already-advanced watermark would never be queried for again
- * (`created_date > watermark` permanently excludes it).
- *
- * Originally set to 24h on that "often a day+" estimate, matching
- * {@link INITIAL_WINDOW_HOURS}. Raised to 72h (2026-08-14) after a live
- * Test-environment run observed the feed running ~47h behind real time —
- * with a 24h floor, the very first poll's window already sat entirely
- * ahead of anything the feed had published yet, permanently starving
- * ingestion (the watermark never advances, so the stuck window never
- * shrinks). {@link INITIAL_WINDOW_HOURS} deliberately stays at 24h — it
- * only bounds the one-time first-ever-run backfill (1-data-ingestion.md
- * §3), a separate concern from this floor, which applies to every run.
- * Re-querying the lag buffer on every run is safe, not wasteful — dedup via
- * `findByExternalUniqueKey` makes re-seeing an already-ingested record a
- * no-op (1-data-ingestion.md §2).
+ * A drained window's watermark never advances past `now - SAFETY_LAG_HOURS`
+ * — the Socrata feed can publish a day+ late, so a record with an earlier
+ * `created_date` than an already-advanced watermark would never be queried
+ * again. Raised from 24h to 72h (2026-08-14) after a live run observed
+ * ~47h of real lag permanently starving ingestion at the old floor.
+ * {@link INITIAL_WINDOW_HOURS} is a separate, still-24h concern (§3's
+ * one-time first-run backfill bound).
  */
 const SAFETY_LAG_HOURS = 72;
 
@@ -246,8 +235,10 @@ export async function listPollerMetrics(deps: RequestDaoDeps = {}): Promise<Poll
   return metrics;
 }
 
-// Constructed once at module scope (Lambda cold start) and reused across
-// warm invocations — same pattern as `defaultRequestDao` above.
+/*
+ * Constructed once at module scope (Lambda cold start) and reused across
+ * warm invocations — same pattern as `defaultRequestDao` above.
+ */
 const defaultSqsClient = new SQSClient({});
 
 /**
@@ -273,20 +264,11 @@ function isRelevantRequestRecord(record: RequestStreamRecord): boolean {
 }
 
 /**
- * Fans out one relevant `Request` INSERT from the `Requests` table stream
- * onto the order-ingestion SQS queue, per `3-order-ingestion.md` §2.1's
- * two-stage design — this Lambda does nothing else: no filter/promotion
- * logic, no DAO calls. The downstream request-processor Lambda (not yet
- * built) consumes from that queue and owns all of that.
- *
- * Publishes the unmarshalled `NewImage` as plain JSON (agreed 2026-08-18,
- * §2.1) rather than the raw DynamoDB AttributeValue format, so the
- * downstream processor's controller parses a plain JSON payload — the
- * `zod`-validation step per CLAUDE.md §5.2 still belongs entirely to that
- * controller, not here.
- *
- * A record found irrelevant is a normal, successful no-op — never an
- * error — so it's never reported as a `batchItemFailure` by the caller.
+ * Fans out one relevant `Request` INSERT onto the order-ingestion SQS
+ * queue (`3-order-ingestion.md` §2.1) — no filter/promotion logic, no DAO
+ * calls; the not-yet-built downstream processor owns all of that and
+ * `zod`-validates the plain-JSON payload published here. An irrelevant
+ * record is a normal no-op, never a `batchItemFailure`.
  */
 export async function fanOutRequestRecord(record: RequestStreamRecord, deps: RequestFanOutDeps = {}): Promise<void> {
   const sqsClient = deps.sqsClient ?? defaultSqsClient;

@@ -17,26 +17,26 @@ export interface Nyc311PollerScheduleProps {
   failureNotificationEmail: string;
 }
 
-// 1-data-ingestion.md §3/§5 — "a few times a day," bounded so each window
-// (6-24h initial, safety-lagged thereafter) stays well inside the interval.
+/*
+ * 1-data-ingestion.md §3/§5 — "a few times a day," bounded so each window
+ * (6-24h initial, safety-lagged thereafter) stays well inside the interval.
+ */
 const POLL_INTERVAL = Duration.hours(6);
 
-// A single missed poll is a non-event (the cursor doesn't move, the next
-// run catches up) — 1-data-ingestion.md §5. Three consecutive failed
-// 6-hour runs (18h of no forward progress) is the "real signal worth
-// surfacing" threshold.
+/*
+ * A single missed poll is a non-event (the cursor doesn't move, the next
+ * run catches up) — 1-data-ingestion.md §5. Three consecutive failed
+ * 6-hour runs (18h of no forward progress) is the "real signal worth
+ * surfacing" threshold.
+ */
 const CONSECUTIVE_FAILURES_TO_ALARM = 3;
 
 /**
- * Wires the NYC 311 poller Lambda up to its EventBridge Scheduler trigger
- * and failure handling, per 1-data-ingestion.md §5:
- *
- * - An EventBridge `Schedule` invoking the Lambda every {@link POLL_INTERVAL}.
- * - A dead-letter SQS queue on the Schedule's target, so a failed
- *   invocation (after Scheduler's own retries) is never silently dropped.
- * - A CloudWatch Alarm on {@link CONSECUTIVE_FAILURES_TO_ALARM} consecutive
- *   failed invocations, emailing `failureNotificationEmail` — the same
- *   email-on-failure shape `pipeline/Nyc311PipelineStack.ts` already uses.
+ * Wires the poller Lambda to its EventBridge Scheduler trigger and failure
+ * handling (1-data-ingestion.md §5): a `Schedule` every
+ * {@link POLL_INTERVAL}, a dead-letter queue on the Schedule's target, and
+ * a CloudWatch Alarm on {@link CONSECUTIVE_FAILURES_TO_ALARM} consecutive
+ * failures.
  */
 export class Nyc311PollerSchedule extends Construct {
   public readonly schedule: Schedule;
@@ -72,9 +72,11 @@ export class Nyc311PollerSchedule extends Construct {
       metric: props.pollerLambda.metricErrors({ period: POLL_INTERVAL, statistic: "sum" }),
       threshold: 1,
       evaluationPeriods: CONSECUTIVE_FAILURES_TO_ALARM,
-      // Only alarm once every evaluation period saw a failure — an
-      // isolated failed run followed by a healthy one shouldn't page
-      // anyone, per §5's "one missed poll is a non-event."
+      /*
+       * Only alarm once every evaluation period saw a failure — an
+       * isolated failed run followed by a healthy one shouldn't page
+       * anyone, per §5's "one missed poll is a non-event."
+       */
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });

@@ -17,28 +17,19 @@ export interface PutItemOptions {
   conditionExpression?: string;
   /**
    * Extra attributes merged onto the item after validation — for
-   * storage-layer-only concerns (e.g. a table's `gsiNpk`/`gsiNsk` GSI key
-   * attributes, per `ddb-design.md`) that deliberately aren't part of
-   * `TEntity`'s domain schema. They're merged in *after* {@link validate}
-   * runs, not validated themselves — zod's default `z.object()` behavior
-   * strips unrecognized keys, so passing them as part of `entity` would
-   * silently vanish before the write. Omit for entities with no GSIs, or
-   * whose GSI keys are already domain fields.
+   * storage-only concerns (e.g. a table's GSI key attributes) that aren't
+   * part of `TEntity`'s domain schema and would otherwise be stripped by
+   * zod. Omit for entities with no GSIs.
    */
   additionalAttributes?: Record<string, unknown>;
 }
 
 /**
  * Shared base for the "plain" (non-event-sourced) entities per
- * `ddb-design.md` — Location, Request, Shift, User. Each of those tables is
- * a single item per entity, keyed on one partition key with no sort key, so
- * this class only needs to know the schema and the partition-key attribute
- * name to provide validated get/put.
- *
- * Event-sourced entities (Order, Case, Operator) do not extend this — their
- * item-collection + `TransactWriteItems` pattern (root `#METADATA` item +
- * `EVENT#<n>` items in the same partition) is different enough to need its
- * own base class, built when one of those DAOs is.
+ * `ddb-design.md` — Location, Request, Shift, User. Single item per entity,
+ * one partition key, no sort key. Event-sourced entities (Order, Case,
+ * Operator) need their own base class instead — built when one of those
+ * DAOs is.
  *
  * @typeParam TEntity - The domain type this DAO reads and writes, as
  * inferred from `schema`.

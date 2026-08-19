@@ -46,8 +46,10 @@ describe("RunHistoryStrip", () => {
 
   it("shows a legend for both statuses", () => {
     render(<RunHistoryStrip metrics={metrics} />);
-    // Each status word also appears inside its (hidden-by-default) hover
-    // tooltip, so two matches is expected: the tooltip and the legend.
+    /*
+     * Each status word also appears inside its (hidden-by-default) hover
+     * tooltip, so two matches is expected: the tooltip and the legend.
+     */
     expect(screen.getAllByText("Succeeded")).toHaveLength(2);
     expect(screen.getAllByText("Failed")).toHaveLength(2);
   });

@@ -82,8 +82,10 @@ function ExecutionRow({
           {execution.commitMessage ? (
             <span className="text-slate-700">{firstLine(execution.commitMessage)}</span>
           ) : (
-            // A StartPipelineExecution-triggered restart (self-mutation),
-            // not a push — genuinely has no commit to show, not a data gap.
+            /*
+             * A StartPipelineExecution-triggered restart (self-mutation),
+             * not a push — genuinely has no commit to show, not a data gap.
+             */
             <span className="text-slate-400 italic">Pipeline restart (no commit)</span>
           )}
         </td>
@@ -109,9 +111,11 @@ function ExecutionRow({
   );
 }
 
-// A bounded, internally-scrolling list rather than growing the page —
-// the pipeline stages above stay in view no matter how long the
-// execution history gets.
+/*
+ * A bounded, internally-scrolling list rather than growing the page —
+ * the pipeline stages above stay in view no matter how long the
+ * execution history gets.
+ */
 export function PipelineExecutionHistory({ executions }: PipelineExecutionHistoryProps): ReactElement {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
 

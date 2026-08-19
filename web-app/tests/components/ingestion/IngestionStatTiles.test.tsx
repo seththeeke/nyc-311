@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { IngestionStatTiles } from "../../../src/components/ingestion/IngestionStatTiles";
 import type { PollerMetrics } from "../../../src/models/pollerMetrics";
 
-// Most-recent-first, matching the real API's ordering.
+/* Most-recent-first, matching the real API's ordering. */
 const metrics: PollerMetrics[] = [
   {
     ran_at: "2026-08-15T18:00:00.000Z",

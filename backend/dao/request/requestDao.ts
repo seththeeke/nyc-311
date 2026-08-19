@@ -29,18 +29,11 @@ export class RequestDao extends Dao<Request> {
   }
 
   /**
-   * Derives the three GSI key attributes ddb-design.md's Requests table
-   * defines (`gsi1-external-key`, `gsi2-status`, `gsi3-location`) from the
-   * domain fields already on `request`. These are deliberately not part of
-   * `RequestSchema` — merged in via `Dao.putItem`'s `additionalAttributes`
-   * instead — so `Request` stays the pure domain shape everywhere it's
-   * read back (`getRequestById`/`findByExternalUniqueKey` naturally strip
-   * them back out via zod's default parsing).
-   *
-   * gsi3pk/gsi3sk are omitted (not set to null) while `location_id` is
-   * null, per ddb-design.md's "sparse — null while status = DRAFT" note —
-   * DynamoDB requires a GSI key attribute to be entirely absent from the
-   * item for that item to stay out of the index, not merely null-valued.
+   * Derives the three GSI key attributes (`gsi1-external-key`,
+   * `gsi2-status`, `gsi3-location`) from `request`'s domain fields, merged
+   * in via `additionalAttributes` so `RequestSchema` stays the pure domain
+   * shape. gsi3pk/gsi3sk are omitted, not nulled, while `location_id` is
+   * null — DynamoDB needs the attribute entirely absent to stay sparse.
    */
   private gsiAttributesFor(request: Request): Record<string, unknown> {
     return {
