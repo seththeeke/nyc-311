@@ -30,4 +30,14 @@ describe("MonitoringPage", () => {
       "/monitoring/pipeline"
     );
   });
+
+  it("renders an Orders tile linking to /monitoring/orders", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /orders/i })).toHaveAttribute("href", "/monitoring/orders");
+  });
 });

@@ -2,7 +2,9 @@ import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
+import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
+import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const WEB_APP_DOMAIN = "d123456abcdef.cloudfront.net";
@@ -11,8 +13,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
+  const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const metricsApiLambda = new Nyc311MetricsApiLambda(stack, "Nyc311MetricsApiLambda", { envName, requestsTable });
-  new Nyc311Api(stack, "Nyc311Api", { envName, metricsApiLambda, webAppDomainName: WEB_APP_DOMAIN });
+  const ordersApiLambda = new Nyc311OrdersApiLambda(stack, "Nyc311OrdersApiLambda", { envName, ordersTable });
+  new Nyc311Api(stack, "Nyc311Api", { envName, metricsApiLambda, ordersApiLambda, webAppDomainName: WEB_APP_DOMAIN });
   return Template.fromStack(stack);
 }
 
@@ -45,15 +49,23 @@ describe("Nyc311Api", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 1);
+    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 2);
     template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
     });
   });
 
-  it("declares exactly one route — the only public endpoint today", () => {
+  it("wires GET /orders to the orders Lambda", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 1);
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /orders",
+    });
+  });
+
+  it("declares exactly two routes — the only public endpoints today", () => {
+    const template = synthesize("TEST");
+    template.resourceCountIs("AWS::ApiGatewayV2::Route", 2);
   });
 });

@@ -4,7 +4,8 @@ import type { ZodType } from "zod";
 import { logInfo } from "../logger";
 import { TerminalError, ValidationError } from "../models/errors";
 
-const PROJECTION_SORT_KEY = "#METADATA";
+/* Exported so DAOs needing a raw Scan/Query (e.g. OrderDao.listOrders) can filter to projection-only items. */
+export const PROJECTION_SORT_KEY = "#METADATA";
 
 /**
  * Options for {@link Dao.putItem}.

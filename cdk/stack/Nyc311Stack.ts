@@ -6,6 +6,7 @@ import { OrdersTable } from "../data/OrdersTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
+import { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
@@ -98,9 +99,16 @@ export class Nyc311Stack extends Stack {
       requestsTable,
     });
 
+    /* 3-order-ingestion.md's Order list view — backs the public `GET /orders` route. */
+    const ordersApiLambda = new Nyc311OrdersApiLambda(this, "Nyc311OrdersApiLambda", {
+      envName: props.envName,
+      ordersTable,
+    });
+
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
       metricsApiLambda,
+      ordersApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });
 

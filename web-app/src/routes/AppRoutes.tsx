@@ -4,6 +4,7 @@ import { HomePage } from "../components/pages/HomePage";
 import { MonitoringPage } from "../components/pages/MonitoringPage";
 import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoringPage";
 import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
+import { OrderMonitoringPage } from "../components/pages/OrderMonitoringPage";
 import { PublicRoute } from "./PublicRoute";
 
 export function AppRoutes(): ReactElement {
@@ -38,6 +39,14 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <PipelineMonitoringPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/monitoring/orders"
+        element={
+          <PublicRoute>
+            <OrderMonitoringPage />
           </PublicRoute>
         }
       />

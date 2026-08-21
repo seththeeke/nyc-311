@@ -37,4 +37,9 @@ describe("AppRoutes", () => {
     renderAt("/monitoring/pipeline");
     expect(screen.getByRole("heading", { name: "Pipeline" })).toBeInTheDocument();
   });
+
+  it("renders OrderMonitoringPage at /monitoring/orders", () => {
+    renderAt("/monitoring/orders");
+    expect(screen.getByRole("heading", { name: "Orders" })).toBeInTheDocument();
+  });
 });

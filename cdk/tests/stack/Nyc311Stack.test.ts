@@ -75,6 +75,13 @@ describe("Nyc311Stack", () => {
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
+  it("wires GET /orders to the Orders list Lambda (3-order-ingestion.md's Order list view)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrdersApi-Test" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /orders" });
+  });
+
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
     expect(
       Object.keys(synthesize("TestStack", "TEST").template.findResources("AWS::Logs::MetricFilter")).length,

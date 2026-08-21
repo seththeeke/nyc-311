@@ -39,6 +39,15 @@ function PipelineIcon(): ReactElement {
   );
 }
 
+function OrdersIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M6 4h9l3 3v13a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1z" />
+      <path d="M9 10h6M9 13h6M9 16h3" />
+    </svg>
+  );
+}
+
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Ingestion",
@@ -53,6 +62,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/pipeline",
     accent: "violet",
     icon: <PipelineIcon />,
+  },
+  {
+    title: "Orders",
+    description: "Orders created from promoted Requests, filterable by stage and status.",
+    to: "/monitoring/orders",
+    accent: "emerald",
+    icon: <OrdersIcon />,
   },
 ];
 

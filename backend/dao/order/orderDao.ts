@@ -1,12 +1,36 @@
 import { ulid } from "ulid";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { EventSourcedDao } from "../dao";
-import type { Order, OrderEvent } from "../../models/order";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { EventSourcedDao, PROJECTION_SORT_KEY } from "../dao";
+import { logInfo } from "../../logger";
+import type { Order, OrderEvent, OrderStage, OrderStatus } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
+import type { OrderListResult } from "../../models/orderListQuery";
+import { ValidationError } from "../../models/errors";
 
 export interface CreateOrderInput {
   request_id: string;
   location_id: string;
+}
+
+export interface ListOrdersOptions {
+  limit: number;
+  cursor?: string | null;
+  stage?: OrderStage;
+  status?: OrderStatus;
+}
+
+/* Opaque pagination cursor = base64url(JSON(DynamoDB LastEvaluatedKey)) — round-tripped by the caller, never inspected. */
+function encodeCursor(key: Record<string, unknown>): string {
+  return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
+}
+
+function decodeCursor(cursor: string): Record<string, unknown> {
+  try {
+    return JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as Record<string, unknown>;
+  } catch (err) {
+    throw new ValidationError("Malformed Order list cursor", err);
+  }
 }
 
 export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
@@ -55,5 +79,55 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         last_event_sequence: event.sequence_number,
       })
     );
+  }
+
+  /**
+   * Paginated Order listing (3-order-ingestion.md's Order list view) — a
+   * plain Scan filtered to `sk = "#METADATA"` so EVENT# items never leak
+   * into the results, optionally further filtered by `current_stage`/
+   * `status`. DynamoDB applies `FilterExpression` after `Limit` caps items
+   * examined, so a page can come back shorter than `limit` (even empty,
+   * with a non-null `nextCursor`) — a known quirk, fine for this basic
+   * monitoring view.
+   */
+  async listOrders(options: ListOrdersOptions): Promise<OrderListResult> {
+    const filterParts = ["sk = :metadataSk"];
+    const values: Record<string, unknown> = { ":metadataSk": PROJECTION_SORT_KEY };
+    const names: Record<string, string> = {};
+
+    if (options.stage) {
+      filterParts.push("current_stage = :stage");
+      values[":stage"] = options.stage;
+    }
+    if (options.status) {
+      filterParts.push("#status = :status");
+      names["#status"] = "status";
+      values[":status"] = options.status;
+    }
+
+    logInfo("OrderDao.listOrders", { table: this.tableName, options });
+
+    const result = await this.client.send(
+      new ScanCommand({
+        TableName: this.tableName,
+        FilterExpression: filterParts.join(" AND "),
+        ExpressionAttributeValues: values,
+        ...(Object.keys(names).length > 0 ? { ExpressionAttributeNames: names } : {}),
+        Limit: options.limit,
+        ExclusiveStartKey: options.cursor ? decodeCursor(options.cursor) : undefined,
+      })
+    );
+
+    const orders = (result.Items ?? []).map((item) => this.validateOrderItem(item));
+    const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
+    return { orders, nextCursor };
+  }
+
+  private validateOrderItem(item: unknown): Order {
+    const parsed = OrderSchema.safeParse(item);
+    if (!parsed.success) {
+      throw new ValidationError(`Failed to validate an Order item for table ${this.tableName}`, parsed.error.issues);
+    }
+    return parsed.data;
   }
 }
