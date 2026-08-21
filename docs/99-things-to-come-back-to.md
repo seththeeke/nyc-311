@@ -162,3 +162,47 @@ through the same `evaluateRequest` service-layer call the stream listener
 uses (not a duplicate code path) would both clear the backlog and serve as
 a real-data test of the filters — same spirit as `1-ingestion-test.py`
 validating dedup against real data rather than fixtures.
+
+---
+
+## Lambda metrics on the Monitoring Page
+
+Discussed 2026-08-20. Goal: surface basic per-Lambda health (invocations,
+errors, duration, throttles) as a new tile on the Monitoring Page for the
+project's several Lambdas (poller, fan-out, request-evaluation, metrics
+API, pipeline-status). CloudWatch already collects and retains all of this
+automatically — no new recording/DynamoDB writes needed, unlike the
+poller-metrics tile (which needed a recorded log because outcome counts
+like `duplicates_skipped` aren't standard Lambda metrics).
+
+Two approaches considered, not decided between:
+
+- **Live-query API** (mirrors `Nyc311PipelineStatusApi`'s existing
+  pattern) — a Lambda calls CloudWatch `GetMetricData` per function at
+  request time, returns JSON aggregates, web-app renders its own tile.
+  Full styling control, matches the app's dark-theme design system, but
+  means writing/maintaining a chart component.
+- **Embed a CDK-built, publicly-shared CloudWatch Dashboard via iframe**
+  — proposed as the "reduce duplication" option: let CloudWatch render
+  its own dashboard instead of building tiles/charts. Checked against the
+  actual `aws-cdk-lib` types (`aws-cloudwatch/lib/dashboard.d.ts`,
+  `cloudwatch.generated.d.ts`): the `Dashboard`/`CfnDashboard` resource
+  only models `dashboardBody` — there's **no CloudFormation-modeled
+  `sharing` property**. AWS's dashboard-sharing feature (enable
+  account-level sharing, generate a public shareable link, genuinely
+  designed to be iframe-embedded per AWS's own docs — not blocked by
+  `X-Frame-Options` the way the main console is) is a separate,
+  non-CloudFormation-backed mechanism. So this splits into two pieces:
+  - The dashboard itself: trivial CDK (`cloudwatch.Dashboard` +
+    `GraphWidget`s), reusing metric helpers already used in this codebase
+    for alarms (e.g. `pollerLambda.metricErrors(...)` in
+    `Nyc311PollerSchedule.ts`).
+  - Making it public: either a one-time manual console step (undeployed,
+    would need documenting rather than `cdk deploy`-ing), or a custom
+    resource wrapping whatever API AWS uses under the hood for it — not
+    yet researched which API that actually is.
+
+**Leaning:** build the dashboard in CDK, treat "enable sharing" as a
+documented one-time manual step first, only automate it via a custom
+resource if that manual step turns out to be a recurring pain (e.g. the
+dashboard gets recreated often enough that re-sharing is annoying).
