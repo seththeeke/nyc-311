@@ -11,14 +11,19 @@ export default defineConfig({
      */
     exclude: [...configDefaults.exclude, "tests/integration/**"],
     /*
-     * REQUESTS_TABLE_NAME / PIPELINE_NAME: service/ingestion/nyc311RequestService.ts
-     * and service/pipeline/pipelineStatusService.ts construct their DAO/SDK
-     * client at module scope (Lambda cold-start pattern), so these must
-     * exist before those modules' static imports resolve — set here rather
-     * than per-test so they're in place before any test file's own imports
-     * run.
+     * These table/pipeline names back module-scope DAO/SDK-client
+     * construction (Lambda cold-start pattern) in service/ingestion/
+     * nyc311RequestService.ts, service/ingestion/requestEvaluationService.ts,
+     * and service/pipeline/pipelineStatusService.ts — must exist before
+     * those modules' static imports resolve, so set here rather than
+     * per-test.
      */
-    env: { REQUESTS_TABLE_NAME: "Requests", PIPELINE_NAME: "Nyc311Pipeline" },
+    env: {
+      REQUESTS_TABLE_NAME: "Requests",
+      LOCATIONS_TABLE_NAME: "Locations",
+      ORDERS_TABLE_NAME: "Orders",
+      PIPELINE_NAME: "Nyc311Pipeline",
+    },
     coverage: {
       provider: "v8",
       include: ["controller/**/*.ts", "dao/**/*.ts", "models/**/*.ts", "service/**/*.ts", "logger.ts"],

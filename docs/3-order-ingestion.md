@@ -26,13 +26,13 @@
 | Topic | Status |
 |---|---|
 | [1. Top-level pipeline flow & filter-function set](#1-top-level-pipeline-flow--filter-function-set) | **Agreed** |
-| [2. Infrastructure around `evaluateRequest`](#2-infrastructure-around-evaluaterequest) (stream listener, controller/service/DAO placement, retry/failure) | **Agreed** — fan-out Lambda leg only; downstream processor's infra still `[OPEN]` |
-| [3. Filter-function contract & module design](#3-filter-function-contract--module-design) | **[OPEN]** |
-| [4. `duplicate`/`rejected` status semantics](#4-duplicaterejected-status-semantics) | **[OPEN]** |
-| [5. Order creation on pass](#5-order-creation-on-pass) | **[OPEN]** |
+| [2. Infrastructure around `evaluateRequest`](#2-infrastructure-around-evaluaterequest) (stream listener, controller/service/DAO placement, retry/failure) | **Agreed** — both legs now built (§3) |
+| [3. Filter-function contract & module design](#3-filter-function-contract--module-design) | **Agreed, built (2026-08-20)** |
+| [4. `duplicate`/`rejected` status semantics](#4-duplicaterejected-status-semantics) | **Agreed — confirmed still dead code today** |
+| [5. Order creation on pass](#5-order-creation-on-pass) | **Agreed, built (2026-08-20)** |
 | [6. Existing-backlog backfill](#6-existing-backlog-backfill) | **Agreed — gap accepted, logged in `99-things-to-come-back-to.md`** |
-| [7. Observability & custom metrics](#7-observability--custom-metrics) | **[OPEN]** |
-| [8. Testing](#8-testing) | **[OPEN]** |
+| [7. Observability & custom metrics](#7-observability--custom-metrics) | **[OPEN]** — UI surfacing deliberately descoped, see checklist |
+| [8. Testing](#8-testing) | **Agreed, built alongside §3/§5** |
 
 ---
 
@@ -388,6 +388,137 @@ Otherwise mirrors the poller's established pattern
 
 ---
 
+## 3. Filter-function contract & module design
+
+**Agreed and built 2026-08-20.** Lives in
+`backend/service/ingestion/requestEvaluationService.ts`.
+
+**Outcome contract:**
+
+```ts
+type FilterOutcome =
+  | { kind: "CONTINUE"; locationId?: string }
+  | { kind: "REJECT"; status: "FILTERED" | "DUPLICATE" | "REJECTED" }
+  | { kind: "HALT" };
+
+type FilterFn = (request: Request, deps: FilterDeps) => Promise<FilterOutcome>;
+```
+
+`CONTINUE`'s optional `locationId` is the only value any filter needs to
+pass forward today (from `resolveLocation` to the final promotion write) —
+deliberately not a generic patch bag until a second filter actually needs
+one. `evaluateRequest` runs `FILTERS` in order, short-circuiting on the
+first non-`CONTINUE`; `HALT` leaves the Request `draft` (no Case yet — see
+§1), `REJECT` writes the given terminal status.
+
+**`resolveLocation` is real now** (this session, not just the stub from
+§1): reads `raw_payload.bbl` only (no geocoding fallback — still a named
+follow-up), calls the new `LocationDao.findOrCreateLocation` (dedup-by-
+`bbl`, race-safe), returns `CONTINUE` with the resolved `location_id` or
+`HALT` on a miss (after logging a stub Case via `service/case/
+caseService.ts` — see §5). `checkAlreadyClosed`/`checkComplaintTypeSupported`/
+`checkBusinessDuplicate` stay stubs, per §1.
+
+**Idempotency:** `evaluateRequest` re-fetches the Request's *current*
+status from `RequestDao` rather than trusting the SQS message body, and
+no-ops if it's no longer `DRAFT`. The order-ingestion queue is standard
+(at-least-once, §2.1's agreed design) — a redelivered message must never
+double-process an already-evaluated Request (double-create an `Order`,
+re-run a filter that isn't idempotent). `RequestDao.updateRequestStatus`
+backs this with a real DynamoDB condition (`status = :expectedStatus`),
+not just an application-level check — see §5.
+
+---
+
+## 4. `duplicate`/`rejected` status semantics
+
+**Confirmed, not newly decided:** building §3 for real settles this by
+showing what's actually reachable today, not by picking new meanings.
+`FILTERED`/`DUPLICATE`/`REJECTED` are all still **dead code** — no filter
+in the current pipeline produces `REJECT` yet (`resolveLocation` only
+`CONTINUE`s or `HALT`s; the other three are pass-through stubs). Their
+eventual meanings stay as scoped in §1: `checkAlreadyClosed` → `FILTERED`,
+`checkBusinessDuplicate` → `DUPLICATE` (a business-level check, distinct
+from `gsi1-external-key`'s already-functioning raw dedup),
+`checkComplaintTypeSupported` → presumably `REJECTED`. The `REJECT` branch
+in `evaluateRequest` is real, tested code (via dependency-injected fake
+filters — `RequestEvaluationDeps.filters`), just not yet exercised by any
+production filter.
+
+---
+
+## 5. Order creation on pass
+
+**Agreed and built 2026-08-20.** Building this pulled in real
+infrastructure that didn't exist before:
+
+- **`EventSourcedDao<TProjection, TEvent>`** — added to `backend/dao/
+  dao.ts` alongside `Dao<TEntity>`, per `CLAUDE.md` §5.2's design (root
+  `#METADATA` projection item + `EVENT#<n>` event items, one
+  `TransactWriteItems` per `appendEvent` call, condition-checked against
+  `last_event_sequence` for optimistic concurrency). First real consumer:
+  `OrderDao`.
+- **`Order`/`OrderEvent` models** (`backend/models/order.ts`) — the full
+  locked `data-model.md#order` event-type vocabulary (all 12
+  `ORDER_EVENT_TYPES`), but `OrderStatus` only has one value (`CREATED`)
+  today — the rest arrive once `4-order-workflow.md`'s stages exist to
+  need them, not invented speculatively now.
+- **`OrdersTable`** (`cdk/data/OrdersTable.ts`) — `ddb-design.md`'s locked
+  design (`order_id`+`sk`, `gsi1-stage-sla`, `gsi2-assigned-operator`,
+  stream). **Known, deliberate gap:** nothing populates the GSI key
+  attributes yet (`gsi1sk`=`sla_deadline`, `gsi2pk`=`assigned_operator_id`)
+  — both are always null at creation, since only `4-order-workflow.md`'s
+  Schedule stage will ever set them. Building that derivation now would be
+  speculative code for values nothing produces yet.
+- **`OrderDao.createOrder`** — writes `ORDER_CREATED`, folds the first-
+  state projection (`current_stage: "INGEST"`, `status: "CREATED"`,
+  zeroed retry counts, everything workflow-derived null/zero). Does
+  **not** start `4-order-workflow.md`'s state machine — it doesn't exist
+  yet, so there's nothing to start.
+- **`RequestDao.updateRequestStatus`** — the idempotent promote/reject
+  write from §3, condition-checked against `status = "DRAFT"`.
+
+**Known, deliberate simplification — not atomic across tables.**
+`evaluateRequest` creates the `Order` first, then writes the Request's
+`PROMOTED` status as a second, separate write — not one cross-table
+`TransactWriteItems`. If the second write fails after the first succeeds,
+the `Order` exists but the `Request` still reads `draft`+un-promoted (or
+vice versa if reordered) — a real, recoverable-by-hand inconsistency
+window this session accepted rather than generalizing
+`EventSourcedDao.appendEvent` to combine transact-items across DAOs.
+
+**Known, pre-existing gap surfaced while building this:** `ddb-design.md`'s
+Orders-table section assumed the promotion write would denormalize
+`order_id` back onto the `Request` item ("so 'does this Request have an
+Order' is a single `GetItem`"), but `data-model.md`'s actual locked
+`Request` fields never gained an `order_id` field. Not fixed here — that's
+a `data-model.md` change, out of scope for this slice. `Order.request_id`
+(already present) is the only link today; finding a Request's Order means
+querying Orders, not reading the Request.
+
+**Case creation is a stub, not real yet** — `service/case/caseService.ts`'s
+`createCase` only logs and returns (`CreateCaseInputSchema`,
+`backend/models/case.ts`, seeds the eventual real `Case` model). No Cases
+table, no CaseDao. Establishes the interface `resolveLocation` needs so it
+doesn't have to change when Case persistence is actually built.
+
+**New downstream infrastructure**, mirroring §2.1's fan-out Lambda
+conventions:
+- `backend/controller/ingestion/requestEvaluationController.ts` — SQS-
+  triggered, parses each message body as a `Request`, per-item failure
+  reporting (`itemIdentifier` = `messageId` for SQS, unlike the fan-out
+  leg's `SequenceNumber`).
+- `cdk/lambda/Nyc311RequestEvaluationLambda.ts` — consumes
+  `Nyc311OrderIngestionQueue`, `batchSize: 10` (smaller than the fan-out
+  leg's 100 — each message here does real DB work: a location lookup plus
+  an Order-creation transaction, not a single publish).
+  `reportBatchItemFailures: true`; retry/DLQ is the queue's own already-
+  built redrive policy — no separate `onFailure` destination needed here,
+  since (unlike the stream leg) the queue's redrive-to-DLQ already carries
+  full message content.
+
+---
+
 ## 6. Existing-backlog backfill
 
 Per §2.1: the ~42,000+ `draft` Requests already in `Requests-Test` (and
@@ -423,99 +554,90 @@ testing — not yet elaborated.)*
 
 ---
 
-## Addendum: Next-Session Checklist (as of 2026-08-18)
-
-Nothing in this doc has been built yet — everything below is either
-design still to negotiate, or code not yet written for what's already
-agreed. `4-order-workflow.md` picks up once §5 (Order creation) settles
-what it hands off.
+## Addendum: Next-Session Checklist (as of 2026-08-20)
 
 ### Design — still `[OPEN]`
 
-- [ ] **§3 — Filter-function contract & module design.** The actual TS
-      shape of a filter function's return value (continue/reject/case
-      outcome types) and how `evaluateRequest` composes the four stubs
-      from §1 into one function.
-- [ ] **§4 — `duplicate`/`rejected` status semantics.** Confirm what these
-      `Request.status` values mean now that ingestion-time dedup already
-      happens via `gsi1-external-key` — is `duplicate` purely the
-      business-level check from §1's `checkBusinessDuplicate`, and is
-      `rejected` actually reachable by anything in the current filter
-      list, or dead until a real filter needs it?
-- [ ] **§5 — Order creation on pass.** What "first state" means
-      concretely on the `Order` projection/`OrderCreated` event, and the
-      still-open boundary question with `4-order-workflow.md`: does
-      creating the `Order` here also `StartExecution` on the state
-      machine, or is that a separate trigger?
 - [ ] **§7 — Observability & custom metrics.** Structured-log fields +
       `MetricFilter`s for this pipeline, mindful of the project-wide
       10-custom-metric cap (`1-data-ingestion.md` §8) — 3 already spent by
       the poller, 7 remain for everything else in the app.
-- [ ] **§8 — Testing.** Fixture strategy for stream/SQS events, matching
-      `1-data-ingestion.md` §7's hand-written-fixtures-over-real-samples
-      precedent.
-- [ ] **Downstream processor's own infra** (§2.2 explicitly scoped it
-      out) — controller/service/DAO placement, IAM, retry/DLQ for the
-      SQS-triggered request-processor Lambda, mirroring the question-by-
-      question pass §2 just got for the fan-out leg.
+      `evaluateRequest` already logs a structured `FilterEvaluated`/
+      `RequestEvaluationCompleted` line per Request (2026-08-20, for later
+      aggregation) — no `MetricFilter`s read them yet.
+- [ ] **UI surfacing of filter results — deliberately descoped 2026-08-20,
+      wants more thought.** A live-count tile (`Select: COUNT` via
+      `gsi2-status`) was ruled out: `Requests-Test`'s `DRAFT` bucket is
+      already 42,000+ and growing (`99-things-to-come-back-to.md`), so a
+      frequently-polled live scan would have real, unbounded RCU cost and
+      latency that gets *worse* as the thing it's monitoring gets worse.
+      An atomic-counter sentinel item (DynamoDB `UpdateItem` `ADD`,
+      O(1) read regardless of backlog size) was proposed as the fix but
+      not committed to. For now: no new API endpoint, no DAO counters, no
+      web-app tile — `evaluateRequest`'s structured logs are the only
+      visibility, to be aggregated by hand/dashboard later. Revisit once
+      there's a clearer read on the counter-vs-time-series tradeoff.
 - [ ] **CloudWatch alarm specifics** for the fan-out Lambda (§2.3 names
       "sustained `IteratorAge` growth or repeated `Errors`" but no
-      concrete metric/threshold/period was picked) — **deliberately not
-      built 2026-08-18** for exactly this reason; nothing alarms on this
-      Lambda yet.
-- [x] ~~**Lambda runtime settings** (memory, timeout, reserved concurrency
-      if any) for the fan-out Lambda — not discussed.~~ **Set 2026-08-18
-      as reasonable defaults, not deeply negotiated**: `memorySize: 256`,
-      `timeout: 30s`, no reserved concurrency — matches the light
-      unmarshall-and-publish workload. Revisit if real traffic says
-      otherwise.
-- [x] ~~**Exact CDK construct naming/file layout**~~ — settled while
-      building (below).
+      concrete metric/threshold/period was picked) — still not built;
+      nothing alarms on either Lambda in this pipeline yet.
+- [ ] **Atomicity gap in `evaluateRequest`'s promote path** (§5) — Order
+      creation and the Request's `PROMOTED` write are two separate calls,
+      not one cross-table transaction. Fixing this means generalizing
+      `EventSourcedDao.appendEvent` to return its transact-items rather
+      than executing them, so a service can combine them with a second
+      DAO's write in one `TransactWriteCommand`.
+- [ ] **`Request.order_id` denormalization gap** (§5) — `ddb-design.md`
+      assumed the promotion write would denormalize `order_id` back onto
+      `Request`; `data-model.md`'s locked `Request` fields never gained
+      one. `Order.request_id` is the only link today. Needs a
+      `data-model.md` decision, not a silent backend fix.
+- [ ] **Real `resolveLocation` geocoding fallback** — still BBL-from-
+      payload only (§3); records with lat/long but no direct `bbl` still
+      `HALT` rather than resolving.
+- [ ] **Real Cases infrastructure** — `service/case/caseService.ts`'s
+      `createCase` is still a log-only stub (§5). Building it for real
+      (Cases table, Case model, CaseDao) is a separate, later slice.
 
-### Build — fan-out leg complete (2026-08-18, reorganized 2026-08-19)
+### Build — fan-out leg + request-evaluation leg both complete (2026-08-20)
 
-The fan-out leg (§2, already fully agreed) is built, unit-tested, and
-passes each package's build/lint/test/coverage gate. Pushed to `main`
-2026-08-18; reorganized (controller/service placement, §2.2) and pushed
-again 2026-08-19. Still **not verified against a real deploy** — no
-pipeline run has confirmed this in `Nyc311-Test` yet.
+Both legs of the pipeline are now built, unit-tested, and pass each
+package's build/lint/test/coverage gate (backend 239 tests, cdk 78 tests,
+both ~100% coverage). **Not yet verified against a real deploy** — no
+pipeline run has confirmed either leg in `Nyc311-Test`.
 
-- [x] Enabled `dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES` on
-      `cdk/data/RequestsTable.ts`.
-- [x] `cdk/lambda/Nyc311OrderIngestionQueue.ts` — standard SQS queue + DLQ,
-      `maxReceiveCount: 3` redrive policy.
-- [x] `cdk/lambda/Nyc311OrderFanOutLambda.ts`'s own SQS DLQ for the event
-      source mapping's `onFailure` (metadata-only, per §2.3).
-- [x] `backend/models/requestStreamEvent.ts` — DynamoDB Streams Lambda
-      event shape, `zod`-validated.
-- [x] `backend/controller/ingestion/fanOutRequestEventsController.ts`
-      (moved from `order-request-processing/`, 2026-08-19 — that directory
-      no longer exists).
-- [x] `backend/service/ingestion/nyc311RequestService.ts`'s
-      `fanOutRequestRecord` — relevance check + `unmarshall` +
-      `SendMessage` (folded in 2026-08-19; `service/orderIngestion/
-      requestFanOutService.ts` no longer exists, and the file itself is
-      renamed from `nyc311PollerService.ts` — §2.2).
-- [x] `cdk/lambda/Nyc311OrderFanOutLambda.ts` — custom construct extending
-      `NodejsFunction`, per `CLAUDE.md` §5.3 — event source mapping:
-      `batchSize: 100`, `startingPosition: LATEST`,
-      `reportBatchItemFailures: true`, `retryAttempts: 3`, `onFailure` →
-      its DLQ, filtering done in-handler (no `filters` prop). Wired into
-      `cdk/stack/Nyc311Stack.ts`.
-- [x] IAM: `table.grantStreamRead` (automatic, via `DynamoEventSource`) +
-      `queue.grantSendMessages` only — confirmed via a CDK assertion test
-      that no `dynamodb:Put*`/`Update*`/`Delete*` action appears anywhere
-      in this Lambda's policy.
-- [x] Unit tests (fan-out service/controller, 100% coverage) + CDK
-      assertion tests for both new constructs (100% coverage) — both
-      packages' `test:coverage` gate passes.
+**Fan-out leg** (§2, pushed 2026-08-18/19) — unchanged this session.
+
+**Request-evaluation leg** (§3/§5, built 2026-08-20):
+- [x] `backend/models/location.ts`, `backend/dao/location/locationDao.ts`
+      (dedup-by-`bbl`, race-safe), `cdk/data/LocationsTable.ts`.
+- [x] `backend/models/order.ts`, `backend/dao/order/orderDao.ts`,
+      `cdk/data/OrdersTable.ts` — plus the new
+      `EventSourcedDao<TProjection, TEvent>` base class in
+      `backend/dao/dao.ts` it's the first consumer of.
+- [x] `backend/models/case.ts` + `backend/service/case/caseService.ts` —
+      the Case-creation stub (log-only, no persistence).
+- [x] `backend/models/sqsEvent.ts` — generic SQS Lambda event shape.
+- [x] `backend/service/ingestion/requestEvaluationService.ts` — the
+      `FilterOutcome`/`FilterFn` contract, `resolveLocation` (real),
+      three stub filters, `evaluateRequest`'s idempotent orchestration.
+- [x] `backend/dao/request/requestDao.ts`'s new `updateRequestStatus` —
+      condition-checked against `status = "DRAFT"`; `backend/dao/dao.ts`'s
+      `PutItemOptions` gained `conditionExpressionValues` to support it.
+- [x] `backend/controller/ingestion/requestEvaluationController.ts` — SQS-
+      triggered, per-item failure reporting.
+- [x] `cdk/lambda/Nyc311RequestEvaluationLambda.ts` — `batchSize: 10`,
+      `reportBatchItemFailures: true`, consumes
+      `Nyc311OrderIngestionQueue`, retry/DLQ via the queue's existing
+      redrive policy. Wired into `cdk/stack/Nyc311Stack.ts`.
+- [x] IAM: `GetItem`/`PutItem` on all three tables + automatic
+      `grantConsumeMessages` — confirmed via a CDK assertion test that no
+      broader `dynamodb:*` action appears in this Lambda's policy.
 - [ ] **Not done yet:** verify via the pipeline against a real
-      `Nyc311-Test` deploy.
+      `Nyc311-Test` deploy (both legs).
 
-Everything downstream of the SQS queue (the request-processor Lambda:
-`evaluateRequest`, `orderDao.ts`, the new `EventSourcedDao<TProjection,
-TEvent>` base class, the promote-and-write-back on `requestDao.ts`) has no
-build checklist yet — its design (§3/§4/§5) isn't settled.
+`4-order-workflow.md` can now pick up from a real `Order` in its first
+state — no longer blocked on this doc.
 
 ---
 

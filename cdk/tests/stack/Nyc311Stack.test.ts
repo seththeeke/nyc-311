@@ -32,7 +32,7 @@ describe("Nyc311Stack", () => {
   it("wires the Requests table, poller Lambda, and its schedule together (first ingestion slice)", () => {
     const { template } = synthesize("TestStack", "TEST");
 
-    template.resourceCountIs("AWS::DynamoDB::GlobalTable", 1);
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Test" });
     /*
      * Not resourceCountIs(1) here — WebsiteHosting's BucketDeployment and
      * autoDeleteObjects each wire their own custom-resource Lambda, so the
@@ -48,7 +48,15 @@ describe("Nyc311Stack", () => {
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Test" });
     template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderIngestionQueue-Test" });
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 1);
+  });
+
+  it("wires the request-evaluation Lambda, Locations/Orders tables (3-order-ingestion.md §3)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestEvaluation-Test" });
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Orders-Test" });
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 2);
   });
 
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {

@@ -1,8 +1,10 @@
-import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { ConditionalCheckFailedException, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import type { ZodType } from "zod";
 import { logInfo } from "../logger";
 import { TerminalError, ValidationError } from "../models/errors";
+
+const PROJECTION_SORT_KEY = "#METADATA";
 
 /**
  * Options for {@link Dao.putItem}.
@@ -15,6 +17,13 @@ export interface PutItemOptions {
    * {@link TerminalError} — never silently overwrite an item by accident.
    */
   conditionExpression?: string;
+  /**
+   * Bound values for placeholders (`:name`) referenced in
+   * `conditionExpression`, e.g. `{ ":expectedStatus": "DRAFT" }` for
+   * `"status = :expectedStatus"`. Omit if the expression uses none
+   * (`attribute_not_exists(...)` needs no bound value).
+   */
+  conditionExpressionValues?: Record<string, unknown>;
   /**
    * Extra attributes merged onto the item after validation — for
    * storage-only concerns (e.g. a table's GSI key attributes) that aren't
@@ -111,6 +120,9 @@ export abstract class Dao<TEntity> {
           ...(options.conditionExpression
             ? { ConditionExpression: options.conditionExpression }
             : {}),
+          ...(options.conditionExpressionValues
+            ? { ExpressionAttributeValues: options.conditionExpressionValues }
+            : {}),
         })
       );
     } catch (err) {
@@ -139,6 +151,140 @@ export abstract class Dao<TEntity> {
     if (!parsed.success) {
       throw new ValidationError(
         `Failed to validate item against schema for table ${this.tableName}`,
+        parsed.error.issues
+      );
+    }
+    return parsed.data;
+  }
+}
+
+/**
+ * Shared base for the event-sourced entities per `ddb-design.md` — Order,
+ * Case, Operator. A root `#METADATA` projection item plus
+ * `EVENT#<sequence_number>` items in the same partition; {@link appendEvent}
+ * writes both atomically, condition-checked against `last_event_sequence`
+ * so a concurrent append can never silently clobber another.
+ *
+ * @typeParam TProjection - The current-state, read-optimized shape.
+ * @typeParam TEvent - The append-only event shape.
+ */
+export abstract class EventSourcedDao<
+  TProjection extends { last_event_sequence: number },
+  TEvent extends { sequence_number: number },
+> {
+  /**
+   * @param client - Shared `DynamoDBDocumentClient`.
+   * @param tableName - The physical table name.
+   * @param projectionSchema - Validates the `#METADATA` item.
+   * @param eventSchema - Validates each `EVENT#<n>` item.
+   * @param partitionKeyName - The table's partition-key attribute name.
+   */
+  constructor(
+    protected readonly client: DynamoDBDocumentClient,
+    protected readonly tableName: string,
+    protected readonly projectionSchema: ZodType<TProjection>,
+    protected readonly eventSchema: ZodType<TEvent>,
+    protected readonly partitionKeyName: string
+  ) {}
+
+  /**
+   * Fetches the current projection (the `#METADATA` item), or `null` if
+   * this partition has no events yet.
+   */
+  protected async getProjection(partitionKeyValue: string): Promise<TProjection | null> {
+    logInfo("EventSourcedDao.getProjection", { table: this.tableName, partitionKeyValue });
+    const result = await this.client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { [this.partitionKeyName]: partitionKeyValue, sk: PROJECTION_SORT_KEY },
+      })
+    );
+    if (!result.Item) return null;
+    return this.validateProjection(result.Item);
+  }
+
+  /**
+   * Appends one event and atomically updates the projection to match, per
+   * this class's own doc comment. `buildEvent` receives the next
+   * `sequence_number` (the current projection's plus one, or `0` for the
+   * first event); `foldProjection` derives the new projection from the
+   * previous one (`null` if this is the first event) and the new event.
+   *
+   * @throws {@link TerminalError} if the transaction is cancelled — another
+   * append won the race for this `sequence_number`.
+   */
+  protected async appendEvent(
+    partitionKeyValue: string,
+    buildEvent: (nextSequence: number) => TEvent,
+    foldProjection: (previous: TProjection | null, event: TEvent) => TProjection
+  ): Promise<TProjection> {
+    const previousProjection = await this.getProjection(partitionKeyValue);
+    const nextSequence = previousProjection ? previousProjection.last_event_sequence + 1 : 0;
+    const event = this.validateEvent(buildEvent(nextSequence));
+    const newProjection = this.validateProjection(foldProjection(previousProjection, event));
+
+    logInfo("EventSourcedDao.appendEvent", {
+      table: this.tableName,
+      partitionKeyValue,
+      nextSequence,
+      event,
+    });
+
+    try {
+      await this.client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: { [this.partitionKeyName]: partitionKeyValue, sk: `EVENT#${nextSequence}`, ...event },
+                ConditionExpression: "attribute_not_exists(sk)",
+              },
+            },
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: { [this.partitionKeyName]: partitionKeyValue, sk: PROJECTION_SORT_KEY, ...newProjection },
+                ...(previousProjection
+                  ? {
+                      ConditionExpression: "last_event_sequence = :previousSequence",
+                      ExpressionAttributeValues: { ":previousSequence": previousProjection.last_event_sequence },
+                    }
+                  : { ConditionExpression: "attribute_not_exists(sk)" }),
+              },
+            },
+          ],
+        })
+      );
+    } catch (err) {
+      if (err instanceof TransactionCanceledException) {
+        throw new TerminalError(
+          `Event append transaction cancelled for ${this.tableName}/${partitionKeyValue}`,
+          err
+        );
+      }
+      throw err;
+    }
+
+    return newProjection;
+  }
+
+  private validateProjection(item: unknown): TProjection {
+    const parsed = this.projectionSchema.safeParse(item);
+    if (!parsed.success) {
+      throw new ValidationError(
+        `Failed to validate projection item against schema for table ${this.tableName}`,
+        parsed.error.issues
+      );
+    }
+    return parsed.data;
+  }
+
+  private validateEvent(item: unknown): TEvent {
+    const parsed = this.eventSchema.safeParse(item);
+    if (!parsed.success) {
+      throw new ValidationError(
+        `Failed to validate event item against schema for table ${this.tableName}`,
         parsed.error.issues
       );
     }

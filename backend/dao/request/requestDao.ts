@@ -2,7 +2,7 @@ import { ulid } from "ulid";
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { Dao } from "../dao";
 import { logInfo } from "../../logger";
-import type { Request } from "../../models/request";
+import type { Request, RequestStatus } from "../../models/request";
 import { RequestSchema } from "../../models/request";
 import { ValidationError } from "../../models/errors";
 import {
@@ -48,6 +48,41 @@ export class RequestDao extends Dao<Request> {
 
   async getRequestById(requestId: string): Promise<Request | null> {
     return this.getItem(requestId);
+  }
+
+  /**
+   * Moves a `DRAFT` Request to a terminal-for-this-pipeline status
+   * (`PROMOTED`/`FILTERED`/`DUPLICATE`/`REJECTED`), per
+   * `3-order-ingestion.md` §3's `evaluateRequest`. Condition-checked
+   * against `status = "DRAFT"` so a redelivered SQS message (the
+   * request-processor Lambda's queue is standard, at-least-once) can never
+   * double-process an already-evaluated Request — the second attempt
+   * throws {@link TerminalError} instead of silently re-promoting/
+   * re-creating an Order.
+   *
+   * @throws {@link ValidationError} if `requestId` doesn't exist.
+   * @throws {@link TerminalError} if the Request is no longer `DRAFT`.
+   */
+  async updateRequestStatus(
+    requestId: string,
+    status: RequestStatus,
+    locationId: string | null = null
+  ): Promise<Request> {
+    const current = await this.getItem(requestId);
+    if (!current) {
+      throw new ValidationError(`Request ${requestId} not found`);
+    }
+    const updated: Request = {
+      ...current,
+      status,
+      ...(locationId !== null ? { location_id: locationId } : {}),
+    };
+    await this.putItem(updated, {
+      conditionExpression: "status = :expectedStatus",
+      conditionExpressionValues: { ":expectedStatus": "DRAFT" },
+      additionalAttributes: this.gsiAttributesFor(updated),
+    });
+    return updated;
   }
 
   /** The dedup check run on every ingested record, per ddb-design.md's Requests table GSI1. */

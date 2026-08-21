@@ -1,11 +1,14 @@
 import { CfnOutput, Stack, StackProps, Tags } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 import { RequestsTable } from "../data/RequestsTable";
+import { LocationsTable } from "../data/LocationsTable";
+import { OrdersTable } from "../data/OrdersTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
+import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -64,8 +67,7 @@ export class Nyc311Stack extends Stack {
     /*
      * 3-order-ingestion.md §2 — the order-ingestion fan-out Lambda: listens
      * to the Requests table's DynamoDB Stream and republishes relevant
-     * records onto this queue. The downstream request-processor consuming
-     * from it isn't built yet (out of scope for this slice).
+     * records onto this queue.
      */
     const orderIngestionQueue = new Nyc311OrderIngestionQueue(this, "Nyc311OrderIngestionQueue", {
       envName: props.envName,
@@ -74,6 +76,18 @@ export class Nyc311Stack extends Stack {
     new Nyc311OrderFanOutLambda(this, "Nyc311OrderFanOutLambda", {
       envName: props.envName,
       requestsTable,
+      orderIngestionQueue,
+    });
+
+    const locationsTable = new LocationsTable(this, "LocationsTable", { envName: props.envName });
+    const ordersTable = new OrdersTable(this, "OrdersTable", { envName: props.envName });
+
+    /* 3-order-ingestion.md §3 — consumes orderIngestionQueue, runs the filter pipeline, promotes/creates the Order. */
+    new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
+      envName: props.envName,
+      requestsTable,
+      locationsTable,
+      ordersTable,
       orderIngestionQueue,
     });
 

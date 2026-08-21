@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@a
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDao } from "../../../dao/request/requestDao";
-import { ValidationError } from "../../../models/errors";
+import { TerminalError, ValidationError } from "../../../models/errors";
 import type { Request } from "../../../models/request";
 import type { PollerMetrics } from "../../../models/pollerMetrics";
 
@@ -275,5 +275,50 @@ describe("listPollerMetrics", () => {
   it("throws ValidationError when a stored metrics item is malformed", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [{ ran_at: "x" }] });
     await expect(dao.listPollerMetrics()).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("updateRequestStatus", () => {
+  it("promotes a DRAFT Request, setting status and location_id", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: validRequest });
+    ddbMock.on(PutCommand).resolves({});
+
+    const updated = await dao.updateRequestStatus(validRequest.request_id, "PROMOTED", "1234567890");
+
+    expect(updated).toMatchObject({ status: "PROMOTED", location_id: "1234567890" });
+    const putInput = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(putInput).toMatchObject({
+      ConditionExpression: "status = :expectedStatus",
+      ExpressionAttributeValues: { ":expectedStatus": "DRAFT" },
+      Item: expect.objectContaining({ status: "PROMOTED", gsi2pk: "PROMOTED", gsi3pk: "1234567890" }),
+    });
+  });
+
+  it("rejects a DRAFT Request without touching location_id when none is given", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: validRequest });
+    ddbMock.on(PutCommand).resolves({});
+
+    const updated = await dao.updateRequestStatus(validRequest.request_id, "FILTERED");
+
+    expect(updated).toMatchObject({ status: "FILTERED", location_id: null });
+  });
+
+  it("throws ValidationError when the Request doesn't exist", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    await expect(dao.updateRequestStatus("missing", "PROMOTED", "1234567890")).rejects.toBeInstanceOf(
+      ValidationError
+    );
+    expect(ddbMock.commandCalls(PutCommand)).toHaveLength(0);
+  });
+
+  it("throws TerminalError when the Request is no longer DRAFT (already evaluated, e.g. a redelivered SQS message)", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { ...validRequest, status: "PROMOTED" } });
+    ddbMock
+      .on(PutCommand)
+      .rejects(new ConditionalCheckFailedException({ message: "check failed", $metadata: {} }));
+
+    await expect(dao.updateRequestStatus(validRequest.request_id, "PROMOTED", "1234567890")).rejects.toBeInstanceOf(
+      TerminalError
+    );
   });
 });
