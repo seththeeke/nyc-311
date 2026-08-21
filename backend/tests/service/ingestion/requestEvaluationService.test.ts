@@ -123,6 +123,22 @@ describe("evaluateRequest", () => {
     expect(requestDao.updateRequestStatus).toHaveBeenCalledWith("01REQUEST", "PROMOTED", "1234567890");
   });
 
+  it("falls back to the real clock when now isn't provided in deps", async () => {
+    const requestWithBbl: Request = {
+      ...draftRequest,
+      raw_payload: { unique_key: "69243509", bbl: "1234567890" },
+    };
+    const requestDao = makeRequestDao({ getRequestById: vi.fn().mockResolvedValue(requestWithBbl) });
+    const locationDao = makeLocationDao();
+    const orderDao = makeOrderDao();
+
+    await evaluateRequest(requestWithBbl, { requestDao, locationDao, orderDao });
+
+    expect(locationDao.findOrCreateLocation).toHaveBeenCalledWith(
+      expect.objectContaining({ location_id: "1234567890" })
+    );
+  });
+
   it("rejects the Request (via a filter returning REJECT) without creating an Order", async () => {
     const requestDao = makeRequestDao();
     const orderDao = makeOrderDao();
