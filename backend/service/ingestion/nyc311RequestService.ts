@@ -8,7 +8,7 @@ import { logInfo, logWarn } from "../../logger";
 import { RequestDao } from "../../dao/request/requestDao";
 import type { Request } from "../../models/request";
 import { Nyc311RawRecordSchema } from "../../models/nyc311RawRecord";
-import type { IngestionCursor } from "../../models/ingestionCursor";
+import type { IngestionCursor, IngestionCursorStatus } from "../../models/ingestionCursor";
 import type { PollResult } from "../../models/pollResult";
 import type { PollerMetrics } from "../../models/pollerMetrics";
 import type { RequestStreamRecord } from "../../models/requestStreamEvent";
@@ -23,16 +23,16 @@ function requireEnv(name: string): string {
 }
 
 /*
- * Constructed once at module scope (Lambda cold start) and reused across
- * warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2. This
- * is the one place `backend/dao/request/requestDao.ts` gets instantiated
- * for the ingestion slice; every `controller/` handler that needs it goes
- * through this service's exported functions instead of constructing or
- * calling a DAO itself (CLAUDE.md §5.2's "always go through a service to
- * reach a DAO" rule).
+ * Constructed lazily inside each function that needs one, not at module
+ * scope — per CLAUDE.md §5.2 (revised 2026-08-22). This file's exports
+ * cover two unrelated legs (poller and stream fan-out); a module-scope
+ * default here previously required REQUESTS_TABLE_NAME on import even for
+ * fanOutRequestRecord, which never touches this DAO — the gap that left
+ * the fan-out Lambda crashing on every invocation since it shipped.
  */
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const defaultRequestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
+function getDefaultRequestDao(): RequestDao {
+  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
+}
 
 /**
  * No unbounded historical backfill on the very first-ever run (no cursor
@@ -58,10 +58,10 @@ const PER_RUN_RECORD_CAP = 2000;
 const SAFETY_LAG_HOURS = 72;
 
 /**
- * Dependencies for {@link pollNyc311}. `requestDao` defaults to this
- * module's own `defaultRequestDao` — tests override it with a mock;
- * `controller/ingestion/` never passes one, since controllers don't
- * construct or touch a DAO at all (CLAUDE.md §5.2).
+ * Dependencies for {@link pollNyc311}. `requestDao` defaults to a freshly
+ * constructed `RequestDao` (see {@link getDefaultRequestDao}) — tests
+ * override it with a mock; `controller/ingestion/` never passes one, since
+ * controllers don't construct or touch a DAO at all (CLAUDE.md §5.2).
  */
 export interface PollNyc311Deps {
   requestDao?: RequestDao;
@@ -89,7 +89,7 @@ function cappedWatermark(now: Date, windowStartDate: Date, lastCreatedDateSeen: 
  * design (cursor semantics §2, pagination/cap §3, lenient validation §4).
  */
 export async function pollNyc311(deps: PollNyc311Deps = {}): Promise<PollResult> {
-  const requestDao = deps.requestDao ?? defaultRequestDao;
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
   const now = deps.now ?? (() => new Date());
   const fetchPage = deps.fetchPage ?? fetchNyc311Page;
 
@@ -215,7 +215,7 @@ export interface RequestDaoDeps {
  * concern.
  */
 export async function recordPollerMetrics(metrics: PollerMetrics, deps: RequestDaoDeps = {}): Promise<void> {
-  const requestDao = deps.requestDao ?? defaultRequestDao;
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
   logInfo("RecordPollerMetricsStarted", { metrics });
   await requestDao.putPollerMetrics(metrics);
   logInfo("RecordPollerMetricsCompleted", {});
@@ -228,22 +228,60 @@ export async function recordPollerMetrics(metrics: PollerMetrics, deps: RequestD
  * §8a).
  */
 export async function listPollerMetrics(deps: RequestDaoDeps = {}): Promise<PollerMetrics[]> {
-  const requestDao = deps.requestDao ?? defaultRequestDao;
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
   logInfo("ListPollerMetricsStarted", {});
   const metrics = await requestDao.listPollerMetrics();
   logInfo("ListPollerMetricsCompleted", { count: metrics.length });
   return metrics;
 }
 
-/*
- * Constructed once at module scope (Lambda cold start) and reused across
- * warm invocations — same pattern as `defaultRequestDao` above.
+/**
+ * A watermark lagging "now" by more than this is a sign the poller isn't
+ * draining its window (a healthy, fully-drained cursor sits at roughly
+ * `SAFETY_LAG_HOURS`) — the exact shape of the fan-out-Lambda incident this
+ * flag was added to catch (a ~12-day lag, found only by manual investigation).
  */
-const defaultSqsClient = new SQSClient({});
+const STALE_LAG_MULTIPLIER = 2;
+
+/** Dependencies for {@link getCursorStatus} — see {@link PollNyc311Deps}. */
+export interface GetCursorStatusDeps {
+  requestDao?: RequestDao;
+  now?: () => Date;
+}
 
 /**
- * Dependencies for {@link fanOutRequestRecord}. Both default to this
- * module's own singletons — tests override them with mocks/fakes.
+ * The poller's ingestion cursor plus a computed staleness signal — backs
+ * the cursor section of `GET /ingestion/metrics`
+ * (`controller/web-api/getPollerMetricsController.ts`). `null` when no
+ * cursor item exists yet (no poll has ever completed a run).
+ */
+export async function getCursorStatus(deps: GetCursorStatusDeps = {}): Promise<IngestionCursorStatus | null> {
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const now = deps.now ?? (() => new Date());
+
+  logInfo("GetCursorStatusStarted", {});
+  const cursor = await requestDao.getCursor();
+  if (!cursor) {
+    logInfo("GetCursorStatusCompleted", { cursor: null });
+    return null;
+  }
+
+  const lagHours = cursor.last_watermark
+    ? (now().getTime() - parseSodaTimestamp(cursor.last_watermark).getTime()) / (60 * 60 * 1000)
+    : null;
+  const status: IngestionCursorStatus = {
+    last_watermark: cursor.last_watermark,
+    resume_offset: cursor.resume_offset,
+    lag_hours: lagHours,
+    is_stale: lagHours !== null && lagHours > SAFETY_LAG_HOURS * STALE_LAG_MULTIPLIER,
+  };
+  logInfo("GetCursorStatusCompleted", { status });
+  return status;
+}
+
+/**
+ * Dependencies for {@link fanOutRequestRecord}. Both default to a freshly
+ * constructed client/env lookup — tests override them with mocks/fakes.
  */
 export interface RequestFanOutDeps {
   sqsClient?: SQSClient;
@@ -271,7 +309,7 @@ function isRelevantRequestRecord(record: RequestStreamRecord): boolean {
  * record is a normal no-op, never a `batchItemFailure`.
  */
 export async function fanOutRequestRecord(record: RequestStreamRecord, deps: RequestFanOutDeps = {}): Promise<void> {
-  const sqsClient = deps.sqsClient ?? defaultSqsClient;
+  const sqsClient = deps.sqsClient ?? new SQSClient({});
   const queueUrl = deps.queueUrl ?? requireEnv("ORDER_INGESTION_QUEUE_URL");
 
   if (!isRelevantRequestRecord(record)) {

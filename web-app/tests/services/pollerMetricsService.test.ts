@@ -7,15 +7,18 @@ afterEach(() => {
 });
 
 describe("pollerMetricsService", () => {
-  it("mock mode returns the baked test-data fixtures", async () => {
+  it("mock mode returns the baked test-data fixtures for metrics and cursor", async () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { pollerMetricsService } = await import("../../src/services/pollerMetricsService");
-    const { MOCK_POLLER_METRICS } = await import("../../src/test-data/pollerMetrics");
+    const { MOCK_POLLER_METRICS, MOCK_INGESTION_CURSOR_STATUS } = await import("../../src/test-data/pollerMetrics");
 
-    await expect(pollerMetricsService.listPollerMetrics()).resolves.toEqual(MOCK_POLLER_METRICS);
+    await expect(pollerMetricsService.listPollerMetrics()).resolves.toEqual({
+      metrics: MOCK_POLLER_METRICS,
+      cursor: MOCK_INGESTION_CURSOR_STATUS,
+    });
   });
 
-  it("live mode fetches from config.apiBaseUrl + /ingestion/metrics and parses the response", async () => {
+  it("live mode fetches from config.apiBaseUrl + /ingestion/metrics and parses the response envelope", async () => {
     vi.stubEnv("VITE_DATA_MODE", "live");
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     const metrics = [
@@ -28,18 +31,31 @@ describe("pollerMetricsService", () => {
         error_message: null,
       },
     ];
+    const cursor = { last_watermark: "2026-08-15T18:00:00", resume_offset: null, lag_hours: 72, is_stale: false };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ metrics }),
+        json: async () => ({ metrics, cursor }),
       })
     );
 
     const { pollerMetricsService } = await import("../../src/services/pollerMetricsService");
 
-    await expect(pollerMetricsService.listPollerMetrics()).resolves.toEqual(metrics);
+    await expect(pollerMetricsService.listPollerMetrics()).resolves.toEqual({ metrics, cursor });
     expect(fetch).toHaveBeenCalledWith("https://api.example.com/ingestion/metrics");
+  });
+
+  it("live mode returns a null cursor when the response envelope has one", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ metrics: [], cursor: null }) })
+    );
+
+    const { pollerMetricsService } = await import("../../src/services/pollerMetricsService");
+
+    await expect(pollerMetricsService.listPollerMetrics()).resolves.toEqual({ metrics: [], cursor: null });
   });
 
   it("live mode throws a descriptive error when the response is not ok", async () => {

@@ -61,14 +61,24 @@ describe("listOrders", () => {
 });
 
 describe("module wiring", () => {
-  it("throws at load time when ORDERS_TABLE_NAME is unset", async () => {
+  it("does not throw on import when ORDERS_TABLE_NAME is unset (lazy construction, CLAUDE.md §5.2)", async () => {
     const previous = process.env.ORDERS_TABLE_NAME;
     delete process.env.ORDERS_TABLE_NAME;
     vi.resetModules();
 
-    await expect(import("../../../service/order/orderService.js")).rejects.toThrow(
-      "Missing required environment variable: ORDERS_TABLE_NAME"
-    );
+    await expect(import("../../../service/order/orderService.js")).resolves.toBeDefined();
+
+    process.env.ORDERS_TABLE_NAME = previous;
+    vi.resetModules();
+  });
+
+  it("throws only when listOrders is actually called without deps.orderDao and the env var is unset", async () => {
+    const previous = process.env.ORDERS_TABLE_NAME;
+    delete process.env.ORDERS_TABLE_NAME;
+    vi.resetModules();
+    const { listOrders: freshListOrders } = await import("../../../service/order/orderService.js");
+
+    await expect(freshListOrders({})).rejects.toThrow("Missing required environment variable: ORDERS_TABLE_NAME");
 
     process.env.ORDERS_TABLE_NAME = previous;
     vi.resetModules();

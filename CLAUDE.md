@@ -237,17 +237,31 @@ The backend will follow a basic controller, service, and data access object(DAO)
   boundary, not three calls deep.
 - **Controllers always go through a service to reach a DAO — never import,
   construct, or call one directly.** The service layer owns constructing
-  its DAOs (module-scope singletons, same Lambda-cold-start-reuse pattern
-  controllers used to own — see `service/ingestion/nyc311RequestService.ts`)
-  and exposes plain functions a controller calls instead. This keeps the
-  service layer genuinely reusable across sync/async trigger types (a
-  controller swap should never require duplicating persistence logic) and
-  keeps every DAO call sitting next to the business logic that explains
-  *why* it's happening, not scattered into whichever controller happened to
-  need it first. Enforced by `eslint.config.js`'s `no-restricted-imports`
-  rule on `controller/**/*.ts` (bans any import path matching `**/dao/**`),
-  not just review — a controller that imports a DAO fails lint, not a
-  human catching it later.
+  its DAOs and exposes plain functions a controller calls instead. This
+  keeps the service layer genuinely reusable across sync/async trigger
+  types (a controller swap should never require duplicating persistence
+  logic) and keeps every DAO call sitting next to the business logic that
+  explains *why* it's happening, not scattered into whichever controller
+  happened to need it first. Enforced by `eslint.config.js`'s
+  `no-restricted-imports` rule on `controller/**/*.ts` (bans any import
+  path matching `**/dao/**`), not just review — a controller that imports a
+  DAO fails lint, not a human catching it later.
+- **DAOs/clients are constructed lazily, inside each function that needs
+  one — never as a module-scope singleton, even for Lambda-cold-start
+  reuse.** Revised 2026-08-22 after a real incident: `nyc311RequestService.ts`
+  originally built its `RequestDao` once at module scope via
+  `requireEnv("REQUESTS_TABLE_NAME")`, and every export in that file shared
+  it — including `fanOutRequestRecord`, which never touches `RequestDao`.
+  The fan-out Lambda was never granted that env var (its own logic needs
+  none of that table), so importing the file crashed at cold start on
+  every single invocation from the day it shipped, silently, since nothing
+  alarmed on it. A service function now takes the form
+  `const requestDao = deps.requestDao ?? getRequestDao();` with a small
+  `getXDao()` helper doing the construction — importing a file for one
+  export never pays for another export's dependencies. No caching across
+  warm invocations either; not a significant enough performance win at
+  this project's scale to justify the fragility, revisit later if
+  profiling ever says otherwise.
 - **DAO layer splits along ddb-design.md's two table shapes, not just by
   entity.** Rather than every DAO reimplementing the transactional
   append-and-fold logic independently, `dao/` gets two small shared base

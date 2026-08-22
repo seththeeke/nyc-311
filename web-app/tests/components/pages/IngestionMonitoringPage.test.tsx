@@ -4,13 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IngestionMonitoringPage } from "../../../src/components/pages/IngestionMonitoringPage";
 import { pollerMetricsService } from "../../../src/services/pollerMetricsService";
-import type { PollerMetrics } from "../../../src/models/pollerMetrics";
+import type { PollerMetrics, PollerMetricsResponse } from "../../../src/models/pollerMetrics";
 
 vi.mock("../../../src/services/pollerMetricsService", () => ({
   pollerMetricsService: { listPollerMetrics: vi.fn() },
 }));
 
 const mockedListPollerMetrics = vi.mocked(pollerMetricsService.listPollerMetrics);
+
+const emptyResponse: PollerMetricsResponse = { metrics: [], cursor: null };
 
 function renderPage() {
   const queryClient = new QueryClient({
@@ -35,7 +37,7 @@ afterEach(() => {
 
 describe("IngestionMonitoringPage", () => {
   it("shows a loading state, then the heading and a link back to Monitoring", async () => {
-    mockedListPollerMetrics.mockResolvedValue([]);
+    mockedListPollerMetrics.mockResolvedValue(emptyResponse);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Ingestion" })).toBeInTheDocument();
@@ -54,17 +56,34 @@ describe("IngestionMonitoringPage", () => {
         error_message: null,
       },
     ];
-    mockedListPollerMetrics.mockResolvedValue(metrics);
+    mockedListPollerMetrics.mockResolvedValue({ metrics, cursor: null });
     renderPage();
 
     expect(await screen.findByText("2000")).toBeInTheDocument();
   });
 
   it("shows an empty-state message when no runs have been recorded yet", async () => {
-    mockedListPollerMetrics.mockResolvedValue([]);
+    mockedListPollerMetrics.mockResolvedValue(emptyResponse);
     renderPage();
 
     expect(await screen.findByText("No poller runs recorded yet.")).toBeInTheDocument();
+  });
+
+  it("renders the cursor section even when there are no poller runs yet", async () => {
+    mockedListPollerMetrics.mockResolvedValue(emptyResponse);
+    renderPage();
+
+    expect(await screen.findByText("No ingestion cursor yet — the poller hasn't completed a run.")).toBeInTheDocument();
+  });
+
+  it("renders the cursor's status once data resolves", async () => {
+    mockedListPollerMetrics.mockResolvedValue({
+      metrics: [],
+      cursor: { last_watermark: "2026-08-15T18:00:00", resume_offset: null, lag_hours: 72, is_stale: false },
+    });
+    renderPage();
+
+    expect(await screen.findByText("Healthy")).toBeInTheDocument();
   });
 
   it("shows an error message when the service call fails", async () => {

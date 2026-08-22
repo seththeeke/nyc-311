@@ -48,6 +48,15 @@ function OrdersIcon(): ReactElement {
   );
 }
 
+function LambdaHealthIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M4 17V9l8-5 8 5v8l-8 5-8-5z" />
+      <path d="M12 12v5M12 12L4.5 8.5M12 12l7.5-3.5" />
+    </svg>
+  );
+}
+
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Ingestion",
@@ -69,6 +78,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/orders",
     accent: "emerald",
     icon: <OrdersIcon />,
+  },
+  {
+    title: "Lambda Health",
+    description: "Invocations, successes, and errors per Lambda, over the last 7 days.",
+    to: "/monitoring/lambda-health",
+    accent: "amber",
+    icon: <LambdaHealthIcon />,
   },
 ];
 

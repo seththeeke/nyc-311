@@ -1,5 +1,5 @@
 import { App } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { Nyc311Stack } from "../../stack/Nyc311Stack";
 
@@ -80,6 +80,25 @@ describe("Nyc311Stack", () => {
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrdersApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /orders" });
+  });
+
+  it("wires GET /lambda-metrics to the Lambda health Lambda, with every monitored function name set (2026-08-22 incident)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311LambdaMetricsApi-Test" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /lambda-metrics" });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({
+          MONITORED_LAMBDA_POLLER: { Ref: Match.stringLikeRegexp("^Nyc311PollerLambda") },
+          MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderFanOutLambda") },
+          MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
+          MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
+          MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
+          MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
+        }),
+      },
+    });
   });
 
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {

@@ -15,11 +15,16 @@ function requireEnv(name: string): string {
   return value;
 }
 
-/* Constructed once at module scope (Lambda cold start), per CLAUDE.md §5.2 — same pattern as nyc311RequestService.ts. */
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const defaultRequestDao = new RequestDao(ddbClient, requireEnv("REQUESTS_TABLE_NAME"));
-const defaultLocationDao = new LocationDao(ddbClient, requireEnv("LOCATIONS_TABLE_NAME"));
-const defaultOrderDao = new OrderDao(ddbClient, requireEnv("ORDERS_TABLE_NAME"));
+/* Constructed lazily inside evaluateRequest, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
+function getDefaultRequestDao(): RequestDao {
+  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
+}
+function getDefaultLocationDao(): LocationDao {
+  return new LocationDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("LOCATIONS_TABLE_NAME"));
+}
+function getDefaultOrderDao(): OrderDao {
+  return new OrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("ORDERS_TABLE_NAME"));
+}
 
 /**
  * The outcome contract every filter function in {@link FILTERS} returns
@@ -121,9 +126,9 @@ export interface RequestEvaluationDeps {
  * must never double-process an already-evaluated Request.
  */
 export async function evaluateRequest(request: Request, deps: RequestEvaluationDeps = {}): Promise<void> {
-  const requestDao = deps.requestDao ?? defaultRequestDao;
-  const locationDao = deps.locationDao ?? defaultLocationDao;
-  const orderDao = deps.orderDao ?? defaultOrderDao;
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const locationDao = deps.locationDao ?? getDefaultLocationDao();
+  const orderDao = deps.orderDao ?? getDefaultOrderDao();
   const createCaseFn = deps.createCaseFn ?? createCase;
   const now = deps.now ?? (() => new Date());
   const filters = deps.filters ?? FILTERS;

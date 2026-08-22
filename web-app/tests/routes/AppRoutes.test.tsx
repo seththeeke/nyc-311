@@ -42,4 +42,9 @@ describe("AppRoutes", () => {
     renderAt("/monitoring/orders");
     expect(screen.getByRole("heading", { name: "Orders" })).toBeInTheDocument();
   });
+
+  it("renders LambdaMonitoringPage at /monitoring/lambda-health", () => {
+    renderAt("/monitoring/lambda-health");
+    expect(screen.getByRole("heading", { name: "Lambda Health" })).toBeInTheDocument();
+  });
 });

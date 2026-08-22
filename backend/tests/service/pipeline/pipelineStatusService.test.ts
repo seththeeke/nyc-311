@@ -263,14 +263,26 @@ describe("getPipelineStatus", () => {
 });
 
 describe("module wiring", () => {
-  it("throws at load time when PIPELINE_NAME is unset", async () => {
+  it("does not throw on import when PIPELINE_NAME is unset (lazy construction, CLAUDE.md §5.2)", async () => {
     const previous = process.env.PIPELINE_NAME;
     delete process.env.PIPELINE_NAME;
     vi.resetModules();
 
-    await expect(
-      import("../../../service/pipeline/pipelineStatusService.js")
-    ).rejects.toThrow("Missing required environment variable: PIPELINE_NAME");
+    await expect(import("../../../service/pipeline/pipelineStatusService.js")).resolves.toBeDefined();
+
+    process.env.PIPELINE_NAME = previous;
+    vi.resetModules();
+  });
+
+  it("throws only when getPipelineStatus is actually called without deps.pipelineName and the env var is unset", async () => {
+    const previous = process.env.PIPELINE_NAME;
+    delete process.env.PIPELINE_NAME;
+    vi.resetModules();
+    const { getPipelineStatus: freshGetPipelineStatus } = await import(
+      "../../../service/pipeline/pipelineStatusService.js"
+    );
+
+    await expect(freshGetPipelineStatus()).rejects.toThrow("Missing required environment variable: PIPELINE_NAME");
 
     process.env.PIPELINE_NAME = previous;
     vi.resetModules();

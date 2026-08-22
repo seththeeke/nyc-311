@@ -6,6 +6,9 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 
+/* Exported so Nyc311LambdaMetricsApiLambda (a different stack) can reference this Lambda by name without a cross-stack construct reference. */
+export const PIPELINE_STATUS_FUNCTION_NAME = "Nyc311PipelineStatus";
+
 export interface Nyc311PipelineStatusLambdaProps {
   /** The pipeline's own name (e.g. "Nyc311Pipeline") — passed as an env var rather than hardcoded a second time in application code. */
   pipelineName: string;
@@ -22,7 +25,7 @@ export interface Nyc311PipelineStatusLambdaProps {
  */
 export class Nyc311PipelineStatusLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311PipelineStatusLambdaProps) {
-    const functionName = "Nyc311PipelineStatus";
+    const functionName = PIPELINE_STATUS_FUNCTION_NAME;
 
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
       logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */

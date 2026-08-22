@@ -1,4 +1,4 @@
-import type { PollerMetrics } from "../models/pollerMetrics";
+import type { IngestionCursorStatus, PollerMetrics } from "../models/pollerMetrics";
 
 /*
  * Baked sample data for "mock" data mode (config.ts) — a small, lightweight
@@ -40,3 +40,11 @@ export const MOCK_POLLER_METRICS: PollerMetrics[] = [
     error_message: null,
   },
 ];
+
+/* A healthy, recently-drained cursor — not the stale, stuck-for-days state the 2026-08-22 incident found in Nyc311-Test. */
+export const MOCK_INGESTION_CURSOR_STATUS: IngestionCursorStatus = {
+  last_watermark: "2026-08-15T18:00:00",
+  resume_offset: null,
+  lag_hours: 72,
+  is_stale: false,
+};

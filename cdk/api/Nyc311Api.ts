@@ -5,11 +5,13 @@ import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import type { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
+import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
   metricsApiLambda: Nyc311MetricsApiLambda;
   ordersApiLambda: Nyc311OrdersApiLambda;
+  lambdaMetricsApiLambda: Nyc311LambdaMetricsApiLambda;
   /** WebsiteHosting's CloudFront `distribution.domainName` — allowed by CORS alongside local dev. */
   webAppDomainName: string;
 }
@@ -27,7 +29,7 @@ const LOCAL_DEV_ORIGIN = "http://localhost:5173";
  * a REST API (`aws-apigateway`): cheaper and simpler, and sufficient for
  * this project's basic GET-only REST surface (1-data-ingestion.md §8a).
  *
- * Routes: `GET /ingestion/metrics`, `GET /orders`.
+ * Routes: `GET /ingestion/metrics`, `GET /orders`, `GET /lambda-metrics`.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -53,6 +55,12 @@ export class Nyc311Api extends HttpApi {
       path: "/orders",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetOrdersIntegration", props.ordersApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/lambda-metrics",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetLambdaMetricsIntegration", props.lambdaMetricsApiLambda),
     });
   }
 }

@@ -13,13 +13,14 @@ function requireEnv(name: string): string {
 }
 
 /*
- * Constructed once at module scope (Lambda cold start) and reused across
- * warm invocations — same pattern as nyc311RequestService.ts's
- * defaultRequestDao. Controllers never construct or call OrderDao directly
- * (CLAUDE.md §5.2's "always go through a service to reach a DAO" rule).
+ * Constructed lazily inside listOrders, not at module scope — per
+ * CLAUDE.md §5.2 (revised 2026-08-22). Controllers never construct or call
+ * OrderDao directly (CLAUDE.md §5.2's "always go through a service to
+ * reach a DAO" rule).
  */
-const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const defaultOrderDao = new OrderDao(ddbClient, requireEnv("ORDERS_TABLE_NAME"));
+function getDefaultOrderDao(): OrderDao {
+  return new OrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("ORDERS_TABLE_NAME"));
+}
 
 /** Dependencies for {@link listOrders} — defaults to this module's own singleton; tests override it with a mock. */
 export interface ListOrdersDeps {
@@ -33,7 +34,7 @@ export interface ListOrdersDeps {
  * everything else passes straight through to `OrderDao.listOrders`.
  */
 export async function listOrders(query: OrderListQuery, deps: ListOrdersDeps = {}): Promise<OrderListResult> {
-  const orderDao = deps.orderDao ?? defaultOrderDao;
+  const orderDao = deps.orderDao ?? getDefaultOrderDao();
   logInfo("ListOrdersStarted", { query });
 
   const result = await orderDao.listOrders({

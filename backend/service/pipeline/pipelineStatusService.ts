@@ -18,12 +18,10 @@ function requireEnv(name: string): string {
   return value;
 }
 
-/*
- * Constructed once at module scope (Lambda cold start) and reused across
- * warm invocations, rather than rebuilt per call — per CLAUDE.md §5.2.
- */
-const codePipelineClient = new CodePipelineClient({});
-const defaultPipelineName = requireEnv("PIPELINE_NAME");
+/* Constructed lazily inside getPipelineStatus, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
+function getDefaultPipelineName(): string {
+  return requireEnv("PIPELINE_NAME");
+}
 
 /*
  * 2-pipeline-monitoring.md §4 — the console's own execution-history list
@@ -43,8 +41,8 @@ export interface GetPipelineStatusDeps {
  * is read-only; nothing in this service can mutate the pipeline.
  */
 export async function getPipelineStatus(deps: GetPipelineStatusDeps = {}): Promise<PipelineStatusResponse> {
-  const client = deps.client ?? codePipelineClient;
-  const pipelineName = deps.pipelineName ?? defaultPipelineName;
+  const client = deps.client ?? new CodePipelineClient({});
+  const pipelineName = deps.pipelineName ?? getDefaultPipelineName();
 
   logInfo("GetPipelineStatusStarted", { pipelineName });
 

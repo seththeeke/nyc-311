@@ -19,8 +19,25 @@ export const PollerMetricsSchema = z.object({
 
 export type PollerMetrics = z.infer<typeof PollerMetricsSchema>;
 
+/*
+ * Mirrors backend/models/ingestionCursor.ts's IngestionCursorStatus — the
+ * poller's checkpoint plus a computed staleness signal, added after the
+ * 2026-08-22 fan-out-Lambda incident (nothing in the DAO/DAO chain was
+ * broken, but the pipeline stalled silently for days with no UI signal).
+ * `null` on the envelope when no cursor item exists yet.
+ */
+export const IngestionCursorStatusSchema = z.object({
+  last_watermark: z.string().min(1).nullable(),
+  resume_offset: z.number().int().nonnegative().nullable(),
+  lag_hours: z.number().nonnegative().nullable(),
+  is_stale: z.boolean(),
+});
+
+export type IngestionCursorStatus = z.infer<typeof IngestionCursorStatusSchema>;
+
 export const PollerMetricsResponseSchema = z.object({
   metrics: z.array(PollerMetricsSchema),
+  cursor: IngestionCursorStatusSchema.nullable(),
 });
 
 export type PollerMetricsResponse = z.infer<typeof PollerMetricsResponseSchema>;

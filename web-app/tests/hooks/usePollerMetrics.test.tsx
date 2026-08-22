@@ -4,7 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { usePollerMetrics } from "../../src/hooks/usePollerMetrics";
 import { pollerMetricsService } from "../../src/services/pollerMetricsService";
-import type { PollerMetrics } from "../../src/models/pollerMetrics";
+import type { PollerMetricsResponse } from "../../src/models/pollerMetrics";
 
 vi.mock("../../src/services/pollerMetricsService", () => ({
   pollerMetricsService: { listPollerMetrics: vi.fn() },
@@ -28,23 +28,26 @@ afterEach(() => {
 });
 
 describe("usePollerMetrics", () => {
-  it("resolves with the service's metrics", async () => {
-    const metrics: PollerMetrics[] = [
-      {
-        ran_at: "2026-08-15T00:00:00.000Z",
-        success: true,
-        records_ingested: 5,
-        duplicates_skipped: 1,
-        records_rejected: 0,
-        error_message: null,
-      },
-    ];
-    mockedListPollerMetrics.mockResolvedValue(metrics);
+  it("resolves with the service's metrics and cursor envelope", async () => {
+    const response: PollerMetricsResponse = {
+      metrics: [
+        {
+          ran_at: "2026-08-15T00:00:00.000Z",
+          success: true,
+          records_ingested: 5,
+          duplicates_skipped: 1,
+          records_rejected: 0,
+          error_message: null,
+        },
+      ],
+      cursor: { last_watermark: "2026-08-15T18:00:00", resume_offset: null, lag_hours: 72, is_stale: false },
+    };
+    mockedListPollerMetrics.mockResolvedValue(response);
 
     const { result } = renderHook(() => usePollerMetrics(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(metrics);
+    expect(result.current.data).toEqual(response);
   });
 
   it("surfaces a service failure as an error state", async () => {

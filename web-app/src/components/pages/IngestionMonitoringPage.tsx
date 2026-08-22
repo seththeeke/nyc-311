@@ -5,6 +5,7 @@ import { PollerMetricsTable } from "../PollerMetricsTable";
 import { IngestionStatTiles } from "../ingestion/IngestionStatTiles";
 import { RunHistoryStrip } from "../ingestion/RunHistoryStrip";
 import { IngestionVolumeChart } from "../ingestion/IngestionVolumeChart";
+import { CursorStatusCard } from "../ingestion/CursorStatusCard";
 
 function Section({ title, children }: { title: string; children: ReactElement }): ReactElement {
   return (
@@ -46,22 +47,28 @@ export function IngestionMonitoringPage(): ReactElement {
           </p>
         )}
 
-        {!isPending && !isError && data.length === 0 && (
-          <p className="mt-6 text-slate-400">No poller runs recorded yet.</p>
-        )}
-
-        {!isPending && !isError && data.length > 0 && (
+        {!isPending && !isError && (
           <div className="mt-6 flex flex-col gap-4">
-            <IngestionStatTiles metrics={data} />
-            <Section title="Run history">
-              <RunHistoryStrip metrics={data} />
+            <Section title="Ingestion cursor">
+              <CursorStatusCard cursor={data.cursor} />
             </Section>
-            <Section title="Ingestion volume">
-              <IngestionVolumeChart metrics={data} />
-            </Section>
-            <Section title="All runs">
-              <PollerMetricsTable metrics={data} />
-            </Section>
+
+            {data.metrics.length === 0 && <p className="text-slate-400">No poller runs recorded yet.</p>}
+
+            {data.metrics.length > 0 && (
+              <>
+                <IngestionStatTiles metrics={data.metrics} />
+                <Section title="Run history">
+                  <RunHistoryStrip metrics={data.metrics} />
+                </Section>
+                <Section title="Ingestion volume">
+                  <IngestionVolumeChart metrics={data.metrics} />
+                </Section>
+                <Section title="All runs">
+                  <PollerMetricsTable metrics={data.metrics} />
+                </Section>
+              </>
+            )}
           </div>
         )}
       </main>

@@ -1,3 +1,5 @@
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evaluateRequest, type FilterFn } from "../../../service/ingestion/requestEvaluationService";
 import type { RequestDao } from "../../../dao/request/requestDao";
@@ -168,16 +170,42 @@ describe("evaluateRequest", () => {
       evaluateRequest(draftRequest, { requestDao, now: () => NOW, filters: [noopFilter] })
     ).rejects.toThrow(/without a resolved location_id/);
   });
+
+  it("falls back to freshly constructed DAOs when none are provided in deps", async () => {
+    const ddbMock = mockClient(DynamoDBDocumentClient);
+    ddbMock.on(GetCommand).resolves({}); /* getRequestById finds no Item -> current is null -> early return */
+
+    await evaluateRequest(draftRequest, { now: () => NOW });
+
+    expect(ddbMock.commandCalls(GetCommand)).toHaveLength(1);
+    ddbMock.restore();
+  });
 });
 
 describe("module wiring", () => {
-  it("throws at load time when LOCATIONS_TABLE_NAME is unset", async () => {
+  it("does not throw on import when LOCATIONS_TABLE_NAME is unset (lazy construction, CLAUDE.md §5.2)", async () => {
     const previous = process.env.LOCATIONS_TABLE_NAME;
     delete process.env.LOCATIONS_TABLE_NAME;
     vi.resetModules();
 
+    await expect(import("../../../service/ingestion/requestEvaluationService.js")).resolves.toBeDefined();
+
+    process.env.LOCATIONS_TABLE_NAME = previous;
+    vi.resetModules();
+  });
+
+  it("throws only when evaluateRequest is actually called without deps.locationDao and the env var is unset", async () => {
+    const previous = process.env.LOCATIONS_TABLE_NAME;
+    delete process.env.LOCATIONS_TABLE_NAME;
+    vi.resetModules();
+    const { evaluateRequest: freshEvaluateRequest } = await import(
+      "../../../service/ingestion/requestEvaluationService.js"
+    );
+    const requestDao = makeRequestDao();
+    const requestWithBbl: Request = { ...draftRequest, raw_payload: { unique_key: "69243509", bbl: "1234567890" } };
+
     await expect(
-      import("../../../service/ingestion/requestEvaluationService.js")
+      freshEvaluateRequest(requestWithBbl, { requestDao, now: () => NOW })
     ).rejects.toThrow("Missing required environment variable: LOCATIONS_TABLE_NAME");
 
     process.env.LOCATIONS_TABLE_NAME = previous;

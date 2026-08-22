@@ -8,6 +8,7 @@ import {
   pollNyc311,
   recordPollerMetrics,
   listPollerMetrics,
+  getCursorStatus,
   fanOutRequestRecord,
 } from "../../../service/ingestion/nyc311RequestService";
 import type { Request } from "../../../models/request";
@@ -332,6 +333,59 @@ describe("listPollerMetrics", () => {
   });
 });
 
+describe("getCursorStatus", () => {
+  const CURSOR_NOW = new Date("2026-08-22T00:00:00.000Z");
+  const cursorNow = () => CURSOR_NOW;
+
+  it("returns null when no cursor item exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    await expect(getCursorStatus({ requestDao, now: cursorNow })).resolves.toBeNull();
+  });
+
+  it("computes lag_hours and is_stale=false for a healthy, recently-drained watermark", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: { request_id: "CURSOR#NYC_311", last_watermark: "2026-08-19T00:00:00", resume_offset: null },
+    });
+
+    await expect(getCursorStatus({ requestDao, now: cursorNow })).resolves.toEqual({
+      last_watermark: "2026-08-19T00:00:00",
+      resume_offset: null,
+      lag_hours: 72,
+      is_stale: false,
+    });
+  });
+
+  it("flags is_stale=true once the lag exceeds 2x SAFETY_LAG_HOURS", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: { request_id: "CURSOR#NYC_311", last_watermark: "2026-08-10T00:00:00", resume_offset: 72000 },
+    });
+
+    const result = await getCursorStatus({ requestDao, now: cursorNow });
+
+    expect(result?.is_stale).toBe(true);
+    expect(result?.lag_hours).toBe(288);
+    expect(result?.resume_offset).toBe(72000);
+  });
+
+  it("defaults `requestDao` and `now` to the module's own instances when not injected", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    await expect(getCursorStatus()).resolves.toBeNull();
+  });
+
+  it("returns null lag_hours/is_stale=false when the cursor item has a null last_watermark", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: { request_id: "CURSOR#NYC_311", last_watermark: null, resume_offset: null },
+    });
+
+    await expect(getCursorStatus({ requestDao, now: cursorNow })).resolves.toEqual({
+      last_watermark: null,
+      resume_offset: null,
+      lag_hours: null,
+      is_stale: false,
+    });
+  });
+});
+
 describe("fanOutRequestRecord", () => {
   it("publishes the unmarshalled NewImage to SQS for a relevant INSERT record", async () => {
     sqsMock.on(SendMessageCommand).resolves({});
@@ -419,17 +473,42 @@ describe("fanOutRequestRecord", () => {
       else process.env["ORDER_INGESTION_QUEUE_URL"] = previous;
     }
   });
+
+  it("falls back to a freshly constructed SQSClient when sqsClient isn't provided in deps", async () => {
+    const previous = process.env["ORDER_INGESTION_QUEUE_URL"];
+    process.env["ORDER_INGESTION_QUEUE_URL"] = QUEUE_URL;
+    sqsMock.on(SendMessageCommand).resolves({});
+
+    try {
+      await fanOutRequestRecord(makeStreamRecord());
+
+      expect(sqsMock.commandCalls(SendMessageCommand)).toHaveLength(1);
+    } finally {
+      if (previous === undefined) delete process.env["ORDER_INGESTION_QUEUE_URL"];
+      else process.env["ORDER_INGESTION_QUEUE_URL"] = previous;
+    }
+  });
 });
 
 describe("module wiring", () => {
-  it("throws at load time when REQUESTS_TABLE_NAME is unset", async () => {
+  it("does not throw on import when REQUESTS_TABLE_NAME is unset (lazy construction, CLAUDE.md §5.2)", async () => {
     const previous = process.env.REQUESTS_TABLE_NAME;
     delete process.env.REQUESTS_TABLE_NAME;
     vi.resetModules();
 
-    await expect(
-      import("../../../service/ingestion/nyc311RequestService.js")
-    ).rejects.toThrow("Missing required environment variable: REQUESTS_TABLE_NAME");
+    await expect(import("../../../service/ingestion/nyc311RequestService.js")).resolves.toBeDefined();
+
+    process.env.REQUESTS_TABLE_NAME = previous;
+    vi.resetModules();
+  });
+
+  it("throws only when pollNyc311 is actually called without deps.requestDao and the env var is unset", async () => {
+    const previous = process.env.REQUESTS_TABLE_NAME;
+    delete process.env.REQUESTS_TABLE_NAME;
+    vi.resetModules();
+    const { pollNyc311: freshPollNyc311 } = await import("../../../service/ingestion/nyc311RequestService.js");
+
+    await expect(freshPollNyc311()).rejects.toThrow("Missing required environment variable: REQUESTS_TABLE_NAME");
 
     process.env.REQUESTS_TABLE_NAME = previous;
     vi.resetModules();

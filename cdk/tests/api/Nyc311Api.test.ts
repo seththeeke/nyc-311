@@ -5,6 +5,7 @@ import { RequestsTable } from "../../data/RequestsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
+import { Nyc311LambdaMetricsApiLambda } from "../../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const WEB_APP_DOMAIN = "d123456abcdef.cloudfront.net";
@@ -16,7 +17,21 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const metricsApiLambda = new Nyc311MetricsApiLambda(stack, "Nyc311MetricsApiLambda", { envName, requestsTable });
   const ordersApiLambda = new Nyc311OrdersApiLambda(stack, "Nyc311OrdersApiLambda", { envName, ordersTable });
-  new Nyc311Api(stack, "Nyc311Api", { envName, metricsApiLambda, ordersApiLambda, webAppDomainName: WEB_APP_DOMAIN });
+  const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(stack, "Nyc311LambdaMetricsApiLambda", {
+    envName,
+    pollerFunctionName: "Nyc311Poller-Test",
+    orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
+    requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
+    metricsApiFunctionName: "Nyc311MetricsApi-Test",
+    ordersApiFunctionName: "Nyc311OrdersApi-Test",
+  });
+  new Nyc311Api(stack, "Nyc311Api", {
+    envName,
+    metricsApiLambda,
+    ordersApiLambda,
+    lambdaMetricsApiLambda,
+    webAppDomainName: WEB_APP_DOMAIN,
+  });
   return Template.fromStack(stack);
 }
 
@@ -49,7 +64,7 @@ describe("Nyc311Api", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 2);
+    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 3);
     template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -64,8 +79,16 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly two routes — the only public endpoints today", () => {
+  it("wires GET /lambda-metrics to the Lambda-metrics Lambda", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 2);
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /lambda-metrics",
+    });
+  });
+
+  it("declares exactly three routes — the only public endpoints today", () => {
+    const template = synthesize("TEST");
+    template.resourceCountIs("AWS::ApiGatewayV2::Route", 3);
   });
 });

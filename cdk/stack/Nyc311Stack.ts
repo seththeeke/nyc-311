@@ -7,6 +7,7 @@ import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
+import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
@@ -74,7 +75,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
     });
 
-    new Nyc311OrderFanOutLambda(this, "Nyc311OrderFanOutLambda", {
+    const orderFanOutLambda = new Nyc311OrderFanOutLambda(this, "Nyc311OrderFanOutLambda", {
       envName: props.envName,
       requestsTable,
       orderIngestionQueue,
@@ -84,7 +85,7 @@ export class Nyc311Stack extends Stack {
     const ordersTable = new OrdersTable(this, "OrdersTable", { envName: props.envName });
 
     /* 3-order-ingestion.md §3 — consumes orderIngestionQueue, runs the filter pipeline, promotes/creates the Order. */
-    new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
+    const requestEvaluationLambda = new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
       envName: props.envName,
       requestsTable,
       locationsTable,
@@ -105,10 +106,21 @@ export class Nyc311Stack extends Stack {
       ordersTable,
     });
 
+    /* The Lambda health tile, added after the 2026-08-22 fan-out-Lambda incident — backs the public `GET /lambda-metrics` route. */
+    const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", {
+      envName: props.envName,
+      pollerFunctionName: pollerLambda.functionName,
+      orderFanOutFunctionName: orderFanOutLambda.functionName,
+      requestEvaluationFunctionName: requestEvaluationLambda.functionName,
+      metricsApiFunctionName: metricsApiLambda.functionName,
+      ordersApiFunctionName: ordersApiLambda.functionName,
+    });
+
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
       metricsApiLambda,
       ordersApiLambda,
+      lambdaMetricsApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });
 

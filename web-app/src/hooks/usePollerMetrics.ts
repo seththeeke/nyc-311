@@ -1,6 +1,6 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { pollerMetricsService } from "../services/pollerMetricsService";
-import type { PollerMetrics } from "../models/pollerMetrics";
+import type { PollerMetricsResponse } from "../models/pollerMetrics";
 
 export const POLLER_METRICS_QUERY_KEY = ["pollerMetrics"] as const;
 
@@ -13,7 +13,7 @@ export const POLLER_METRICS_QUERY_KEY = ["pollerMetrics"] as const;
 const REFETCH_INTERVAL_MS = 60_000;
 
 /** Components call hooks, never services, directly (CLAUDE.md §5.1). */
-export function usePollerMetrics(): UseQueryResult<PollerMetrics[], Error> {
+export function usePollerMetrics(): UseQueryResult<PollerMetricsResponse, Error> {
   return useQuery({
     queryKey: POLLER_METRICS_QUERY_KEY,
     queryFn: () => pollerMetricsService.listPollerMetrics(),
