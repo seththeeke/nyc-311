@@ -46,14 +46,14 @@ describe("Nyc311MetricsApiLambda", () => {
     });
   });
 
-  it("grants only Query on the RequestsTable (table + indexes) — least privilege, read-only", () => {
+  it("grants only Query and GetItem on the RequestsTable (table + indexes) — least privilege, read-only", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: Match.objectLike({
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: "dynamodb:Query",
+            Action: Match.arrayWith(["dynamodb:Query", "dynamodb:GetItem"]),
             Effect: "Allow",
           }),
         ]),
