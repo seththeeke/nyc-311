@@ -43,8 +43,16 @@ const INITIAL_WINDOW_HOURS = 24;
 /** Records requested per SODA API call. */
 const PAGE_SIZE = 1000;
 
-/** Records looked at (accepted + rejected + duplicate) per Lambda invocation — 1-data-ingestion.md §3. */
-const PER_RUN_RECORD_CAP = 2000;
+/**
+ * Records looked at (accepted + rejected + duplicate) per Lambda invocation
+ * — 1-data-ingestion.md §3. Raised from 2000 to 10000 (2026-08-22): real
+ * NYC 311 volume measured ~2.5-2.9k per 6h window already exceeded the old
+ * cap, so every run hit it and the cursor never drained — a structural
+ * shortfall. 10000 leaves headroom and lets runs claw back the backlog,
+ * comfortably inside the Lambda's timeout (also raised — see
+ * Nyc311PollerLambda.ts).
+ */
+const PER_RUN_RECORD_CAP = 10000;
 
 /**
  * A drained window's watermark never advances past `now - SAFETY_LAG_HOURS`

@@ -216,7 +216,7 @@ describe("pollNyc311", () => {
     /*
      * Every page comes back completely full (== the requested limit), so the
      * poller can never conclude the window drained — it must stop once it
-     * hits the 2000-record per-run cap instead.
+     * hits the 10000-record per-run cap instead.
      */
     const fetchPage = vi.fn().mockImplementation(({ offset, limit }: { offset: number; limit: number }) =>
       Promise.resolve(makeRawRecords(limit, offset))
@@ -224,15 +224,15 @@ describe("pollNyc311", () => {
 
     const result = await pollNyc311({ requestDao, now, fetchPage });
 
-    expect(result.recordsIngested).toBe(2000);
-    expect(fetchPage).toHaveBeenCalledTimes(2);
+    expect(result.recordsIngested).toBe(10000);
+    expect(fetchPage).toHaveBeenCalledTimes(10);
 
     const cursorPut = ddbMock
       .commandCalls(PutCommand)
       .find((c) => c.args[0].input.Item?.["request_id"] === "CURSOR#NYC_311");
     expect(cursorPut?.args[0].input.Item).toMatchObject({
       last_watermark: "2026-08-10T12:00:00",
-      resume_offset: 2000,
+      resume_offset: 10000,
     });
   });
 

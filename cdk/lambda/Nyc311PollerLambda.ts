@@ -42,7 +42,8 @@ export class Nyc311PollerLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "ingestion", "nyc311PollerController.ts"),
       handler: "nyc311PollerController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.minutes(5),
+      /* Raised from 5 to 10 minutes (2026-08-22) alongside PER_RUN_RECORD_CAP's bump to 10000 — see nyc311RequestService.ts. */
+      timeout: Duration.minutes(10),
       memorySize: 512,
       logGroup: pollerLogGroup,
       /*
