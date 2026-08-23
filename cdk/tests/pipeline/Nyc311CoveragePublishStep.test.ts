@@ -18,7 +18,7 @@ describe("Nyc311CoveragePublishStep", () => {
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
-          "node scripts/publish-coverage\\.js[\\s\\S]*aws s3 sync coverage-publish/ s3://nyc311-web-test/coverage/ --delete[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1EFLKB8JSXGXU --paths \\\\\"/coverage/\\*\\\\\"",
+          "npm ci[\\s\\S]*node scripts/publish-coverage\\.js[\\s\\S]*aws s3 sync coverage-publish/ s3://nyc311-web-test/coverage/ --delete[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1EFLKB8JSXGXU --paths \\\\\"/coverage/\\*\\\\\"",
         ),
       }),
     });
@@ -30,7 +30,7 @@ describe("Nyc311CoveragePublishStep", () => {
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
-          "node scripts/publish-coverage\\.js[\\s\\S]*aws s3 sync coverage-publish/ s3://nyc311-web-prod/coverage/ --delete[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1FXE4OBQCY52G --paths \\\\\"/coverage/\\*\\\\\"",
+          "npm ci[\\s\\S]*node scripts/publish-coverage\\.js[\\s\\S]*aws s3 sync coverage-publish/ s3://nyc311-web-prod/coverage/ --delete[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1FXE4OBQCY52G --paths \\\\\"/coverage/\\*\\\\\"",
         ),
       }),
     });

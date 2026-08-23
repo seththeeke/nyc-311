@@ -3,8 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "commonjs",
-  "description": "Root-level tooling only — web-app/, backend/, and cdk/ each remain their own npm package (CLAUDE.md §5). Not a workspace root; no dependencies live here.",
+  "description": "Root-level tooling only — web-app/, backend/, and cdk/ each remain their own npm package (CLAUDE.md §5). Not a workspace root. devDependencies here back scripts/ only (currently: merging Istanbul coverage maps for the hosted coverage report, hosting-test-coverage.md §3).",
   "scripts": {
     "coverage:rollup": "node scripts/rollup-coverage.js"
+  },
+  "devDependencies": {
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-report": "^3.0.1",
+    "istanbul-reports": "^3.2.0"
   }
 }

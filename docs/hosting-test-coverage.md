@@ -62,12 +62,15 @@ bucket name / distribution ID / a step id (`"PublishCoverageTest"` /
   `scripts/rollup-coverage.js` already expects locally, so no path
   translation needed on the read side.
 - `commands`:
-  1. `node scripts/publish-coverage.js` — stages a flat, hosting-ready
-     `coverage-publish/` directory (see §3).
-  2. `aws s3 sync coverage-publish/ s3://<bucket>/coverage/ --delete` —
+  1. `npm ci` (repo root) — installs the `istanbul-lib-*` devDependencies
+     §3's merge script needs; Synth's per-package `npm ci`s don't cover
+     the repo root.
+  2. `node scripts/publish-coverage.js` — merges the three packages'
+     coverage into one report at `coverage-publish/` (see §3).
+  3. `aws s3 sync coverage-publish/ s3://<bucket>/coverage/ --delete` —
      `--delete` so a renamed/removed source file doesn't leave an orphaned
      object behind.
-  3. `aws cloudfront create-invalidation --distribution-id <id> --paths
+  4. `aws cloudfront create-invalidation --distribution-id <id> --paths
      "/coverage/*"` — `CachePolicy.CACHING_OPTIMIZED`'s ~1-day default TTL
      would otherwise serve a stale report to whoever hits `/coverage/*`
      mid-cache-window.
@@ -112,29 +115,65 @@ isn't mistaken for a bug later.
 
 ---
 
-## 3. New script: `scripts/publish-coverage.js` (+ a small shared lib)
+## 3. New script: `scripts/publish-coverage.js` — one merged report, not three linked ones
 
-- Refactor `scripts/rollup-coverage.js`'s HTML-rendering logic (package
-  summary lookup, the percentage-color table, the page skeleton) out into
-  `scripts/lib/coverageReportHtml.js` — a pure function taking an
-  `hrefFor(pkg)` callback, so the two scripts render the same-looking
-  table with different link shapes instead of duplicating the renderer.
-  `rollup-coverage.js`'s own behavior/output (`build/coverage/index.html`,
-  `../../<pkg>/coverage/index.html` hrefs) is unchanged.
-- `scripts/publish-coverage.js` (new): copies each package's `coverage/`
-  contents into `coverage-publish/<pkg>/` (flat, sibling to the index —
-  deliberately *not* mirroring the repo's own nested layout, since that
-  would produce an ugly hosted URL), then writes
-  `coverage-publish/index.html` using the shared renderer with
-  `hrefFor: (pkg) => \`./${pkg.name}/index.html\``. No dependencies beyond
-  `node:fs`/`node:path`, matching the existing script's philosophy.
-- Neither script is part of `backend/`, `cdk/`, or `web-app/` — they're
-  root-level repo tooling (same bucket as `rollup-coverage.js` today), so
-  CLAUDE.md §2's 90%-per-file coverage gate doesn't apply to them. Sanity
-  checked by hand (run `npm run test:coverage` in each package locally,
-  then `node scripts/publish-coverage.js` from repo root, then inspect
-  `coverage-publish/`) before this is ever exercised for real inside
-  CodeBuild.
+**Revised 2026-08-23, mid-rollout** (before the changes below, the first
+cut of this feature staged each package's `coverage/` into
+`coverage-publish/<pkg>/` and wrote a summary-table landing page linking
+out to each — three separate report silos. The user explicitly wants one
+unified report instead: "host the entire collection test coverage at
+this endpoint," confirmed via a follow-up question as "one merged,
+unified report... no per-package landing page, no separate silos.")
+
+- **Merges Istanbul coverage maps, doesn't just copy files.** Each
+  package's `coverage/coverage-final.json` (the raw per-file coverage
+  data Vitest's v8 provider writes, in Istanbul's coverage-map format) is
+  loaded and combined into one map via `istanbul-lib-coverage`'s
+  `createCoverageMap().merge(...)`, then rendered as a single HTML report
+  tree via `istanbul-lib-report` + `istanbul-reports`' `"html"` reporter —
+  the same libraries Vitest's own `coverage-v8` provider uses internally
+  to generate each package's local `coverage/` report, just pointed at a
+  map with all three packages' files in it instead of one package's.
+- **`defaultSummarizer: "nested"`** on the report context strips the
+  common ancestor path across every merged file (the Synth container's
+  checkout root, e.g. `/codebuild/output/srcNNNN/src/`) and rebuilds a
+  real directory tree from what's left — `backend/`, `cdk/`, `web-app/`
+  each a real top-level node with their own file tree underneath, all
+  reachable from one `coverage-publish/index.html`. No per-package landing
+  table, no separate silos.
+- **Custom `sourceFinder`, because the source-file paths don't exist in
+  this container.** `coverage-final.json`'s recorded paths are absolute,
+  rooted at Synth's CodeBuild container's checkout path — a *different*
+  container from this post-deploy step's, so those exact paths are gone
+  by the time this script runs. Every recorded path still contains one of
+  `backend/`, `cdk/`, or `web-app/` as a path segment, though, so
+  `sourceFinder` locates that marker and resolves everything after it
+  against *this* container's own `REPO_ROOT` (available here because this
+  step's `input` is the full repo checkout, needed for `scripts/` too) —
+  verified locally by simulating a stale, unrelated absolute path and
+  confirming it still resolves to the real file.
+- Requires the `istanbul-lib-coverage`/`istanbul-lib-report`/
+  `istanbul-reports` packages, which don't exist at the repo root by
+  default (`web-app/`, `backend/`, `cdk/` each pull them in transitively
+  via `@vitest/coverage-v8`, but that doesn't help a root-level script) —
+  added as `devDependencies` on the repo-root `package.json` (previously
+  dependency-free) with a committed `package-lock.json`, installed via
+  `npm ci` as this step's first command (§2.2).
+- Not part of `backend/`, `cdk/`, or `web-app/` — root-level repo tooling
+  (same bucket as `rollup-coverage.js`), so CLAUDE.md §2's 90%-per-file
+  coverage gate doesn't apply to it. Sanity checked by hand end-to-end
+  before ever running for real in CodeBuild: generated real coverage in
+  all three packages, ran `node scripts/publish-coverage.js` from repo
+  root, confirmed the resulting tree (`backend/`, `cdk/`,
+  `web-app/src/` subtrees), confirmed a per-file page renders real
+  annotated source (not a "source lookup failed" error), and confirmed
+  the merged top-level percentages reflect all three packages combined.
+- `scripts/rollup-coverage.js` (the pre-existing **local** dev
+  convenience, `npm run coverage:rollup` at repo root) is unchanged — it
+  still produces `build/coverage/index.html`, a landing page linking to
+  each package's own local report. That behavior is documented and
+  useful for local dev (CLAUDE.md §8); only the CI-*hosted* report changed
+  to the merged form the user actually asked for.
 - `coverage-publish/` added to the root `.gitignore` alongside `coverage/`,
   `build/`, `cdk.out/` — a local run of the script must not get committed.
 

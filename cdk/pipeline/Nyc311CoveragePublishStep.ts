@@ -32,9 +32,9 @@ export interface CoveragePublishStepProps {
 }
 
 /**
- * A post-deploy step (`hosting-test-coverage.md` §2.2) that stages the
- * three packages' Vitest coverage reports into a flat, hosting-ready
- * layout (`scripts/publish-coverage.js`) and syncs it to that
+ * A post-deploy step (`hosting-test-coverage.md` §2.2/§3) that merges the
+ * three packages' Vitest coverage runs into one Istanbul-merged HTML
+ * report (`scripts/publish-coverage.js`) and syncs it to that
  * environment's own website bucket under `/coverage/`, then invalidates
  * CloudFront so the refreshed report is immediately visible. Added as a
  * `post` step on a `DeployTest`/`DeployProd` stage — never runs before
@@ -51,6 +51,8 @@ export function createCoveragePublishStep(props: CoveragePublishStepProps): pipe
     input: props.source,
     additionalInputs,
     commands: [
+      /* Root-level devDependencies (istanbul-lib-*) back scripts/publish-coverage.js's coverage-map merge — not installed by Synth's per-package `npm ci`s. */
+      "npm ci",
       "node scripts/publish-coverage.js",
       `aws s3 sync coverage-publish/ s3://${props.bucketName}/coverage/ --delete`,
       `aws cloudfront create-invalidation --distribution-id ${props.distributionId} --paths "/coverage/*"`,
