@@ -1,5 +1,16 @@
 # Hosting Test Coverage
 
+**Status: Shipped and verified 2026-08-23.** Live on both `Nyc311-Test`
+and `Nyc311-Prod` — merged coverage report at `/coverage/index.html` on
+each environment's own CloudFront domain, linked from the Monitoring
+page's "Test Coverage" tile. Verified via `aws s3 ls`, `curl`, and a real
+browser click-through on Test (tile → new tab → merged report → drilled
+into `backend/` → real per-file source with line highlighting). See §6
+for the full verification steps; §3's "Revised 2026-08-23, mid-rollout"
+note covers the one course correction along the way (an initial
+three-separate-reports-behind-a-landing-page version was replaced with
+the single merged report actually requested, before it reached Prod).
+
 Follow-up to `99-things-to-come-back-to.md`'s "Publishing code coverage"
 entry (discussed 2026-08-16). Resolves it by implementing the doc's
 favored option — hosting the reports on the app's own CloudFront, no
@@ -251,3 +262,18 @@ unified report... no per-package landing page, no separate silos.")
      coverage report.
 5. Mark `99-things-to-come-back-to.md`'s "Publishing code coverage" entry
    resolved, pointing at this doc, instead of deleting the entry outright.
+
+**Done — 2026-08-23.** Two pushes: the first shipped the pipeline wiring
+with the (wrong) three-separate-reports design; the second replaced
+`scripts/publish-coverage.js` with the Istanbul-merge version per §3
+before either environment's incorrect version mattered beyond an
+intermediate deploy. Both `Nyc311Pipeline` executions ran clean
+(`Synth` → `UpdatePipeline` → `DeployTest`/`PublishCoverageTest` →
+`ProdDiff` → `DeployProd`/`PublishCoverageProd`, all `Succeeded`). Step 4
+confirmed on both environments: `aws s3 ls` showed the merged tree
+(`backend/`, `cdk/`, `web-app/` prefixes + shared assets, no per-package
+`coverage-summary.json` landing artifacts), `curl -sI` returned `200` on
+both CloudFront domains, and a real browser click-through on Test
+(Monitoring → "Test Coverage" tile → new tab → merged `index.html` with
+combined totals → drilled into `backend/` → real annotated source)
+confirmed the whole path end-to-end.
