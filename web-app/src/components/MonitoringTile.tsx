@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 
-export type MonitoringTileAccent = "cyan" | "violet" | "emerald" | "amber";
+export type MonitoringTileAccent = "cyan" | "violet" | "emerald" | "amber" | "rose";
 
 export interface MonitoringTileProps {
   title: string;
@@ -9,6 +9,8 @@ export interface MonitoringTileProps {
   to: string;
   accent?: MonitoringTileAccent;
   icon?: ReactElement;
+  /** When true, `to` is an external/hosted URL — opens in a new tab as a plain anchor instead of a React Router `Link`. */
+  external?: boolean;
 }
 
 /*
@@ -40,16 +42,26 @@ const ACCENT_STYLES: Record<MonitoringTileAccent, { glow: string; badge: string;
     link: "text-amber-300",
     shadow: "hover:shadow-amber-500/10",
   },
+  rose: {
+    glow: "bg-rose-500/20",
+    badge: "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30",
+    link: "text-rose-300",
+    shadow: "hover:shadow-rose-500/10",
+  },
 };
 
-export function MonitoringTile({ title, description, to, accent = "cyan", icon }: MonitoringTileProps): ReactElement {
+export function MonitoringTile({
+  title,
+  description,
+  to,
+  accent = "cyan",
+  icon,
+  external = false,
+}: MonitoringTileProps): ReactElement {
   const styles = ACCENT_STYLES[accent];
 
-  return (
-    <Link
-      to={to}
-      className={`group relative block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl ${styles.shadow}`}
-    >
+  const content = (
+    <>
       <div
         aria-hidden="true"
         className={`absolute -top-10 -right-10 h-36 w-36 rounded-full opacity-60 blur-2xl transition-opacity duration-300 group-hover:opacity-100 ${styles.glow}`}
@@ -69,6 +81,22 @@ export function MonitoringTile({ title, description, to, accent = "cyan", icon }
           <span aria-hidden="true">&rarr;</span>
         </span>
       </div>
+    </>
+  );
+
+  const className = `group relative block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl ${styles.shadow}`;
+
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noopener noreferrer" className={className}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={to} className={className}>
+      {content}
     </Link>
   );
 }

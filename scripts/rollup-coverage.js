@@ -14,12 +14,15 @@
  * missing/stale package report shows up as "not yet generated" /
  * "possibly stale" rather than silently being skipped.
  *
- * No dependencies beyond Node's own fs/path — this is repo tooling, not
- * part of any package's build.
+ * Rendering is shared with `scripts/publish-coverage.js` (the CI-hosted
+ * variant) via `scripts/lib/coverageReportHtml.js` — this file only
+ * supplies where each package's coverage/ lives and how to link back to
+ * it in-place.
  */
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { COVERAGE_GATE_PCT, readCoverageSummary, renderCoverageReportHtml } = require("./lib/coverageReportHtml");
 
 const REPO_ROOT = path.join(__dirname, "..");
 const OUTPUT_DIR = path.join(REPO_ROOT, "build", "coverage");
@@ -34,125 +37,34 @@ const PACKAGES = [
   { name: "web-app", dir: "web-app" },
 ];
 
-const COVERAGE_GATE_PCT = 90; // testing-framework.md §2 — the per-file gate every package shares.
-
 function readPackageCoverage(pkg) {
   const coverageDir = path.join(REPO_ROOT, pkg.dir, "coverage");
-  const indexPath = path.join(coverageDir, "index.html");
-  const summaryPath = path.join(coverageDir, "coverage-summary.json");
-
-  if (!fs.existsSync(indexPath)) {
-    return { ...pkg, available: false, summary: null, generatedAt: null };
-  }
-
-  let summary = null;
-  if (fs.existsSync(summaryPath)) {
-    try {
-      summary = JSON.parse(fs.readFileSync(summaryPath, "utf8")).total;
-    } catch {
-      summary = null; // malformed/partial write — report as available but without numbers, not a crash
-    }
-  }
-
   return {
     ...pkg,
-    available: true,
-    summary,
-    generatedAt: fs.statSync(indexPath).mtime,
+    ...readCoverageSummary(coverageDir),
     // Relative from build/coverage/index.html back up to <pkg>/coverage/index.html.
-    relativeHref: `../../${pkg.dir}/coverage/index.html`,
+    hrefWhenAvailable: `../../${pkg.dir}/coverage/index.html`,
+    unavailableHint: `run <code>cd ${pkg.dir} && npm run test:coverage</code>`,
   };
-}
-
-function pctColor(pct) {
-  if (pct === undefined || pct === null) return "#888";
-  return pct >= COVERAGE_GATE_PCT ? "#1a7f37" : "#c53030";
-}
-
-function metricCell(summary, key) {
-  if (!summary) return `<td class="metric">—</td>`;
-  const pct = summary[key]?.pct;
-  return `<td class="metric" style="color:${pctColor(pct)}">${pct}%</td>`;
-}
-
-function renderRow(pkg) {
-  if (!pkg.available) {
-    return `
-      <tr class="unavailable">
-        <td>${pkg.name}</td>
-        <td colspan="4">not yet generated — run <code>cd ${pkg.dir} && npm run test:coverage</code></td>
-        <td>—</td>
-      </tr>`;
-  }
-
-  const { summary } = pkg;
-  return `
-      <tr>
-        <td><a href="${pkg.relativeHref}">${pkg.name}</a></td>
-        ${metricCell(summary, "lines")}
-        ${metricCell(summary, "branches")}
-        ${metricCell(summary, "functions")}
-        ${metricCell(summary, "statements")}
-        <td class="generated">${pkg.generatedAt.toISOString()}</td>
-      </tr>`;
-}
-
-function renderHtml(packages) {
-  const rows = packages.map(renderRow).join("\n");
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>NYC 311 — Coverage Rollup</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; color: #1a1a1a; }
-  h1 { font-size: 1.25rem; }
-  p.note { color: #555; font-size: 0.9rem; max-width: 60ch; }
-  table { border-collapse: collapse; margin-top: 1rem; width: 100%; max-width: 700px; }
-  th, td { text-align: left; padding: 0.5rem 0.9rem; border-bottom: 1px solid #ddd; }
-  th { font-size: 0.8rem; text-transform: uppercase; color: #666; }
-  td.metric { text-align: right; font-variant-numeric: tabular-nums; }
-  td.generated { font-size: 0.8rem; color: #888; white-space: nowrap; }
-  tr.unavailable td { color: #999; font-style: italic; }
-  a { color: #0969da; text-decoration: none; font-weight: 600; }
-  a:hover { text-decoration: underline; }
-  code { background: #f2f2f2; padding: 0.1rem 0.35rem; border-radius: 3px; }
-</style>
-</head>
-<body>
-<h1>NYC 311 — Coverage Rollup</h1>
-<p class="note">Links to each package's own Vitest v8 HTML coverage report.
-Regenerate a package's numbers with <code>npm run test:coverage</code> in
-that package, then re-run <code>npm run coverage:rollup</code> at the repo
-root. Green = at or above the ${COVERAGE_GATE_PCT}% per-file gate
-(testing-framework.md §2); this table shows the package-wide average,
-which can be green even if a single file only just clears the per-file
-threshold.</p>
-<table>
-  <thead>
-    <tr>
-      <th>Package</th>
-      <th>Lines</th>
-      <th>Branches</th>
-      <th>Functions</th>
-      <th>Statements</th>
-      <th>Report generated</th>
-    </tr>
-  </thead>
-  <tbody>
-${rows}
-  </tbody>
-</table>
-</body>
-</html>
-`;
 }
 
 function main() {
   const packages = PACKAGES.map(readPackageCoverage);
 
+  const html = renderCoverageReportHtml({
+    title: "NYC 311 — Coverage Rollup",
+    note: `Links to each package's own Vitest v8 HTML coverage report.
+      Regenerate a package's numbers with <code>npm run test:coverage</code> in
+      that package, then re-run <code>npm run coverage:rollup</code> at the repo
+      root. Green = at or above the ${COVERAGE_GATE_PCT}% per-file gate
+      (testing-framework.md §2); this table shows the package-wide average,
+      which can be green even if a single file only just clears the per-file
+      threshold.`,
+    packages,
+  });
+
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  fs.writeFileSync(OUTPUT_FILE, renderHtml(packages));
+  fs.writeFileSync(OUTPUT_FILE, html);
 
   console.log(`Wrote ${path.relative(REPO_ROOT, OUTPUT_FILE)}`);
   for (const pkg of packages) {

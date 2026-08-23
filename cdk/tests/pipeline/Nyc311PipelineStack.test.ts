@@ -74,15 +74,21 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod", () => {
+  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod and a coverage publish after", () => {
     const template = synthesize();
 
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Stages: Match.arrayWith([
-        Match.objectLike({ Name: "DeployTest" }),
+        Match.objectLike({
+          Name: "DeployTest",
+          Actions: Match.arrayWith([Match.objectLike({ Name: "PublishCoverageTest" })]),
+        }),
         Match.objectLike({
           Name: "DeployProd",
-          Actions: Match.arrayWith([Match.objectLike({ Name: "ProdDiff" })]),
+          Actions: Match.arrayWith([
+            Match.objectLike({ Name: "ProdDiff" }),
+            Match.objectLike({ Name: "PublishCoverageProd" }),
+          ]),
         }),
       ]),
     });

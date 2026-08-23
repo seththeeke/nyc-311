@@ -9,6 +9,7 @@ import type { Construct } from "constructs";
 import { Nyc311AppStage } from "./Nyc311AppStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
+import { COVERAGE_PUBLISH_TARGETS, createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
 
 /*
  * aws-code-pipeline-plan.md §4 / 2-pipeline-monitoring.md — the pipeline's
@@ -121,8 +122,23 @@ export class Nyc311PipelineStack extends Stack {
 
     const env = { account: this.account, region: this.region };
 
+    /*
+     * hosting-test-coverage.md §2 — syncs the three packages' Vitest
+     * coverage reports (already produced by Synth's `test:coverage` runs
+     * above) to that environment's own website bucket under /coverage/,
+     * once that environment's deploy has actually succeeded.
+     */
+    const publishCoverageTest = createCoveragePublishStep({
+      id: "PublishCoverageTest",
+      account: this.account,
+      source,
+      synth,
+      ...COVERAGE_PUBLISH_TARGETS.TEST,
+    });
+
     pipeline.addStage(
       new Nyc311AppStage(this, "DeployTest", { env, envName: "TEST" }),
+      { post: [publishCoverageTest] },
     );
 
     /*
@@ -139,9 +155,17 @@ export class Nyc311PipelineStack extends Stack {
       ],
     });
 
+    const publishCoverageProd = createCoveragePublishStep({
+      id: "PublishCoverageProd",
+      account: this.account,
+      source,
+      synth,
+      ...COVERAGE_PUBLISH_TARGETS.PROD,
+    });
+
     pipeline.addStage(
       new Nyc311AppStage(this, "DeployProd", { env, envName: "PROD" }),
-      { pre: [prodDiff] },
+      { pre: [prodDiff], post: [publishCoverageProd] },
     );
 
     /*

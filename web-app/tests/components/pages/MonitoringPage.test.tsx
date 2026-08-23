@@ -53,4 +53,16 @@ describe("MonitoringPage", () => {
       "/monitoring/lambda-health"
     );
   });
+
+  it("renders a Test Coverage tile linking out to the hosted coverage report in a new tab", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: /test coverage/i });
+    expect(link).toHaveAttribute("href", "/coverage/index.html");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
 });

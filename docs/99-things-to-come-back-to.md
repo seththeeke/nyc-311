@@ -49,6 +49,12 @@ instead of being at the mercy of wherever the real cursor happens to sit.
 
 ## Publishing code coverage (GitHub badge or hosted report)
 
+**Resolved 2026-08-23 — see `hosting-test-coverage.md`.** Implemented the
+favored option below: each package's Vitest report is synced to
+`Nyc311Web-Test`/`Nyc311Web-Prod`'s own CloudFront under `/coverage/`
+after every deploy, with a "Test Coverage" tile on the Monitoring page as
+the entry point.
+
 Discussed 2026-08-16. Not abnormal to want this — the question is just
 which mechanism, since GitHub itself doesn't compute coverage.
 

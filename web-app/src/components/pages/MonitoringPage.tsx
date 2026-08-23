@@ -7,6 +7,7 @@ interface MonitoringTileConfig {
   to: string;
   accent: MonitoringTileAccent;
   icon: ReactElement;
+  external?: boolean;
 }
 
 const ICON_STROKE_PROPS = {
@@ -57,6 +58,15 @@ function LambdaHealthIcon(): ReactElement {
   );
 }
 
+function CoverageIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M9 3v18M4 7l5-4 5 4M4 17l5 4 5-4" />
+      <path d="M15 12h5m-2-2l2 2-2 2" />
+    </svg>
+  );
+}
+
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Ingestion",
@@ -85,6 +95,14 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/lambda-health",
     accent: "amber",
     icon: <LambdaHealthIcon />,
+  },
+  {
+    title: "Test Coverage",
+    description: "Vitest coverage reports for backend, web-app, and cdk.",
+    to: "/coverage/index.html",
+    accent: "rose",
+    icon: <CoverageIcon />,
+    external: true,
   },
 ];
 

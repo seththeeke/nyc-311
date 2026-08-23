@@ -18,4 +18,33 @@ describe("MonitoringTile", () => {
       "/monitoring/ingestion"
     );
   });
+
+  it("renders an external link that opens in a new tab when external is true", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringTile
+          title="Test Coverage"
+          description="Hosted coverage reports."
+          to="/coverage/index.html"
+          external
+        />
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: /test coverage/i });
+    expect(link).toHaveAttribute("href", "/coverage/index.html");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("renders an internal React Router link when external is not set", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringTile title="Ingestion" description="Poller run history." to="/monitoring/ingestion" />
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: /ingestion/i });
+    expect(link).not.toHaveAttribute("target");
+  });
 });
