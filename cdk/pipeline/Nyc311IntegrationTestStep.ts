@@ -41,10 +41,13 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
   /*
    * The test run's exit code is captured to a file, not checked directly,
    * so the sync/invalidate commands below always run next regardless of
-   * pass/fail — only the final `exit` (blocking only) actually fails this
-   * CodeBuild action, once the report has already been published.
+   * pass/fail — only the final `exit` (blocking only) fails this action.
+   * `cd ..` is required, not decorative — CodeBuild's `commands` share
+   * one shell, so cwd persists across entries; without it, the paths
+   * below resolve against `backend/backend/...` (a real run once failed
+   * exactly this way).
    */
-  const runAndCaptureExit = `cd backend && npm ci && (npm run test:integration:${props.target}; echo $? > /tmp/integration-test-exit-code)`;
+  const runAndCaptureExit = `cd backend && npm ci && (npm run test:integration:${props.target}; echo $? > /tmp/integration-test-exit-code) && cd ..`;
   const syncReport = `aws s3 cp backend/tests/integration/reports/route-report.json s3://${bucketName}/integration-tests/route-report.json`;
   const invalidate = `aws cloudfront create-invalidation --distribution-id ${distributionId} --paths "/integration-tests/*"`;
   const finish = props.blocking ? "exit $(cat /tmp/integration-test-exit-code)" : "exit 0";

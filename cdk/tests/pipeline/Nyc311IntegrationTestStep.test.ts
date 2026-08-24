@@ -18,8 +18,18 @@ describe("Nyc311IntegrationTestStep", () => {
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
-          "cd backend && npm ci && \\(npm run test:integration:test[\\s\\S]*aws s3 cp backend/tests/integration/reports/route-report\\.json s3://nyc311-web-test/integration-tests/route-report\\.json[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1EFLKB8JSXGXU --paths \\\\\"/integration-tests/\\*\\\\\"[\\s\\S]*exit \\$\\(cat /tmp/integration-test-exit-code\\)",
+          "cd backend && npm ci && \\(npm run test:integration:test[\\s\\S]*\\) && cd \\.\\.[\\s\\S]*aws s3 cp backend/tests/integration/reports/route-report\\.json s3://nyc311-web-test/integration-tests/route-report\\.json[\\s\\S]*aws cloudfront create-invalidation --distribution-id E1EFLKB8JSXGXU --paths \\\\\"/integration-tests/\\*\\\\\"[\\s\\S]*exit \\$\\(cat /tmp/integration-test-exit-code\\)",
         ),
+      }),
+    });
+  });
+
+  it("returns to the repo root before the s3 cp, since CodeBuild's commands share one shell and `cd backend` would otherwise leak into later commands (regression: a real pipeline run once failed exactly this way)", () => {
+    const template = synthesize();
+
+    template.hasResourceProperties("AWS::CodeBuild::Project", {
+      Source: Match.objectLike({
+        BuildSpec: Match.stringLikeRegexp("cd backend[\\s\\S]*&& cd \\.\\."),
       }),
     });
   });
