@@ -1,6 +1,19 @@
 # Pipeline Integration Tests
 
-**Status: Implemented 2026-08-24, pending pipeline verification.**
+**Status: Shipped and verified 2026-08-24.** Live on both `Nyc311-Test`
+and `Nyc311-Prod` — `IntegrationTestsTest` blocks `DeployProd` on
+failure, `IntegrationTestsProd` runs as a non-blocking post-deploy smoke
+check, and both publish `route-report.json` to their environment's
+Monitoring page tile. One real bug found and fixed during rollout: the
+first pipeline run's 8 GET-route tests actually passed against live
+Test, but the step still failed — CodeBuild's `commands` array runs in
+one continuous shell, so the `cd backend` from the test-run command
+leaked into the next command, making `aws s3 cp` look for
+`backend/backend/tests/integration/reports/route-report.json` instead of
+the real path. Fixed by adding `&& cd ..` back to the repo root (§5), with
+a regression test. Re-run succeeded end-to-end on both environments,
+confirmed via `aws s3 cp ... -` on both buckets and a live browser check
+of `/monitoring/integration-tests` on Test.
 
 Implements `testing-framework.md` §4/§7's "Real integration" tier, which
 was negotiated back on 2026-07-29 but never actually built. Scope, per
