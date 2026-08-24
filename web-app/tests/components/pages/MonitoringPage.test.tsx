@@ -65,4 +65,16 @@ describe("MonitoringPage", () => {
     expect(link).toHaveAttribute("href", "/coverage/index.html");
     expect(link).toHaveAttribute("target", "_blank");
   });
+
+  it("renders an Integration Tests tile linking to /monitoring/integration-tests", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: /integration tests/i });
+    expect(link).toHaveAttribute("href", "/monitoring/integration-tests");
+    expect(link).not.toHaveAttribute("target");
+  });
 });

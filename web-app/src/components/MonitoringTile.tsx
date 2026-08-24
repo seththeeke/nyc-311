@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 
-export type MonitoringTileAccent = "cyan" | "violet" | "emerald" | "amber" | "rose";
+export type MonitoringTileAccent = "cyan" | "violet" | "emerald" | "amber" | "rose" | "indigo";
 
 export interface MonitoringTileProps {
   title: string;
@@ -47,6 +47,12 @@ const ACCENT_STYLES: Record<MonitoringTileAccent, { glow: string; badge: string;
     badge: "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30",
     link: "text-rose-300",
     shadow: "hover:shadow-rose-500/10",
+  },
+  indigo: {
+    glow: "bg-indigo-500/20",
+    badge: "bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-400/30",
+    link: "text-indigo-300",
+    shadow: "hover:shadow-indigo-500/10",
   },
 };
 

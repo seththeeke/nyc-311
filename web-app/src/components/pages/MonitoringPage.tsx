@@ -67,6 +67,15 @@ function CoverageIcon(): ReactElement {
   );
 }
 
+function IntegrationTestsIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M9 12l2 2 4-4" />
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Ingestion",
@@ -103,6 +112,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     accent: "rose",
     icon: <CoverageIcon />,
     external: true,
+  },
+  {
+    title: "Integration Tests",
+    description: "Which GET routes the integration-test suite reached on its most recent run.",
+    to: "/monitoring/integration-tests",
+    accent: "indigo",
+    icon: <IntegrationTestsIcon />,
   },
 ];
 

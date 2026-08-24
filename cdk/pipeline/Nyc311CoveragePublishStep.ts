@@ -1,20 +1,6 @@
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
-/*
- * hosting-test-coverage.md §2.3 — deterministic bucket names and
- * effectively-permanent distribution IDs, hardcoded the same way
- * Nyc311PipelineStatusApi.ts hardcodes TEST_WEB_DOMAIN/PROD_WEB_DOMAIN
- * rather than reaching cross-stack into WebsiteHosting. Confirmed via
- * `aws s3 ls`/`aws cloudfront list-distributions --profile nyc311`;
- * update by hand alongside those two constants if WebsiteHosting is ever
- * recreated.
- */
-export const COVERAGE_PUBLISH_TARGETS = {
-  TEST: { bucketName: "nyc311-web-test", distributionId: "E1EFLKB8JSXGXU" },
-  PROD: { bucketName: "nyc311-web-prod", distributionId: "E1FXE4OBQCY52G" },
-} as const;
-
 /* hosting-test-coverage.md §2.1/§2.2 — the three packages' coverage/ output, captured off Synth as additional FileSets. */
 const COVERAGE_PACKAGE_DIRS = ["backend/coverage", "cdk/coverage", "web-app/coverage"];
 

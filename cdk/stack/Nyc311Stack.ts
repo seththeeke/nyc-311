@@ -48,6 +48,9 @@ const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
  * `claude-prompt-initial.md` build-order slice is unlocked.
  */
 export class Nyc311Stack extends Stack {
+  /** 5-pipeline-integration-tests.md §5 — exposed so Nyc311AppStage can pass it to the pipeline's integration-test step via envFromCfnOutputs. */
+  public readonly apiUrlOutput: CfnOutput;
+
   constructor(scope: Construct, id: string, props: Nyc311StackProps) {
     super(scope, id, props);
 
@@ -130,7 +133,7 @@ export class Nyc311Stack extends Stack {
      * deployed API's base URL doesn't have to be hand-copied out of the
      * console.
      */
-    new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
+    this.apiUrlOutput = new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
 
     /*
      * Deploys web-app/dist + the runtime env-config.json last, once both

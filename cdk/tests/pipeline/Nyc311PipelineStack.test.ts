@@ -74,21 +74,54 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod and a coverage publish after", () => {
+  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod, a coverage publish, and integration tests after", () => {
     const template = synthesize();
 
+    /*
+     * The coverage-publish and integration-test post steps run in
+     * parallel (same RunOrder), and CDK Pipelines doesn't render them in
+     * the array order they were passed to `post` — asserted independently
+     * below rather than as one ordered arrayWith (which requires its
+     * patterns to match as an in-order subsequence), so this doesn't
+     * become order-dependent.
+     */
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Stages: Match.arrayWith([
         Match.objectLike({
           Name: "DeployTest",
           Actions: Match.arrayWith([Match.objectLike({ Name: "PublishCoverageTest" })]),
         }),
+      ]),
+    });
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Name: "DeployTest",
+          Actions: Match.arrayWith([Match.objectLike({ Name: "IntegrationTestsTest" })]),
+        }),
+      ]),
+    });
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
         Match.objectLike({
           Name: "DeployProd",
-          Actions: Match.arrayWith([
-            Match.objectLike({ Name: "ProdDiff" }),
-            Match.objectLike({ Name: "PublishCoverageProd" }),
-          ]),
+          Actions: Match.arrayWith([Match.objectLike({ Name: "ProdDiff" })]),
+        }),
+      ]),
+    });
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Name: "DeployProd",
+          Actions: Match.arrayWith([Match.objectLike({ Name: "PublishCoverageProd" })]),
+        }),
+      ]),
+    });
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Name: "DeployProd",
+          Actions: Match.arrayWith([Match.objectLike({ Name: "IntegrationTestsProd" })]),
         }),
       ]),
     });

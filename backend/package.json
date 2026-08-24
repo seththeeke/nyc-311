@@ -8,7 +8,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration:local": "INTEGRATION_TARGET=local vitest run --config vitest.integration.config.ts",
+    "test:integration:test": "INTEGRATION_TARGET=test vitest run --config vitest.integration.config.ts",
+    "test:integration:prod": "INTEGRATION_TARGET=prod vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.1116.0",

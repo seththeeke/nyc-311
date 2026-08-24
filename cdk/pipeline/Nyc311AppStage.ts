@@ -1,4 +1,4 @@
-import { Stage, StageProps } from "aws-cdk-lib";
+import { Stage, StageProps, CfnOutput } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 import { Nyc311Stack, Nyc311Environment } from "../stack/Nyc311Stack";
 
@@ -18,13 +18,18 @@ const STACK_NAME_BY_ENV: Record<Nyc311Environment, string> = {
  * a CloudFormation update to those stacks, not a create.
  */
 export class Nyc311AppStage extends Stage {
+  /** 5-pipeline-integration-tests.md §5 — passed to the pipeline's integration-test step via envFromCfnOutputs. */
+  public readonly apiUrlOutput: CfnOutput;
+
   constructor(scope: Construct, id: string, props: Nyc311AppStageProps) {
     super(scope, id, props);
 
-    new Nyc311Stack(this, "Nyc311Stack", {
+    const nyc311Stack = new Nyc311Stack(this, "Nyc311Stack", {
       env: props.env,
       envName: props.envName,
       stackName: STACK_NAME_BY_ENV[props.envName],
     });
+
+    this.apiUrlOutput = nyc311Stack.apiUrlOutput;
   }
 }

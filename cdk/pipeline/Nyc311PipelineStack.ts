@@ -9,7 +9,9 @@ import type { Construct } from "constructs";
 import { Nyc311AppStage } from "./Nyc311AppStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
-import { COVERAGE_PUBLISH_TARGETS, createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
+import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
+import { createIntegrationTestStep } from "./Nyc311IntegrationTestStep";
+import { WEBSITE_HOSTING_TARGETS } from "./websiteHostingTargets";
 
 /*
  * aws-code-pipeline-plan.md §4 / 2-pipeline-monitoring.md — the pipeline's
@@ -122,6 +124,9 @@ export class Nyc311PipelineStack extends Stack {
 
     const env = { account: this.account, region: this.region };
 
+    const deployTestStage = new Nyc311AppStage(this, "DeployTest", { env, envName: "TEST" });
+    const deployProdStage = new Nyc311AppStage(this, "DeployProd", { env, envName: "PROD" });
+
     /*
      * hosting-test-coverage.md §2 — syncs the three packages' Vitest
      * coverage reports (already produced by Synth's `test:coverage` runs
@@ -133,13 +138,28 @@ export class Nyc311PipelineStack extends Stack {
       account: this.account,
       source,
       synth,
-      ...COVERAGE_PUBLISH_TARGETS.TEST,
+      ...WEBSITE_HOSTING_TARGETS.TEST,
     });
 
-    pipeline.addStage(
-      new Nyc311AppStage(this, "DeployTest", { env, envName: "TEST" }),
-      { post: [publishCoverageTest] },
-    );
+    /*
+     * 5-pipeline-integration-tests.md §5 — runs integration-tests/'s real
+     * GET-route suite against the live Test API. A failing run fails this
+     * action, which fails the DeployTest stage, which blocks DeployProd
+     * from starting at all (ordinary CodePipeline stage-must-succeed
+     * behavior — no extra gating mechanism needed beyond adding the step).
+     */
+    const integrationTestsTest = createIntegrationTestStep({
+      id: "IntegrationTestsTest",
+      target: "test",
+      blocking: true,
+      account: this.account,
+      apiUrlOutput: deployTestStage.apiUrlOutput,
+      source,
+    });
+
+    pipeline.addStage(deployTestStage, {
+      post: [publishCoverageTest, integrationTestsTest],
+    });
 
     /*
      * §4 "cdk diff visibility (non-blocking)" row — reuses the same
@@ -160,13 +180,28 @@ export class Nyc311PipelineStack extends Stack {
       account: this.account,
       source,
       synth,
-      ...COVERAGE_PUBLISH_TARGETS.PROD,
+      ...WEBSITE_HOSTING_TARGETS.PROD,
     });
 
-    pipeline.addStage(
-      new Nyc311AppStage(this, "DeployProd", { env, envName: "PROD" }),
-      { pre: [prodDiff], post: [publishCoverageProd] },
-    );
+    /*
+     * 5-pipeline-integration-tests.md §5 — non-blocking post-deploy smoke
+     * check against the live Prod API: report still publishes on
+     * failure, but the action itself always exits 0 (blocking: false),
+     * same non-blocking pattern as ProdDiff above.
+     */
+    const integrationTestsProd = createIntegrationTestStep({
+      id: "IntegrationTestsProd",
+      target: "prod",
+      blocking: false,
+      account: this.account,
+      apiUrlOutput: deployProdStage.apiUrlOutput,
+      source,
+    });
+
+    pipeline.addStage(deployProdStage, {
+      pre: [prodDiff],
+      post: [publishCoverageProd, integrationTestsProd],
+    });
 
     /*
      * Must build the pipeline before reaching into the underlying

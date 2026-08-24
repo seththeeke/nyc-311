@@ -10,6 +10,7 @@ build/
 cdk.out/
 coverage/
 coverage-publish/
+backend/tests/integration/reports/
 .claude/settings.local.json
 311-test-data/*.json
 __pycache__/

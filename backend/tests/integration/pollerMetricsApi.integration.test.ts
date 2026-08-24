@@ -1,41 +1,51 @@
 /**
- * Real-integration tier (testing-framework.md §4) — hits the deployed
- * Nyc311-Test API over the network. Skips (not fails) when NYC311_API_URL
- * isn't set (see test-scripts/2-metrics-api-test.py to look it up).
- * Run with: NYC311_API_URL=<url> npm run test:integration
+ * Real-integration tier (testing-framework.md §4) — hits the live
+ * deployed API's `GET /ingestion/metrics`, target selected by
+ * INTEGRATION_TARGET (support/targets.ts): `local` (sam local start-api),
+ * `test`, or `prod`. Run with `npm run test:integration:test` etc.
  */
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { getJson } from "./support/httpClient";
 import { PollerMetricsSchema } from "../../models/pollerMetrics";
 
-const API_URL = process.env.NYC311_API_URL;
-const METRICS_ROUTE = "/ingestion/metrics";
+const ROUTE = "/ingestion/metrics";
 
-describe.skipIf(!API_URL)("GET /ingestion/metrics against a live Nyc311-Test", () => {
-  it("returns 200 with a metrics array whose items all match PollerMetricsSchema", async () => {
-    const response = await fetch(`${API_URL}${METRICS_ROUTE}`);
-    expect(response.status).toBe(200);
+/* IngestionCursorStatus (models/ingestionCursor.ts) has no paired zod schema by design — this test-only schema validates the wire shape without relitigating that. */
+const CursorStatusSchema = z.object({
+  last_watermark: z.string().min(1).nullable(),
+  resume_offset: z.number().int().nonnegative().nullable(),
+  lag_hours: z.number().nullable(),
+  is_stale: z.boolean(),
+});
 
-    const body = (await response.json()) as { metrics: unknown[] };
-    expect(Array.isArray(body.metrics)).toBe(true);
-    for (const item of body.metrics) {
+describe("GET /ingestion/metrics against a live API", () => {
+  it("returns 200 with a metrics array whose items all match PollerMetricsSchema, and a valid cursor", async () => {
+    const { status, body } = await getJson(ROUTE, ROUTE);
+    expect(status).toBe(200);
+
+    const { metrics, cursor } = body as { metrics: unknown[]; cursor: unknown };
+    expect(Array.isArray(metrics)).toBe(true);
+    for (const item of metrics) {
       expect(() => PollerMetricsSchema.parse(item)).not.toThrow();
+    }
+    if (cursor !== null) {
+      expect(() => CursorStatusSchema.parse(cursor)).not.toThrow();
     }
   });
 
   it("returns metrics sorted most-recent-first", async () => {
-    const response = await fetch(`${API_URL}${METRICS_ROUTE}`);
-    const body = (await response.json()) as { metrics: { ran_at: string }[] };
+    const { body } = await getJson(ROUTE, ROUTE);
+    const { metrics } = body as { metrics: { ran_at: string }[] };
 
-    for (let i = 1; i < body.metrics.length; i++) {
-      expect(body.metrics[i - 1].ran_at >= body.metrics[i].ran_at).toBe(true);
+    for (let i = 1; i < metrics.length; i++) {
+      expect(metrics[i - 1].ran_at >= metrics[i].ran_at).toBe(true);
     }
   });
 
   it("responds with CORS headers allowing the local-dev origin", async () => {
-    const response = await fetch(`${API_URL}${METRICS_ROUTE}`, {
-      headers: { Origin: "http://localhost:5173" },
-    });
-    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
+    const { headers } = await getJson(ROUTE, ROUTE, { headers: { Origin: "http://localhost:5173" } });
+    expect(headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
   });
 });

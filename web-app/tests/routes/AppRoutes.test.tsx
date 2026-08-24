@@ -47,4 +47,9 @@ describe("AppRoutes", () => {
     renderAt("/monitoring/lambda-health");
     expect(screen.getByRole("heading", { name: "Lambda Health" })).toBeInTheDocument();
   });
+
+  it("renders IntegrationTestReportPage at /monitoring/integration-tests", () => {
+    renderAt("/monitoring/integration-tests");
+    expect(screen.getByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
+  });
 });

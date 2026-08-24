@@ -6,6 +6,7 @@ import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoring
 import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
 import { OrderMonitoringPage } from "../components/pages/OrderMonitoringPage";
 import { LambdaMonitoringPage } from "../components/pages/LambdaMonitoringPage";
+import { IntegrationTestReportPage } from "../components/pages/IntegrationTestReportPage";
 import { PublicRoute } from "./PublicRoute";
 
 export function AppRoutes(): ReactElement {
@@ -56,6 +57,14 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <LambdaMonitoringPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/monitoring/integration-tests"
+        element={
+          <PublicRoute>
+            <IntegrationTestReportPage />
           </PublicRoute>
         }
       />

@@ -1,4 +1,4 @@
-import { App } from "aws-cdk-lib";
+import { App, CfnOutput } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { Nyc311Stack } from "../../stack/Nyc311Stack";
@@ -27,6 +27,13 @@ describe("Nyc311Stack", () => {
 
     expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "PROD" });
+  });
+
+  it("exposes apiUrlOutput as the same Nyc311ApiUrl CfnOutput the template declares (5-pipeline-integration-tests.md §5)", () => {
+    const { stack, template } = synthesize("TestStack", "TEST");
+
+    expect(stack.apiUrlOutput).toBeInstanceOf(CfnOutput);
+    template.hasOutput("Nyc311ApiUrl", {});
   });
 
   it("wires the Requests table, poller Lambda, and its schedule together (first ingestion slice)", () => {
