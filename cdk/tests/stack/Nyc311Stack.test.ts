@@ -29,7 +29,7 @@ describe("Nyc311Stack", () => {
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "PROD" });
   });
 
-  it("exposes apiUrlOutput as the same Nyc311ApiUrl CfnOutput the template declares (5-pipeline-integration-tests.md §5)", () => {
+  it("exposes apiUrlOutput as the same Nyc311ApiUrl CfnOutput the template declares (4-pipeline-integration-tests.md §5)", () => {
     const { stack, template } = synthesize("TestStack", "TEST");
 
     expect(stack.apiUrlOutput).toBeInstanceOf(CfnOutput);

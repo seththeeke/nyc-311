@@ -30,7 +30,7 @@ export const ACTORS = ["SYSTEM", "AGENT", "ADMIN"] as const;
 export type Actor = (typeof ACTORS)[number];
 
 /*
- * Only ORDER_CREATED is emitted by any code path today (4-order-workflow.md
+ * Only ORDER_CREATED is emitted by any code path today (5-order-evaluation.md
  * hasn't been built) — status stays this one value until that build adds
  * the states its own stages need.
  */

@@ -14,7 +14,7 @@ export interface IntegrationTestStepProps {
    * stage, which blocks DeployProd from starting. Prod: a failing run
    * still gets reported (route-report.json still syncs), but the action
    * itself always exits 0 — same non-blocking pattern ProdDiff already
-   * uses (`5-pipeline-integration-tests.md` §5).
+   * uses (`4-pipeline-integration-tests.md` §5).
    */
   blocking: boolean;
   /** The account the target bucket/distribution live in (for scoping the invalidation IAM statement). */
@@ -26,7 +26,7 @@ export interface IntegrationTestStepProps {
 }
 
 /**
- * A post-deploy step (`5-pipeline-integration-tests.md` §5) that runs
+ * A post-deploy step (`4-pipeline-integration-tests.md` §5) that runs
  * `backend/tests/integration/`'s real-HTTP GET-route suite against that
  * environment's live API, then syncs `route-report.json` to that
  * environment's website bucket under `/integration-tests/` and

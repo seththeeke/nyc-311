@@ -198,7 +198,10 @@ The backend will follow a basic controller, service, and data access object(DAO)
      plus, as of `3-order-ingestion.md` §2, the DynamoDB-Streams-triggered
      fan-out Lambda that republishes newly-ingested Requests onto SQS; both
      are "how a Request enters the system," not just the SODA-poll path
-  -> order-processing - controller endpoints for the main order step function workflow
+  -> order-processing - controller endpoints for what happens to an Order
+     after creation (evaluation, and whatever later stages join it) —
+     event-driven per `5-order-evaluation.md`, not a Step Functions state
+     machine (that framing was dropped 2026-08-25; see that doc's intro)
   -> data-archival - controller endpoints for any callback or fetching information during archival
  -> service
   -> grouped into logical processing services, not necessarily by entity

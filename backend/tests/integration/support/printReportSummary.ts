@@ -4,7 +4,7 @@ import { readCurrentReport } from "./routeTracker";
  * Vitest globalSetup file (`vitest.integration.config.ts`) — `setup` is
  * required by Vitest's contract even though there's nothing to do before
  * the run; `teardown` prints the route-hit console summary
- * (5-pipeline-integration-tests.md §4) once after every test file has
+ * (4-pipeline-integration-tests.md §4) once after every test file has
  * finished, reading back whatever `routeTracker.ts` wrote to disk during
  * the run (this file runs in a separate context from the test files, so
  * it can't share in-memory state with them — only the file on disk).

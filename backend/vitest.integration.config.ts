@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 /*
  * Real-integration tier (testing-framework.md §4, wired up per
- * 5-pipeline-integration-tests.md) — hits a live deployed AWS environment
+ * 4-pipeline-integration-tests.md) — hits a live deployed AWS environment
  * (or `sam local start-api`) over the network, so it's deliberately its
  * own config with no coverage gate: coverage is already fully enforced by
  * the unit tier (vitest.config.ts). A formal endpoint-coverage % was

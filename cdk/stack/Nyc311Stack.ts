@@ -48,7 +48,7 @@ const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
  * `claude-prompt-initial.md` build-order slice is unlocked.
  */
 export class Nyc311Stack extends Stack {
-  /** 5-pipeline-integration-tests.md §5 — exposed so Nyc311AppStage can pass it to the pipeline's integration-test step via envFromCfnOutputs. */
+  /** 4-pipeline-integration-tests.md §5 — exposed so Nyc311AppStage can pass it to the pipeline's integration-test step via envFromCfnOutputs. */
   public readonly apiUrlOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: Nyc311StackProps) {

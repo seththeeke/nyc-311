@@ -41,7 +41,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
   /**
    * Creates a new Order in its first state (`3-order-ingestion.md` §5) —
    * `current_stage: "INGEST"`, everything workflow-derived (priority,
-   * schedule, assignment) still null/zero until `4-order-workflow.md`'s
+   * schedule, assignment) still null/zero until `5-order-evaluation.md`'s
    * state machine actually runs. Does not start that state machine —
    * it doesn't exist yet.
    */

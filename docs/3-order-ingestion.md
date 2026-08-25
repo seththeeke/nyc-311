@@ -6,18 +6,33 @@
 > `claude-prompt-initial.md` §1 and reaffirmed in `1-data-ingestion.md` §1
 > ("revisit after initial ingestion is running") — this is that revisit.
 >
-> **Split out of what was originally going to be part of `4-order-workflow.md`
+> **Split out of what was originally going to be part of `5-order-evaluation.md`
 > (build-order item 2)**, once it became clear "how does a Request actually
 > become an Order" is real, standing infrastructure in its own right — a
 > stream listener, a filter/promotion module, and the `Order`-creation
 > write — not something to stub for one slice and throw away. This doc owns
 > that path: `Request` (draft/pending) → filter evaluation → `Order` in its
-> first state. `4-order-workflow.md` picks up from there and owns the state
-> machine that actually moves a created `Order` through
-> `Ingest → Schedule → Execute → Resolve`.
+> first state. `5-order-evaluation.md` picks up from there and owns what
+> happens to a created `Order` next — reworked 2026-08-25 from an original
+> Step-Functions-state-machine framing to an event-driven design; see that
+> doc for the current shape.
 >
 > `backend/`/`cdk/` are already unlocked (`CLAUDE.md` §5.1/§5.2) — this doc
 > settles design questions before writing code, not a directory unlock.
+
+**Status: Done (closed 2026-08-25).** Both legs deployed and verified
+against real `Nyc311-Test` traffic — a `draft` Request now reaches
+`evaluateRequest` via the stream→SQS fan-out and produces a real `Order`
+in its initial (`INGEST`/`CREATED`) state. Verification surfaced one real
+bug (fan-out Lambda crashing at cold start on every invocation, silently,
+per the module-scope-DAO incident logged in `CLAUDE.md` §5.2) which was
+found and fixed 2026-08-22; `GET /orders` returning real data is now
+covered by the pipeline's own integration-test gate (`5-pipeline-
+integration-tests.md`, shipped 2026-08-24). Remaining design items below
+(§7 alarms/metrics, the atomicity gap, `order_id` denormalization, real
+geocoding, real Cases) are accepted gaps, not blockers — logged in
+`99-things-to-come-back-to.md` rather than reopening this doc.
+`5-order-evaluation.md` is the active doc going forward.
 
 ---
 
@@ -31,7 +46,7 @@
 | [4. `duplicate`/`rejected` status semantics](#4-duplicaterejected-status-semantics) | **Agreed — confirmed still dead code today** |
 | [5. Order creation on pass](#5-order-creation-on-pass) | **Agreed, built (2026-08-20)** |
 | [6. Existing-backlog backfill](#6-existing-backlog-backfill) | **Agreed — gap accepted, logged in `99-things-to-come-back-to.md`** |
-| [7. Observability & custom metrics](#7-observability--custom-metrics) | **[OPEN]** — UI surfacing deliberately descoped, see checklist |
+| [7. Observability & custom metrics](#7-observability--custom-metrics) | **Deferred** — structured logs shipped; alarms/`MetricFilter`s/UI surfacing accepted as a known gap, logged in `99-things-to-come-back-to.md` |
 | [8. Testing](#8-testing) | **Agreed, built alongside §3/§5** |
 
 ---
@@ -461,20 +476,21 @@ infrastructure that didn't exist before:
 - **`Order`/`OrderEvent` models** (`backend/models/order.ts`) — the full
   locked `data-model.md#order` event-type vocabulary (all 12
   `ORDER_EVENT_TYPES`), but `OrderStatus` only has one value (`CREATED`)
-  today — the rest arrive once `4-order-workflow.md`'s stages exist to
+  today — the rest arrive once `5-order-evaluation.md`'s stages exist to
   need them, not invented speculatively now.
 - **`OrdersTable`** (`cdk/data/OrdersTable.ts`) — `ddb-design.md`'s locked
   design (`order_id`+`sk`, `gsi1-stage-sla`, `gsi2-assigned-operator`,
   stream). **Known, deliberate gap:** nothing populates the GSI key
   attributes yet (`gsi1sk`=`sla_deadline`, `gsi2pk`=`assigned_operator_id`)
-  — both are always null at creation, since only `4-order-workflow.md`'s
+  — both are always null at creation, since only `5-order-evaluation.md`'s
   Schedule stage will ever set them. Building that derivation now would be
   speculative code for values nothing produces yet.
 - **`OrderDao.createOrder`** — writes `ORDER_CREATED`, folds the first-
   state projection (`current_stage: "INGEST"`, `status: "CREATED"`,
   zeroed retry counts, everything workflow-derived null/zero). Does
-  **not** start `4-order-workflow.md`'s state machine — it doesn't exist
-  yet, so there's nothing to start.
+  **not** trigger any downstream processing itself — `5-order-evaluation.md`
+  picks it up independently, off the `Orders` table's own change stream
+  (see that doc), not a direct call from this write path.
 - **`RequestDao.updateRequestStatus`** — the idempotent promote/reject
   write from §3, condition-checked against `status = "DRAFT"`.
 
@@ -554,9 +570,15 @@ testing — not yet elaborated.)*
 
 ---
 
-## Addendum: Next-Session Checklist (as of 2026-08-20)
+## Addendum: Next-Session Checklist (as of 2026-08-20, closed out 2026-08-25)
 
-### Design — still `[OPEN]`
+**Doc closed 2026-08-25** — see Status note at the top. Everything below
+this point reflects the state as of 2026-08-20 plus the one update noted
+in "Build" (the real-deploy verification that was still outstanding then).
+The Design items are accepted, logged gaps now, not open questions blocking
+this doc — see `99-things-to-come-back-to.md`.
+
+### Design — accepted gaps (not blockers), logged in `99-things-to-come-back-to.md`
 
 - [ ] **§7 — Observability & custom metrics.** Structured-log fields +
       `MetricFilter`s for this pipeline, mindful of the project-wide
@@ -633,10 +655,18 @@ pipeline run has confirmed either leg in `Nyc311-Test`.
 - [x] IAM: `GetItem`/`PutItem` on all three tables + automatic
       `grantConsumeMessages` — confirmed via a CDK assertion test that no
       broader `dynamodb:*` action appears in this Lambda's policy.
-- [ ] **Not done yet:** verify via the pipeline against a real
-      `Nyc311-Test` deploy (both legs).
+- [x] **Verified against a real `Nyc311-Test` deploy (2026-08-22).** First
+      verification pass found the Orders table was silently empty — the
+      fan-out Lambda was crashing at cold start on every invocation since
+      it shipped, per the module-scope-DAO incident now documented in
+      `CLAUDE.md` §5.2. Fixed (lazy DAO construction), re-verified: `Order`
+      rows are now created in their initial state from real ingested
+      Requests. `GET /orders` returning real data is covered on an ongoing
+      basis by the pipeline's integration-test gate (`5-pipeline-
+      integration-tests.md`, shipped 2026-08-24), so this doesn't need a
+      one-off manual re-check going forward.
 
-`4-order-workflow.md` can now pick up from a real `Order` in its first
+`5-order-evaluation.md` can now pick up from a real `Order` in its first
 state — no longer blocked on this doc.
 
 ---

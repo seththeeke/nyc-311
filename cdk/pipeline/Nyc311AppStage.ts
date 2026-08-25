@@ -18,7 +18,7 @@ const STACK_NAME_BY_ENV: Record<Nyc311Environment, string> = {
  * a CloudFormation update to those stacks, not a create.
  */
 export class Nyc311AppStage extends Stage {
-  /** 5-pipeline-integration-tests.md §5 — passed to the pipeline's integration-test step via envFromCfnOutputs. */
+  /** 4-pipeline-integration-tests.md §5 — passed to the pipeline's integration-test step via envFromCfnOutputs. */
   public readonly apiUrlOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: Nyc311AppStageProps) {

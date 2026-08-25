@@ -142,7 +142,7 @@ export class Nyc311PipelineStack extends Stack {
     });
 
     /*
-     * 5-pipeline-integration-tests.md §5 — runs integration-tests/'s real
+     * 4-pipeline-integration-tests.md §5 — runs integration-tests/'s real
      * GET-route suite against the live Test API. A failing run fails this
      * action, which fails the DeployTest stage, which blocks DeployProd
      * from starting at all (ordinary CodePipeline stage-must-succeed
@@ -184,7 +184,7 @@ export class Nyc311PipelineStack extends Stack {
     });
 
     /*
-     * 5-pipeline-integration-tests.md §5 — non-blocking post-deploy smoke
+     * 4-pipeline-integration-tests.md §5 — non-blocking post-deploy smoke
      * check against the live Prod API: report still publishes on
      * failure, but the action itself always exits 0 (blocking: false),
      * same non-blocking pattern as ProdDiff above.

@@ -212,3 +212,70 @@ Two approaches considered, not decided between:
 documented one-time manual step first, only automate it via a custom
 resource if that manual step turns out to be a recurring pain (e.g. the
 dashboard gets recreated often enough that re-sharing is annoying).
+
+---
+
+## Order-ingestion design gaps accepted when `3-order-ingestion.md` closed
+
+Logged 2026-08-25 when `3-order-ingestion.md` was marked done — both
+pipeline legs are deployed and verified (a real `Order` gets created from
+a real Request), but these named gaps from that doc's design were
+deliberately not fixed before closing it:
+
+- **§7 observability** — `evaluateRequest` logs structured
+  `FilterEvaluated`/`RequestEvaluationCompleted` lines, but no
+  `MetricFilter`s read them, and no CloudWatch Alarm exists on either the
+  fan-out or request-evaluation Lambda (sustained `IteratorAge` growth or
+  repeated `Errors` was the intended trigger, never given a concrete
+  metric/threshold/period). A live-count UI tile for filter results was
+  also explicitly ruled out (unbounded RCU cost against `Requests-Test`'s
+  40,000+ `DRAFT` bucket via a live scan) — an atomic-counter sentinel
+  item was proposed as the fix but not built.
+- **Atomicity gap in the promote path** — Order creation and the
+  Request's `PROMOTED` write are two separate calls, not one cross-table
+  transaction. Fixing this means generalizing
+  `EventSourcedDao.appendEvent` to return its transact-items instead of
+  executing them, so a service can combine them with a second DAO's write
+  in one `TransactWriteCommand`.
+- **`Request.order_id` denormalization** — `ddb-design.md` assumed the
+  promotion write would denormalize `order_id` back onto `Request`;
+  `data-model.md`'s locked `Request` fields never gained one.
+  `Order.request_id` is the only link today. Needs a `data-model.md`
+  decision, not a silent backend fix.
+- **Real `resolveLocation` geocoding fallback** — still BBL-from-payload
+  only. Records with lat/long but no direct `bbl` still `HALT` (stay
+  `draft`) rather than resolving.
+- **Real Cases infrastructure** — `service/case/caseService.ts`'s
+  `createCase` is still a log-only stub. No Cases table, no CaseDao.
+  Building it for real is a separate, later slice.
+- **The three stub filters** (`checkAlreadyClosed`,
+  `checkComplaintTypeSupported`, `checkBusinessDuplicate`) — still
+  pass-through no-ops, per `3-order-ingestion.md` §1's original scope-down.
+  `FILTERED`/`DUPLICATE`/`REJECTED` stay dead code until one of these
+  ships for real.
+
+Revisit once `5-order-evaluation.md` is far enough along that these start
+mattering in practice (e.g. an alarm becomes worth having once the
+workflow depends on Orders actually arriving reliably).
+
+---
+
+## No automatic Case creation when order-evaluation permanently fails
+
+Logged 2026-08-25 while designing `5-order-evaluation.md` §6. The original
+brief (`claude-prompt-initial.md` §4.1) wants exhausted retries to
+transition to Case creation automatically — the old Step-Functions design
+got this for free via a `Catch` block. The choreographed replacement
+(`Orders` stream → SNS → SQS → evaluation Lambda) has no such thing: a
+message that genuinely, permanently fails (not a benign idempotency race —
+real bad data, a sustained DynamoDB outage) exhausts
+`Nyc311OrderEvaluationQueue`'s `maxReceiveCount: 3` and lands in its DLQ
+with nothing reacting to it.
+
+**Accepted for now** — a CloudWatch alarm on the DLQ's
+`ApproximateNumberOfMessagesVisible` gives ops visibility without building
+a consumer. The real fix is a DLQ-consumer Lambda that creates a Case
+(`workflow_execution_failure`-shaped) for whatever order was in the failed
+message — deliberately not built against `caseService.ts`'s current
+log-only mock stub; revisit once real Case persistence exists
+(`5-order-evaluation.md` §5, also deferred).

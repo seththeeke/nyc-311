@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Not a coverage gate (5-pipeline-integration-tests.md §1/§4 — that was
+ * Not a coverage gate (4-pipeline-integration-tests.md §1/§4 — that was
  * explicitly declined) — just visibility into which of the known GET
  * routes actually got hit on a given run, and whether each returned
  * success. `httpClient.ts` calls `recordRouteHit` after every request it
