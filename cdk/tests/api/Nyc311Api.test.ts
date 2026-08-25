@@ -22,6 +22,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     pollerFunctionName: "Nyc311Poller-Test",
     orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
+    orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
     metricsApiFunctionName: "Nyc311MetricsApi-Test",
     ordersApiFunctionName: "Nyc311OrdersApi-Test",
   });

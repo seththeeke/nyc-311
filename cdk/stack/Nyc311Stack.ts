@@ -11,6 +11,8 @@ import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLa
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
+import { Nyc311OrderEventsTopic } from "../lambda/Nyc311OrderEventsTopic";
+import { Nyc311OrderEventFanOutLambda } from "../lambda/Nyc311OrderEventFanOutLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -96,6 +98,23 @@ export class Nyc311Stack extends Stack {
       orderIngestionQueue,
     });
 
+    /*
+     * 5-order-evaluation.md §3 — the order-evaluation fan-out Lambda:
+     * listens to the Orders table's own DynamoDB Stream and republishes
+     * every appended OrderEvent onto this topic, tagged with an
+     * event_type message attribute for downstream filtered subscriptions.
+     * No subscriptions yet — the evaluation leg (Leg 2) is a later slice.
+     */
+    const orderEventsTopic = new Nyc311OrderEventsTopic(this, "Nyc311OrderEventsTopic", {
+      envName: props.envName,
+    });
+
+    const orderEventFanOutLambda = new Nyc311OrderEventFanOutLambda(this, "Nyc311OrderEventFanOutLambda", {
+      envName: props.envName,
+      ordersTable,
+      orderEventsTopic,
+    });
+
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
 
     const metricsApiLambda = new Nyc311MetricsApiLambda(this, "Nyc311MetricsApiLambda", {
@@ -115,6 +134,7 @@ export class Nyc311Stack extends Stack {
       pollerFunctionName: pollerLambda.functionName,
       orderFanOutFunctionName: orderFanOutLambda.functionName,
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
+      orderEventFanOutFunctionName: orderEventFanOutLambda.functionName,
       metricsApiFunctionName: metricsApiLambda.functionName,
       ordersApiFunctionName: ordersApiLambda.functionName,
     });

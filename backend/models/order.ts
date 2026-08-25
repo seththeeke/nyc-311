@@ -20,6 +20,8 @@ export const ORDER_EVENT_TYPES = [
   "PRIORITY_ASSIGNED",
   "ORDER_SCHEDULED",
   "ORDER_ASSIGNED",
+  "ORDER_ACCEPTED",
+  "ORDER_REJECTED",
   "CASE_CREATED",
   "ORDER_RESOLVED",
   "ORDER_FAILED_TERMINAL",
@@ -30,11 +32,12 @@ export const ACTORS = ["SYSTEM", "AGENT", "ADMIN"] as const;
 export type Actor = (typeof ACTORS)[number];
 
 /*
- * Only ORDER_CREATED is emitted by any code path today (5-order-evaluation.md
- * hasn't been built) — status stays this one value until that build adds
- * the states its own stages need.
+ * Only ORDER_CREATED is emitted by any code path today (5-order-evaluation.md's
+ * evaluation leg, Leg 2, is what first produces ACTIVE/REJECTED) — ACTIVE and
+ * REJECTED are added to the enum now (5-order-evaluation.md §4) so the model
+ * doesn't need a second churn pass once that leg is built.
  */
-export const ORDER_STATUSES = ["CREATED"] as const;
+export const ORDER_STATUSES = ["CREATED", "ACTIVE", "REJECTED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const OrderEventSchema = z.object({

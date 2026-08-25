@@ -63,7 +63,19 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestEvaluation-Test" });
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Orders-Test" });
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 2);
+    /*
+     * 3 = the Requests-side fan-out Lambda's stream mapping, the request-
+     * evaluation Lambda's SQS mapping, and (5-order-evaluation.md §3) the
+     * Orders-side fan-out Lambda's own stream mapping.
+     */
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 3);
+  });
+
+  it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventFanOut-Test" });
+    template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderEvents-Test" });
   });
 
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
@@ -100,6 +112,7 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_POLLER: { Ref: Match.stringLikeRegexp("^Nyc311PollerLambda") },
           MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderFanOutLambda") },
           MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
+          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventFanOutLambda") },
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
           MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",

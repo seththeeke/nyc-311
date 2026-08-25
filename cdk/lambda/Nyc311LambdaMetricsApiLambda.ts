@@ -14,6 +14,7 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   pollerFunctionName: string;
   orderFanOutFunctionName: string;
   requestEvaluationFunctionName: string;
+  orderEventFanOutFunctionName: string;
   metricsApiFunctionName: string;
   ordersApiFunctionName: string;
 }
@@ -43,7 +44,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getLambdaMetricsController.ts"),
       handler: "getLambdaMetricsController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.seconds(15), /* up to 12 parallel CloudWatch calls (6 monitored lambdas x 2 metrics) per invocation */
+      timeout: Duration.seconds(15), /* up to 14 parallel CloudWatch calls (7 monitored lambdas x 2 metrics) per invocation */
       memorySize: 256,
       logGroup,
       /*
@@ -56,6 +57,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_POLLER: props.pollerFunctionName,
         MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
         MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
+        MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
         MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,
         MONITORED_LAMBDA_ORDERS_API: props.ordersApiFunctionName,
         MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
