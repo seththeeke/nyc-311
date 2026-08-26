@@ -8,8 +8,10 @@ const PROPS = {
   orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
   requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
   orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
+  orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
   metricsApiFunctionName: "Nyc311MetricsApi-Test",
   ordersApiFunctionName: "Nyc311OrdersApi-Test",
+  orderEventsApiFunctionName: "Nyc311OrderEventsApi-Test",
 };
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -55,8 +57,10 @@ describe("Nyc311LambdaMetricsApiLambda", () => {
           MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311OrderFanOut-Test",
           MONITORED_LAMBDA_REQUEST_EVALUATION: "Nyc311RequestEvaluation-Test",
           MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrderEventFanOut-Test",
+          MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
           MONITORED_LAMBDA_METRICS_API: "Nyc311MetricsApi-Test",
           MONITORED_LAMBDA_ORDERS_API: "Nyc311OrdersApi-Test",
+          MONITORED_LAMBDA_ORDER_EVENTS_API: "Nyc311OrderEventsApi-Test",
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         },
       },

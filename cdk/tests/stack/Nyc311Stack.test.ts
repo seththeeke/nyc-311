@@ -64,11 +64,12 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Orders-Test" });
     /*
-     * 3 = the Requests-side fan-out Lambda's stream mapping, the request-
-     * evaluation Lambda's SQS mapping, and (5-order-evaluation.md §3) the
-     * Orders-side fan-out Lambda's own stream mapping.
+     * 4 = the Requests-side fan-out Lambda's stream mapping, the request-
+     * evaluation Lambda's SQS mapping, the Orders-side fan-out Lambda's
+     * own stream mapping, and (5-order-evaluation.md §6) the evaluation
+     * Lambda's SQS mapping.
      */
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 3);
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 4);
   });
 
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
@@ -76,6 +77,31 @@ describe("Nyc311Stack", () => {
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventFanOut-Test" });
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderEvents-Test" });
+  });
+
+  it("wires the evaluation queue (filtered to ORDER_CREATED) and the evaluation Lambda (5-order-evaluation.md §3/§6)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEvaluation-Test" });
+    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderEvaluationQueue-Test" });
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Protocol: "sqs",
+      RawMessageDelivery: true,
+      FilterPolicy: { event_type: ["ORDER_CREATED"] },
+    });
+  });
+
+  it("wires CloudWatch alarms for the fan-out Lambda and the evaluation DLQ (5-order-evaluation.md §7)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311OrderEventFanOutErrorsAlarm-Test" });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: "Nyc311OrderEventFanOutIteratorAgeAlarm-Test",
+    });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: "Nyc311OrderEvaluationDlqDepthAlarm-Test",
+    });
+    template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
@@ -101,6 +127,13 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /orders" });
   });
 
+  it("wires GET /order-events to the Order Events list Lambda (5-order-evaluation.md's Order Events list view)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventsApi-Test" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /order-events" });
+  });
+
   it("wires GET /lambda-metrics to the Lambda health Lambda, with every monitored function name set (2026-08-22 incident)", () => {
     const { template } = synthesize("TestStack", "TEST");
 
@@ -113,8 +146,10 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderFanOutLambda") },
           MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
           MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventFanOutLambda") },
+          MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
           MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
+          MONITORED_LAMBDA_ORDER_EVENTS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventsApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

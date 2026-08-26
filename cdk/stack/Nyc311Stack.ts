@@ -13,6 +13,10 @@ import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
 import { Nyc311OrderEventsTopic } from "../lambda/Nyc311OrderEventsTopic";
 import { Nyc311OrderEventFanOutLambda } from "../lambda/Nyc311OrderEventFanOutLambda";
+import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue";
+import { Nyc311OrderEvaluationLambda } from "../lambda/Nyc311OrderEvaluationLambda";
+import { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
+import { Nyc311OrderPipelineAlarms } from "../lambda/Nyc311OrderPipelineAlarms";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -103,7 +107,6 @@ export class Nyc311Stack extends Stack {
      * listens to the Orders table's own DynamoDB Stream and republishes
      * every appended OrderEvent onto this topic, tagged with an
      * event_type message attribute for downstream filtered subscriptions.
-     * No subscriptions yet — the evaluation leg (Leg 2) is a later slice.
      */
     const orderEventsTopic = new Nyc311OrderEventsTopic(this, "Nyc311OrderEventsTopic", {
       envName: props.envName,
@@ -113,6 +116,29 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       ordersTable,
       orderEventsTopic,
+    });
+
+    /*
+     * 5-order-evaluation.md §3/§6 — Leg 2: the filtered subscription
+     * (ORDER_CREATED only) and the Lambda that actually evaluates an
+     * Order — accept, reject, or hand off to a Case.
+     */
+    const orderEvaluationQueue = new Nyc311OrderEvaluationQueue(this, "Nyc311OrderEvaluationQueue", {
+      envName: props.envName,
+      orderEventsTopic,
+    });
+
+    const orderEvaluationLambda = new Nyc311OrderEvaluationLambda(this, "Nyc311OrderEvaluationLambda", {
+      envName: props.envName,
+      ordersTable,
+      orderEvaluationQueue,
+    });
+
+    new Nyc311OrderPipelineAlarms(this, "Nyc311OrderPipelineAlarms", {
+      envName: props.envName,
+      orderEventFanOutLambda,
+      orderEvaluationQueue,
+      failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
@@ -128,6 +154,12 @@ export class Nyc311Stack extends Stack {
       ordersTable,
     });
 
+    /* 5-order-evaluation.md's Order Events list view — backs the public `GET /order-events` route. */
+    const orderEventsApiLambda = new Nyc311OrderEventsApiLambda(this, "Nyc311OrderEventsApiLambda", {
+      envName: props.envName,
+      ordersTable,
+    });
+
     /* The Lambda health tile, added after the 2026-08-22 fan-out-Lambda incident — backs the public `GET /lambda-metrics` route. */
     const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", {
       envName: props.envName,
@@ -135,14 +167,17 @@ export class Nyc311Stack extends Stack {
       orderFanOutFunctionName: orderFanOutLambda.functionName,
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
       orderEventFanOutFunctionName: orderEventFanOutLambda.functionName,
+      orderEvaluationFunctionName: orderEvaluationLambda.functionName,
       metricsApiFunctionName: metricsApiLambda.functionName,
       ordersApiFunctionName: ordersApiLambda.functionName,
+      orderEventsApiFunctionName: orderEventsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
       metricsApiLambda,
       ordersApiLambda,
+      orderEventsApiLambda,
       lambdaMetricsApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });

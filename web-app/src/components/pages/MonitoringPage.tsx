@@ -49,6 +49,15 @@ function OrdersIcon(): ReactElement {
   );
 }
 
+function OrderEventsIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
+}
+
 function LambdaHealthIcon(): ReactElement {
   return (
     <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
@@ -97,6 +106,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/orders",
     accent: "emerald",
     icon: <OrdersIcon />,
+  },
+  {
+    title: "Order Events",
+    description: "The full OrderEvent history — accept/reject/case outcomes and beyond.",
+    to: "/monitoring/order-events",
+    accent: "emerald",
+    icon: <OrderEventsIcon />,
   },
   {
     title: "Lambda Health",

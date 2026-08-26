@@ -16,12 +16,15 @@ confirmed via `aws s3 cp ... -` on both buckets and a live browser check
 of `/monitoring/integration-tests` on Test.
 
 Implements `testing-framework.md` §4/§7's "Real integration" tier, which
-was negotiated back on 2026-07-29 but never actually built. Scope, per
-today's conversation: the 3 per-environment public GET routes, replacing
-`test-scripts/2-metrics-api-test.py`/`3-orders-api-test.py` (NOT
-`1-ingestion-test.py`, which smoke-tests the poller Lambda directly via
-invoke + DynamoDB, a different concern this doc doesn't touch) with a real
-TypeScript/Vitest suite wired into `Nyc311Pipeline`.
+was negotiated back on 2026-07-29 but never actually built. Scope, as of
+2026-08-24: the 3 per-environment public GET routes that existed then,
+replacing `test-scripts/2-metrics-api-test.py`/`3-orders-api-test.py`
+(NOT `1-ingestion-test.py`, which smoke-tests the poller Lambda directly
+via invoke + DynamoDB, a different concern this doc doesn't touch) with a
+real TypeScript/Vitest suite wired into `Nyc311Pipeline`. **Updated
+2026-08-26:** `GET /order-events` (`5-order-evaluation.md`) shipped with
+its own test file, folded into this same suite mechanically — 4 routes
+now, same "one test file per route, no formal coverage gate" shape.
 
 ---
 
@@ -37,8 +40,8 @@ TypeScript/Vitest suite wired into `Nyc311Pipeline`.
 | Manual approval before Prod? | No — Prod keeps auto-deploying. The gate is the integration suite itself. |
 | Does the suite gate Prod? | Yes, against **Test**: a failing run blocks `DeployProd` (a `post` step on `DeployTest`, same mechanism as `PublishCoverageTest`). |
 | Does Prod get tested at all? | Yes — a **non-blocking** post-deploy smoke check (`post` step on `DeployProd`, always exits 0 regardless of pass/fail). |
-| Which routes? | `/ingestion/metrics`, `/orders`, `/lambda-metrics` — not `/pipeline/status` (singleton, not per-environment). |
-| Formal endpoint-coverage % gate? | Skipped — 3 routes, one test file per route by construction. |
+| Which routes? | `/ingestion/metrics`, `/orders`, `/order-events`, `/lambda-metrics` — not `/pipeline/status` (singleton, not per-environment). |
+| Formal endpoint-coverage % gate? | Skipped — 4 routes, one test file per route by construction. |
 | Any coverage visibility at all? | A lightweight, non-gating **route-hit report** — console summary + a Monitoring page tile. |
 
 ### 1.1 Mid-design pivot: location
@@ -74,6 +77,7 @@ backend/
       printReportSummary.ts        — Vitest globalSetup/teardown; prints the console summary table
     pollerMetricsApi.integration.test.ts   — GET /ingestion/metrics
     ordersApi.integration.test.ts          — GET /orders
+    orderEventsApi.integration.test.ts     — GET /order-events
     lambdaMetricsApi.integration.test.ts   — GET /lambda-metrics
     reports/                       — gitignored; route-report.json lands here on a run
 ```
@@ -94,6 +98,7 @@ assumed from the old Python scripts — `2-metrics-api-test.py` had gone
 stale, missing the `cursor` field the 2026-08-22 incident work added):
 - `GET /ingestion/metrics` → `{ metrics: PollerMetrics[], cursor: IngestionCursorStatus | null }`
 - `GET /orders` → `{ orders: Order[], nextCursor: string | null }`
+- `GET /order-events` → `{ events: OrderEvent[], nextCursor: string | null }`
 - `GET /lambda-metrics` → `{ lambdas: LambdaHealth[] }`
 
 ---
@@ -129,7 +134,7 @@ does):
 vars are real Test table names. The code still makes real AWS SDK calls
 over the network — SAM/Docker emulates API Gateway + the Lambda execution
 environment, not DynamoDB/CloudWatch. `local` requires a valid `nyc311`
-AWS credential profile and reads real Test data (safe — all 3 routes are
+AWS credential profile and reads real Test data (safe — all 4 routes are
 read-only).
 
 ```
@@ -149,7 +154,7 @@ read-modify-write against `reports/route-report.json`
 called by `httpClient.ts` after every request — independent of whatever
 assertions the calling test makes afterward, so the report reflects "did
 we reach it and get a response," not "did every assertion pass".
-`vitest.integration.config.ts` sets `fileParallelism: false` so the 3
+`vitest.integration.config.ts` sets `fileParallelism: false` so the 4
 test files run serially, avoiding a write race on that shared file.
 
 `printReportSummary.ts` is wired as Vitest's `globalSetup` (its
@@ -161,6 +166,7 @@ disk rather than sharing in-memory state):
 Route                   Hit   Status
 /ingestion/metrics      yes   200
 /orders                 yes   200
+/order-events           yes   200
 /lambda-metrics         yes   200
 ```
 

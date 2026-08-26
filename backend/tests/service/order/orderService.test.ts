@@ -1,10 +1,11 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrderDao } from "../../../dao/order/orderDao";
-import { listOrders } from "../../../service/order/orderService";
+import { listOrderEvents, listOrders } from "../../../service/order/orderService";
 import { DEFAULT_ORDER_PAGE_SIZE } from "../../../models/orderListQuery";
+import { DEFAULT_ORDER_EVENT_PAGE_SIZE } from "../../../models/orderEventListQuery";
 
 const TABLE_NAME = "Orders";
 const ddbMock = mockClient(DynamoDBDocumentClient);
@@ -56,6 +57,44 @@ describe("listOrders", () => {
     const result = await listOrders({}, { orderDao });
 
     expect(result.orders).toEqual([]);
+    expect(result.nextCursor).not.toBeNull();
+  });
+});
+
+describe("listOrderEvents", () => {
+  it("falls back to the module's own default OrderDao when deps.orderDao is omitted", async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
+
+    await expect(listOrderEvents({})).resolves.toEqual({ events: [], nextCursor: null });
+  });
+
+  it("applies the default page size when the query omits limit", async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
+
+    await listOrderEvents({}, { orderDao });
+
+    const input = ddbMock.commandCalls(ScanCommand)[0].args[0].input;
+    expect(input.Limit).toBe(DEFAULT_ORDER_EVENT_PAGE_SIZE);
+  });
+
+  it("routes to a Query when order_id is given, passing limit/cursor/event_type through", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    await listOrderEvents({ limit: 5, order_id: "01ORDER", event_type: "ORDER_ACCEPTED" }, { orderDao });
+
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input.Limit).toBe(5);
+    expect(input.ExpressionAttributeValues).toMatchObject({ ":orderId": "01ORDER" });
+    expect(input.FilterExpression).toBe("event_type = :eventType");
+  });
+
+  it("returns the DAO's events and nextCursor unchanged", async () => {
+    const lastKey = { order_id: "01ORDER", sk: "EVENT#0" };
+    ddbMock.on(ScanCommand).resolves({ Items: [], LastEvaluatedKey: lastKey });
+
+    const result = await listOrderEvents({}, { orderDao });
+
+    expect(result.events).toEqual([]);
     expect(result.nextCursor).not.toBeNull();
   });
 });

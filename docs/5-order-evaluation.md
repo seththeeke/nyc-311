@@ -466,58 +466,100 @@ pipeline, for the same reasons:
 Split into two legs, same shape as `3-order-ingestion.md`'s own two-session
 build (fan-out leg, then evaluation leg) — not one slice.
 
-### Leg 1 — fan-out (`Orders` stream → SNS)
+### Leg 1 — fan-out (`Orders` stream → SNS) — **shipped and verified 2026-08-25**
 
-- [ ] `backend/models/order.ts` — add `ORDER_ACCEPTED`, `ORDER_REJECTED` to
-      `ORDER_EVENT_TYPES`; add `ACTIVE`, `REJECTED` to `ORDER_STATUSES`
-      (§4). Not strictly required to move a single `OrderEvent` through the
-      fan-out itself, but keeping the model in sync with what's agreed
-      avoids a second churn pass on this file next session.
-- [ ] `backend/controller/order-processing/fanOutOrderEventsController.ts`
+- [x] `backend/models/order.ts` — added `ORDER_ACCEPTED`, `ORDER_REJECTED` to
+      `ORDER_EVENT_TYPES`; `ACTIVE`, `REJECTED` to `ORDER_STATUSES` (§4).
+- [x] `backend/controller/order-processing/fanOutOrderEventsController.ts`
       — parses the DynamoDB Streams event, per-item failure reporting.
-- [ ] `backend/service/order/orderEvaluationService.ts` (or a smaller
-      dedicated file if `fanOutOrderEvent` doesn't naturally belong
-      alongside evaluation logic that doesn't exist yet — decide at build
-      time) — `fanOutOrderEvent`: relevance check (`INSERT` + `sk` starts
-      with `EVENT#`), `unmarshall`, `sns:Publish` with `event_type`
-      message attribute.
-- [ ] `cdk/data/OrdersTable.ts` — no change needed; `dynamoStream:
-      NEW_AND_OLD_IMAGES` already enabled.
-- [ ] New SNS topic construct (`Nyc311OrderEventsTopic`), likely under
-      `cdk/data/` alongside the table it fans out from, or a new
-      `cdk/lambda/` construct file — decide at build time.
-- [ ] `cdk/lambda/Nyc311OrderEventFanOutLambda.ts` — new construct, **not**
-      the existing (differently-scoped) `Nyc311OrderFanOutLambda.ts` (§3's
-      flagged naming collision). Stream event source on `OrdersTable`,
-      `batchSize: 100`, `reportBatchItemFailures: true`, `retryAttempts:
-      3`, on-failure SQS DLQ — mirrors `Nyc311OrderFanOutLambda.ts`
-      structurally.
-- [ ] Wire into `cdk/stack/Nyc311Stack.ts`.
-- [ ] IAM: stream-read (automatic via `DynamoEventSource`) + `sns:Publish`
-      only — no `Orders` table read/write grant.
-- [ ] Unit tests (controller, service) + CDK assertion tests (fan-out
-      Lambda, SNS topic, event source mapping config) — 90% per-file.
-- [ ] `CLAUDE.md` §5.2 `order-processing` wording fix — **already done**
-      this session, alongside the design doc.
+- [x] `backend/service/order/orderEvaluationService.ts` — `fanOutOrderEvent`:
+      relevance check (`INSERT` + `sk` starts with `EVENT#`), `unmarshall`,
+      `sns:Publish` with the `event_type` message attribute.
+- [x] `cdk/lambda/Nyc311OrderEventsTopic.ts` — new SNS topic construct
+      (landed under `cdk/lambda/`, alongside the Requests-side queue
+      construct, not `cdk/data/`).
+- [x] `cdk/lambda/Nyc311OrderEventFanOutLambda.ts` — stream event source on
+      `OrdersTable`, `batchSize: 100`, `reportBatchItemFailures: true`,
+      `retryAttempts: 3`, on-failure SQS DLQ.
+- [x] Wired into `cdk/stack/Nyc311Stack.ts`, plus the Lambda Health
+      monitoring tile (`MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT`).
+- [x] IAM: stream-read (automatic) + `sns:Publish` only — confirmed via CDK
+      assertion test that no `dynamodb:Put*/Update*/Delete*` appears.
+- [x] Unit tests (controller, service) + CDK assertion tests — 90%+
+      per-file, backend and cdk both green.
+- [x] `CLAUDE.md` §5.2 `order-processing` wording fix.
+- [x] Deployed to `Nyc311-Test` via the pipeline (`DeployTest` succeeded) and
+      confirmed live: Lambda `Active`, SNS topic exists, event source
+      mapping `Enabled`. No traffic exercised yet — no consumer exists
+      until Leg 2.
 
-### Leg 2 — evaluation (SNS → SQS → evaluator) — future session
+### Leg 2 — evaluation (SNS → SQS → evaluator) — **shipped and verified 2026-08-26**
 
-- [ ] `Nyc311OrderEvaluationQueue` (SQS + DLQ), filtered subscription to
-      `Nyc311OrderEventsTopic` (`{event_type: ["ORDER_CREATED"]}`).
-- [ ] `OrderEvaluationRule` interface + mock (80/19/1 split, §2).
-- [ ] `OrderPriorityAssigner` interface + mock (fixed tier + 24h SLA, §4).
-- [ ] `orderEvaluationService.ts`'s `evaluateOrder` — idempotency
+- [x] `Nyc311OrderEvaluationQueue` (SQS + DLQ), filtered subscription to
+      `Nyc311OrderEventsTopic` (`{event_type: ["ORDER_CREATED"]}`), raw
+      message delivery so the evaluator parses the SQS body directly as
+      an `OrderEvent`, no SNS envelope to unwrap.
+- [x] `OrderEvaluationRule` interface + `RandomOrderEvaluationRule` mock
+      (80/19/1 split, §2).
+- [x] `OrderPriorityAssigner` interface + `MockOrderPriorityAssigner`
+      (fixed `"STANDARD"` tier + 24h SLA offset, §4) —
+      `backend/service/order/orderPriorityService.ts`.
+- [x] `orderEvaluationService.ts`'s `evaluateOrder` — idempotency
       pre-check (`status === "CREATED" && case_id === null`), the three
-      outcome branches, `PriorityAssigned` stamp on `ACCEPT`.
-- [ ] `backend/controller/order-processing/evaluateOrderController.ts`.
-- [ ] `cdk/lambda/Nyc311OrderEvaluationLambda.ts` — `batchSize: 10`,
+      outcome branches. **Revised from the original plan:** `ACCEPT`
+      stamps `priority_tier`/`sla_deadline` in the same `ORDER_ACCEPTED`
+      event/fold, not a separate `PriorityAssigned` append — two
+      sequential appends for one logical transition risked an
+      inconsistent intermediate state (accepted but not yet prioritized)
+      if a crash landed between them; one atomic `TransactWriteItems`
+      avoids that. `CASE` does not stamp `Order.case_id` (§5 — no real
+      Case persistence to reference yet, same precedent
+      `resolveLocation` already set in `3-order-ingestion.md`).
+- [x] `backend/controller/order-processing/evaluateOrderController.ts`.
+- [x] `cdk/lambda/Nyc311OrderEvaluationLambda.ts` — `batchSize: 10`,
       `reportBatchItemFailures: true`.
-- [ ] CloudWatch alarms: fan-out `IteratorAge`/`Errors`, evaluation DLQ
-      depth (§6/§7).
-- [ ] `test-scripts/`-style manual sanity script against `Nyc311-Test`
-      (§8).
-- [ ] Log the DLQ-Case gap (§6) and the Case-mapping deferral (§5) — **already
-      logged** in `99-things-to-come-back-to.md` this session.
+- [x] CloudWatch alarms: fan-out `Errors`/`IteratorAge` (3 consecutive
+      15-minute periods), evaluation DLQ depth (alarms immediately, any
+      message there is already a real, exhausted-retries failure) —
+      `cdk/lambda/Nyc311OrderPipelineAlarms.ts`, one shared
+      email-subscribed SNS topic.
+- [x] Real-integration test (`backend/tests/integration/
+      orderEventsApi.integration.test.ts`, via the `GET /order-events`
+      route below) supersedes the originally-planned manual
+      `test-scripts/` sanity script — same verification, already wired
+      into the pipeline's gate rather than a one-off script to remember
+      to run.
+- [x] Both Lambdas added to the Lambda Health monitoring tile.
+- [x] Log the DLQ-Case gap (§6) and the Case-mapping deferral (§5) — **already
+      logged** in `99-things-to-come-back-to.md`.
+
+### Addendum — `GET /order-events` (built alongside Leg 2, 2026-08-26)
+
+Not originally scoped in this checklist — added so Order Events are
+pollable from the frontend the same way Orders already are:
+
+- [x] `backend/models/orderEventListQuery.ts`, `OrderDao.listOrderEvents`
+      — `Query` on `order_id` when given (cheap, uses the base table key),
+      else a table-wide `Scan` filtered to `EVENT#` items, sorted by
+      `occurred_at` descending in application code.
+- [x] `backend/service/order/orderService.ts`'s `listOrderEvents`,
+      `backend/controller/web-api/getOrderEventsController.ts`.
+- [x] `cdk/lambda/Nyc311OrderEventsApiLambda.ts`, wired to `GET
+      /order-events` on `Nyc311Api`, added to the Lambda Health tile.
+- [x] `web-app`: `OrderEvent`/`OrderEventListResponse` schemas
+      (`models/order.ts`, alongside syncing `ORDER_STATUSES` to
+      `CREATED`/`ACTIVE`/`REJECTED` — the frontend copy had gone stale),
+      `services/orderEventService.ts` (live + mock), `hooks/
+      useOrderEvents.ts`, `components/orderEvents/` (`OrderEventFilters`,
+      `OrderEventListTable`), `components/pages/
+      OrderEventMonitoringPage.tsx`, a new Monitoring page tile, and the
+      `/monitoring/order-events` route.
+- [x] `test-data/orderEvents.ts` — derived from `test-data/orders.ts`'s
+      mock Orders, one `ORDER_CREATED` plus a matching outcome event each.
+- [x] `backend/tests/integration/orderEventsApi.integration.test.ts`,
+      folded into `4-pipeline-integration-tests.md`'s suite (4 routes now).
+- [x] Unit + CDK assertion tests throughout, 90%+ per-file, all three
+      packages (`backend`, `cdk`, `web-app`) green.
 
 ---
 

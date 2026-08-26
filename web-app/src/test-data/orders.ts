@@ -3,23 +3,24 @@ import type { Order } from "../models/order";
 /*
  * Baked sample data for "mock" data mode (config.ts) — a small, lightweight
  * fixture set, not a snapshot of real production data. Mixes current_stage
- * values so the Orders list view's stage filter has something to actually
- * filter, even though every Order created by the real pipeline today starts
- * (and stays) at INGEST/CREATED — 4-order-workflow.md's state machine is
- * what will eventually advance a real Order past that.
+ * and status values so the Orders list view's filters have something to
+ * actually filter — an accepted Order moves to SCHEDULE/ACTIVE, a rejected
+ * one stays at INGEST/REJECTED, per 5-order-evaluation.md's evaluation leg.
  */
 export const MOCK_ORDERS: Order[] = Array.from({ length: 34 }, (_, i) => {
+  const outcome = i % 5;
   const stage = (["INGEST", "SCHEDULE", "EXECUTE", "RESOLVE"] as const)[i % 4];
+  const status = outcome === 0 ? "REJECTED" : outcome === 1 ? "ACTIVE" : "CREATED";
   const createdAt = new Date(Date.UTC(2026, 7, 21, 0, 0, 0) - i * 45 * 60_000).toISOString();
   return {
     order_id: `01MOCKORDER${String(i).padStart(3, "0")}`,
     request_id: `01MOCKREQUEST${String(i).padStart(3, "0")}`,
     location_id: `MOCKLOC${String(i % 7).padStart(3, "0")}`,
-    current_stage: stage,
-    status: "CREATED",
+    current_stage: status === "ACTIVE" ? "SCHEDULE" : status === "REJECTED" ? "INGEST" : stage,
+    status,
     retry_counts: { INGEST: 0, SCHEDULE: 0, EXECUTE: 0, RESOLVE: 0 },
-    priority_tier: null,
-    sla_deadline: null,
+    priority_tier: status === "ACTIVE" ? "STANDARD" : null,
+    sla_deadline: status === "ACTIVE" ? new Date(Date.UTC(2026, 7, 22, 0, 0, 0) - i * 45 * 60_000).toISOString() : null,
     scheduled_start: null,
     scheduled_end: null,
     assigned_operator_id: null,

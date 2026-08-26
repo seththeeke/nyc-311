@@ -5,6 +5,7 @@ import { RequestsTable } from "../../data/RequestsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
+import { Nyc311OrderEventsApiLambda } from "../../lambda/Nyc311OrderEventsApiLambda";
 import { Nyc311LambdaMetricsApiLambda } from "../../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
@@ -17,19 +18,26 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const metricsApiLambda = new Nyc311MetricsApiLambda(stack, "Nyc311MetricsApiLambda", { envName, requestsTable });
   const ordersApiLambda = new Nyc311OrdersApiLambda(stack, "Nyc311OrdersApiLambda", { envName, ordersTable });
+  const orderEventsApiLambda = new Nyc311OrderEventsApiLambda(stack, "Nyc311OrderEventsApiLambda", {
+    envName,
+    ordersTable,
+  });
   const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(stack, "Nyc311LambdaMetricsApiLambda", {
     envName,
     pollerFunctionName: "Nyc311Poller-Test",
     orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
     orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
+    orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
     metricsApiFunctionName: "Nyc311MetricsApi-Test",
     ordersApiFunctionName: "Nyc311OrdersApi-Test",
+    orderEventsApiFunctionName: "Nyc311OrderEventsApi-Test",
   });
   new Nyc311Api(stack, "Nyc311Api", {
     envName,
     metricsApiLambda,
     ordersApiLambda,
+    orderEventsApiLambda,
     lambdaMetricsApiLambda,
     webAppDomainName: WEB_APP_DOMAIN,
   });
@@ -65,7 +73,7 @@ describe("Nyc311Api", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 3);
+    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 4);
     template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -80,6 +88,14 @@ describe("Nyc311Api", () => {
     });
   });
 
+  it("wires GET /order-events to the order-events Lambda", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /order-events",
+    });
+  });
+
   it("wires GET /lambda-metrics to the Lambda-metrics Lambda", () => {
     const template = synthesize("TEST");
 
@@ -88,8 +104,8 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly three routes — the only public endpoints today", () => {
+  it("declares exactly four routes — the only public endpoints today", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 3);
+    template.resourceCountIs("AWS::ApiGatewayV2::Route", 4);
   });
 });

@@ -43,6 +43,11 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("heading", { name: "Orders" })).toBeInTheDocument();
   });
 
+  it("renders OrderEventMonitoringPage at /monitoring/order-events", () => {
+    renderAt("/monitoring/order-events");
+    expect(screen.getByRole("heading", { name: "Order Events" })).toBeInTheDocument();
+  });
+
   it("renders LambdaMonitoringPage at /monitoring/lambda-health", () => {
     renderAt("/monitoring/lambda-health");
     expect(screen.getByRole("heading", { name: "Lambda Health" })).toBeInTheDocument();

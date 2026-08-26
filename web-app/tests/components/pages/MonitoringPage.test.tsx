@@ -41,6 +41,19 @@ describe("MonitoringPage", () => {
     expect(screen.getByRole("link", { name: /orders/i })).toHaveAttribute("href", "/monitoring/orders");
   });
 
+  it("renders an Order Events tile linking to /monitoring/order-events", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /order events/i })).toHaveAttribute(
+      "href",
+      "/monitoring/order-events"
+    );
+  });
+
   it("renders a Lambda Health tile linking to /monitoring/lambda-health", () => {
     render(
       <MemoryRouter>

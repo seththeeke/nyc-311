@@ -14,7 +14,7 @@ import * as path from "node:path";
 const REPORT_DIR = path.join(__dirname, "..", "reports");
 const REPORT_FILE = path.join(REPORT_DIR, "route-report.json");
 
-export const KNOWN_ROUTES = ["/ingestion/metrics", "/orders", "/lambda-metrics"] as const;
+export const KNOWN_ROUTES = ["/ingestion/metrics", "/orders", "/order-events", "/lambda-metrics"] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 
 interface RouteReportEntry {

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OrderDao } from "../../../dao/order/orderDao";
@@ -158,5 +158,210 @@ describe("OrderDao.listOrders", () => {
 
     expect(result.orders).toEqual([]);
     expect(result.nextCursor).toBeNull();
+  });
+});
+
+describe("OrderDao.getOrder", () => {
+  it("returns the projection when it exists", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    const order = await orderDao.getOrder("01ORDER");
+
+    expect(order?.order_id).toBe("01ORDER");
+  });
+
+  it("returns null when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.getOrder("01ORDER")).resolves.toBeNull();
+  });
+});
+
+describe("OrderDao.acceptOrder", () => {
+  it("moves current_stage to SCHEDULE and status to ACTIVE, stamping priority/SLA", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    const order = await orderDao.acceptOrder("01ORDER", { priorityTier: "STANDARD", slaDeadline: "2026-08-27T00:00:00.000Z" });
+
+    expect(order).toMatchObject({
+      current_stage: "SCHEDULE",
+      status: "ACTIVE",
+      priority_tier: "STANDARD",
+      sla_deadline: "2026-08-27T00:00:00.000Z",
+    });
+  });
+
+  it("writes an ORDER_ACCEPTED event", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    await orderDao.acceptOrder("01ORDER", { priorityTier: "STANDARD", slaDeadline: "2026-08-27T00:00:00.000Z" });
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_ACCEPTED" });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(
+      orderDao.acceptOrder("01ORDER", { priorityTier: "STANDARD", slaDeadline: "2026-08-27T00:00:00.000Z" })
+    ).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.rejectOrder", () => {
+  it("sets status to REJECTED, leaving current_stage untouched", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    const order = await orderDao.rejectOrder("01ORDER", "no good reason");
+
+    expect(order).toMatchObject({ status: "REJECTED", current_stage: "INGEST" });
+  });
+
+  it("writes an ORDER_REJECTED event carrying the reason", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    await orderDao.rejectOrder("01ORDER", "no good reason");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "ORDER_REJECTED",
+      payload: { reason: "no good reason" },
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.rejectOrder("01ORDER", "reason")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.recordCaseCreated", () => {
+  it("leaves status/current_stage/case_id untouched", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    const order = await orderDao.recordCaseCreated("01ORDER", "unmanageable");
+
+    expect(order).toMatchObject({ status: "CREATED", current_stage: "INGEST", case_id: null });
+  });
+
+  it("writes a CASE_CREATED event", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    await orderDao.recordCaseCreated("01ORDER", "unmanageable");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "CASE_CREATED",
+      payload: { reason: "unmanageable" },
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordCaseCreated("01ORDER", "reason")).rejects.toThrow(ValidationError);
+  });
+});
+
+function makeOrderEventItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    order_id: "01ORDER",
+    sk: "EVENT#0",
+    sequence_number: 0,
+    event_type: "ORDER_CREATED",
+    stage: null,
+    payload: {},
+    occurred_at: "2026-08-20T00:00:00.000Z",
+    actor: "SYSTEM",
+    ...overrides,
+  };
+}
+
+describe("OrderDao.listOrderEvents", () => {
+  it("queries the given order's partition for EVENT# items, newest first", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [makeOrderEventItem()] });
+
+    const result = await orderDao.listOrderEvents({ limit: 20, orderId: "01ORDER" });
+
+    expect(result.events).toHaveLength(1);
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input.KeyConditionExpression).toBe("order_id = :orderId AND begins_with(sk, :eventPrefix)");
+    expect(input.ExpressionAttributeValues).toMatchObject({ ":orderId": "01ORDER", ":eventPrefix": "EVENT#" });
+    expect(input.ScanIndexForward).toBe(false);
+  });
+
+  it("adds an event_type filter to the Query when given", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    await orderDao.listOrderEvents({ limit: 20, orderId: "01ORDER", eventType: "ORDER_ACCEPTED" });
+
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input.FilterExpression).toBe("event_type = :eventType");
+    expect(input.ExpressionAttributeValues).toMatchObject({ ":eventType": "ORDER_ACCEPTED" });
+  });
+
+  it("scans table-wide for EVENT# items when no orderId is given, sorted by occurred_at descending", async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        makeOrderEventItem({ occurred_at: "2026-08-20T00:00:00.000Z", sequence_number: 0 }),
+        makeOrderEventItem({ occurred_at: "2026-08-21T00:00:00.000Z", sequence_number: 1, sk: "EVENT#1" }),
+      ],
+    });
+
+    const result = await orderDao.listOrderEvents({ limit: 20 });
+
+    expect(result.events.map((e) => e.occurred_at)).toEqual(["2026-08-21T00:00:00.000Z", "2026-08-20T00:00:00.000Z"]);
+    const input = ddbMock.commandCalls(ScanCommand)[0].args[0].input;
+    expect(input.FilterExpression).toBe("begins_with(sk, :eventPrefix)");
+  });
+
+  it("adds an event_type filter to the Scan when given", async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
+
+    await orderDao.listOrderEvents({ limit: 20, eventType: "ORDER_REJECTED" });
+
+    const input = ddbMock.commandCalls(ScanCommand)[0].args[0].input;
+    expect(input.FilterExpression).toBe("begins_with(sk, :eventPrefix) AND event_type = :eventType");
+  });
+
+  it("decodes/encodes cursors for both the Query and Scan paths", async () => {
+    const lastKey = { order_id: "01ORDER", sk: "EVENT#0" };
+    ddbMock.on(QueryCommand).resolves({ Items: [], LastEvaluatedKey: lastKey });
+    const incomingCursor = Buffer.from(JSON.stringify({ order_id: "01ORDER", sk: "EVENT#-1" })).toString("base64url");
+
+    const result = await orderDao.listOrderEvents({ limit: 20, orderId: "01ORDER", cursor: incomingCursor });
+
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input.ExclusiveStartKey).toEqual({ order_id: "01ORDER", sk: "EVENT#-1" });
+    expect(result.nextCursor).not.toBeNull();
+  });
+
+  it("decodes an incoming cursor on the table-wide Scan path too", async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
+    const incomingCursor = Buffer.from(JSON.stringify({ order_id: "00PREV", sk: "EVENT#0" })).toString("base64url");
+
+    await orderDao.listOrderEvents({ limit: 20, cursor: incomingCursor });
+
+    const input = ddbMock.commandCalls(ScanCommand)[0].args[0].input;
+    expect(input.ExclusiveStartKey).toEqual({ order_id: "00PREV", sk: "EVENT#0" });
+  });
+
+  it("throws ValidationError when a listed item fails OrderEventSchema validation", async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [{ order_id: "01ORDER", sk: "EVENT#0" }] });
+
+    await expect(orderDao.listOrderEvents({ limit: 20 })).rejects.toThrow(ValidationError);
+  });
+
+  it("treats a response with no Items as an empty page, for both paths", async () => {
+    ddbMock.on(ScanCommand).resolves({});
+    ddbMock.on(QueryCommand).resolves({});
+
+    await expect(orderDao.listOrderEvents({ limit: 20 })).resolves.toEqual({ events: [], nextCursor: null });
+    await expect(orderDao.listOrderEvents({ limit: 20, orderId: "01ORDER" })).resolves.toEqual({
+      events: [],
+      nextCursor: null,
+    });
   });
 });
