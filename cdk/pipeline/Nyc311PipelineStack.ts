@@ -105,6 +105,16 @@ export class Nyc311PipelineStack extends Stack {
       codeBuildDefaults: {
         buildEnvironment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+          /*
+           * Raised from the implicit SMALL default (99-things-to-come-
+           * back-to.md's "Pipeline metrics and build-time optimization"
+           * item) after it caused a real failure, not just slowness: the
+           * 2026-08-26 Synth run's cdk/ test:coverage took 380s in
+           * CodeBuild vs ~57s locally, and a resource-starved Vitest
+           * worker hit an RPC timeout ("onTaskUpdate"), failing the build
+           * even though all 133 tests had actually passed.
+           */
+          computeType: codebuild.ComputeType.MEDIUM,
         },
         /*
          * STANDARD_7_0's default Node (18) is too old for this repo's

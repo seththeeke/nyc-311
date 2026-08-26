@@ -48,6 +48,18 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
+  it("runs every CodeBuild-backed step on at least MEDIUM compute, not the SMALL default", () => {
+    const template = synthesize();
+
+    const projects = template.findResources("AWS::CodeBuild::Project");
+    expect(Object.keys(projects).length).toBeGreaterThan(0);
+    for (const project of Object.values(projects)) {
+      expect((project.Properties as { Environment: { ComputeType: string } }).Environment.ComputeType).toBe(
+        "BUILD_GENERAL1_MEDIUM"
+      );
+    }
+  });
+
   it("synths and diffs against bin/pipeline.ts explicitly, not cdk.json's default app", () => {
     /*
      * Regression test: cdk.json's default app (bin/app.ts) only defines
