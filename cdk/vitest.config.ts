@@ -10,18 +10,18 @@ export default defineConfig({
      */
     testTimeout: 20000,
     /*
-     * 2026-08-26: raising CodeBuild's compute (SMALL -> MEDIUM) cut CI
-     * duration but didn't fix a "Timeout calling onTaskUpdate" failure --
-     * Vitest's worker RPC channel, not the per-test timeout above.
-     * Capping the threads pool to 2 (tried first) didn't fix it either --
-     * worker_threads share one Node process, so heavy synchronous work
-     * (real cdk synth + esbuild) can still starve the main thread's
-     * message loop. forks isolates each worker into its own OS process.
+     * 2026-08-26: two prior attempts each cut but didn't eliminate a
+     * "Timeout calling onTaskUpdate" failure -- Vitest's worker RPC
+     * channel, not the per-test timeout above. MEDIUM compute (was
+     * SMALL) helped; threads -> forks (isolated OS processes, not a
+     * shared Node process) cut it from 2 unhandled errors to 1. CodeBuild
+     * still runs ~3x slower than local per file, leaving 2-way
+     * parallelism racy there. Fully serial removes the race outright.
      */
     pool: "forks",
     poolOptions: {
       forks: {
-        maxForks: 2,
+        maxForks: 1,
         minForks: 1,
       },
     },
