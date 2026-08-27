@@ -58,3 +58,9 @@ See [#7](https://github.com/seththeeke/nyc-311/issues/7).
 ## No automatic Case creation when order-evaluation permanently fails
 
 See [#8](https://github.com/seththeeke/nyc-311/issues/8).
+
+---
+
+## GET /order-events event_type filter (without order_id) can return empty pages indefinitely at scale
+
+See [#10](https://github.com/seththeeke/nyc-311/issues/10).

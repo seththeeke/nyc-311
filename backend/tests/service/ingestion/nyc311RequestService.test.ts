@@ -372,6 +372,17 @@ describe("getCursorStatus", () => {
     await expect(getCursorStatus()).resolves.toBeNull();
   });
 
+  it("defaults `now` to the current time when a cursor with a watermark exists and `now` isn't injected", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: { request_id: "CURSOR#NYC_311", last_watermark: "2026-08-19T00:00:00", resume_offset: null },
+    });
+
+    const result = await getCursorStatus({ requestDao });
+
+    expect(result?.last_watermark).toBe("2026-08-19T00:00:00");
+    expect(result?.lag_hours).toBeGreaterThan(0);
+  });
+
   it("returns null lag_hours/is_stale=false when the cursor item has a null last_watermark", async () => {
     ddbMock.on(GetCommand).resolves({
       Item: { request_id: "CURSOR#NYC_311", last_watermark: null, resume_offset: null },

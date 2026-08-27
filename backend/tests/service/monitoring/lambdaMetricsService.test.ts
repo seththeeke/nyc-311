@@ -137,6 +137,22 @@ describe("getLambdaHealth", () => {
     expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 3, errors: 1, successes: 2 }]);
   });
 
+  it("defaults invocations to 0 for a date that only has an errors datapoint", async () => {
+    cwMock.on(GetMetricStatisticsCommand).callsFake((input) => {
+      const functionName = input.Dimensions?.[0]?.Value;
+      if (functionName !== "Nyc311Poller-Test") return { Datapoints: [] };
+      if (input.MetricName === "Errors") {
+        return { Datapoints: [{ Timestamp: new Date("2026-08-21T00:00:00.000Z"), Sum: 2 }] };
+      }
+      return { Datapoints: [] };
+    });
+
+    const result = await getLambdaHealth({ client, now });
+
+    const poller = result.find((r) => r.logicalName === "Poller");
+    expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 0, errors: 2, successes: -2 }]);
+  });
+
   it("treats a response with no Datapoints as an empty series", async () => {
     cwMock.on(GetMetricStatisticsCommand).resolves({});
 
