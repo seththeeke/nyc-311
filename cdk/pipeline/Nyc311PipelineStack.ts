@@ -106,15 +106,16 @@ export class Nyc311PipelineStack extends Stack {
         buildEnvironment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           /*
-           * Raised from the implicit SMALL default (99-things-to-come-
-           * back-to.md's "Pipeline metrics and build-time optimization"
-           * item) after it caused a real failure, not just slowness: the
-           * 2026-08-26 Synth run's cdk/ test:coverage took 380s in
-           * CodeBuild vs ~57s locally, and a resource-starved Vitest
-           * worker hit an RPC timeout ("onTaskUpdate"), failing the build
-           * even though all 133 tests had actually passed.
+           * Raised SMALL -> MEDIUM (99-things-to-come-back-to.md's
+           * "Pipeline metrics and build-time optimization" item) after a
+           * resource-starved Vitest worker hit an RPC timeout
+           * ("onTaskUpdate"), failing the build despite every test
+           * passing. Raised again MEDIUM -> LARGE 2026-08-28: even fully
+           * serial (cdk/vitest.config.ts's forks maxForks/minForks: 1),
+           * the same timeout recurred deterministically 3/3 times at
+           * ~318s — CPU-bound starvation, not a parallelism race.
            */
-          computeType: codebuild.ComputeType.MEDIUM,
+          computeType: codebuild.ComputeType.LARGE,
         },
         /*
          * STANDARD_7_0's default Node (18) is too old for this repo's

@@ -2,6 +2,7 @@ import {
   CodePipelineClient,
   GetPipelineExecutionCommand,
   GetPipelineStateCommand,
+  ListActionExecutionsCommand,
   ListPipelineExecutionsCommand,
 } from "@aws-sdk/client-codepipeline";
 import { mockClient } from "aws-sdk-client-mock";
@@ -14,6 +15,8 @@ const client = new CodePipelineClient({});
 
 beforeEach(() => {
   ppMock.reset();
+  /* Baseline default — no Synth action found, buildDurationSeconds null. Individual tests override to test the real computation. */
+  ppMock.on(ListActionExecutionsCommand).resolves({ actionExecutionDetails: [] });
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -62,6 +65,15 @@ describe("getPipelineStatus", () => {
         ],
       },
     });
+    ppMock.on(ListActionExecutionsCommand).resolves({
+      actionExecutionDetails: [
+        {
+          actionName: "Synth",
+          startTime: new Date("2026-08-16T08:01:00.000Z"),
+          lastUpdateTime: new Date("2026-08-16T08:06:18.000Z"),
+        },
+      ],
+    });
 
     const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
 
@@ -83,11 +95,17 @@ describe("getPipelineStatus", () => {
           lastUpdateTime: "2026-08-16T08:10:00.000Z",
           commitId: "abc123",
           commitMessage: "fix: thing",
+          buildDurationSeconds: 318,
         },
       ],
     });
     const executionCall = ppMock.commandCalls(GetPipelineExecutionCommand)[0].args[0].input;
     expect(executionCall).toEqual({ pipelineName: PIPELINE_NAME, pipelineExecutionId: "exec-1" });
+    const actionExecutionsCall = ppMock.commandCalls(ListActionExecutionsCommand)[0].args[0].input;
+    expect(actionExecutionsCall).toEqual({
+      pipelineName: PIPELINE_NAME,
+      filter: { pipelineExecutionId: "exec-1" },
+    });
   });
 
   it("defaults missing/undefined fields to safe values", async () => {
@@ -100,7 +118,15 @@ describe("getPipelineStatus", () => {
       { stageName: "", actions: [{ actionName: "", status: null, lastStatusChange: null, summary: null }] },
     ]);
     expect(result.executions).toEqual([
-      { executionId: "", status: "Unknown", startTime: null, lastUpdateTime: null, commitId: null, commitMessage: null },
+      {
+        executionId: "",
+        status: "Unknown",
+        startTime: null,
+        lastUpdateTime: null,
+        commitId: null,
+        commitMessage: null,
+        buildDurationSeconds: null,
+      },
     ]);
   });
 
@@ -122,14 +148,85 @@ describe("getPipelineStatus", () => {
     expect(result).toEqual({ pipelineName: PIPELINE_NAME, stages: [], executions: [] });
   });
 
-  it("skips the commit-info lookup for an execution with no ID", async () => {
+  it("skips the commit-info and build-duration lookups for an execution with no ID", async () => {
     ppMock.on(GetPipelineStateCommand).resolves({});
     ppMock.on(ListPipelineExecutionsCommand).resolves({ pipelineExecutionSummaries: [{ status: "Succeeded" }] });
 
     const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
 
-    expect(result.executions[0]).toMatchObject({ executionId: "", commitId: null, commitMessage: null });
+    expect(result.executions[0]).toMatchObject({ executionId: "", commitId: null, commitMessage: null, buildDurationSeconds: null });
     expect(ppMock.commandCalls(GetPipelineExecutionCommand)).toHaveLength(0);
+    expect(ppMock.commandCalls(ListActionExecutionsCommand)).toHaveLength(0);
+  });
+
+  it("degrades to null build duration when ListActionExecutions fails, without failing the whole response", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "Failed" }] });
+    ppMock.on(ListActionExecutionsCommand).rejects(new Error("throttled"));
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
+  });
+
+  it("returns null build duration when no Synth action appears in ListActionExecutions", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "Succeeded" }] });
+    ppMock.on(ListActionExecutionsCommand).resolves({ actionExecutionDetails: [{ actionName: "DeployTest" }] });
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
+  });
+
+  it("returns null build duration when actionExecutionDetails is absent entirely", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "Succeeded" }] });
+    ppMock.on(ListActionExecutionsCommand).resolves({});
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
+  });
+
+  it("returns null build duration for a nonsensical negative duration (lastUpdateTime before startTime)", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "Succeeded" }] });
+    ppMock.on(ListActionExecutionsCommand).resolves({
+      actionExecutionDetails: [
+        {
+          actionName: "Synth",
+          startTime: new Date("2026-08-16T08:10:00.000Z"),
+          lastUpdateTime: new Date("2026-08-16T08:00:00.000Z"),
+        },
+      ],
+    });
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
+  });
+
+  it("returns null build duration when the Synth action has no lastUpdateTime yet (still running)", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "InProgress" }] });
+    ppMock.on(ListActionExecutionsCommand).resolves({
+      actionExecutionDetails: [{ actionName: "Synth", startTime: new Date("2026-08-16T08:00:00.000Z") }],
+    });
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
   });
 
   it("degrades to null commit info when GetPipelineExecution fails, without failing the whole response", async () => {
@@ -190,6 +287,24 @@ describe("getPipelineStatus", () => {
     const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
 
     expect(result.executions[0]).toMatchObject({ commitId: null, commitMessage: null });
+  });
+
+  it("logs a genuinely non-Error rejection from ListActionExecutions without throwing", async () => {
+    ppMock.on(GetPipelineStateCommand).resolves({});
+    ppMock
+      .on(ListPipelineExecutionsCommand)
+      .resolves({ pipelineExecutionSummaries: [{ pipelineExecutionId: "exec-1", status: "Failed" }] });
+    const originalSend = client.send.bind(client) as typeof client.send;
+    vi.spyOn(client, "send").mockImplementation(((command: Parameters<typeof client.send>[0]) => {
+      if (command instanceof ListActionExecutionsCommand) {
+        return Promise.reject("raw string rejection");
+      }
+      return originalSend(command);
+    }) as unknown as typeof client.send);
+
+    const result = await getPipelineStatus({ client, pipelineName: PIPELINE_NAME });
+
+    expect(result.executions[0]).toMatchObject({ buildDurationSeconds: null });
   });
 
   it("returns null commit message when the revision has no revisionSummary at all", async () => {

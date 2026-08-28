@@ -35,3 +35,13 @@ export function formatDuration(startIso: string, endIso: string | null, now: Dat
   if (minutes === 0) return `${seconds}s`;
   return `${minutes}m ${seconds}s`;
 }
+
+/** "4m 12s" from a raw seconds count — same mm:ss breakdown as formatDuration, for a value that isn't two ISO timestamps. */
+export function formatDurationSeconds(totalSeconds: number): string {
+  const rounded = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
+
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds}s`;
+}

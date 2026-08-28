@@ -40,7 +40,7 @@ describe("Nyc311PipelineStatusLambda", () => {
     });
   });
 
-  it("grants only the three read CodePipeline actions, scoped to this pipeline's own ARN — least privilege", () => {
+  it("grants only the four read CodePipeline actions, scoped to this pipeline's own ARN — least privilege", () => {
     const template = synthesize();
 
     template.hasResourceProperties("AWS::IAM::Policy", {
@@ -51,6 +51,7 @@ describe("Nyc311PipelineStatusLambda", () => {
               "codepipeline:GetPipelineState",
               "codepipeline:ListPipelineExecutions",
               "codepipeline:GetPipelineExecution",
+              "codepipeline:ListActionExecutions",
             ],
             Effect: "Allow",
             Resource: PIPELINE_ARN,

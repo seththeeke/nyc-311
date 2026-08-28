@@ -39,7 +39,7 @@ export class Nyc311PipelineStatusLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getPipelineStatusController.ts"),
       handler: "getPipelineStatusController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.seconds(15), /* up to ~1 + 1 + 10 sequential-ish CodePipeline calls per invocation (service §3) */
+      timeout: Duration.seconds(20), /* up to ~1 + 1 + 10*2 CodePipeline calls per invocation, mostly parallelized (service §3) */
       memorySize: 256,
       logGroup,
       /*
@@ -59,6 +59,7 @@ export class Nyc311PipelineStatusLambda extends NodejsFunction {
           "codepipeline:GetPipelineState",
           "codepipeline:ListPipelineExecutions",
           "codepipeline:GetPipelineExecution",
+          "codepipeline:ListActionExecutions",
         ],
         resources: [props.pipelineArn],
       })

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { usePipelineStatus } from "../../hooks/usePipelineStatus";
 import { PipelineStagesView } from "../pipeline/PipelineStagesView";
 import { PipelineExecutionHistory } from "../pipeline/PipelineExecutionHistory";
+import { PipelineBuildDurationChart } from "../pipeline/PipelineBuildDurationChart";
 
 const GITHUB_REPO_URL = "https://github.com/seththeeke/nyc-311";
 
@@ -64,6 +65,9 @@ export function PipelineMonitoringPage(): ReactElement {
           <div className="mt-6 flex flex-col gap-4">
             <Section title="Stages">
               <PipelineStagesView stages={data.stages} />
+            </Section>
+            <Section title="Build duration">
+              <PipelineBuildDurationChart executions={data.executions} />
             </Section>
             <Section title="Execution history">
               <PipelineExecutionHistory executions={data.executions} />

@@ -11,6 +11,7 @@ const succeeded: PipelineExecution = {
   lastUpdateTime: "2026-08-16T12:04:00.000Z",
   commitId: "abc123",
   commitMessage: "[feat] - Claude Commit: Something\n\nA longer body explaining the change.",
+  buildDurationSeconds: 240,
 };
 
 const restart: PipelineExecution = {
@@ -20,6 +21,7 @@ const restart: PipelineExecution = {
   lastUpdateTime: null,
   commitId: null,
   commitMessage: null,
+  buildDurationSeconds: null,
 };
 
 describe("PipelineExecutionHistory", () => {

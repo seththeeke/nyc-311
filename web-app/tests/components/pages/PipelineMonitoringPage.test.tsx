@@ -59,7 +59,7 @@ describe("PipelineMonitoringPage", () => {
       pipelineName: "Nyc311Pipeline",
       stages: [{ stageName: "Build", actions: [{ actionName: "Synth", status: "Succeeded", lastStatusChange: null, summary: null }] }],
       executions: [
-        { executionId: "exec-1", status: "Succeeded", startTime: "2026-08-16T12:00:00.000Z", lastUpdateTime: "2026-08-16T12:04:00.000Z", commitId: "abc", commitMessage: "fix: thing" },
+        { executionId: "exec-1", status: "Succeeded", startTime: "2026-08-16T12:00:00.000Z", lastUpdateTime: "2026-08-16T12:04:00.000Z", commitId: "abc", commitMessage: "fix: thing", buildDurationSeconds: 240 },
       ],
     };
     mockedGetPipelineStatus.mockResolvedValue(status);
@@ -68,7 +68,9 @@ describe("PipelineMonitoringPage", () => {
     expect(await screen.findByText("Build")).toBeInTheDocument();
     /* The embedded at-a-glance pill's sr-only text, proving it renders on this page. */
     expect(screen.getByText(/Build: Succeeded/)).toBeInTheDocument();
-    expect(screen.getByText("fix: thing")).toBeInTheDocument();
+    expect(screen.getByText("Build duration")).toBeInTheDocument();
+    /* Appears twice: the execution history row and the build-duration chart's hover tooltip. */
+    expect(screen.getAllByText("fix: thing").length).toBeGreaterThan(0);
   });
 
   it("shows an empty-state message when the pipeline has no stages yet", async () => {

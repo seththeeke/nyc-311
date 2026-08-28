@@ -2,7 +2,9 @@ import {
   CodePipelineClient,
   GetPipelineExecutionCommand,
   GetPipelineStateCommand,
+  ListActionExecutionsCommand,
   ListPipelineExecutionsCommand,
+  type ActionExecutionDetail,
   type ActionState,
   type PipelineExecutionSummary,
   type StageState,
@@ -89,7 +91,10 @@ async function mapExecution(
   summary: PipelineExecutionSummary
 ): Promise<PipelineExecution> {
   const executionId = summary.pipelineExecutionId ?? "";
-  const { commitId, commitMessage } = await fetchCommitInfo(client, pipelineName, executionId);
+  const [{ commitId, commitMessage }, buildDurationSeconds] = await Promise.all([
+    fetchCommitInfo(client, pipelineName, executionId),
+    fetchBuildDurationSeconds(client, pipelineName, executionId),
+  ]);
 
   return {
     executionId,
@@ -98,7 +103,58 @@ async function mapExecution(
     lastUpdateTime: summary.lastUpdateTime?.toISOString() ?? null,
     commitId,
     commitMessage,
+    buildDurationSeconds,
   };
+}
+
+/*
+ * The Build stage's single action — Nyc311PipelineStack.ts names it
+ * "Synth" (it runs cdk synth alongside every package's lint/test/
+ * coverage/build). Internal to this service, not exposed on the schema
+ * (2-pipeline-monitoring.md §4's "no hardcoded action names" rule is
+ * about not remapping CodePipeline's own status/name strings into a
+ * closed enum — it doesn't block a deliberate, named lookup like this).
+ */
+const BUILD_ACTION_NAME = "Synth";
+
+/**
+ * Duration of the Build stage's Synth action for one execution — tracks
+ * whether a CodeBuild compute-type change actually improves build time
+ * (`99-things-to-come-back-to.md`'s build-time-optimization item).
+ * `ListActionExecutions` gives per-action `startTime`/`lastUpdateTime`, so
+ * no new CodeBuild API/IAM grant is needed. Degrades to `null` on any
+ * failure — same precedent as `fetchCommitInfo`.
+ */
+async function fetchBuildDurationSeconds(
+  client: CodePipelineClient,
+  pipelineName: string,
+  executionId: string
+): Promise<number | null> {
+  if (!executionId) return null;
+
+  try {
+    const result = await client.send(
+      new ListActionExecutionsCommand({
+        pipelineName,
+        filter: { pipelineExecutionId: executionId },
+      })
+    );
+    const action = (result.actionExecutionDetails ?? []).find((a) => a.actionName === BUILD_ACTION_NAME);
+    return computeDurationSeconds(action);
+  } catch (err) {
+    logWarn("ListActionExecutionsFailed", {
+      pipelineName,
+      executionId,
+      error: err instanceof Error ? err.message : err,
+    });
+    return null;
+  }
+}
+
+function computeDurationSeconds(action: ActionExecutionDetail | undefined): number | null {
+  if (!action?.startTime || !action.lastUpdateTime) return null;
+  const seconds = (action.lastUpdateTime.getTime() - action.startTime.getTime()) / 1000;
+  return seconds >= 0 ? seconds : null;
 }
 
 interface CommitInfo {

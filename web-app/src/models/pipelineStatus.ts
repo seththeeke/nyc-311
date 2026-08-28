@@ -30,6 +30,8 @@ export const PipelineExecutionSchema = z.object({
   lastUpdateTime: z.string().min(1).nullable(),
   commitId: z.string().min(1).nullable(),
   commitMessage: z.string().min(1).nullable(),
+  /* The Build stage's own duration for this execution — null when it hasn't completed yet or the backend lookup failed. */
+  buildDurationSeconds: z.number().nonnegative().nullable(),
 });
 
 export type PipelineExecution = z.infer<typeof PipelineExecutionSchema>;

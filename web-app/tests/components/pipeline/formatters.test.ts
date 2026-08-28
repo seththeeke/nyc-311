@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatAbsoluteDateTime,
   formatDuration,
+  formatDurationSeconds,
   formatRelativeTime,
 } from "../../../src/components/pipeline/formatters";
 
@@ -44,5 +45,23 @@ describe("formatDuration", () => {
 
   it("never returns a negative duration", () => {
     expect(formatDuration("2026-08-16T12:05:00.000Z", "2026-08-16T12:04:00.000Z")).toBe("0s");
+  });
+});
+
+describe("formatDurationSeconds", () => {
+  it("formats seconds only under a minute", () => {
+    expect(formatDurationSeconds(45)).toBe("45s");
+  });
+
+  it("formats minutes and seconds", () => {
+    expect(formatDurationSeconds(318)).toBe("5m 18s");
+  });
+
+  it("rounds a fractional seconds value", () => {
+    expect(formatDurationSeconds(45.6)).toBe("46s");
+  });
+
+  it("never returns a negative duration", () => {
+    expect(formatDurationSeconds(-5)).toBe("0s");
   });
 });

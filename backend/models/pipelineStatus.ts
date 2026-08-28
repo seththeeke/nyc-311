@@ -37,6 +37,14 @@ export const PipelineExecutionSchema = z.object({
    */
   commitId: z.string().min(1).nullable(),
   commitMessage: z.string().min(1).nullable(),
+  /*
+   * The Build stage's Synth action's own duration for this execution —
+   * added 2026-08-28 to track whether a CodeBuild compute-type change
+   * (pipeline/Nyc311PipelineStack.ts) actually improves build time. Null
+   * when the action hasn't completed yet, or the lookup itself fails —
+   * same degrade-to-null precedent as commitId/commitMessage.
+   */
+  buildDurationSeconds: z.number().nonnegative().nullable(),
 });
 
 export type PipelineExecution = z.infer<typeof PipelineExecutionSchema>;

@@ -20,6 +20,7 @@ const validExecution = {
   lastUpdateTime: "2026-08-16T09:40:00.000Z",
   commitId: "2aa6ea88a2fc2fad6089e5e12c8317f0df2c4a4a",
   commitMessage: "[feat] - Claude Commit: Redesign the ingestion-metrics dashboard",
+  buildDurationSeconds: 318,
 };
 
 describe("PipelineActionSchema", () => {
@@ -59,6 +60,16 @@ describe("PipelineExecutionSchema", () => {
   it("accepts a self-mutation-triggered execution with no commit info", () => {
     const restarted = { ...validExecution, commitId: null, commitMessage: null };
     expect(PipelineExecutionSchema.parse(restarted)).toEqual(restarted);
+  });
+
+  it("accepts a null buildDurationSeconds (Build hasn't completed, or the lookup failed)", () => {
+    const noBuildDuration = { ...validExecution, buildDurationSeconds: null };
+    expect(PipelineExecutionSchema.parse(noBuildDuration)).toEqual(noBuildDuration);
+  });
+
+  it("rejects a negative buildDurationSeconds", () => {
+    const negative = { ...validExecution, buildDurationSeconds: -1 };
+    expect(PipelineExecutionSchema.safeParse(negative).success).toBe(false);
   });
 
   it("rejects a missing status", () => {

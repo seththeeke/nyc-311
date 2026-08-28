@@ -81,6 +81,8 @@ export const MOCK_PIPELINE_STATUS: PipelineStatusResponse = {
       lastUpdateTime: "2026-08-16T19:22:00.000Z",
       commitId: "07a79163610494be42b345cabb8335915edea37b",
       commitMessage: "[feat] - Claude Commit: Add the pipeline-status API (backend + cdk)",
+      /* null — the Build stage hasn't completed yet for an in-progress execution. */
+      buildDurationSeconds: null,
     },
     {
       executionId: "66a3d57c-8acd-4da1-822c-8fd81f828590",
@@ -89,6 +91,7 @@ export const MOCK_PIPELINE_STATUS: PipelineStatusResponse = {
       lastUpdateTime: "2026-08-16T18:55:00.000Z",
       commitId: "c01cced891fe8e47672737e5085f0a58b9b8baa2",
       commitMessage: "[feat] - Claude Commit: Log two deferred items in 99-things-to-come-back-to.md",
+      buildDurationSeconds: 318,
     },
     {
       executionId: "d6a06148-7533-480c-849f-2f4f11945712",
@@ -97,6 +100,7 @@ export const MOCK_PIPELINE_STATUS: PipelineStatusResponse = {
       lastUpdateTime: "2026-08-15T14:57:24.000Z",
       commitId: "f89ca47eec29c6e8a3967d112d4b7c48e79accec",
       commitMessage: "[feat] - Claude Commit: Record poller-metrics rows on every run, success or failure",
+      buildDurationSeconds: 149,
     },
   ],
 };
