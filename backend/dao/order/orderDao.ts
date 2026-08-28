@@ -26,6 +26,23 @@ export interface AcceptOrderInput {
   slaDeadline: string;
 }
 
+export interface ScheduleOrderInput {
+  scheduledStart: string;
+  scheduledEnd: string;
+  operatorId: string;
+}
+
+export interface ListOrdersWaitingForScheduleOptions {
+  limit: number;
+  cursor?: string | null;
+}
+
+/* "STAGE#" + current_stage — gsi1-stage-sla's partition key, per ddb-design.md. */
+const STAGE_SLA_INDEX = "gsi1-stage-sla";
+function stageSlaPartitionKey(stage: OrderStage): string {
+  return `STAGE#${stage}`;
+}
+
 export interface ListOrderEventsOptions {
   limit: number;
   cursor?: string | null;
@@ -138,7 +155,13 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
           updated_at: now,
           last_event_sequence: event.sequence_number,
         };
-      }
+      },
+      /*
+       * First point sla_deadline becomes non-null, so the first point this
+       * item can appear in gsi1-stage-sla at all — DynamoDB requires both
+       * halves of a sparse GSI's key present (6-order-scheduling.md §2).
+       */
+      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
     );
   }
 
@@ -193,6 +216,76 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         return { ...base, updated_at: now, last_event_sequence: event.sequence_number };
       }
     );
+  }
+
+  /**
+   * Records a successful dispatch (`6-order-scheduling.md` §7): appends a
+   * single `ORDER_SCHEDULED` event carrying the computed window *and* the
+   * assigned operator, moving `current_stage` from `SCHEDULE` to `EXECUTE`.
+   * One merged event, not a separate `ORDER_ASSIGNED` append — same
+   * one-atomic-write reasoning `acceptOrder` already applied to merging
+   * `PriorityAssigned` into `ORDER_ACCEPTED`. `ORDER_ASSIGNED` stays
+   * reserved for a genuine future reassignment.
+   */
+  async scheduleOrder(orderId: string, input: ScheduleOrderInput): Promise<Order> {
+    const now = new Date().toISOString();
+    return this.appendEvent(
+      orderId,
+      (nextSequence) => ({
+        order_id: orderId,
+        sequence_number: nextSequence,
+        event_type: "ORDER_SCHEDULED",
+        stage: "SCHEDULE",
+        payload: {
+          scheduled_start: input.scheduledStart,
+          scheduled_end: input.scheduledEnd,
+          operator_id: input.operatorId,
+        },
+        occurred_at: now,
+        actor: "SYSTEM",
+      }),
+      (previous, event) => {
+        const base = this.requirePreviousProjection(orderId, previous);
+        return {
+          ...base,
+          current_stage: "EXECUTE",
+          scheduled_start: input.scheduledStart,
+          scheduled_end: input.scheduledEnd,
+          assigned_operator_id: input.operatorId,
+          updated_at: now,
+          last_event_sequence: event.sequence_number,
+        };
+      },
+      /* Keeps the item in gsi1-stage-sla under its new stage — same index also answers "how many Orders in stage X" (ddb-design.md). */
+      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+    );
+  }
+
+  /**
+   * The scheduling job's priority queue (`6-order-scheduling.md` §2): a
+   * `Query` on `gsi1-stage-sla` for `gsi1pk = "STAGE#SCHEDULE"`, ascending
+   * by `sla_deadline` (`ScanIndexForward: true`) — oldest-deadline-first,
+   * the exact ordering `ddb-design.md` built this index for. Cheaper than
+   * `listOrders`' `Scan`-with-filter, and actually sorted.
+   */
+  async listOrdersWaitingForSchedule(options: ListOrdersWaitingForScheduleOptions): Promise<OrderListResult> {
+    logInfo("OrderDao.listOrdersWaitingForSchedule", { table: this.tableName, options });
+
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: STAGE_SLA_INDEX,
+        KeyConditionExpression: "gsi1pk = :stagePk",
+        ExpressionAttributeValues: { ":stagePk": stageSlaPartitionKey("SCHEDULE") },
+        ScanIndexForward: true,
+        Limit: options.limit,
+        ExclusiveStartKey: options.cursor ? decodeCursor(options.cursor) : undefined,
+      })
+    );
+
+    const orders = (result.Items ?? []).map((item) => this.validateOrderItem(item));
+    const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
+    return { orders, nextCursor };
   }
 
   private requirePreviousProjection(orderId: string, previous: Order | null): Order {

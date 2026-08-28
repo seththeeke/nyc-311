@@ -10,6 +10,11 @@ export class LocationDao extends Dao<Location> {
     super(client, tableName, LocationSchema, "location_id");
   }
 
+  /** Plain lookup by id — `6-order-scheduling.md` §3's pool-derivation step needs `borough`. */
+  async getLocation(locationId: string): Promise<Location | null> {
+    return this.getItem(locationId);
+  }
+
   /**
    * Dedup-by-`bbl` at intake (`ddb-design.md`'s Locations table design):
    * returns the existing Location if one is already stored under this

@@ -200,6 +200,18 @@ describe("OrderDao.acceptOrder", () => {
     expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_ACCEPTED" });
   });
 
+  it("stamps gsi1pk/gsi1sk on the projection item, per 6-order-scheduling.md §2 — first point sla_deadline is non-null", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
+
+    await orderDao.acceptOrder("01ORDER", { priorityTier: "STANDARD", slaDeadline: "2026-08-27T00:00:00.000Z" });
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({
+      gsi1pk: "STAGE#SCHEDULE",
+      gsi1sk: "2026-08-27T00:00:00.000Z",
+    });
+  });
+
   it("throws ValidationError when no projection exists yet", async () => {
     ddbMock.on(GetCommand).resolves({});
 
@@ -262,6 +274,115 @@ describe("OrderDao.recordCaseCreated", () => {
     ddbMock.on(GetCommand).resolves({});
 
     await expect(orderDao.recordCaseCreated("01ORDER", "reason")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.scheduleOrder", () => {
+  const SCHEDULED_INPUT = {
+    scheduledStart: "2026-08-28T12:00:00.000Z",
+    scheduledEnd: "2026-08-28T12:50:00.000Z",
+    operatorId: "01OPERATOR",
+  };
+
+  it("moves current_stage to EXECUTE, stamping the window and operator", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    const order = await orderDao.scheduleOrder("01ORDER", SCHEDULED_INPUT);
+
+    expect(order).toMatchObject({
+      current_stage: "EXECUTE",
+      scheduled_start: SCHEDULED_INPUT.scheduledStart,
+      scheduled_end: SCHEDULED_INPUT.scheduledEnd,
+      assigned_operator_id: SCHEDULED_INPUT.operatorId,
+    });
+  });
+
+  it("writes a single ORDER_SCHEDULED event carrying the window and operator, stage SCHEDULE", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    await orderDao.scheduleOrder("01ORDER", SCHEDULED_INPUT);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "ORDER_SCHEDULED",
+      stage: "SCHEDULE",
+      payload: {
+        scheduled_start: SCHEDULED_INPUT.scheduledStart,
+        scheduled_end: SCHEDULED_INPUT.scheduledEnd,
+        operator_id: SCHEDULED_INPUT.operatorId,
+      },
+    });
+  });
+
+  it("re-stamps gsi1pk under the new stage (EXECUTE), keeping gsi1sk at the existing sla_deadline", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    await orderDao.scheduleOrder("01ORDER", SCHEDULED_INPUT);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({
+      gsi1pk: "STAGE#EXECUTE",
+      gsi1sk: "2026-08-29T00:00:00.000Z",
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.scheduleOrder("01ORDER", SCHEDULED_INPUT)).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.listOrdersWaitingForSchedule", () => {
+  it("queries gsi1-stage-sla for STAGE#SCHEDULE, ascending by sla_deadline", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [makeOrderItem({ current_stage: "SCHEDULE" })] });
+
+    const result = await orderDao.listOrdersWaitingForSchedule({ limit: 50 });
+
+    expect(result.orders).toHaveLength(1);
+    const queryInput = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(queryInput).toMatchObject({
+      IndexName: "gsi1-stage-sla",
+      KeyConditionExpression: "gsi1pk = :stagePk",
+      ExpressionAttributeValues: { ":stagePk": "STAGE#SCHEDULE" },
+      ScanIndexForward: true,
+      Limit: 50,
+    });
+  });
+
+  it("round-trips an opaque cursor from LastEvaluatedKey", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [], LastEvaluatedKey: { order_id: "01ORDER", sk: "#METADATA" } });
+
+    const result = await orderDao.listOrdersWaitingForSchedule({ limit: 50 });
+
+    expect(result.nextCursor).not.toBeNull();
+
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    await orderDao.listOrdersWaitingForSchedule({ limit: 50, cursor: result.nextCursor });
+    const secondCall = ddbMock.commandCalls(QueryCommand)[1].args[0].input;
+    expect(secondCall.ExclusiveStartKey).toEqual({ order_id: "01ORDER", sk: "#METADATA" });
+  });
+
+  it("returns nextCursor null once the query is exhausted", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    const result = await orderDao.listOrdersWaitingForSchedule({ limit: 50 });
+
+    expect(result.nextCursor).toBeNull();
+  });
+
+  it("defaults to an empty orders array when the response has no Items at all", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+
+    const result = await orderDao.listOrdersWaitingForSchedule({ limit: 50 });
+
+    expect(result.orders).toEqual([]);
   });
 });
 

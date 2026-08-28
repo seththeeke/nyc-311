@@ -53,6 +53,18 @@ class TestEventSourcedDao extends EventSourcedDao<TestProjection, TestEvent> {
       })
     );
   }
+  async addAmountWithGsi(id: string, amount: number): Promise<TestProjection> {
+    return this.appendEvent(
+      id,
+      (nextSequence) => ({ id, sequence_number: nextSequence, amount }),
+      (previous, event) => ({
+        id,
+        total: (previous?.total ?? 0) + event.amount,
+        last_event_sequence: event.sequence_number,
+      }),
+      (projection) => ({ gsi1pk: "TOTAL", gsi1sk: String(projection.total) })
+    );
+  }
   async addInvalidEvent(id: string): Promise<TestProjection> {
     return this.appendEvent(
       id,
@@ -294,5 +306,31 @@ describe("EventSourcedDao.appendEvent (via TestEventSourcedDao.addAmount)", () =
 
     const logged = JSON.parse(logSpy.mock.calls.at(-1)?.[0] as string);
     expect(logged).toMatchObject({ table: "TestEventTable", partitionKeyValue: "a", nextSequence: 0 });
+  });
+
+  it("merges additionalProjectionAttributes onto the projection Put item only, never the event item", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock.on(TransactWriteCommand).resolves({});
+
+    await eventSourcedDao.addAmountWithGsi("a", 10);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]).toMatchObject({
+      Put: { Item: { id: "a", sk: "EVENT#0", amount: 10 } },
+    });
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).not.toHaveProperty("gsi1pk");
+    expect(transactInput.TransactItems?.[1]).toMatchObject({
+      Put: { Item: { id: "a", sk: "#METADATA", total: 10, gsi1pk: "TOTAL", gsi1sk: "10" } },
+    });
+  });
+
+  it("omits additionalProjectionAttributes entirely when no 4th argument is given (existing callers unaffected)", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock.on(TransactWriteCommand).resolves({});
+
+    await eventSourcedDao.addAmount("a", 10);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).not.toHaveProperty("gsi1pk");
   });
 });

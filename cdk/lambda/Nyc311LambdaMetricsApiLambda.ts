@@ -16,6 +16,7 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   requestEvaluationFunctionName: string;
   orderEventFanOutFunctionName: string;
   orderEvaluationFunctionName: string;
+  orderSchedulingFunctionName: string;
   metricsApiFunctionName: string;
   ordersApiFunctionName: string;
   orderEventsApiFunctionName: string;
@@ -61,6 +62,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
         MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
         MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
+        MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
         MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,
         MONITORED_LAMBDA_ORDERS_API: props.ordersApiFunctionName,
         MONITORED_LAMBDA_ORDER_EVENTS_API: props.orderEventsApiFunctionName,

@@ -17,6 +17,8 @@ import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue
 import { Nyc311OrderEvaluationLambda } from "../lambda/Nyc311OrderEvaluationLambda";
 import { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import { Nyc311OrderPipelineAlarms } from "../lambda/Nyc311OrderPipelineAlarms";
+import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
+import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -141,6 +143,23 @@ export class Nyc311Stack extends Stack {
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
+    /*
+     * 6-order-scheduling.md — the job-based, prioritized dispatch of Orders
+     * waiting in SCHEDULE against mock capacity. Runs hourly.
+     */
+    const orderSchedulingLambda = new Nyc311OrderSchedulingLambda(this, "Nyc311OrderSchedulingLambda", {
+      envName: props.envName,
+      ordersTable,
+      requestsTable,
+      locationsTable,
+    });
+
+    new Nyc311OrderSchedulingSchedule(this, "Nyc311OrderSchedulingSchedule", {
+      envName: props.envName,
+      orderSchedulingLambda,
+      failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
 
     const metricsApiLambda = new Nyc311MetricsApiLambda(this, "Nyc311MetricsApiLambda", {
@@ -168,6 +187,7 @@ export class Nyc311Stack extends Stack {
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
       orderEventFanOutFunctionName: orderEventFanOutLambda.functionName,
       orderEvaluationFunctionName: orderEvaluationLambda.functionName,
+      orderSchedulingFunctionName: orderSchedulingLambda.functionName,
       metricsApiFunctionName: metricsApiLambda.functionName,
       ordersApiFunctionName: ordersApiLambda.functionName,
       orderEventsApiFunctionName: orderEventsApiLambda.functionName,

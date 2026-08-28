@@ -64,3 +64,9 @@ See [#8](https://github.com/seththeeke/nyc-311/issues/8).
 ## GET /order-events event_type filter (without order_id) can return empty pages indefinitely at scale
 
 See [#10](https://github.com/seththeeke/nyc-311/issues/10).
+
+---
+
+## Order-scheduling job re-Cases the same unroutable Order every hourly run
+
+See [#11](https://github.com/seththeeke/nyc-311/issues/11).

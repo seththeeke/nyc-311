@@ -47,7 +47,8 @@ describe("Nyc311Stack", () => {
      * stack, not the only one.
      */
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Poller-Test" });
-    template.resourceCountIs("AWS::Scheduler::Schedule", 1);
+    /* 2 — the poller's own Schedule, plus 6-order-scheduling.md's Nyc311OrderSchedulingSchedule. */
+    template.resourceCountIs("AWS::Scheduler::Schedule", 2);
   });
 
   it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
@@ -104,6 +105,22 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
+  it("wires the order-scheduling Lambda, its hourly schedule, and IAM scoping (6-order-scheduling.md §1/§8)", () => {
+    const { template } = synthesize("TestStack", "TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "Nyc311OrderScheduling-Test",
+      ReservedConcurrentExecutions: 1,
+    });
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "Nyc311OrderSchedulingSchedule-Test",
+      ScheduleExpression: "rate(1 hour)",
+    });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: "Nyc311OrderSchedulingFailureAlarm-Test",
+    });
+  });
+
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
     const { template } = synthesize("TestStack", "TEST");
 
@@ -147,6 +164,7 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
           MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventFanOutLambda") },
           MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
+          MONITORED_LAMBDA_ORDER_SCHEDULING: { Ref: Match.stringLikeRegexp("^Nyc311OrderSchedulingLambda") },
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
           MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
           MONITORED_LAMBDA_ORDER_EVENTS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventsApiLambda") },

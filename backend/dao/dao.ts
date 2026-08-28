@@ -211,24 +211,34 @@ export abstract class EventSourcedDao<
    * first event); `foldProjection` derives the new projection from the
    * previous one (`null` if this is the first event) and the new event.
    *
+   * @param additionalProjectionAttributes - Optional, derives storage-only
+   * attributes (e.g. a table's GSI key attributes) from the new projection,
+   * merged onto the projection `Put` item only — never the event item, per
+   * `ddb-design.md`'s "sparse — set only on projection items" rule. Keeps
+   * `TProjection`'s schema the pure domain shape, same reasoning as
+   * `Dao.putItem`'s `additionalAttributes`.
+   *
    * @throws {@link TerminalError} if the transaction is cancelled — another
    * append won the race for this `sequence_number`.
    */
   protected async appendEvent(
     partitionKeyValue: string,
     buildEvent: (nextSequence: number) => TEvent,
-    foldProjection: (previous: TProjection | null, event: TEvent) => TProjection
+    foldProjection: (previous: TProjection | null, event: TEvent) => TProjection,
+    additionalProjectionAttributes?: (projection: TProjection) => Record<string, unknown>
   ): Promise<TProjection> {
     const previousProjection = await this.getProjection(partitionKeyValue);
     const nextSequence = previousProjection ? previousProjection.last_event_sequence + 1 : 0;
     const event = this.validateEvent(buildEvent(nextSequence));
     const newProjection = this.validateProjection(foldProjection(previousProjection, event));
+    const extraAttributes = additionalProjectionAttributes ? additionalProjectionAttributes(newProjection) : {};
 
     logInfo("EventSourcedDao.appendEvent", {
       table: this.tableName,
       partitionKeyValue,
       nextSequence,
       event,
+      extraAttributes,
     });
 
     try {
@@ -245,7 +255,12 @@ export abstract class EventSourcedDao<
             {
               Put: {
                 TableName: this.tableName,
-                Item: { [this.partitionKeyName]: partitionKeyValue, sk: PROJECTION_SORT_KEY, ...newProjection },
+                Item: {
+                  [this.partitionKeyName]: partitionKeyValue,
+                  sk: PROJECTION_SORT_KEY,
+                  ...newProjection,
+                  ...extraAttributes,
+                },
                 ...(previousProjection
                   ? {
                       ConditionExpression: "last_event_sequence = :previousSequence",

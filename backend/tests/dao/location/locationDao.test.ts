@@ -70,3 +70,17 @@ describe("LocationDao.findOrCreateLocation", () => {
     await expect(locationDao.findOrCreateLocation(location)).rejects.toBe(boom);
   });
 });
+
+describe("LocationDao.getLocation", () => {
+  it("returns the validated Location when found", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: location });
+
+    await expect(locationDao.getLocation("1234567890")).resolves.toEqual(location);
+  });
+
+  it("returns null when no Location exists at this id", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(locationDao.getLocation("1234567890")).resolves.toBeNull();
+  });
+});

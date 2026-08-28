@@ -29,6 +29,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
     orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
     orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
+    orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
     metricsApiFunctionName: "Nyc311MetricsApi-Test",
     ordersApiFunctionName: "Nyc311OrdersApi-Test",
     orderEventsApiFunctionName: "Nyc311OrderEventsApi-Test",
