@@ -81,7 +81,15 @@ export class Nyc311PipelineStack extends Stack {
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
         "cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live npm run build && cd ..",
-        "cd cdk && npm ci && npm run lint && npm run test:coverage && npm run build && cd ..",
+        /*
+         * test:coverage:ci (not the plain test:coverage every other
+         * package/local dev uses) — cdk/scripts/test-coverage-sharded.sh
+         * shards this package's suite across 3 vitest processes to dodge
+         * a CodeBuild-only Vitest RPC-teardown timeout; see that script's
+         * header comment for why, and confirmation this doesn't weaken
+         * the coverage gate.
+         */
+        "cd cdk && npm ci && npm run lint && npm run test:coverage:ci && npm run build && cd ..",
         'cd cdk && npx cdk synth --app "npx ts-node --prefer-ts-exts bin/pipeline.ts"',
       ],
       primaryOutputDirectory: "cdk/cdk.out",
