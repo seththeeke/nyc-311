@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Duration } from "aws-cdk-lib";
+import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -31,6 +31,14 @@ export class Nyc311OrderSchedulingLambda extends NodejsFunction {
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
       logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
       retention: logs.RetentionDays.ONE_MONTH,
+      /*
+       * DESTROY, not the LogGroup default of RETAIN — if a deploy that
+       * first creates this Lambda fails and rolls back, a RETAINed log
+       * group is orphaned in the account, and the next deploy's changeset
+       * then fails preflight (ResourceExistenceCheck) trying to recreate a
+       * name that already exists. DESTROY lets the rollback clean it up.
+       */
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     const backendRoot = path.join(__dirname, "..", "..", "backend");

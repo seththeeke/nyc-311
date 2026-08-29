@@ -48,6 +48,15 @@ describe("Nyc311OrderSchedulingLambda", () => {
     });
   });
 
+  it("sets the log group to DESTROY so a failed first deploy's rollback doesn't orphan it (blocks the next changeset's preflight)", () => {
+    const template = synthesize("TEST");
+
+    template.hasResource("AWS::Logs::LogGroup", {
+      DeletionPolicy: "Delete",
+      UpdateReplacePolicy: "Delete",
+    });
+  });
+
   it("passes the Orders/Requests/Locations table names as env vars", () => {
     const template = synthesize("TEST");
 
