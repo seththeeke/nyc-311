@@ -1,6 +1,6 @@
 import { App, CfnOutput } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { Nyc311Stack } from "../../stack/Nyc311Stack";
 
 function synthesize(id: string, envName: "TEST" | "PROD") {
@@ -9,35 +9,51 @@ function synthesize(id: string, envName: "TEST" | "PROD") {
   return { stack, template: Template.fromStack(stack) };
 }
 
+/*
+ * Synthesizing the full stack is ~4s of synchronous CPU work on CodeBuild;
+ * doing it once per `it` (19 times) blocked the Vitest worker's event loop
+ * long enough to blow the fixed 60s worker↔main RPC timeout ("Timeout
+ * calling onTaskUpdate"), failing the Synth build even though every
+ * assertion passed. Synthesize each environment exactly once here and
+ * share the read-only Template/stack across every assertion below.
+ */
+let testEnv: ReturnType<typeof synthesize>;
+let prodEnv: ReturnType<typeof synthesize>;
+
+beforeAll(() => {
+  testEnv = synthesize("TestStack", "TEST");
+  prodEnv = synthesize("ProdStack", "PROD");
+});
+
 describe("Nyc311Stack", () => {
   it("synthesizes and tags the stack for TEST", () => {
-    const { stack, template } = synthesize("TestStack", "TEST");
+    const { stack, template } = testEnv;
 
     /*
      * Tags.of(...).add(...) applies via an Aspect, only visited during
-     * synthesis — so synthesize (Template.fromStack triggers it) before
-     * reading stack.tags back.
+     * synthesis — Template.fromStack (in beforeAll) triggers it before
+     * stack.tags is read here.
      */
     expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "TEST" });
   });
 
   it("synthesizes and tags the stack for PROD", () => {
-    const { stack, template } = synthesize("ProdStack", "PROD");
+    const { stack, template } = prodEnv;
 
     expect(template.toJSON()).toBeDefined();
     expect(stack.tags.tagValues()).toMatchObject({ Environment: "PROD" });
   });
 
   it("exposes apiUrlOutput as the same Nyc311ApiUrl CfnOutput the template declares (4-pipeline-integration-tests.md §5)", () => {
-    const { stack, template } = synthesize("TestStack", "TEST");
+    const { stack, template } = testEnv;
 
     expect(stack.apiUrlOutput).toBeInstanceOf(CfnOutput);
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
   it("wires the Requests table, poller Lambda, and its schedule together (first ingestion slice)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Test" });
     /*
@@ -52,14 +68,14 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Test" });
     template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderIngestionQueue-Test" });
   });
 
   it("wires the request-evaluation Lambda, Locations/Orders tables (3-order-ingestion.md §3)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestEvaluation-Test" });
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
@@ -74,14 +90,14 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventFanOut-Test" });
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderEvents-Test" });
   });
 
   it("wires the evaluation queue (filtered to ORDER_CREATED) and the evaluation Lambda (5-order-evaluation.md §3/§6)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEvaluation-Test" });
     template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderEvaluationQueue-Test" });
@@ -93,7 +109,7 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires CloudWatch alarms for the fan-out Lambda and the evaluation DLQ (5-order-evaluation.md §7)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311OrderEventFanOutErrorsAlarm-Test" });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
@@ -106,7 +122,7 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires the order-scheduling Lambda, its hourly schedule, and IAM scoping (6-order-scheduling.md §1/§8)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "Nyc311OrderScheduling-Test",
@@ -122,14 +138,14 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-web-test" });
     template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   });
 
   it("wires the public API Gateway with its first route, GET /ingestion/metrics (1-data-ingestion.md §8a)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311Api-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311MetricsApi-Test" });
@@ -138,21 +154,21 @@ describe("Nyc311Stack", () => {
   });
 
   it("wires GET /orders to the Orders list Lambda (3-order-ingestion.md's Order list view)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrdersApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /orders" });
   });
 
   it("wires GET /order-events to the Order Events list Lambda (5-order-evaluation.md's Order Events list view)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventsApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /order-events" });
   });
 
   it("wires GET /lambda-metrics to the Lambda health Lambda, with every monitored function name set (2026-08-22 incident)", () => {
-    const { template } = synthesize("TestStack", "TEST");
+    const { template } = testEnv;
 
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311LambdaMetricsApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /lambda-metrics" });
@@ -176,10 +192,10 @@ describe("Nyc311Stack", () => {
 
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
     expect(
-      Object.keys(synthesize("TestStack", "TEST").template.findResources("AWS::Logs::MetricFilter")).length,
+      Object.keys(testEnv.template.findResources("AWS::Logs::MetricFilter")).length,
     ).toBeLessThanOrEqual(10);
     expect(
-      Object.keys(synthesize("ProdStack", "PROD").template.findResources("AWS::Logs::MetricFilter")).length,
+      Object.keys(prodEnv.template.findResources("AWS::Logs::MetricFilter")).length,
     ).toBeLessThanOrEqual(10);
   });
 });
