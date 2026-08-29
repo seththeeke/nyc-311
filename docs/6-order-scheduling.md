@@ -422,14 +422,21 @@ wouldn't re-select it anyway.
 **The in-memory per-run capacity budget (§4) is not safe across concurrent
 invocations** — two overlapping runs would each independently believe a
 pool has its full `MOCK_POOL_CAPACITY_UNITS` available and could jointly
-over-schedule it. Rather than build real distributed locking for a mock
-budget, **the Lambda is configured with `reservedConcurrentExecutions: 1`**
-— only one invocation of this function ever runs at a time; a second
-`EventBridge Scheduler` firing while the first is still in flight throttles
-and lands in the DLQ (§1) instead of running concurrently. At this
-project's real volume (job runtime well under an hour), this is a clean,
-cheap way to remove the race entirely rather than a workaround — revisit
-only if real concurrency tracking (§4) makes the in-memory budget go away.
+over-schedule it.
+
+This was originally closed with `reservedConcurrentExecutions: 1` on the
+Lambda. **Removed 2026-08-29** — the `nyc311` AWS account's Lambda
+concurrency quota is the unraised default floor (`ConcurrentExecutions:
+10`), and AWS rejects *any* reserved-concurrency allocation that would pull
+the unreserved pool below 10, so the setting made `Nyc311-Test.Deploy` fail
+outright (`UPDATE_ROLLBACK_COMPLETE`). It isn't worth a service-quota
+increase for this project: the schedule is `rate(1 hour)` and a run
+finishes well under an hour at real volume, so overlapping invocations
+don't actually occur; the residual exposure is a mock budget only, and
+double-scheduling a single Order is already prevented at the DAO level
+(`appendEvent`'s `last_event_sequence` condition-check, above). Revisit
+only if the schedule cadence tightens or real concurrency tracking (§4)
+replaces the in-memory budget.
 
 ---
 
@@ -473,9 +480,9 @@ project-wide remain).
   multiple Orders in one run); the trigger schema; the controller.
 - **CDK assertions:** `Nyc311OrderSchedulingLambda` (IAM — Orders
   read/write, Requests read, Locations read, *no* Operators/Cases
-  grants — asserted explicitly per §6/§9's flag), `reservedConcurrentExecutions: 1`
-  (§8, asserted directly — a silent removal would reopen the concurrency
-  race with no test failure otherwise), the `EventBridge Scheduler`
+  grants — asserted explicitly per §6/§9's flag), no
+  `reservedConcurrentExecutions` (§8 — removed 2026-08-29, asserted absent
+  so it isn't silently re-added), the `EventBridge Scheduler`
   `rate(1 hour)` expression, the DLQ, the failure alarm.
 - **No new real-integration route.** Same carve-out as `5-order-evaluation.md`
   §8 — no API Gateway route added. Worth a `test-scripts/`-style manual

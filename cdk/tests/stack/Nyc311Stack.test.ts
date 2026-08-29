@@ -126,7 +126,6 @@ describe("Nyc311Stack", () => {
 
     template.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "Nyc311OrderScheduling-Test",
-      ReservedConcurrentExecutions: 1,
     });
     template.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "Nyc311OrderSchedulingSchedule-Test",

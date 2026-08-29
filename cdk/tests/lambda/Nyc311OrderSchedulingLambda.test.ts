@@ -40,10 +40,12 @@ describe("Nyc311OrderSchedulingLambda", () => {
     synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderScheduling-Prod" });
   });
 
-  it("reserves exactly 1 concurrent execution — closes the in-memory capacity budget race (6-order-scheduling.md §8)", () => {
+  it("does not pin reserved concurrency — the account's unraised concurrency quota (10) rejects any reservation", () => {
     const template = synthesize("TEST");
 
-    template.hasResourceProperties("AWS::Lambda::Function", { ReservedConcurrentExecutions: 1 });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      ReservedConcurrentExecutions: Match.absent(),
+    });
   });
 
   it("passes the Orders/Requests/Locations table names as env vars", () => {

@@ -16,16 +16,6 @@ export interface Nyc311OrderSchedulingLambdaProps {
   locationsTable: LocationsTable;
 }
 
-/*
- * 6-order-scheduling.md §8 — only one invocation of this job ever runs at
- * a time, so the per-run in-memory capacity budget (a mock, not real
- * distributed state) can never be over-committed by two overlapping runs.
- * A second EventBridge Scheduler firing while the first is still in flight
- * throttles and lands in the schedule's own DLQ instead of running
- * concurrently.
- */
-const RESERVED_CONCURRENT_EXECUTIONS = 1;
-
 /**
  * The order-scheduling job Lambda — entry point is
  * `scheduleOrdersController.ts` (`6-order-scheduling.md`). Least-privilege
@@ -52,7 +42,6 @@ export class Nyc311OrderSchedulingLambda extends NodejsFunction {
       runtime: Runtime.NODEJS_22_X,
       timeout: Duration.minutes(5),
       memorySize: 256,
-      reservedConcurrentExecutions: RESERVED_CONCURRENT_EXECUTIONS,
       logGroup,
       /*
        * backend/ is its own npm package (own lockfile/node_modules),
