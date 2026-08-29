@@ -28,7 +28,14 @@
 # `npm run test:coverage` (unsharded) stays the local-dev default --- this
 # problem has only ever reproduced on CodeBuild, never locally.
 
-set -euo pipefail
+set -uo pipefail
+# Deliberately no `-e` — each shard's exit status is captured and reported
+# explicitly below, rather than letting a bare `set -e` kill the script
+# silently. `--reporter=blob` alone suppresses Vitest's normal pass/fail
+# summary, which made a real 2026-08-28 CI failure impossible to diagnose
+# from the CodeBuild log (nothing printed between the coverage table and
+# the shell's own "exit status 1"); `--reporter=default` restores it
+# alongside blob's merge data.
 
 SHARD_COUNT=3
 DISABLE_PER_SHARD_THRESHOLDS=(
@@ -41,8 +48,16 @@ DISABLE_PER_SHARD_THRESHOLDS=(
 rm -rf .vitest-reports coverage
 
 for shard in $(seq 1 "$SHARD_COUNT"); do
-  npx vitest run --shard="${shard}/${SHARD_COUNT}" --reporter=blob --coverage "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
+  echo "=== Shard ${shard}/${SHARD_COUNT} starting ==="
+  npx vitest run --shard="${shard}/${SHARD_COUNT}" --reporter=default --reporter=blob --coverage "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
+  status=$?
+  echo "=== Shard ${shard}/${SHARD_COUNT} exited with status ${status} ==="
+  if [ "$status" -ne 0 ]; then
+    echo "Shard ${shard}/${SHARD_COUNT} failed — aborting before merge."
+    exit "$status"
+  fi
 done
 
 # The real threshold check: reads all 3 shards' coverage data together.
+echo "=== Merging shard reports and checking the real coverage thresholds ==="
 npx vitest run --mergeReports --coverage
