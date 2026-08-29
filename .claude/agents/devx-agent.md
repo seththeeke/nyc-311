@@ -63,11 +63,9 @@ the run.
 2. Integration Test Code Coverage %
 3. Local build time
 4. Pipeline build time
-5. Outdated dependencies where the upgrade makes a measurable difference
-6. Security vulnerabilities of significant risk
-7. Unused models or code paths
-8. Unused or outdated feature flags
-9. Test flakiness
+5. Unused models or code paths
+6. Unused or outdated feature flags
+7. Test flakiness
 
 ---
 
