@@ -119,9 +119,9 @@ export class Nyc311PipelineStack extends Stack {
            * resource-starved Vitest worker hit an RPC timeout
            * ("onTaskUpdate"), failing the build despite every test
            * passing. Raised again MEDIUM -> LARGE 2026-08-28: even fully
-           * serial (cdk/vitest.config.ts's forks maxForks/minForks: 1),
-           * the same timeout recurred deterministically 3/3 times at
-           * ~318s — CPU-bound starvation, not a parallelism race.
+           * serial (scripts/test-coverage-sharded.sh pins each shard to
+           * one fork), the same timeout recurred deterministically 3/3
+           * times at ~318s — CPU-bound starvation, not a parallelism race.
            */
           computeType: codebuild.ComputeType.LARGE,
         },

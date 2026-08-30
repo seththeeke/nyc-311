@@ -38,6 +38,17 @@ set -uo pipefail
 # alongside blob's merge data.
 
 SHARD_COUNT=3
+
+# One fork per shard process. The "onTaskUpdate" worker-RPC timeout this
+# whole script exists to dodge is a CodeBuild-only, parallelism-sensitive
+# failure (see header); vitest.config.ts now runs bounded-parallel for
+# local dev, so CI re-pins serial here rather than there. Keep in sync
+# with the note in vitest.config.ts's pool comment.
+SERIAL_POOL=(
+  --poolOptions.forks.maxForks=1
+  --poolOptions.forks.minForks=1
+)
+
 DISABLE_PER_SHARD_THRESHOLDS=(
   --coverage.thresholds.lines=0
   --coverage.thresholds.branches=0
@@ -49,7 +60,7 @@ rm -rf .vitest-reports coverage
 
 for shard in $(seq 1 "$SHARD_COUNT"); do
   echo "=== Shard ${shard}/${SHARD_COUNT} starting ==="
-  npx vitest run --shard="${shard}/${SHARD_COUNT}" --reporter=default --reporter=blob --coverage "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
+  npx vitest run --shard="${shard}/${SHARD_COUNT}" --reporter=default --reporter=blob --coverage "${SERIAL_POOL[@]}" "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
   status=$?
   echo "=== Shard ${shard}/${SHARD_COUNT} exited with status ${status} ==="
   if [ "$status" -ne 0 ]; then
