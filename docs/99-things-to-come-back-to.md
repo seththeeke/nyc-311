@@ -76,3 +76,9 @@ See [#11](https://github.com/seththeeke/nyc-311/issues/11).
 ## cdk/ local test:coverage runs ~30 synth-heavy files fully serial for a CI-only reason
 
 See [#12](https://github.com/seththeeke/nyc-311/issues/12).
+
+## Stale demo-frontend/ prototype slows local Claude searches
+
+See [#14](https://github.com/seththeeke/nyc-311/issues/14).
+
+---
