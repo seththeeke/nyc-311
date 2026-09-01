@@ -82,3 +82,9 @@ See [#12](https://github.com/seththeeke/nyc-311/issues/12).
 See [#14](https://github.com/seththeeke/nyc-311/issues/14).
 
 ---
+
+## test:coverage prints ~163 zero-signal 100%-covered rows every Operational-Loop run
+
+See [#16](https://github.com/seththeeke/nyc-311/issues/16).
+
+---

@@ -23,7 +23,14 @@ export default defineConfig({
         statements: 90,
         perFile: true,
       },
-      reporter: ["text", "html", "json-summary", "json"],
+      /*
+       * skipFull drops files already at 100% from the text table only —
+       * the recurring Operational-Loop run emitted ~60 zero-signal rows
+       * here. Coverage math, the perFile 90% gate, and the html/json
+       * reporters consumed by CI and scripts/rollup-coverage.js are
+       * untouched; a file below 100% still shows, below 90% still fails.
+       */
+      reporter: [["text", { skipFull: true }], "html", "json-summary", "json"],
     },
   },
 });
