@@ -14,12 +14,13 @@ export default defineConfig({
     include: ["tests/integration/**/*.integration.test.ts"],
     testTimeout: 30000,
     /*
-     * routeTracker.ts does a read-modify-write against one shared JSON
-     * file across all 3 test files — serial execution avoids a write race
-     * between them; there's no throughput reason to parallelize 3 files
-     * hitting a live API anyway.
+     * Files run in parallel (Vitest default). routeTracker.ts writes one
+     * partial file per route, and each known route is exercised by exactly
+     * one test file, so parallel workers never contend on a shared file;
+     * printReportSummary's teardown folds the partials into the final
+     * route-report.json. Every file is a live-API round trip, so parallel
+     * is close to a linear wall-clock win over the old serial run.
      */
-    fileParallelism: false,
     globalSetup: ["./tests/integration/support/printReportSummary.ts"],
   },
 });

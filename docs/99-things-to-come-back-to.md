@@ -88,3 +88,9 @@ See [#14](https://github.com/seththeeke/nyc-311/issues/14).
 See [#16](https://github.com/seththeeke/nyc-311/issues/16).
 
 ---
+
+## Pipeline integration suite runs 4 live-API test files serially
+
+See [#18](https://github.com/seththeeke/nyc-311/issues/18).
+
+---
