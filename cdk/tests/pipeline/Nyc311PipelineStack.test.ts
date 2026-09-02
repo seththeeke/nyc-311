@@ -1,22 +1,26 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
 
-function synthesize(): Template {
+/*
+ * Synthesizing the full pipeline stack is ~3.4s of CPU; doing it once per
+ * `it` (as this file used to, 9 times) is pure waste — every assertion
+ * below is a read-only Template query. Synthesize once, share the
+ * Template. Same reasoning as tests/stack/Nyc311Stack.test.ts's beforeAll.
+ */
+let template: Template;
+
+beforeAll(() => {
   const app = new App();
-  const stack = new Nyc311PipelineStack(app, "TestPipelineStack", {
-    env: TEST_ENV,
-  });
-  return Template.fromStack(stack);
-}
+  const stack = new Nyc311PipelineStack(app, "TestPipelineStack", { env: TEST_ENV });
+  template = Template.fromStack(stack);
+});
 
 describe("Nyc311PipelineStack", () => {
   it("creates a V2, self-mutating CodePipeline sourced from the externally-authorized GitHub connection", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Name: "Nyc311Pipeline",
       PipelineType: "V2",
@@ -49,8 +53,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("runs every CodeBuild-backed step on LARGE compute, not the SMALL default", () => {
-    const template = synthesize();
-
     const projects = template.findResources("AWS::CodeBuild::Project");
     expect(Object.keys(projects).length).toBeGreaterThan(0);
     for (const project of Object.values(projects)) {
@@ -68,8 +70,6 @@ describe("Nyc311PipelineStack", () => {
      * need — omitting --app here previously produced a cloud assembly
      * self-mutation couldn't find its own stack in.
      */
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
@@ -87,8 +87,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod, a coverage publish, and integration tests after", () => {
-    const template = synthesize();
-
     /*
      * The coverage-publish and integration-test post steps run in
      * parallel (same RunOrder), and CDK Pipelines doesn't render them in
@@ -140,8 +138,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("wires a pipeline-failure-only notification rule to an email-subscribed SNS topic", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::SNS::Subscription", {
       Protocol: "email",
       Endpoint: "seththeeke@gmail.com",
@@ -153,8 +149,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("denies the nyc311 CLI user sts:AssumeRole on the CDK deploy and cfn-exec roles", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyName: "Nyc311DenyDirectDeploy",
       Users: ["seththeeke-cli"],
@@ -175,8 +169,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("also denies the nyc311 CLI user direct CloudFormation mutation on Nyc311-Test/Nyc311-Prod only, closing the AdministratorAccess fallback", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyName: "Nyc311DenyDirectDeploy",
       Users: ["seththeeke-cli"],
@@ -204,8 +196,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("wires the pipeline-status API/Lambda, scoped to this pipeline's own ARN", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311PipelineStatus" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311PipelineStatusApi" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /pipeline/status" });
@@ -213,8 +203,6 @@ describe("Nyc311PipelineStack", () => {
   });
 
   it("does not restrict direct deploys of the pipeline stack itself, the recovery path for a broken Synth step", () => {
-    const template = synthesize();
-
     const [{ Properties }] = Object.values(
       template.findResources("AWS::IAM::Policy", {
         Properties: { PolicyName: "Nyc311DenyDirectDeploy" },

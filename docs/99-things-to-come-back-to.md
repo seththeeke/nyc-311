@@ -94,3 +94,9 @@ See [#16](https://github.com/seththeeke/nyc-311/issues/16).
 See [#18](https://github.com/seththeeke/nyc-311/issues/18).
 
 ---
+
+## cdk pipeline tests re-synth the full pipeline stack once per it()
+
+See [#20](https://github.com/seththeeke/nyc-311/issues/20).
+
+---
