@@ -1,20 +1,26 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
 
-function synthesize(): Template {
+/*
+ * Synthesizing the full pipeline stack is ~3.4s of CPU; doing it once per
+ * `it` (as this file used to) is pure waste — every assertion below is a
+ * read-only Template query. Synthesize once, share the Template. Same
+ * reasoning as tests/stack/Nyc311Stack.test.ts's beforeAll.
+ */
+let template: Template;
+
+beforeAll(() => {
   const app = new App();
   const stack = new Nyc311PipelineStack(app, "TestPipelineStack", { env: TEST_ENV });
-  return Template.fromStack(stack);
-}
+  template = Template.fromStack(stack);
+});
 
 describe("Nyc311IntegrationTestStep", () => {
   it("runs the Test-targeted suite and propagates its real exit code (blocking)", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
@@ -25,8 +31,6 @@ describe("Nyc311IntegrationTestStep", () => {
   });
 
   it("returns to the repo root before the s3 cp, since CodeBuild's commands share one shell and `cd backend` would otherwise leak into later commands (regression: a real pipeline run once failed exactly this way)", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp("cd backend[\\s\\S]*&& cd \\.\\."),
@@ -35,8 +39,6 @@ describe("Nyc311IntegrationTestStep", () => {
   });
 
   it("runs the Prod-targeted suite but always exits 0 (non-blocking)", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
@@ -47,8 +49,6 @@ describe("Nyc311IntegrationTestStep", () => {
   });
 
   it("wires each environment's real Nyc311ApiUrl output in as API_BASE_URL, not a hardcoded value", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Stages: Match.arrayWith([
         Match.objectLike({
@@ -78,8 +78,6 @@ describe("Nyc311IntegrationTestStep", () => {
   });
 
   it("scopes each publish role to only /integration-tests/* on that one bucket, never a wildcard resource", () => {
-    const template = synthesize();
-
     const policies = Object.values(template.findResources("AWS::IAM::Policy")) as {
       Properties: { PolicyDocument: { Statement: { Sid?: string; Resource: string | string[] }[] } };
     }[];

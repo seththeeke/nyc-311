@@ -1,20 +1,26 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
 
-function synthesize(): Template {
+/*
+ * Synthesizing the full pipeline stack is ~3.4s of CPU; doing it once per
+ * `it` (as this file used to) is pure waste — every assertion below is a
+ * read-only Template query. Synthesize once, share the Template. Same
+ * reasoning as tests/stack/Nyc311Stack.test.ts's beforeAll.
+ */
+let template: Template;
+
+beforeAll(() => {
   const app = new App();
   const stack = new Nyc311PipelineStack(app, "TestPipelineStack", { env: TEST_ENV });
-  return Template.fromStack(stack);
-}
+  template = Template.fromStack(stack);
+});
 
 describe("Nyc311CoveragePublishStep", () => {
   it("stages and syncs coverage to the Test website bucket, then invalidates its distribution", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
@@ -25,8 +31,6 @@ describe("Nyc311CoveragePublishStep", () => {
   });
 
   it("stages and syncs coverage to the Prod website bucket, then invalidates its distribution", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::CodeBuild::Project", {
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
@@ -37,8 +41,6 @@ describe("Nyc311CoveragePublishStep", () => {
   });
 
   it("scopes the Test publish role to only /coverage/* on that one bucket, and that one distribution's invalidation", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: Match.objectLike({
         Statement: Match.arrayWith([
@@ -58,8 +60,6 @@ describe("Nyc311CoveragePublishStep", () => {
   });
 
   it("scopes the Prod publish role the same way, to nyc311-web-prod and its own distribution", () => {
-    const template = synthesize();
-
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: Match.objectLike({
         Statement: Match.arrayWith([
@@ -79,8 +79,6 @@ describe("Nyc311CoveragePublishStep", () => {
   });
 
   it("never grants a wildcard resource on either publish role's coverage-object statement", () => {
-    const template = synthesize();
-
     const policies = Object.values(template.findResources("AWS::IAM::Policy")) as {
       Properties: { PolicyDocument: { Statement: { Sid?: string; Resource: string | string[] }[] } };
     }[];
