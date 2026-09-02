@@ -1,19 +1,21 @@
-import { readCurrentReport } from "./routeTracker";
+import { mergePartialsIntoReport, resetReport } from "./routeTracker";
 
 /**
- * Vitest globalSetup file (`vitest.integration.config.ts`) — `setup` is
- * required by Vitest's contract even though there's nothing to do before
- * the run; `teardown` prints the route-hit console summary
- * (4-pipeline-integration-tests.md §4) once after every test file has
- * finished, reading back whatever `routeTracker.ts` wrote to disk during
- * the run (this file runs in a separate context from the test files, so
- * it can't share in-memory state with them — only the file on disk).
+ * Vitest globalSetup (`vitest.integration.config.ts`). `setup` clears the
+ * prior run's partials and writes a not-yet-hit skeleton so the pipeline's
+ * sync step always finds a route-report.json. `teardown` folds the
+ * per-route partials into the final route-report.json and prints the
+ * route-hit summary (4-pipeline-integration-tests.md §4). Runs in a
+ * separate context from the test files — shares state only via the
+ * on-disk partials.
  */
 
-export async function setup(): Promise<void> {}
+export async function setup(): Promise<void> {
+  resetReport();
+}
 
 export async function teardown(): Promise<void> {
-  const report = readCurrentReport();
+  const report = mergePartialsIntoReport();
 
   console.log(`\nIntegration test route report — target=${report.target}, ranAt=${report.ranAt}`);
   console.log(`${"Route".padEnd(24)}${"Hit".padEnd(6)}Status`);
