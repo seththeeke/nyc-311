@@ -2,7 +2,15 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: "jsdom",
+    /*
+     * happy-dom over jsdom, and the threads pool over forks: this suite is
+     * ~50 small RTL files whose cost is dominated by per-file DOM-env +
+     * worker startup, not the assertions. Together they cut `npm run test`
+     * from ~7.3s to ~4.3s locally with all 290 tests unchanged. web-app has
+     * no native deps, so the threads pool is safe here.
+     */
+    environment: "happy-dom",
+    pool: "threads",
     setupFiles: ["tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
