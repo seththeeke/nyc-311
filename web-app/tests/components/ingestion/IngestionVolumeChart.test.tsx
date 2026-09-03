@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { IngestionVolumeChart } from "../../../src/components/ingestion/IngestionVolumeChart";
+import { IV_COLORS } from "../../../src/components/ingestion/palette";
 import type { PollerMetrics } from "../../../src/models/pollerMetrics";
 
 /*
@@ -58,8 +59,11 @@ describe("IngestionVolumeChart", () => {
 
   it("marks a failed run with the critical-status color, not a stacked segment", () => {
     const { container } = render(<IngestionVolumeChart metrics={[metrics[1]]} />);
-    const marker = container.querySelector('[style*="background-color: rgb(208, 59, 59)"]');
-    expect(marker).toBeInTheDocument();
+    /* the failed-run overlay is the only 3px-tall bar; assert its colour via
+       toHaveStyle (hex/rgb-agnostic) rather than a serialized-style substring
+       match, whose formatting differs between DOM implementations. */
+    const marker = container.querySelector(".h-\\[3px\\]");
+    expect(marker).toHaveStyle({ backgroundColor: IV_COLORS.statusCritical });
   });
 
   it("shows a bare 'Failed' tooltip line when a failed run has no error message", () => {
