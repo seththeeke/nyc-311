@@ -465,7 +465,20 @@ Goal is **less volume, not fewer comments** — still write one wherever the
 
 The repo is hosted at https://github.com/seththeeke/nyc-311 and already setup. When you are asked to commit anything, you will commit all outstanding changes as a single commit rather than breaking the work down in any way unless instructed separately, this will prevent the chance of committing chunks that are not feasible piecewise. You will commit changes in the following format.
 
-[<feat> or <bugfi>] - Claude Commit: <Commit message>
+[<feat> or <bugfi>] - <agent-name>: <Commit message>
+
+`<agent-name>` identifies which agent authored the commit — the main
+session is `claude-default-agent`; a subagent uses its own name (e.g.
+`devx-agent`). **You do not need to type the `<agent-name>:` part** — write
+just `[<feat> or <bugfi>] - <Commit message>` and a git hook
+(`.githooks/prepare-commit-msg`, fed by the `.claude/hooks/stamp-committer.sh`
+PreToolUse hook) inserts the correct agent name automatically. Typing it
+yourself is fine too; the hook leaves an already-correct prefix alone. A
+commit made by a human outside Claude Code gets no prefix.
+
+The hook is wired via `core.hooksPath=.githooks` (local git config, not
+committed); the stamp hook sets it automatically on first use when it is
+unset.
 
 ## 8. Coverage Rollup
 

@@ -1,0 +1,64 @@
+#!/bin/bash
+#
+# Prefixes every Claude-authored commit with the name of the agent that made
+# it, e.g.  [feat] - devx-agent: <message>  /  [bugfi] - claude-default-agent: <message>
+#
+# The agent name comes from <git-dir>/CLAUDE_COMMITTER, written by the
+# .claude/hooks/stamp-committer.sh PreToolUse hook immediately before a
+# `git commit` runs inside Claude Code. No stamp (or a stale one) => this is a
+# human commit and the message is left untouched.
+#
+# Activate with:  git config core.hooksPath .githooks
+# (the stamp hook also sets this automatically when it is unset).
+
+set -u
+
+msg_file="$1"
+source="${2:-}"
+
+# Only touch messages supplied non-interactively (-m / -F => "message",
+# a template => "template", --amend reuse => "commit"). An empty source is an
+# interactive editor session (a human); merge/squash are git-generated.
+case "$source" in
+  message|template|commit) : ;;
+  *) exit 0 ;;
+esac
+
+stamp_path="$(git rev-parse --git-path CLAUDE_COMMITTER 2>/dev/null)"
+[ -n "$stamp_path" ] && [ -f "$stamp_path" ] || exit 0
+
+read -r name stamped_at _ < "$stamp_path"
+rm -f "$stamp_path"
+
+[ -n "${name:-}" ] || exit 0
+case "${stamped_at:-}" in
+  ''|*[!0-9]*) exit 0 ;;
+esac
+now=$(date +%s)
+[ $(( now - stamped_at )) -le 120 ] || exit 0
+
+first_line="$(sed -n '1p' "$msg_file")"
+
+# Already carries this exact committer prefix (with or without a [tag] -)? Leave it.
+case "$first_line" in
+  "$name: "*) exit 0 ;;
+  "["*"] - $name: "*) exit 0 ;;
+esac
+
+new_first_line=""
+if printf '%s' "$first_line" | grep -qE '^\[(feat|bugfi)\] - Claude Commit: '; then
+  # Legacy "Claude Commit:" marker -> swap in the agent name.
+  new_first_line="$(printf '%s' "$first_line" | sed -E "s/^(\[(feat|bugfi)\] - )Claude Commit: /\1$name: /")"
+elif printf '%s' "$first_line" | grep -qE '^\[(feat|bugfi)\] - '; then
+  new_first_line="$(printf '%s' "$first_line" | sed -E "s/^(\[(feat|bugfi)\] - )/\1$name: /")"
+elif printf '%s' "$first_line" | grep -qE '^\[(feat|bugfi)\] +'; then
+  new_first_line="$(printf '%s' "$first_line" | sed -E "s/^(\[(feat|bugfi)\]) +/\1 - $name: /")"
+else
+  # No recognized type tag - can't infer feat vs bugfi, just prefix the name.
+  new_first_line="$name: $first_line"
+fi
+
+rest="$(tail -n +2 "$msg_file")"
+printf '%s\n%s\n' "$new_first_line" "$rest" > "$msg_file"
+
+exit 0

@@ -15,9 +15,10 @@ Codifies the write → test → push → poll → verify loop.
    ≥90% coverage per file. Never report done without having actually run
    these in this session.
 2. **Commit and push.** Stage all outstanding changes as a single commit
-   (CLAUDE.md §7 format: `[<feat>/<bugfi>] - Claude Commit: <message>`),
-   then `git push origin main`. This triggers `Nyc311Pipeline`'s
-   self-mutating CodePipeline.
+   (CLAUDE.md §7 format: `[<feat>/<bugfi>] - <message>` — the
+   `prepare-commit-msg` git hook prepends the `claude-default-agent:` /
+   `<agent-name>:` prefix, no need to type it), then `git push origin main`.
+   This triggers `Nyc311Pipeline`'s self-mutating CodePipeline.
 3. **Poll the pipeline.** Run `poll_pipeline.py` (in this skill's
    directory) via the Monitor tool so its output streams live — it prints
    every stage's status every 15s (even when nothing changed, so the

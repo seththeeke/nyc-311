@@ -174,15 +174,17 @@ Re-run the **exact command from step 2** and record the new number. Then:
 
 ```
 git add -A
-git commit -m "[<feat|bugfi>] - Claude Commit: <message>"   # branch only — never main
+git commit -m "[<feat|bugfi>] - <message>"   # branch only — never main; the
+                                             # prepare-commit-msg hook prepends "devx-agent: "
 git push -u origin devx/<issue-number>-<short-slug>
 gh pr create --repo seththeeke/nyc-311 --base main \
   --title "<same style as the commit>" \
   --body-file <tmp-pr-body>
 ```
 
-Commit message format is `CLAUDE.md` §7's (`[<feat> or <bugfi>] - Claude Commit:
-<message>`) and the co-author / session trailers this environment appends.
+Commit message format is `CLAUDE.md` §7's (`[<feat> or <bugfi>] - <message>`; the
+`prepare-commit-msg` hook inserts the `devx-agent:` prefix from this agent's
+name) plus the co-author / session trailers this environment appends.
 
 PR body:
 
