@@ -10,6 +10,11 @@ export function HomePage(): ReactElement {
           View system monitoring
         </Link>
       </p>
+      <p className="mt-2 text-slate-600">
+        <Link to="/data" className="text-blue-600 underline">
+          Explore the data warehouse
+        </Link>
+      </p>
     </main>
   );
 }

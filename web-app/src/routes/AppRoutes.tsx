@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Route, Routes } from "react-router-dom";
 import { HomePage } from "../components/pages/HomePage";
+import { DataPage } from "../components/pages/DataPage";
 import { MonitoringPage } from "../components/pages/MonitoringPage";
 import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoringPage";
 import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
@@ -18,6 +19,14 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <HomePage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/data"
+        element={
+          <PublicRoute>
+            <DataPage />
           </PublicRoute>
         }
       />

@@ -23,6 +23,11 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("heading", { name: "NYC 311" })).toBeInTheDocument();
   });
 
+  it("renders DataPage at /data", () => {
+    renderAt("/data");
+    expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
+  });
+
   it("renders MonitoringPage at /monitoring", () => {
     renderAt("/monitoring");
     expect(screen.getByRole("heading", { name: "Monitoring" })).toBeInTheDocument();

@@ -16,4 +16,14 @@ describe("HomePage", () => {
       "/monitoring"
     );
   });
+
+  it("links to the data warehouse", () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /explore the data warehouse/i })).toHaveAttribute("href", "/data");
+  });
 });
