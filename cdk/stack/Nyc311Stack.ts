@@ -26,6 +26,13 @@ import { Nyc311WarehouseCatalog } from "../warehouse/Nyc311WarehouseCatalog";
 import { Nyc311AnalyticsWorkgroup } from "../warehouse/Nyc311AnalyticsWorkgroup";
 import { Nyc311WarehouseTransformLambda } from "../warehouse/Nyc311WarehouseTransformLambda";
 import { Nyc311WarehouseFirehose } from "../warehouse/Nyc311WarehouseFirehose";
+import { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
+import { AnalyticsRollupsTable } from "../data/AnalyticsRollupsTable";
+import { Nyc311WarehouseJobRunnerLambda } from "../warehouse/Nyc311WarehouseJobRunnerLambda";
+import { Nyc311WarehouseJobSchedule } from "../warehouse/Nyc311WarehouseJobSchedule";
+import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
+import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
+import { Nyc311RollupsApiLambda } from "../warehouse/Nyc311RollupsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -175,7 +182,10 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       warehouseBucket,
     });
-    new Nyc311AnalyticsWorkgroup(this, "Nyc311AnalyticsWorkgroup", { envName: props.envName, warehouseBucket });
+    const analyticsWorkgroup = new Nyc311AnalyticsWorkgroup(this, "Nyc311AnalyticsWorkgroup", {
+      envName: props.envName,
+      warehouseBucket,
+    });
     const warehouseTransformLambda = new Nyc311WarehouseTransformLambda(this, "Nyc311WarehouseTransformLambda", {
       envName: props.envName,
     });
@@ -206,6 +216,46 @@ export class Nyc311Stack extends Stack {
       glueTable: warehouseCatalog.tables["requests"],
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
+    });
+
+    /*
+     * 7-data-warehousing.md §8-§9/§11-§12 (Leg 3) — the daily aggregation
+     * job: two plain tables (WarehouseJobRuns for run history + automatic
+     * retry, AnalyticsRollups for the folded output), one Lambda runner on
+     * a `rate(1 day)` EventBridge Schedule with a DLQ + failure alarm, and
+     * three read-only API Lambdas behind `GET /data/{schema,jobs,rollups}`.
+     */
+    const warehouseJobRunsTable = new WarehouseJobRunsTable(this, "WarehouseJobRunsTable", { envName: props.envName });
+    const analyticsRollupsTable = new AnalyticsRollupsTable(this, "AnalyticsRollupsTable", { envName: props.envName });
+
+    const warehouseJobRunnerLambda = new Nyc311WarehouseJobRunnerLambda(this, "Nyc311WarehouseJobRunnerLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      rollupsTable: analyticsRollupsTable,
+      warehouseBucket,
+      warehouseCatalog,
+      analyticsWorkgroup,
+    });
+
+    new Nyc311WarehouseJobSchedule(this, "Nyc311WarehouseJobSchedule", {
+      envName: props.envName,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    const warehouseSchemaApiLambda = new Nyc311WarehouseSchemaApiLambda(this, "Nyc311WarehouseSchemaApiLambda", {
+      envName: props.envName,
+      warehouseCatalog,
+    });
+
+    const warehouseJobsApiLambda = new Nyc311WarehouseJobsApiLambda(this, "Nyc311WarehouseJobsApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+    });
+
+    const rollupsApiLambda = new Nyc311RollupsApiLambda(this, "Nyc311RollupsApiLambda", {
+      envName: props.envName,
+      rollupsTable: analyticsRollupsTable,
     });
 
     /*
@@ -256,6 +306,10 @@ export class Nyc311Stack extends Stack {
       metricsApiFunctionName: metricsApiLambda.functionName,
       ordersApiFunctionName: ordersApiLambda.functionName,
       orderEventsApiFunctionName: orderEventsApiLambda.functionName,
+      warehouseJobRunnerFunctionName: warehouseJobRunnerLambda.functionName,
+      warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
+      warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
+      rollupsApiFunctionName: rollupsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -264,6 +318,9 @@ export class Nyc311Stack extends Stack {
       ordersApiLambda,
       orderEventsApiLambda,
       lambdaMetricsApiLambda,
+      warehouseSchemaApiLambda,
+      warehouseJobsApiLambda,
+      rollupsApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });
 

@@ -13,6 +13,10 @@ const PROPS = {
   metricsApiFunctionName: "Nyc311MetricsApi-Test",
   ordersApiFunctionName: "Nyc311OrdersApi-Test",
   orderEventsApiFunctionName: "Nyc311OrderEventsApi-Test",
+  warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
+  warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
+  warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
+  rollupsApiFunctionName: "Nyc311RollupsApi-Test",
 };
 
 function synthesize(envName: "TEST" | "PROD"): Template {

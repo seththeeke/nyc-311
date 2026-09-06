@@ -203,10 +203,17 @@ The backend will follow a basic controller, service, and data access object(DAO)
      event-driven per `5-order-evaluation.md`, not a Step Functions state
      machine (that framing was dropped 2026-08-25; see that doc's intro)
   -> data-archival - controller endpoints for any callback or fetching information during archival
+  -> analytics - controller endpoints for the data warehouse (`7-data-warehousing.md`):
+     the EventBridge-Scheduler-triggered daily aggregation job runner (§8), and
+     the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
  -> service
   -> grouped into logical processing services, not necessarily by entity
  -> dao - explicitely grouped by entity we store, names matching
-    data-model.md exactly
+    data-model.md exactly. The one carve-out is `dao/analytics/` — the
+    data-warehouse bookkeeping tables (`WarehouseJobRuns`, `AnalyticsRollups`
+    from `7-data-warehousing.md` §9/§11) aren't `data-model.md` domain entities,
+    so they group under one `analytics/` folder rather than getting a
+    per-entity folder each, mirroring `service/`'s "logical grouping" rule.
   -> request
   -> order
   -> case
@@ -214,6 +221,7 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> location
   -> shift
   -> user
+  -> analytics - warehouseJobRunsDao, analyticsRollupsDao (see carve-out above)
  -> models - all shared types live here, one file each (TS type + zod
     schema), consumed by dao/service/controller — same pattern as
     web-app's models/. This includes data-model.md entities (named to

@@ -63,8 +63,8 @@ describe("Nyc311Stack", () => {
      * stack, not the only one.
      */
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Poller-Test" });
-    /* 2 — the poller's own Schedule, plus 6-order-scheduling.md's Nyc311OrderSchedulingSchedule. */
-    template.resourceCountIs("AWS::Scheduler::Schedule", 2);
+    /* 3 — the poller's own Schedule, 6-order-scheduling.md's Nyc311OrderSchedulingSchedule, and 7-data-warehousing.md §8's Nyc311WarehouseJobSchedule. */
+    template.resourceCountIs("AWS::Scheduler::Schedule", 3);
   });
 
   it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
@@ -152,6 +152,25 @@ describe("Nyc311Stack", () => {
     });
   });
 
+  it("wires the warehouse job runner, its daily schedule, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12, Leg 3)", () => {
+    const { template } = testEnv;
+
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WarehouseJobRuns-Test" });
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "AnalyticsRollups-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseJobRunner-Test" });
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "Nyc311WarehouseJobSchedule-Test",
+      ScheduleExpression: "rate(1 day)",
+    });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobFailureAlarm-Test" });
+    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/rollups"]) {
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
+    }
+    for (const fn of ["Nyc311WarehouseSchemaApi-Test", "Nyc311WarehouseJobsApi-Test", "Nyc311RollupsApi-Test"]) {
+      template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
+    }
+  });
+
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
     const { template } = testEnv;
 
@@ -199,6 +218,10 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
           MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
           MONITORED_LAMBDA_ORDER_EVENTS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventsApiLambda") },
+          MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobRunnerLambda") },
+          MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseSchemaApiLambda") },
+          MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },
+          MONITORED_LAMBDA_ROLLUPS_API: { Ref: Match.stringLikeRegexp("^Nyc311RollupsApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

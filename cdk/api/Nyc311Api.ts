@@ -7,6 +7,9 @@ import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import type { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import type { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
+import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
+import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
+import type { Nyc311RollupsApiLambda } from "../warehouse/Nyc311RollupsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -14,6 +17,9 @@ export interface Nyc311ApiProps {
   ordersApiLambda: Nyc311OrdersApiLambda;
   orderEventsApiLambda: Nyc311OrderEventsApiLambda;
   lambdaMetricsApiLambda: Nyc311LambdaMetricsApiLambda;
+  warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
+  warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
+  rollupsApiLambda: Nyc311RollupsApiLambda;
   /** WebsiteHosting's CloudFront `distribution.domainName` — allowed by CORS alongside local dev. */
   webAppDomainName: string;
 }
@@ -32,7 +38,8 @@ const LOCAL_DEV_ORIGIN = "http://localhost:5173";
  * this project's basic GET-only REST surface (1-data-ingestion.md §8a).
  *
  * Routes: `GET /ingestion/metrics`, `GET /orders`, `GET /order-events`,
- * `GET /lambda-metrics`.
+ * `GET /lambda-metrics`, `GET /data/schema`, `GET /data/jobs`,
+ * `GET /data/rollups`.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -70,6 +77,24 @@ export class Nyc311Api extends HttpApi {
       path: "/lambda-metrics",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetLambdaMetricsIntegration", props.lambdaMetricsApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/data/schema",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetWarehouseSchemaIntegration", props.warehouseSchemaApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/data/jobs",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetWarehouseJobsIntegration", props.warehouseJobsApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/data/rollups",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetRollupsIntegration", props.rollupsApiLambda),
     });
   }
 }
