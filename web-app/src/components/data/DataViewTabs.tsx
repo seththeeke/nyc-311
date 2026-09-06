@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-export const DATA_VIEWS = ["jobs", "performance"] as const;
+export const DATA_VIEWS = ["jobs", "performance", "rollups"] as const;
 export type DataView = (typeof DATA_VIEWS)[number];
 
 export interface DataViewTabsProps {
@@ -11,6 +11,7 @@ export interface DataViewTabsProps {
 const OPTIONS: { value: DataView; label: string }[] = [
   { value: "jobs", label: "Jobs" },
   { value: "performance", label: "Performance" },
+  { value: "rollups", label: "Rollups" },
 ];
 
 export function dataViewTabId(view: DataView): string {

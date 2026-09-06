@@ -1,18 +1,19 @@
 import type { WarehouseJobRunListResponse } from "../models/warehouseJobRun";
 
 /*
- * Baked sample data for "mock" data mode (config.ts) — a mix of statuses,
- * triggers, and a retry chain, so mock mode exercises every visual state
+ * Baked sample data for "mock" data mode (config.ts) — a mix of statuses
+ * and triggers so mock mode exercises every visual state
  * (7-data-warehousing.md §12): a healthy scheduled run with query-perf
- * stats, a failed run that a retry then resolved, one still RUNNING, a
- * MANUAL on-demand rebuild that succeeded, and a rebuild retry chain that
- * exhausted MAX_JOB_RETRIES and stopped auto-retrying.
+ * stats, a failed run that a RETRY-triggered run then resolved, one still
+ * RUNNING, and an older failed run that exhausted MAX_JOB_RETRIES and
+ * stopped auto-retrying. All the sample job (ORDER_VOLUME_BY_STAGE); the
+ * MANUAL trigger and on-demand rebuilds (§10) arrive with Leg 4.
  */
 export const MOCK_WAREHOUSE_JOB_RUNS: WarehouseJobRunListResponse = {
   jobRuns: [
     {
       job_run_id: "01J8Z3RUNNING0000000000001",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
+      job_name: "ORDER_VOLUME_BY_STAGE",
       status: "RUNNING",
       trigger: "SCHEDULED",
       started_at: "2026-09-05T09:00:02.000Z",
@@ -27,7 +28,7 @@ export const MOCK_WAREHOUSE_JOB_RUNS: WarehouseJobRunListResponse = {
     },
     {
       job_run_id: "01J8Z2SUCCEEDED000000000002",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
+      job_name: "ORDER_VOLUME_BY_STAGE",
       status: "SUCCEEDED",
       trigger: "SCHEDULED",
       started_at: "2026-09-04T09:00:01.000Z",
@@ -42,7 +43,7 @@ export const MOCK_WAREHOUSE_JOB_RUNS: WarehouseJobRunListResponse = {
     },
     {
       job_run_id: "01J8Z1RETRIED0000000000003",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
+      job_name: "ORDER_VOLUME_BY_STAGE",
       status: "SUCCEEDED",
       trigger: "RETRY",
       started_at: "2026-09-03T09:15:00.000Z",
@@ -57,13 +58,13 @@ export const MOCK_WAREHOUSE_JOB_RUNS: WarehouseJobRunListResponse = {
     },
     {
       job_run_id: "01J8Z0FAILED00000000000004",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
+      job_name: "ORDER_VOLUME_BY_STAGE",
       status: "FAILED",
       trigger: "SCHEDULED",
       started_at: "2026-09-03T09:00:03.000Z",
       completed_at: "2026-09-03T09:00:19.000Z",
       execution_ref: "8a3f5e17-6c2d-4b9a-af31-7d0e2c9b4f61",
-      error_message: "Athena query failed: SYNTAX_ERROR: line 4:8: Column 'borough' cannot be resolved",
+      error_message: "Athena query FAILED: SYNTAX_ERROR: line 4:8: Column 'current_stage' cannot be resolved",
       retry_count: 0,
       retried_from_job_run_id: null,
       data_scanned_bytes: null,
@@ -71,31 +72,16 @@ export const MOCK_WAREHOUSE_JOB_RUNS: WarehouseJobRunListResponse = {
       query_queue_time_ms: null,
     },
     {
-      job_run_id: "01J8Y9REBUILDOK00000000005",
-      job_name: "REBUILD_ORDER_EVENTS",
-      status: "SUCCEEDED",
-      trigger: "MANUAL",
-      started_at: "2026-09-02T16:04:00.000Z",
-      completed_at: "2026-09-02T16:11:32.000Z",
-      execution_ref: "arn:aws:states:us-east-1:178280182163:execution:Nyc311WarehouseRebuild-Test:9c4e2a-order-events",
-      error_message: null,
-      retry_count: 0,
-      retried_from_job_run_id: null,
-      data_scanned_bytes: null,
-      engine_execution_time_ms: null,
-      query_queue_time_ms: null,
-    },
-    {
-      job_run_id: "01J8Y8REBUILDR300000000008",
-      job_name: "REBUILD_REQUESTS",
+      job_run_id: "01J8Y8EXHAUSTED0000000000005",
+      job_name: "ORDER_VOLUME_BY_STAGE",
       status: "FAILED",
       trigger: "RETRY",
-      started_at: "2026-09-01T22:40:00.000Z",
-      completed_at: "2026-09-01T22:41:18.000Z",
-      execution_ref: "arn:aws:states:us-east-1:178280182163:execution:Nyc311WarehouseRebuild-Test:7f1d90-requests-r3",
-      error_message: "ExportTableToPointInTime failed: PointInTimeRecoveryUnavailableException",
+      started_at: "2026-09-01T09:45:00.000Z",
+      completed_at: "2026-09-01T09:45:16.000Z",
+      execution_ref: "7f1d9033-2a4e-4c8b-9d1a-5e2c6f0b3a71",
+      error_message: "Athena query FAILED: HIVE_CANNOT_OPEN_SPLIT: partition not found",
       retry_count: 3,
-      retried_from_job_run_id: "01J8Y7REBUILDR200000000007",
+      retried_from_job_run_id: "01J8Y7RETRY20000000000006",
       data_scanned_bytes: null,
       engine_execution_time_ms: null,
       query_queue_time_ms: null,

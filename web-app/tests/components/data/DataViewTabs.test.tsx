@@ -4,11 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { DataViewTabs, dataViewPanelId, dataViewTabId } from "../../../src/components/data/DataViewTabs";
 
 describe("DataViewTabs", () => {
-  it("renders a Jobs and a Performance tab, marking the active one selected", () => {
+  it("renders Jobs, Performance and Rollups tabs, marking the active one selected", () => {
     render(<DataViewTabs view="jobs" onChange={vi.fn()} />);
 
     expect(screen.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Performance" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tab", { name: "Rollups" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("reflects the Rollups view as active", () => {
+    render(<DataViewTabs view="rollups" onChange={vi.fn()} />);
+
+    expect(screen.getByRole("tab", { name: "Rollups" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("reflects the given active view", () => {

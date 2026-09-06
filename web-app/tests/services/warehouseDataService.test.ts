@@ -8,32 +8,35 @@ afterEach(() => {
 
 const validSchemaResponse = { tables: [] };
 const validJobRunsResponse = { jobRuns: [] };
+const validRollupsResponse = { rollups: [] };
 
 describe("warehouseDataService (the exported singleton)", () => {
-  it("returns mock data when VITE_DATA_MODE is unset", async () => {
+  it("returns mock data when the data mode is not live", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
     const { warehouseDataService } = await import("../../src/services/warehouseDataService");
     const { MOCK_WAREHOUSE_SCHEMA } = await import("../../src/test-data/warehouseSchema");
     const { MOCK_WAREHOUSE_JOB_RUNS } = await import("../../src/test-data/warehouseJobRuns");
+    const { MOCK_ANALYTICS_ROLLUPS } = await import("../../src/test-data/analyticsRollups");
 
     await expect(warehouseDataService.getSchema()).resolves.toEqual(MOCK_WAREHOUSE_SCHEMA);
     await expect(warehouseDataService.getJobRuns()).resolves.toEqual(MOCK_WAREHOUSE_JOB_RUNS);
+    await expect(warehouseDataService.getRollups()).resolves.toEqual(MOCK_ANALYTICS_ROLLUPS);
   });
 
-  it("still returns mock data even when VITE_DATA_MODE=live — no backend exists for these routes yet", async () => {
+  it("uses LiveWarehouseDataService when VITE_DATA_MODE=live", async () => {
     vi.stubEnv("VITE_DATA_MODE", "live");
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("should never be called")));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => validSchemaResponse }));
 
     const { warehouseDataService } = await import("../../src/services/warehouseDataService");
-    const { MOCK_WAREHOUSE_SCHEMA } = await import("../../src/test-data/warehouseSchema");
 
-    await expect(warehouseDataService.getSchema()).resolves.toEqual(MOCK_WAREHOUSE_SCHEMA);
-    expect(fetch).not.toHaveBeenCalled();
+    await expect(warehouseDataService.getSchema()).resolves.toEqual(validSchemaResponse);
+    expect(fetch).toHaveBeenCalledWith("https://api.example.com/data/schema");
   });
 });
 
-describe("LiveWarehouseDataService (the documented target contract, not yet wired up)", () => {
-  it("getSchema fetches from config.apiBaseUrl + /data/schema and parses the response", async () => {
+describe("LiveWarehouseDataService", () => {
+  it("getSchema fetches config.apiBaseUrl + /data/schema and parses the response", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => validSchemaResponse }));
 
@@ -59,7 +62,7 @@ describe("LiveWarehouseDataService (the documented target contract, not yet wire
     await expect(new LiveWarehouseDataService().getSchema()).rejects.toThrow();
   });
 
-  it("getJobRuns fetches from config.apiBaseUrl + /data/jobs and parses the response", async () => {
+  it("getJobRuns fetches config.apiBaseUrl + /data/jobs and parses the response", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => validJobRunsResponse }));
 
@@ -83,5 +86,31 @@ describe("LiveWarehouseDataService (the documented target contract, not yet wire
     const { LiveWarehouseDataService } = await import("../../src/services/warehouseDataService");
 
     await expect(new LiveWarehouseDataService().getJobRuns()).rejects.toThrow();
+  });
+
+  it("getRollups fetches config.apiBaseUrl + /data/rollups and parses the response", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => validRollupsResponse }));
+
+    const { LiveWarehouseDataService } = await import("../../src/services/warehouseDataService");
+
+    await expect(new LiveWarehouseDataService().getRollups()).resolves.toEqual(validRollupsResponse);
+    expect(fetch).toHaveBeenCalledWith("https://api.example.com/data/rollups");
+  });
+
+  it("getRollups throws a descriptive error when the response is not ok", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    const { LiveWarehouseDataService } = await import("../../src/services/warehouseDataService");
+
+    await expect(new LiveWarehouseDataService().getRollups()).rejects.toThrow("HTTP 500");
+  });
+
+  it("getRollups throws when the response body fails schema validation", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ not: "valid" }) }));
+
+    const { LiveWarehouseDataService } = await import("../../src/services/warehouseDataService");
+
+    await expect(new LiveWarehouseDataService().getRollups()).rejects.toThrow();
   });
 });

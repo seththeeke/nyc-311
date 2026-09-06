@@ -641,60 +641,74 @@ Same four-tier model (`testing-framework.md`):
 
 ## Build Checklist
 
-Nothing below `§12` is built yet — the design is settled but the backend
-and infrastructure are untouched. Tracked as legs, roughly in dependency
-order.
+Legs 1–3 shipped 2026-09-06 (see per-leg notes). Leg 4 and Leg 5 remain.
+Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
 
 - [x] Models, mock service (hardcoded), hooks, components, page, route,
-      fixtures, full mirrored tests — **done 2026-09-05** (§12). Mock-only;
-      hooks into the real routes with no change once they exist.
-- [ ] Restore `config.dataMode`-gated service selection when
-      `GET /data/schema` / `GET /data/jobs` are live.
-- [ ] Add the two GET routes to `4-pipeline-integration-tests.md`'s
-      endpoint-coverage gate.
+      fixtures, full mirrored tests — **done 2026-09-05** (§12).
+- [x] Restore `config.dataMode`-gated service selection; add `getRollups()`
+      + `AnalyticsRollup` model/hook + a "Rollups" inspection tab on `/data`
+      — **done 2026-09-06**, alongside Leg 3's `GET /data/rollups`.
+- [x] Add `GET /data/{schema,jobs,rollups}` to
+      `4-pipeline-integration-tests.md`'s endpoint-coverage report
+      (`KNOWN_ROUTES` + three `*.integration.test.ts` files) — **done 2026-09-06**.
 
-### Leg 1 — change capture (§4)
+### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
-- [ ] Rename `Nyc311OrderEventFanOutLambda` → `Nyc311OrdersStreamFanOutLambda`;
+- [x] Rename `Nyc311OrderEventFanOutLambda` → `Nyc311OrdersStreamFanOutLambda`;
       widen it to route `#METADATA` → new `Nyc311OrderProjectionsTopic`.
-- [ ] Rename `Nyc311OrderFanOutLambda` → `Nyc311RequestsFanOutLambda`;
+- [x] Rename `Nyc311OrderFanOutLambda` → `Nyc311RequestsFanOutLambda`;
       widen it to publish every real Request row to new
-      `Nyc311RequestEventsTopic` (with `event_name` attribute), and move
-      the ingestion queue onto a filtered SNS subscription
-      (`{event_name: ["INSERT"]}`).
-- [ ] Unit + CDK assertion tests for both (routing per branch, IAM =
-      `sns:Publish` only, no `dynamodb:*` write).
-- [ ] Ship and verify order evaluation / request promotion still work
-      unchanged.
+      `Nyc311RequestEventsTopic` (with `event_name` attribute); ingestion
+      queue moved onto a filtered SNS subscription (`{event_name: ["INSERT"]}`).
+- [x] Unit + CDK assertion tests for both.
+- [x] Verified in `Nyc311-Test`: request promotion / order evaluation
+      unchanged. (Uncovered a pre-existing `RequestDao.updateRequestStatus`
+      reserved-keyword bug in the process — fixed in the same loop.)
 
-### Leg 2 — landing zone + catalog (§5–§7)
+### Leg 2 — landing zone + catalog (§5–§7) — **shipped 2026-09-06**
 
-- [ ] `cdk/warehouse/Nyc311WarehouseBucket.ts` (§5 prefix layout).
-- [ ] Three Firehoses, Parquet conversion against the Glue tables,
-      subscribed to the three topics (§4).
-- [ ] `Nyc311WarehouseCatalog.ts` — Glue database + three `CfnTable`s +
-      partition projection (§7).
-- [ ] `Nyc311AnalyticsWorkgroup.ts` (§8).
-- [ ] `cdk/tests/warehouse/schemaSync.test.ts` — the drift-detection test
-      (§6).
-- [ ] `CLAUDE.md` §5.3 tree: add `cdk/warehouse/`.
-- [ ] Verify data lands and is Athena-queryable in `Nyc311-Test`
-      (`test-scripts/4-warehouse-test.py`).
+- [x] `cdk/warehouse/Nyc311WarehouseBucket.ts` (§5 prefix layout).
+- [x] Three Firehoses, JSON→Parquet against the Glue tables, subscribed to
+      the three topics. One shared transform Lambda stamps
+      `warehouse_ingested_at` / `ingestion_source` and stringifies opaque
+      fields.
+- [x] `Nyc311WarehouseCatalog.ts` — Glue database + three `CfnTable`s +
+      Athena partition projection on `dt`.
+- [x] `Nyc311AnalyticsWorkgroup.ts`.
+- [x] `cdk/tests/warehouse/schemaSync.test.ts` — drift-detection test.
+- [x] `CLAUDE.md` §5.3 tree: `cdk/warehouse/` added.
+- [x] Verified in `Nyc311-Test`: a synthetic OrderEvent landed as Parquet
+      in `nyc311_warehouse_test.order_events`, Athena-queryable,
+      `ingestion_source = 'STREAM'` (`test-scripts/4-warehouse-test.py`).
+- **Deviation:** timestamp-ish Glue columns are typed `string`, not
+  `timestamp` — the Firehose Parquet converter rejects ISO-8601 strings
+  for a `timestamp` column. Flagged and accepted.
 
-### Leg 3 — job runner + tracking + serving (§8–§9, §11)
+### Leg 3 — job runner + tracking + serving (§8–§9, §11) — **shipped 2026-09-06**
 
-- [ ] `WarehouseJobRuns` table + DAO/service (write lifecycle, retry
-      sweep, `MAX_JOB_RETRIES` cutoff) — `backend/{controller,service,dao}/analytics/`.
-- [ ] `AnalyticsRollups` table + DAO + result-copy Lambda.
-- [ ] `Nyc311WarehouseJobRunner` — EventBridge Scheduler (`rate(1 day)`) →
-      Step Functions → Athena → result copy → `RecordJobRun`.
-- [ ] `cdk/warehouse/sql/order_volume_by_borough.sql` — **blocked on the
-      `Locations` pipeline** (Open Items); the runner and mechanism can
-      ship against a placeholder query first.
-- [ ] `GET /data/schema` + `GET /data/jobs` Lambdas + routes (read-only
-      IAM, asserted no write actions).
+- [x] `WarehouseJobRuns` table + `dao/analytics/warehouseJobRunsDao` +
+      service (RUNNING→SUCCEEDED/FAILED write lifecycle, retry decision,
+      `MAX_JOB_RETRIES` cutoff).
+- [x] `AnalyticsRollups` table + `dao/analytics/analyticsRollupsDao` +
+      the fold-back logic in `warehouseJobRunnerService`.
+- [x] `Nyc311WarehouseJobRunnerLambda` — EventBridge Scheduler
+      (`rate(1 day)`) → **one Lambda** (not Step Functions — the query
+      scans KB and returns in seconds; Leg 4's rebuild is where SFN earns
+      its keep) → Athena → fold rows into `AnalyticsRollups` → record the
+      run. DLQ + single-failure CloudWatch alarm.
+- [x] `cdk/warehouse/sql/order_volume_by_stage.sql` — the sample job is
+      **`order_volume_by_stage`** (count of Orders per `current_stage` from
+      the latest `order_snapshots` row per order), chosen over
+      `order_volume_by_borough` so it needs no `Locations` join and runs
+      today. `§8`'s borough job is deferred with the `Locations` pipeline.
+- [x] `GET /data/schema` + `GET /data/jobs` + `GET /data/rollups` Lambdas
+      and routes — read-only IAM (`glue:Get*` / `dynamodb:Query` only),
+      asserted no write actions in the CDK tests.
+- [x] `CLAUDE.md` §5.2: documented the `dao/analytics/` +
+      `controller/analytics/` carve-out.
 
 ### Leg 4 — on-demand rebuild (§10)
 

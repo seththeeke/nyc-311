@@ -15,7 +15,15 @@ const REPORT_DIR = path.join(__dirname, "..", "reports");
 const REPORT_FILE = path.join(REPORT_DIR, "route-report.json");
 const PARTIAL_DIR = path.join(REPORT_DIR, "partials");
 
-export const KNOWN_ROUTES = ["/ingestion/metrics", "/orders", "/order-events", "/lambda-metrics"] as const;
+export const KNOWN_ROUTES = [
+  "/ingestion/metrics",
+  "/orders",
+  "/order-events",
+  "/lambda-metrics",
+  "/data/schema",
+  "/data/jobs",
+  "/data/rollups",
+] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 
 interface RouteReportEntry {

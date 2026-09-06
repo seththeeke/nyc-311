@@ -7,15 +7,31 @@ import { DataPage } from "../../../src/components/pages/DataPage";
 import { warehouseDataService } from "../../../src/services/warehouseDataService";
 import type { WarehouseSchemaResponse } from "../../../src/models/warehouseSchema";
 import type { WarehouseJobRunListResponse } from "../../../src/models/warehouseJobRun";
+import type { AnalyticsRollupListResponse } from "../../../src/models/analyticsRollup";
 
 vi.mock("../../../src/services/warehouseDataService", () => ({
-  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn() },
+  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getRollups: vi.fn() },
 }));
 
 const mockedGetSchema = vi.mocked(warehouseDataService.getSchema);
 const mockedGetJobRuns = vi.mocked(warehouseDataService.getJobRuns);
+const mockedGetRollups = vi.mocked(warehouseDataService.getRollups);
 
 const emptySchema: WarehouseSchemaResponse = { tables: [] };
+
+const rollups: AnalyticsRollupListResponse = {
+  rollups: [
+    {
+      metric_view: "ORDER_VOLUME_BY_STAGE",
+      rollup_key: "2026-09-04#SCHEDULE",
+      run_date: "2026-09-04",
+      dimension: "SCHEDULE",
+      value: 412,
+      computed_at: "2026-09-04T09:00:14.000Z",
+      job_run_id: "01J8Z2SUCCEEDED000000000002",
+    },
+  ],
+};
 
 const jobRuns: WarehouseJobRunListResponse = {
   jobRuns: [
@@ -68,6 +84,8 @@ function renderPage() {
 beforeEach(() => {
   mockedGetSchema.mockReset();
   mockedGetJobRuns.mockReset();
+  mockedGetRollups.mockReset();
+  mockedGetRollups.mockResolvedValue({ rollups: [] });
 });
 
 describe("DataPage", () => {
@@ -156,6 +174,37 @@ describe("DataPage", () => {
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
     expect(screen.getByText(/1 query run /)).toBeInTheDocument();
     expect(screen.getByText("4.0 MB")).toBeInTheDocument();
+  });
+
+  it("switches the right column to the Rollups tab, showing the latest run's dimensions", async () => {
+    const user = userEvent.setup();
+    mockedGetSchema.mockResolvedValue(emptySchema);
+    mockedGetJobRuns.mockResolvedValue(jobRuns);
+    mockedGetRollups.mockResolvedValue(rollups);
+    renderPage();
+
+    await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH");
+    await user.click(screen.getByRole("tab", { name: "Rollups" }));
+
+    expect(screen.getByRole("tab", { name: "Rollups" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("SCHEDULE")).toBeInTheDocument();
+    expect(screen.getByText(/latest run 2026-09-04/)).toBeInTheDocument();
+  });
+
+  it("shows an error message when the rollups fetch fails, only on the Rollups tab", async () => {
+    const user = userEvent.setup();
+    mockedGetSchema.mockResolvedValue(emptySchema);
+    mockedGetJobRuns.mockResolvedValue(jobRuns);
+    mockedGetRollups.mockRejectedValue(new Error("HTTP 500"));
+    renderPage();
+
+    await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH");
+    expect(screen.queryByText(/Failed to load rollups/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Rollups" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Failed to load rollups: HTTP 500");
   });
 
   it("shows an error message when the job-runs fetch fails", async () => {
