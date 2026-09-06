@@ -26,6 +26,12 @@ export interface PutItemOptions {
    */
   conditionExpressionValues?: Record<string, unknown>;
   /**
+   * Name placeholders (`#name`) referenced in `conditionExpression` — used
+   * to reference a DynamoDB reserved keyword (e.g. `status`) as
+   * `{ "#status": "status" }` so `"#status = :expectedStatus"` is legal.
+   */
+  conditionExpressionNames?: Record<string, string>;
+  /**
    * Extra attributes merged onto the item after validation — for
    * storage-only concerns (e.g. a table's GSI key attributes) that aren't
    * part of `TEntity`'s domain schema and would otherwise be stripped by
@@ -123,6 +129,9 @@ export abstract class Dao<TEntity> {
             : {}),
           ...(options.conditionExpressionValues
             ? { ExpressionAttributeValues: options.conditionExpressionValues }
+            : {}),
+          ...(options.conditionExpressionNames
+            ? { ExpressionAttributeNames: options.conditionExpressionNames }
             : {}),
         })
       );

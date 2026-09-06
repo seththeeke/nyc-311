@@ -153,6 +153,24 @@ describe("Dao.putItem (via TestDao.put)", () => {
     expect(input).toMatchObject({ ConditionExpression: "attribute_not_exists(id)" });
   });
 
+  it("passes conditionExpressionNames through as ExpressionAttributeNames (for reserved keywords like `status`)", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.put(
+      { id: "a", value: 1 },
+      {
+        conditionExpression: "#status = :expected",
+        conditionExpressionValues: { ":expected": "DRAFT" },
+        conditionExpressionNames: { "#status": "status" },
+      }
+    );
+    const input = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(input).toMatchObject({
+      ConditionExpression: "#status = :expected",
+      ExpressionAttributeValues: { ":expected": "DRAFT" },
+      ExpressionAttributeNames: { "#status": "status" },
+    });
+  });
+
   it("merges additionalAttributes onto the written item without validating them", async () => {
     ddbMock.on(PutCommand).resolves({});
     await dao.put({ id: "a", value: 1 }, { additionalAttributes: { gsi1pk: "derived-key" } });

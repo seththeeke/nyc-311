@@ -78,8 +78,10 @@ export class RequestDao extends Dao<Request> {
       ...(locationId !== null ? { location_id: locationId } : {}),
     };
     await this.putItem(updated, {
-      conditionExpression: "status = :expectedStatus",
+      /* `status` is a DynamoDB reserved keyword — reference it via a name placeholder. */
+      conditionExpression: "#status = :expectedStatus",
       conditionExpressionValues: { ":expectedStatus": "DRAFT" },
+      conditionExpressionNames: { "#status": "status" },
       additionalAttributes: this.gsiAttributesFor(updated),
     });
     return updated;

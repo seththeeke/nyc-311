@@ -288,8 +288,10 @@ describe("updateRequestStatus", () => {
     expect(updated).toMatchObject({ status: "PROMOTED", location_id: "1234567890" });
     const putInput = ddbMock.commandCalls(PutCommand)[0].args[0].input;
     expect(putInput).toMatchObject({
-      ConditionExpression: "status = :expectedStatus",
+      /* `#status` name placeholder — `status` is a DynamoDB reserved keyword and errors if used bare. */
+      ConditionExpression: "#status = :expectedStatus",
       ExpressionAttributeValues: { ":expectedStatus": "DRAFT" },
+      ExpressionAttributeNames: { "#status": "status" },
       Item: expect.objectContaining({ status: "PROMOTED", gsi2pk: "PROMOTED", gsi3pk: "1234567890" }),
     });
   });
