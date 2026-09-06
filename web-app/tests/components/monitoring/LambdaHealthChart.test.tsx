@@ -21,8 +21,8 @@ describe("LambdaHealthChart", () => {
 
   it("renders one accessible bar per data point with a descriptive label", () => {
     const lambda: LambdaHealth = {
-      logicalName: "OrderFanOut",
-      functionName: "Nyc311OrderFanOut-Test",
+      logicalName: "RequestsFanOut",
+      functionName: "Nyc311RequestsFanOut-Test",
       points: [{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0 }],
     };
     render(<LambdaHealthChart lambda={lambda} />);

@@ -8,9 +8,9 @@ const client = new CloudWatchClient({});
 
 const ENV_VARS: Record<string, string> = {
   MONITORED_LAMBDA_POLLER: "Nyc311Poller-Test",
-  MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311OrderFanOut-Test",
+  MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311RequestsFanOut-Test",
   MONITORED_LAMBDA_REQUEST_EVALUATION: "Nyc311RequestEvaluation-Test",
-  MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrderEventFanOut-Test",
+  MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrdersStreamFanOut-Test",
   MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
   MONITORED_LAMBDA_ORDER_SCHEDULING: "Nyc311OrderScheduling-Test",
   MONITORED_LAMBDA_METRICS_API: "Nyc311MetricsApi-Test",
@@ -69,13 +69,13 @@ describe("getLambdaHealth", () => {
   it("merges same-date Invocations/Errors datapoints into one point (the fan-out incident's exact shape: errors == invocations)", async () => {
     cwMock.on(GetMetricStatisticsCommand).callsFake((input) => {
       const functionName = input.Dimensions?.[0]?.Value;
-      if (functionName !== "Nyc311OrderFanOut-Test") return { Datapoints: [] };
+      if (functionName !== "Nyc311RequestsFanOut-Test") return { Datapoints: [] };
       return { Datapoints: [{ Timestamp: new Date("2026-08-19T00:00:00.000Z"), Sum: 1008 }] };
     });
 
     const result = await getLambdaHealth({ client, now });
 
-    const fanOut = result.find((r) => r.logicalName === "OrderFanOut");
+    const fanOut = result.find((r) => r.logicalName === "RequestsFanOut");
     expect(fanOut?.points).toEqual([{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0 }]);
   });
 

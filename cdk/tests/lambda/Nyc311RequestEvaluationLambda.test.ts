@@ -5,6 +5,7 @@ import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311OrderIngestionQueue } from "../../lambda/Nyc311OrderIngestionQueue";
+import { Nyc311RequestEventsTopic } from "../../lambda/Nyc311RequestEventsTopic";
 import { Nyc311RequestEvaluationLambda } from "../../lambda/Nyc311RequestEvaluationLambda";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -13,7 +14,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
-  const orderIngestionQueue = new Nyc311OrderIngestionQueue(stack, "Nyc311OrderIngestionQueue", { envName });
+  const requestEventsTopic = new Nyc311RequestEventsTopic(stack, "Nyc311RequestEventsTopic", { envName });
+  const orderIngestionQueue = new Nyc311OrderIngestionQueue(stack, "Nyc311OrderIngestionQueue", { envName, requestEventsTopic });
   new Nyc311RequestEvaluationLambda(stack, "Nyc311RequestEvaluationLambda", {
     envName,
     requestsTable,

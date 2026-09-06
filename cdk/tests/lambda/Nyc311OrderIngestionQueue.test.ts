@@ -2,11 +2,13 @@ import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "vitest";
 import { Nyc311OrderIngestionQueue } from "../../lambda/Nyc311OrderIngestionQueue";
+import { Nyc311RequestEventsTopic } from "../../lambda/Nyc311RequestEventsTopic";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
-  new Nyc311OrderIngestionQueue(stack, "Nyc311OrderIngestionQueue", { envName });
+  const requestEventsTopic = new Nyc311RequestEventsTopic(stack, "Nyc311RequestEventsTopic", { envName });
+  new Nyc311OrderIngestionQueue(stack, "Nyc311OrderIngestionQueue", { envName, requestEventsTopic });
   return Template.fromStack(stack);
 }
 
@@ -31,6 +33,17 @@ describe("Nyc311OrderIngestionQueue", () => {
         },
         maxReceiveCount: 3,
       }),
+    });
+  });
+
+  it("subscribes to Nyc311RequestEventsTopic with raw delivery and an INSERT-only filter policy (7-data-warehousing.md §4)", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Protocol: "sqs",
+      RawMessageDelivery: true,
+      FilterPolicy: { event_name: ["INSERT"] },
+      TopicArn: { Ref: Match.stringLikeRegexp("^Nyc311RequestEventsTopic") },
     });
   });
 

@@ -20,9 +20,9 @@ function requireEnv(name: string): string {
  */
 const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "Poller", envVar: "MONITORED_LAMBDA_POLLER" },
-  { logicalName: "OrderFanOut", envVar: "MONITORED_LAMBDA_ORDER_FAN_OUT" },
+  { logicalName: "RequestsFanOut", envVar: "MONITORED_LAMBDA_ORDER_FAN_OUT" },
   { logicalName: "RequestEvaluation", envVar: "MONITORED_LAMBDA_REQUEST_EVALUATION" },
-  { logicalName: "OrderEventFanOut", envVar: "MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT" },
+  { logicalName: "OrdersStreamFanOut", envVar: "MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT" },
   { logicalName: "OrderEvaluation", envVar: "MONITORED_LAMBDA_ORDER_EVALUATION" },
   { logicalName: "OrderScheduling", envVar: "MONITORED_LAMBDA_ORDER_SCHEDULING" },
   { logicalName: "MetricsApi", envVar: "MONITORED_LAMBDA_METRICS_API" },

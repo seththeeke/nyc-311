@@ -1,20 +1,22 @@
 import type { Context, DynamoDBBatchResponse } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
-import { fanOutOrderEvent } from "../../service/order/orderEvaluationService";
+import { fanOutOrdersStreamRecord } from "../../service/order/orderEvaluationService";
 import { OrderStreamEventSchema } from "../../models/orderStreamEvent";
 import { ValidationError } from "../../models/errors";
 
 /**
- * The `Orders` stream's fan-out Lambda entry point (`5-order-evaluation.md`
- * §3). Validates the raw event, delegates each record to
- * `orderEvaluationService`, and reports per-item failures so one bad
- * `SequenceNumber` never blocks the rest of the batch.
+ * The `Orders` stream's fan-out Lambda entry point (`7-data-warehousing.md`
+ * §4). Validates the raw event, delegates each record to
+ * `orderEvaluationService.fanOutOrdersStreamRecord` (which routes `EVENT#`
+ * items to `Nyc311OrderEventsTopic` and `#METADATA` changes to
+ * `Nyc311OrderProjectionsTopic`), and reports per-item failures so one
+ * bad `SequenceNumber` never blocks the rest of the batch.
  */
-export const fanOutOrderEventsController = async (
+export const fanOutOrdersStreamController = async (
   event: unknown,
   context: Context
 ): Promise<DynamoDBBatchResponse> => {
-  logInfo("FanOutOrderEventsControllerInvoked", { event, awsRequestId: context.awsRequestId });
+  logInfo("FanOutOrdersStreamControllerInvoked", { event, awsRequestId: context.awsRequestId });
 
   const parsed = OrderStreamEventSchema.safeParse(event);
   if (!parsed.success) {
@@ -24,9 +26,9 @@ export const fanOutOrderEventsController = async (
   const batchItemFailures: DynamoDBBatchResponse["batchItemFailures"] = [];
   for (const record of parsed.data.Records) {
     try {
-      await fanOutOrderEvent(record);
+      await fanOutOrdersStreamRecord(record);
     } catch (err) {
-      logError("FanOutOrderEventsControllerRecordFailed", {
+      logError("FanOutOrdersStreamControllerRecordFailed", {
         sequenceNumber: record.dynamodb.SequenceNumber,
         error: err instanceof Error ? err.message : err,
         awsRequestId: context.awsRequestId,
@@ -36,7 +38,7 @@ export const fanOutOrderEventsController = async (
   }
 
   const response: DynamoDBBatchResponse = { batchItemFailures };
-  logInfo("FanOutOrderEventsControllerCompleted", {
+  logInfo("FanOutOrdersStreamControllerCompleted", {
     recordCount: parsed.data.Records.length,
     failureCount: batchItemFailures.length,
     response,

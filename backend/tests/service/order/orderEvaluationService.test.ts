@@ -3,7 +3,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   evaluateOrder,
-  fanOutOrderEvent,
+  fanOutOrdersStreamRecord,
   RandomOrderEvaluationRule,
   type OrderEvaluationRule,
 } from "../../../service/order/orderEvaluationService";
@@ -14,6 +14,7 @@ import type { Order, OrderEvent } from "../../../models/order";
 import type { OrderStreamRecord } from "../../../models/orderStreamEvent";
 
 const TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:Nyc311OrderEvents-Test";
+const PROJECTIONS_TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:Nyc311OrderProjections-Test";
 const snsMock = mockClient(SNSClient);
 const snsClient = new SNSClient({});
 
@@ -43,11 +44,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("fanOutOrderEvent", () => {
-  it("publishes the unmarshalled EVENT# item to SNS, tagged with its event_type message attribute", async () => {
+function metadataRecord(overrides: Partial<OrderStreamRecord> = {}): OrderStreamRecord {
+  return {
+    eventName: "MODIFY",
+    dynamodb: {
+      NewImage: {
+        order_id: { S: "01ORDER" },
+        sk: { S: "#METADATA" },
+        status: { S: "ACTIVE" },
+        current_stage: { S: "SCHEDULE" },
+      },
+      SequenceNumber: "222",
+    },
+    ...overrides,
+  };
+}
+
+const FAN_OUT_DEPS = { snsClient, eventsTopicArn: TOPIC_ARN, projectionsTopicArn: PROJECTIONS_TOPIC_ARN };
+
+describe("fanOutOrdersStreamRecord", () => {
+  it("publishes an EVENT# item to the events topic, tagged with its event_type message attribute", async () => {
     snsMock.on(PublishCommand).resolves({});
 
-    await fanOutOrderEvent(makeStreamRecord(), { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord(makeStreamRecord(), FAN_OUT_DEPS);
 
     const calls = snsMock.commandCalls(PublishCommand);
     expect(calls).toHaveLength(1);
@@ -63,36 +82,52 @@ describe("fanOutOrderEvent", () => {
     });
   });
 
-  it("skips a MODIFY record (the #METADATA projection's own update) without publishing anything", async () => {
-    await fanOutOrderEvent(makeStreamRecord({ eventName: "MODIFY" }), { snsClient, topicArn: TOPIC_ARN });
+  it("publishes a MODIFY of #METADATA to the projections topic, tagged with its event_name", async () => {
+    snsMock.on(PublishCommand).resolves({});
+
+    await fanOutOrdersStreamRecord(metadataRecord(), FAN_OUT_DEPS);
+
+    const calls = snsMock.commandCalls(PublishCommand);
+    expect(calls).toHaveLength(1);
+    const input = calls[0]?.args[0].input;
+    expect(input?.TopicArn).toBe(PROJECTIONS_TOPIC_ARN);
+    expect(JSON.parse(input?.Message as string)).toEqual({
+      order_id: "01ORDER",
+      sk: "#METADATA",
+      status: "ACTIVE",
+      current_stage: "SCHEDULE",
+    });
+    expect(input?.MessageAttributes).toEqual({
+      event_name: { DataType: "String", StringValue: "MODIFY" },
+    });
+  });
+
+  it("publishes an INSERT of #METADATA (order creation) to the projections topic", async () => {
+    snsMock.on(PublishCommand).resolves({});
+
+    await fanOutOrdersStreamRecord(metadataRecord({ eventName: "INSERT" }), FAN_OUT_DEPS);
+
+    const input = snsMock.commandCalls(PublishCommand)[0]?.args[0].input;
+    expect(input?.TopicArn).toBe(PROJECTIONS_TOPIC_ARN);
+    expect(input?.MessageAttributes).toEqual({
+      event_name: { DataType: "String", StringValue: "INSERT" },
+    });
+  });
+
+  it("skips a MODIFY of an EVENT# item (never happens — events are immutable) without publishing", async () => {
+    await fanOutOrdersStreamRecord(makeStreamRecord({ eventName: "MODIFY" }), FAN_OUT_DEPS);
 
     expect(snsMock.calls()).toHaveLength(0);
   });
 
   it("skips a REMOVE record without publishing anything", async () => {
-    await fanOutOrderEvent(makeStreamRecord({ eventName: "REMOVE" }), { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord(metadataRecord({ eventName: "REMOVE" }), FAN_OUT_DEPS);
 
     expect(snsMock.calls()).toHaveLength(0);
   });
 
   it("skips an INSERT record with no NewImage at all (e.g. KEYS_ONLY delivery)", async () => {
-    await fanOutOrderEvent(
-      { eventName: "INSERT", dynamodb: { SequenceNumber: "111" } },
-      { snsClient, topicArn: TOPIC_ARN }
-    );
-
-    expect(snsMock.calls()).toHaveLength(0);
-  });
-
-  it("skips an INSERT of the #METADATA projection item (sk doesn't start with EVENT#)", async () => {
-    const record = makeStreamRecord({
-      dynamodb: {
-        NewImage: { order_id: { S: "01ORDER" }, sk: { S: "#METADATA" }, status: { S: "CREATED" } },
-        SequenceNumber: "222",
-      },
-    });
-
-    await fanOutOrderEvent(record, { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord({ eventName: "INSERT", dynamodb: { SequenceNumber: "111" } }, FAN_OUT_DEPS);
 
     expect(snsMock.calls()).toHaveLength(0);
   });
@@ -102,7 +137,7 @@ describe("fanOutOrderEvent", () => {
       dynamodb: { NewImage: { order_id: { S: "01ORDER" } }, SequenceNumber: "333" },
     });
 
-    await fanOutOrderEvent(record, { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord(record, FAN_OUT_DEPS);
 
     expect(snsMock.calls()).toHaveLength(0);
   });
@@ -112,7 +147,7 @@ describe("fanOutOrderEvent", () => {
       dynamodb: { NewImage: { order_id: { S: "01ORDER" }, sk: { N: "1" } }, SequenceNumber: "444" },
     });
 
-    await fanOutOrderEvent(record, { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord(record, FAN_OUT_DEPS);
 
     expect(snsMock.calls()).toHaveLength(0);
   });
@@ -126,7 +161,7 @@ describe("fanOutOrderEvent", () => {
       },
     });
 
-    await fanOutOrderEvent(record, { snsClient, topicArn: TOPIC_ARN });
+    await fanOutOrdersStreamRecord(record, FAN_OUT_DEPS);
 
     const input = snsMock.commandCalls(PublishCommand)[0]?.args[0].input;
     expect(input?.MessageAttributes).toEqual({
@@ -137,17 +172,15 @@ describe("fanOutOrderEvent", () => {
   it("lets an SNS Publish failure propagate", async () => {
     snsMock.on(PublishCommand).rejects(new Error("SNS unavailable"));
 
-    await expect(fanOutOrderEvent(makeStreamRecord(), { snsClient, topicArn: TOPIC_ARN })).rejects.toThrow(
-      "SNS unavailable"
-    );
+    await expect(fanOutOrdersStreamRecord(makeStreamRecord(), FAN_OUT_DEPS)).rejects.toThrow("SNS unavailable");
   });
 
-  it("throws when topicArn isn't provided and ORDER_EVENTS_TOPIC_ARN isn't set", async () => {
+  it("throws when eventsTopicArn isn't provided and ORDER_EVENTS_TOPIC_ARN isn't set", async () => {
     const previous = process.env["ORDER_EVENTS_TOPIC_ARN"];
     delete process.env["ORDER_EVENTS_TOPIC_ARN"];
 
     try {
-      await expect(fanOutOrderEvent(makeStreamRecord(), { snsClient })).rejects.toThrow(
+      await expect(fanOutOrdersStreamRecord(makeStreamRecord(), { snsClient })).rejects.toThrow(
         "Missing required environment variable: ORDER_EVENTS_TOPIC_ARN"
       );
     } finally {
@@ -155,34 +188,39 @@ describe("fanOutOrderEvent", () => {
     }
   });
 
-  it("falls back to ORDER_EVENTS_TOPIC_ARN when topicArn isn't provided in deps", async () => {
-    const previous = process.env["ORDER_EVENTS_TOPIC_ARN"];
-    process.env["ORDER_EVENTS_TOPIC_ARN"] = TOPIC_ARN;
-    snsMock.on(PublishCommand).resolves({});
+  it("throws when projectionsTopicArn isn't provided and ORDER_PROJECTIONS_TOPIC_ARN isn't set", async () => {
+    const previous = process.env["ORDER_PROJECTIONS_TOPIC_ARN"];
+    delete process.env["ORDER_PROJECTIONS_TOPIC_ARN"];
 
     try {
-      await fanOutOrderEvent(makeStreamRecord(), { snsClient });
-
-      const calls = snsMock.commandCalls(PublishCommand);
-      expect(calls[0]?.args[0].input.TopicArn).toBe(TOPIC_ARN);
+      await expect(fanOutOrdersStreamRecord(metadataRecord(), { snsClient })).rejects.toThrow(
+        "Missing required environment variable: ORDER_PROJECTIONS_TOPIC_ARN"
+      );
     } finally {
-      if (previous === undefined) delete process.env["ORDER_EVENTS_TOPIC_ARN"];
-      else process.env["ORDER_EVENTS_TOPIC_ARN"] = previous;
+      if (previous !== undefined) process.env["ORDER_PROJECTIONS_TOPIC_ARN"] = previous;
     }
   });
 
-  it("falls back to a freshly constructed SNSClient when snsClient isn't provided in deps", async () => {
-    const previous = process.env["ORDER_EVENTS_TOPIC_ARN"];
+  it("falls back to the env-var topic ARNs and a fresh SNSClient when deps are omitted", async () => {
+    const prevEvents = process.env["ORDER_EVENTS_TOPIC_ARN"];
+    const prevProjections = process.env["ORDER_PROJECTIONS_TOPIC_ARN"];
     process.env["ORDER_EVENTS_TOPIC_ARN"] = TOPIC_ARN;
+    process.env["ORDER_PROJECTIONS_TOPIC_ARN"] = PROJECTIONS_TOPIC_ARN;
     snsMock.on(PublishCommand).resolves({});
 
     try {
-      await fanOutOrderEvent(makeStreamRecord());
+      await fanOutOrdersStreamRecord(makeStreamRecord());
+      await fanOutOrdersStreamRecord(metadataRecord());
 
-      expect(snsMock.commandCalls(PublishCommand)).toHaveLength(1);
+      const calls = snsMock.commandCalls(PublishCommand);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]?.args[0].input.TopicArn).toBe(TOPIC_ARN);
+      expect(calls[1]?.args[0].input.TopicArn).toBe(PROJECTIONS_TOPIC_ARN);
     } finally {
-      if (previous === undefined) delete process.env["ORDER_EVENTS_TOPIC_ARN"];
-      else process.env["ORDER_EVENTS_TOPIC_ARN"] = previous;
+      if (prevEvents === undefined) delete process.env["ORDER_EVENTS_TOPIC_ARN"];
+      else process.env["ORDER_EVENTS_TOPIC_ARN"] = prevEvents;
+      if (prevProjections === undefined) delete process.env["ORDER_PROJECTIONS_TOPIC_ARN"];
+      else process.env["ORDER_PROJECTIONS_TOPIC_ARN"] = prevProjections;
     }
   });
 });

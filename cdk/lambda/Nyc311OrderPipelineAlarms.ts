@@ -4,13 +4,13 @@ import * as actions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import { Construct } from "constructs";
-import type { Nyc311OrderEventFanOutLambda } from "./Nyc311OrderEventFanOutLambda";
+import type { Nyc311OrdersStreamFanOutLambda } from "./Nyc311OrdersStreamFanOutLambda";
 import type { Nyc311OrderEvaluationQueue } from "./Nyc311OrderEvaluationQueue";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
 export interface Nyc311OrderPipelineAlarmsProps {
   envName: Nyc311Environment;
-  orderEventFanOutLambda: Nyc311OrderEventFanOutLambda;
+  ordersStreamFanOutLambda: Nyc311OrdersStreamFanOutLambda;
   orderEvaluationQueue: Nyc311OrderEvaluationQueue;
   /** Where every alarm here notifies. */
   failureNotificationEmail: string;
@@ -54,8 +54,8 @@ export class Nyc311OrderPipelineAlarms extends Construct {
     const notify = new actions.SnsAction(failureTopic);
 
     this.errorsAlarm = new cloudwatch.Alarm(this, "FanOutErrorsAlarm", {
-      alarmName: `Nyc311OrderEventFanOutErrorsAlarm-${suffix}`,
-      metric: props.orderEventFanOutLambda.metricErrors({ period: EVALUATION_PERIOD, statistic: "sum" }),
+      alarmName: `Nyc311OrdersStreamFanOutErrorsAlarm-${suffix}`,
+      metric: props.ordersStreamFanOutLambda.metricErrors({ period: EVALUATION_PERIOD, statistic: "sum" }),
       threshold: 1,
       evaluationPeriods: CONSECUTIVE_PERIODS_TO_ALARM,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -66,12 +66,12 @@ export class Nyc311OrderPipelineAlarms extends Construct {
     const iteratorAgeMetric = new cloudwatch.Metric({
       namespace: "AWS/Lambda",
       metricName: "IteratorAge",
-      dimensionsMap: { FunctionName: props.orderEventFanOutLambda.functionName },
+      dimensionsMap: { FunctionName: props.ordersStreamFanOutLambda.functionName },
       period: EVALUATION_PERIOD,
       statistic: "Maximum",
     });
     this.iteratorAgeAlarm = new cloudwatch.Alarm(this, "FanOutIteratorAgeAlarm", {
-      alarmName: `Nyc311OrderEventFanOutIteratorAgeAlarm-${suffix}`,
+      alarmName: `Nyc311OrdersStreamFanOutIteratorAgeAlarm-${suffix}`,
       metric: iteratorAgeMetric,
       threshold: ITERATOR_AGE_THRESHOLD_MS,
       evaluationPeriods: CONSECUTIVE_PERIODS_TO_ALARM,

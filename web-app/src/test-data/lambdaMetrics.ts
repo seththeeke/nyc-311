@@ -8,15 +8,15 @@ function healthyPoints(dailyInvocations: number): LambdaHealth["points"] {
 
 /*
  * Baked sample data for "mock" data mode (config.ts) — a small, lightweight
- * fixture set. Mostly healthy, but OrderFanOut mirrors the shape of the
+ * fixture set. Mostly healthy, but RequestsFanOut mirrors the shape of the
  * real 2026-08-22 incident this tile was built to catch: errors ==
  * invocations, every single day, since the day it shipped.
  */
 export const MOCK_LAMBDA_METRICS: LambdaHealth[] = [
   { logicalName: "Poller", functionName: "Nyc311Poller-Test", points: healthyPoints(4) },
   {
-    logicalName: "OrderFanOut",
-    functionName: "Nyc311OrderFanOut-Test",
+    logicalName: "RequestsFanOut",
+    functionName: "Nyc311RequestsFanOut-Test",
     points: ["2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22"].map((date, i) => ({
       date,
       invocations: 1008 - i * 40,

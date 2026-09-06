@@ -24,77 +24,116 @@ function getDefaultOrderDao(): OrderDao {
 }
 
 /**
- * Dependencies for {@link fanOutOrderEvent}. Both default to a freshly
- * constructed client/env lookup — tests override them with mocks/fakes.
+ * Dependencies for {@link fanOutOrdersStreamRecord}. All default to a
+ * freshly constructed client/env lookup — tests override them with
+ * mocks/fakes.
  */
-export interface OrderEventFanOutDeps {
+export interface OrdersStreamFanOutDeps {
   snsClient?: SNSClient;
-  topicArn?: string;
+  eventsTopicArn?: string;
+  projectionsTopicArn?: string;
+}
+
+/** Extracts a string `sk` from a stream record's `NewImage`, or `null`. */
+function newImageSk(record: OrderStreamRecord): string | null {
+  const sk = record.dynamodb.NewImage?.["sk"];
+  if (typeof sk === "object" && sk !== null && "S" in sk && typeof (sk as { S: unknown }).S === "string") {
+    return (sk as { S: string }).S;
+  }
+  return null;
 }
 
 /**
- * True only for an appended `OrderEvent` (an `INSERT` whose `sk` starts
- * with `EVENT#`) — never the `#METADATA` projection item, per
- * `5-order-evaluation.md` §3's "forward every OrderEvent, not just
- * creation" decision. The projection's own writes are always either an
- * `INSERT` of `#METADATA` (creation) or a `MODIFY` (every later update) —
- * neither matches this check, so the fan-out only ever forwards Order's
- * source-of-truth event log, never its derived, read-optimized cache.
+ * True only for an appended `OrderEvent` — an `INSERT` whose `sk` starts
+ * with `EVENT#` (`5-order-evaluation.md` §3). Immutable, append-only, so a
+ * `MODIFY` never applies here.
  */
 function isOrderEventRecord(record: OrderStreamRecord): boolean {
-  if (record.eventName !== "INSERT") return false;
-  const sk = record.dynamodb.NewImage?.["sk"];
+  return record.eventName === "INSERT" && (newImageSk(record)?.startsWith("EVENT#") ?? false);
+}
+
+/**
+ * True for a change to the `#METADATA` projection row — an `INSERT` (order
+ * creation) or a `MODIFY` (every later state transition). Only the
+ * warehouse consumes this stream (`7-data-warehousing.md` §4), for
+ * `order_snapshots`; the operational Order-evaluation pipeline reads
+ * `Nyc311OrderEventsTopic` instead.
+ */
+function isOrderProjectionRecord(record: OrderStreamRecord): boolean {
   return (
-    typeof sk === "object" &&
-    sk !== null &&
-    "S" in sk &&
-    typeof (sk as { S: unknown }).S === "string" &&
-    (sk as { S: string }).S.startsWith("EVENT#")
+    (record.eventName === "INSERT" || record.eventName === "MODIFY") && newImageSk(record) === "#METADATA"
   );
 }
 
 /**
- * Fans out one appended `OrderEvent` onto `Nyc311OrderEventsTopic`, tagged
- * with an `event_type` message attribute so downstream SQS subscriptions
- * can filter declaratively (`5-order-evaluation.md` §3) — no relevance
- * logic lives past this Lambda; everything downstream is a filter policy,
- * not code. No DAO calls, same "pure plumbing" shape as
- * `nyc311RequestService.ts`'s `fanOutRequestRecord`. An irrelevant record
- * is a normal no-op, never a `batchItemFailure`.
+ * Routes one `Orders`-table stream record: an `EVENT#` item onto
+ * `Nyc311OrderEventsTopic` (tagged `event_type`, unchanged from
+ * `5-order-evaluation.md` §3), a `#METADATA` change onto
+ * `Nyc311OrderProjectionsTopic` (tagged `event_name`), everything else a
+ * no-op (`7-data-warehousing.md` §4). One stream reader, two outbound
+ * topics — pure plumbing, no DAO calls, an irrelevant record never a
+ * `batchItemFailure`.
  */
-export async function fanOutOrderEvent(record: OrderStreamRecord, deps: OrderEventFanOutDeps = {}): Promise<void> {
+export async function fanOutOrdersStreamRecord(
+  record: OrderStreamRecord,
+  deps: OrdersStreamFanOutDeps = {}
+): Promise<void> {
   const snsClient = deps.snsClient ?? new SNSClient({});
-  const topicArn = deps.topicArn ?? requireEnv("ORDER_EVENTS_TOPIC_ARN");
 
-  if (!isOrderEventRecord(record)) {
-    logInfo("OrderStreamRecordSkipped", {
-      eventName: record.eventName,
+  if (isOrderEventRecord(record)) {
+    const eventsTopicArn = deps.eventsTopicArn ?? requireEnv("ORDER_EVENTS_TOPIC_ARN");
+    const orderEvent = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
+    const eventType = typeof orderEvent["event_type"] === "string" ? orderEvent["event_type"] : "UNKNOWN";
+    logInfo("OrderStreamRecordUnmarshalled", {
       sequenceNumber: record.dynamodb.SequenceNumber,
+      orderId: orderEvent["order_id"],
+      recordType: "EVENT",
+      eventType,
+    });
+    await snsClient.send(
+      new PublishCommand({
+        TopicArn: eventsTopicArn,
+        Message: JSON.stringify(orderEvent),
+        MessageAttributes: { event_type: { DataType: "String", StringValue: eventType } },
+      })
+    );
+    logInfo("OrderStreamRecordFannedOut", {
+      sequenceNumber: record.dynamodb.SequenceNumber,
+      orderId: orderEvent["order_id"],
+      recordType: "EVENT",
+      eventType,
     });
     return;
   }
 
-  const orderEvent = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
-  const eventType = typeof orderEvent["event_type"] === "string" ? orderEvent["event_type"] : "UNKNOWN";
-  logInfo("OrderStreamRecordUnmarshalled", {
-    sequenceNumber: record.dynamodb.SequenceNumber,
-    orderId: orderEvent["order_id"],
-    eventType,
-  });
+  if (isOrderProjectionRecord(record)) {
+    const projectionsTopicArn = deps.projectionsTopicArn ?? requireEnv("ORDER_PROJECTIONS_TOPIC_ARN");
+    const projection = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
+    logInfo("OrderStreamRecordUnmarshalled", {
+      sequenceNumber: record.dynamodb.SequenceNumber,
+      orderId: projection["order_id"],
+      recordType: "PROJECTION",
+      eventName: record.eventName,
+    });
+    await snsClient.send(
+      new PublishCommand({
+        TopicArn: projectionsTopicArn,
+        Message: JSON.stringify(projection),
+        MessageAttributes: { event_name: { DataType: "String", StringValue: record.eventName } },
+      })
+    );
+    logInfo("OrderStreamRecordFannedOut", {
+      sequenceNumber: record.dynamodb.SequenceNumber,
+      orderId: projection["order_id"],
+      recordType: "PROJECTION",
+      eventName: record.eventName,
+    });
+    return;
+  }
 
-  await snsClient.send(
-    new PublishCommand({
-      TopicArn: topicArn,
-      Message: JSON.stringify(orderEvent),
-      MessageAttributes: {
-        event_type: { DataType: "String", StringValue: eventType },
-      },
-    })
-  );
-  logInfo("OrderStreamRecordFannedOut", {
+  logInfo("OrderStreamRecordSkipped", {
+    eventName: record.eventName,
     sequenceNumber: record.dynamodb.SequenceNumber,
-    orderId: orderEvent["order_id"],
-    eventType,
   });
 }
 

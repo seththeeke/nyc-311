@@ -2,20 +2,20 @@ import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
-import { Nyc311OrderIngestionQueue } from "../../lambda/Nyc311OrderIngestionQueue";
-import { Nyc311OrderFanOutLambda } from "../../lambda/Nyc311OrderFanOutLambda";
+import { Nyc311RequestEventsTopic } from "../../lambda/Nyc311RequestEventsTopic";
+import { Nyc311RequestsFanOutLambda } from "../../lambda/Nyc311RequestsFanOutLambda";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
-  const orderIngestionQueue = new Nyc311OrderIngestionQueue(stack, "Nyc311OrderIngestionQueue", { envName });
-  new Nyc311OrderFanOutLambda(stack, "Nyc311OrderFanOutLambda", { envName, requestsTable, orderIngestionQueue });
+  const requestEventsTopic = new Nyc311RequestEventsTopic(stack, "Nyc311RequestEventsTopic", { envName });
+  new Nyc311RequestsFanOutLambda(stack, "Nyc311RequestsFanOutLambda", { envName, requestsTable, requestEventsTopic });
   return Template.fromStack(stack);
 }
 
-describe("Nyc311OrderFanOutLambda", () => {
-  it("bundles backend/controller/ingestion/fanOutRequestEventsController's exported handler on Node 22", () => {
+describe("Nyc311RequestsFanOutLambda", () => {
+  it("bundles fanOutRequestEventsController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {
@@ -25,40 +25,35 @@ describe("Nyc311OrderFanOutLambda", () => {
   });
 
   it("suffixes the function name and log group by environment, distinguishing Test from Prod", () => {
-    synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Test" });
+    synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestsFanOut-Test" });
     synthesize("TEST").hasResourceProperties("AWS::Logs::LogGroup", {
-      LogGroupName: "/aws/lambda/Nyc311OrderFanOut-Test",
+      LogGroupName: "/aws/lambda/Nyc311RequestsFanOut-Test",
     });
 
-    synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Prod" });
+    synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestsFanOut-Prod" });
     synthesize("PROD").hasResourceProperties("AWS::Logs::LogGroup", {
-      LogGroupName: "/aws/lambda/Nyc311OrderFanOut-Prod",
+      LogGroupName: "/aws/lambda/Nyc311RequestsFanOut-Prod",
     });
   });
 
-  it("passes the order-ingestion queue's URL as ORDER_INGESTION_QUEUE_URL", () => {
+  it("passes the request-events topic's ARN as REQUEST_EVENTS_TOPIC_ARN", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
         Variables: {
-          ORDER_INGESTION_QUEUE_URL: { Ref: Match.stringLikeRegexp("^Nyc311OrderIngestionQueue") },
+          REQUEST_EVENTS_TOPIC_ARN: { Ref: Match.stringLikeRegexp("^Nyc311RequestEventsTopic") },
         },
       },
     });
   });
 
-  it("grants SendMessage on the order-ingestion queue, and no dynamodb:Put*/Update*/Delete* at all — no Requests/Orders table write access", () => {
+  it("grants Publish (only) on the request-events topic, and no dynamodb:Put*/Update*/Delete* — no table write access", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: Match.objectLike({
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: Match.arrayWith(["sqs:SendMessage"]),
-            Effect: "Allow",
-          }),
-        ]),
+        Statement: Match.arrayWith([Match.objectLike({ Action: "sns:Publish", Effect: "Allow" })]),
       }),
     });
 
@@ -69,10 +64,9 @@ describe("Nyc311OrderFanOutLambda", () => {
     const allActions = allStatements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
     expect(allActions.some((a) => typeof a === "string" && /^dynamodb:(Put|Update|Delete)/.test(a))).toBe(false);
     /*
-     * grantStreamRead (DescribeStream/GetRecords/GetShardIterator/ListStreams)
-     * is granted automatically by DynamoEventSource.bind() — asserted by the
-     * event source mapping existing at all (next test), not a separate
-     * hand-rolled IAM statement here.
+     * The only sqs:SendMessage grant is on this Lambda's own onFailure DLQ
+     * (DynamoEventSource wires that) — it no longer sends to the ingestion
+     * queue at all, that moved to an SNS subscription (7-data-warehousing.md §4).
      */
   });
 
@@ -93,14 +87,14 @@ describe("Nyc311OrderFanOutLambda", () => {
     expect(props["FilterCriteria"]).toBeUndefined();
   });
 
-  it("routes the event source mapping's onFailure to its own dedicated DLQ, distinct from the order-ingestion queue's own DLQ", () => {
+  it("routes the event source mapping's onFailure to its own dedicated DLQ", () => {
     const template = synthesize("TEST");
 
-    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderFanOutDlq-Test" });
+    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311RequestsFanOutDlq-Test" });
     template.hasResourceProperties("AWS::Lambda::EventSourceMapping", {
       DestinationConfig: {
         OnFailure: {
-          Destination: { "Fn::GetAtt": [Match.stringLikeRegexp("^Nyc311OrderFanOutLambdaOnFailureDlq"), "Arn"] },
+          Destination: { "Fn::GetAtt": [Match.stringLikeRegexp("^Nyc311RequestsFanOutLambdaOnFailureDlq"), "Arn"] },
         },
       },
     });

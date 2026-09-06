@@ -25,9 +25,9 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(stack, "Nyc311LambdaMetricsApiLambda", {
     envName,
     pollerFunctionName: "Nyc311Poller-Test",
-    orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
+    orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
-    orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
+    orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
     orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
     orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
     metricsApiFunctionName: "Nyc311MetricsApi-Test",

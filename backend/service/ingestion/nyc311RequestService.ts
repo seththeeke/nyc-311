@@ -2,7 +2,7 @@ import { ulid } from "ulid";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { RequestDao } from "../../dao/request/requestDao";
@@ -292,33 +292,38 @@ export async function getCursorStatus(deps: GetCursorStatusDeps = {}): Promise<I
  * constructed client/env lookup — tests override them with mocks/fakes.
  */
 export interface RequestFanOutDeps {
-  sqsClient?: SQSClient;
-  queueUrl?: string;
+  snsClient?: SNSClient;
+  topicArn?: string;
 }
 
 /**
- * Decides whether a DynamoDB Streams record is a real, newly-ingested
- * `Request` worth acting on — per `3-order-ingestion.md` §2.1's in-handler
- * filtering design (deliberately not `FilterCriteria` on the event source
- * mapping). `eventName !== "INSERT"` excludes this pipeline's own
- * promote-and-write-back `MODIFY`s; a missing `external_unique_key`
- * excludes the `CURSOR#NYC_311` sentinel and every poller-metrics
- * `METRIC#<ulid>` row, neither of which ever sets that field.
+ * A real `Request` row worth fanning out (`7-data-warehousing.md` §4's
+ * widened check): `INSERT` (newly ingested) or `MODIFY` (a status
+ * transition) — the order-ingestion queue narrows back to `INSERT` via an
+ * SNS filter policy, the warehouse Firehose takes both. A missing
+ * `external_unique_key` still excludes the `CURSOR#NYC_311` sentinel and
+ * `METRIC#<ulid>` rows; `REMOVE` never happens here.
  */
 function isRelevantRequestRecord(record: RequestStreamRecord): boolean {
-  return record.eventName === "INSERT" && typeof record.dynamodb.NewImage?.["external_unique_key"] !== "undefined";
+  return (
+    (record.eventName === "INSERT" || record.eventName === "MODIFY") &&
+    typeof record.dynamodb.NewImage?.["external_unique_key"] !== "undefined"
+  );
 }
 
 /**
- * Fans out one relevant `Request` INSERT onto the order-ingestion SQS
- * queue (`3-order-ingestion.md` §2.1) — no filter/promotion logic, no DAO
- * calls; the not-yet-built downstream processor owns all of that and
- * `zod`-validates the plain-JSON payload published here. An irrelevant
- * record is a normal no-op, never a `batchItemFailure`.
+ * Fans out one real `Request` row change onto `Nyc311RequestEventsTopic`,
+ * tagged with an `event_name` message attribute (`INSERT`/`MODIFY`) so
+ * subscribers filter declaratively — the order-ingestion queue takes
+ * `INSERT` only, the warehouse Firehose takes everything
+ * (`7-data-warehousing.md` §4). No filter/promotion logic, no DAO calls,
+ * same "pure plumbing" shape as `orderEvaluationService.ts`'s
+ * `fanOutOrdersStreamRecord`. An irrelevant record is a normal no-op,
+ * never a `batchItemFailure`.
  */
 export async function fanOutRequestRecord(record: RequestStreamRecord, deps: RequestFanOutDeps = {}): Promise<void> {
-  const sqsClient = deps.sqsClient ?? new SQSClient({});
-  const queueUrl = deps.queueUrl ?? requireEnv("ORDER_INGESTION_QUEUE_URL");
+  const snsClient = deps.snsClient ?? new SNSClient({});
+  const topicArn = deps.topicArn ?? requireEnv("REQUEST_EVENTS_TOPIC_ARN");
 
   if (!isRelevantRequestRecord(record)) {
     logInfo("RequestStreamRecordSkipped", {
@@ -332,16 +337,21 @@ export async function fanOutRequestRecord(record: RequestStreamRecord, deps: Req
   logInfo("RequestStreamRecordUnmarshalled", {
     sequenceNumber: record.dynamodb.SequenceNumber,
     requestId: request["request_id"],
+    eventName: record.eventName,
   });
 
-  await sqsClient.send(
-    new SendMessageCommand({
-      QueueUrl: queueUrl,
-      MessageBody: JSON.stringify(request),
+  await snsClient.send(
+    new PublishCommand({
+      TopicArn: topicArn,
+      Message: JSON.stringify(request),
+      MessageAttributes: {
+        event_name: { DataType: "String", StringValue: record.eventName },
+      },
     })
   );
   logInfo("RequestStreamRecordFannedOut", {
     sequenceNumber: record.dynamodb.SequenceNumber,
     requestId: request["request_id"],
+    eventName: record.eventName,
   });
 }

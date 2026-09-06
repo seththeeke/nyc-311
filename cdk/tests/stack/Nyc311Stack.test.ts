@@ -70,7 +70,7 @@ describe("Nyc311Stack", () => {
   it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
     const { template } = testEnv;
 
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderFanOut-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RequestsFanOut-Test" });
     template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311OrderIngestionQueue-Test" });
   });
 
@@ -92,7 +92,7 @@ describe("Nyc311Stack", () => {
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
     const { template } = testEnv;
 
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventFanOut-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrdersStreamFanOut-Test" });
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderEvents-Test" });
   });
 
@@ -111,9 +111,9 @@ describe("Nyc311Stack", () => {
   it("wires CloudWatch alarms for the fan-out Lambda and the evaluation DLQ (5-order-evaluation.md §7)", () => {
     const { template } = testEnv;
 
-    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311OrderEventFanOutErrorsAlarm-Test" });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311OrdersStreamFanOutErrorsAlarm-Test" });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
-      AlarmName: "Nyc311OrderEventFanOutIteratorAgeAlarm-Test",
+      AlarmName: "Nyc311OrdersStreamFanOutIteratorAgeAlarm-Test",
     });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
       AlarmName: "Nyc311OrderEvaluationDlqDepthAlarm-Test",
@@ -175,9 +175,9 @@ describe("Nyc311Stack", () => {
       Environment: {
         Variables: Match.objectLike({
           MONITORED_LAMBDA_POLLER: { Ref: Match.stringLikeRegexp("^Nyc311PollerLambda") },
-          MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderFanOutLambda") },
+          MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311RequestsFanOutLambda") },
           MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
-          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventFanOutLambda") },
+          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrdersStreamFanOutLambda") },
           MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
           MONITORED_LAMBDA_ORDER_SCHEDULING: { Ref: Match.stringLikeRegexp("^Nyc311OrderSchedulingLambda") },
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },

@@ -7,45 +7,45 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 import type { RequestsTable } from "../data/RequestsTable";
-import type { Nyc311OrderIngestionQueue } from "./Nyc311OrderIngestionQueue";
+import type { Nyc311RequestEventsTopic } from "./Nyc311RequestEventsTopic";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
-export interface Nyc311OrderFanOutLambdaProps {
+export interface Nyc311RequestsFanOutLambdaProps {
   envName: Nyc311Environment;
   requestsTable: RequestsTable;
-  orderIngestionQueue: Nyc311OrderIngestionQueue;
+  requestEventsTopic: Nyc311RequestEventsTopic;
 }
 
 /*
- * 3-order-ingestion.md §2.1 — batchSize 100 drains a full 2000-record
- * poller burst (PER_RUN_RECORD_CAP, 1-data-ingestion.md) in 20
- * invocations; per-item failure isolation (reportBatchItemFailures) is
- * what keeps that batch size's larger blast radius from being a
- * correctness problem.
+ * 3-order-ingestion.md §2.1 — batchSize 100 drains a full poller burst in
+ * a bounded number of invocations; per-item failure isolation
+ * (reportBatchItemFailures) is what keeps that batch size's larger blast
+ * radius from being a correctness problem.
  */
 const BATCH_SIZE = 100;
 
 /*
  * Matches the poller's own retry budget (1-data-ingestion.md §5) and the
- * downstream queue's own maxReceiveCount (Nyc311OrderIngestionQueue) — one
- * consistent retry budget across this whole pipeline.
+ * downstream queue's own maxReceiveCount — one consistent retry budget
+ * across this whole pipeline.
  */
 const RETRY_ATTEMPTS = 3;
 
 /**
- * The `Requests` stream's fan-out Lambda (`3-order-ingestion.md` §2) —
- * decides which stream records are real, newly-ingested `Request`s
- * (in-handler, not `FilterCriteria`) and republishes those onto
- * {@link Nyc311OrderIngestionQueue}. No filter/promotion logic, no DAO
- * calls; per-item failure isolation, not `bisectBatchOnError` (§2.3).
+ * The `Requests` table's sole DynamoDB Stream consumer (renamed from
+ * `Nyc311OrderFanOutLambda`). Publishes every real `Request` row change
+ * (`INSERT`/`MODIFY`) onto {@link Nyc311RequestEventsTopic}, tagged
+ * `event_name` (`7-data-warehousing.md` §4) — the ingestion queue takes
+ * `INSERT` via a filter policy, the `requests` warehouse Firehose takes
+ * all. No DAO calls; per-item failure isolation.
  */
-export class Nyc311OrderFanOutLambda extends NodejsFunction {
+export class Nyc311RequestsFanOutLambda extends NodejsFunction {
   public readonly fanOutLogGroup: logs.LogGroup;
   public readonly onFailureDeadLetterQueue: sqs.Queue;
 
-  constructor(scope: Construct, id: string, props: Nyc311OrderFanOutLambdaProps) {
+  constructor(scope: Construct, id: string, props: Nyc311RequestsFanOutLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311OrderFanOut-${suffix}`;
+    const functionName = `Nyc311RequestsFanOut-${suffix}`;
 
     const fanOutLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
       logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
@@ -70,7 +70,7 @@ export class Nyc311OrderFanOutLambda extends NodejsFunction {
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
-        ORDER_INGESTION_QUEUE_URL: props.orderIngestionQueue.queue.queueUrl,
+        REQUEST_EVENTS_TOPIC_ARN: props.requestEventsTopic.topic.topicArn,
       },
     });
 
@@ -80,11 +80,11 @@ export class Nyc311OrderFanOutLambda extends NodejsFunction {
      * Agreed 2026-08-18 (3-order-ingestion.md §2.3): this on-failure
      * destination only ever carries stream metadata (shard ID,
      * sequence-number range) for a failed batch — never the actual record
-     * content, unlike Nyc311OrderIngestionQueue's own redrive-to-DLQ.
-     * Chosen anyway for consistency with the poller's established pattern.
+     * content, unlike the downstream queue's own redrive-to-DLQ. Chosen
+     * anyway for consistency with the poller's established pattern.
      */
     this.onFailureDeadLetterQueue = new sqs.Queue(this, "OnFailureDlq", {
-      queueName: `Nyc311OrderFanOutDlq-${suffix}`,
+      queueName: `Nyc311RequestsFanOutDlq-${suffix}`,
       retentionPeriod: Duration.days(14),
       enforceSSL: true,
     });
@@ -102,15 +102,17 @@ export class Nyc311OrderFanOutLambda extends NodejsFunction {
         onFailure: new SqsDlq(this.onFailureDeadLetterQueue),
         /*
          * No `filters` prop — relevance filtering happens inside the
-         * handler (§2.1), against my own recommendation to filter here.
+         * handler (3-order-ingestion.md §2.1), against my own
+         * recommendation to filter here.
          */
       })
     );
 
     /*
-     * Least privilege: the fan-out Lambda only ever publishes — it never
-     * reads from or writes to Requests/Orders (§2.1's IAM scoping).
+     * Least privilege: this Lambda only ever publishes — it never reads
+     * from or writes to Requests/Orders (`7-data-warehousing.md` §15).
+     * Replaces the old `queue.grantSendMessages` grant.
      */
-    props.orderIngestionQueue.queue.grantSendMessages(this);
+    props.requestEventsTopic.topic.grantPublish(this);
   }
 }

@@ -3,7 +3,8 @@ import { Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311OrderEventsTopic } from "../../lambda/Nyc311OrderEventsTopic";
-import { Nyc311OrderEventFanOutLambda } from "../../lambda/Nyc311OrderEventFanOutLambda";
+import { Nyc311OrderProjectionsTopic } from "../../lambda/Nyc311OrderProjectionsTopic";
+import { Nyc311OrdersStreamFanOutLambda } from "../../lambda/Nyc311OrdersStreamFanOutLambda";
 import { Nyc311OrderEvaluationQueue } from "../../lambda/Nyc311OrderEvaluationQueue";
 import { Nyc311OrderPipelineAlarms } from "../../lambda/Nyc311OrderPipelineAlarms";
 
@@ -14,10 +15,12 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const orderEventsTopic = new Nyc311OrderEventsTopic(stack, "Nyc311OrderEventsTopic", { envName });
-  const orderEventFanOutLambda = new Nyc311OrderEventFanOutLambda(stack, "Nyc311OrderEventFanOutLambda", {
+  const orderProjectionsTopic = new Nyc311OrderProjectionsTopic(stack, "Nyc311OrderProjectionsTopic", { envName });
+  const ordersStreamFanOutLambda = new Nyc311OrdersStreamFanOutLambda(stack, "Nyc311OrdersStreamFanOutLambda", {
     envName,
     ordersTable,
     orderEventsTopic,
+    orderProjectionsTopic,
   });
   const orderEvaluationQueue = new Nyc311OrderEvaluationQueue(stack, "Nyc311OrderEvaluationQueue", {
     envName,
@@ -25,7 +28,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   });
   new Nyc311OrderPipelineAlarms(stack, "Nyc311OrderPipelineAlarms", {
     envName,
-    orderEventFanOutLambda,
+    ordersStreamFanOutLambda,
     orderEvaluationQueue,
     failureNotificationEmail: FAILURE_EMAIL,
   });
@@ -37,7 +40,7 @@ describe("Nyc311OrderPipelineAlarms", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
-      AlarmName: "Nyc311OrderEventFanOutErrorsAlarm-Test",
+      AlarmName: "Nyc311OrdersStreamFanOutErrorsAlarm-Test",
       MetricName: "Errors",
       EvaluationPeriods: 3,
       Threshold: 1,
@@ -48,7 +51,7 @@ describe("Nyc311OrderPipelineAlarms", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
-      AlarmName: "Nyc311OrderEventFanOutIteratorAgeAlarm-Test",
+      AlarmName: "Nyc311OrdersStreamFanOutIteratorAgeAlarm-Test",
       Namespace: "AWS/Lambda",
       MetricName: "IteratorAge",
     });
@@ -82,7 +85,7 @@ describe("Nyc311OrderPipelineAlarms", () => {
 
   it("suffixes alarm/topic names by environment, distinguishing Test from Prod", () => {
     synthesize("PROD").hasResourceProperties("AWS::CloudWatch::Alarm", {
-      AlarmName: "Nyc311OrderEventFanOutErrorsAlarm-Prod",
+      AlarmName: "Nyc311OrdersStreamFanOutErrorsAlarm-Prod",
     });
     synthesize("PROD").hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Prod" });
   });

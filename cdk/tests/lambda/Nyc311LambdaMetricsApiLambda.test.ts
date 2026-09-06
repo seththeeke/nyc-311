@@ -5,9 +5,9 @@ import { Nyc311LambdaMetricsApiLambda } from "../../lambda/Nyc311LambdaMetricsAp
 
 const PROPS = {
   pollerFunctionName: "Nyc311Poller-Test",
-  orderFanOutFunctionName: "Nyc311OrderFanOut-Test",
+  orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
   requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
-  orderEventFanOutFunctionName: "Nyc311OrderEventFanOut-Test",
+  orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
   orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
   orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
   metricsApiFunctionName: "Nyc311MetricsApi-Test",
@@ -55,9 +55,9 @@ describe("Nyc311LambdaMetricsApiLambda", () => {
       Environment: {
         Variables: {
           MONITORED_LAMBDA_POLLER: "Nyc311Poller-Test",
-          MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311OrderFanOut-Test",
+          MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311RequestsFanOut-Test",
           MONITORED_LAMBDA_REQUEST_EVALUATION: "Nyc311RequestEvaluation-Test",
-          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrderEventFanOut-Test",
+          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrdersStreamFanOut-Test",
           MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
           MONITORED_LAMBDA_METRICS_API: "Nyc311MetricsApi-Test",
           MONITORED_LAMBDA_ORDERS_API: "Nyc311OrdersApi-Test",

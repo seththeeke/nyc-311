@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDao } from "../../../dao/request/requestDao";
@@ -22,9 +22,9 @@ const ddbMock = mockClient(DynamoDBDocumentClient);
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const requestDao = new RequestDao(client, TABLE_NAME);
 
-const QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/OrderIngestion";
-const sqsMock = mockClient(SQSClient);
-const sqsClient = new SQSClient({});
+const TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:Nyc311RequestEvents-Test";
+const snsMock = mockClient(SNSClient);
+const snsClient = new SNSClient({});
 
 /* Fixed "now" so watermark/window assertions are deterministic. */
 const NOW = new Date("2026-08-11T12:00:00.000Z");
@@ -54,7 +54,7 @@ function makeStreamRecord(overrides: Partial<RequestStreamRecord> = {}): Request
 
 beforeEach(() => {
   ddbMock.reset();
-  sqsMock.reset();
+  snsMock.reset();
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -398,44 +398,53 @@ describe("getCursorStatus", () => {
 });
 
 describe("fanOutRequestRecord", () => {
-  it("publishes the unmarshalled NewImage to SQS for a relevant INSERT record", async () => {
-    sqsMock.on(SendMessageCommand).resolves({});
+  it("publishes the unmarshalled NewImage to SNS for a relevant INSERT, tagged event_name=INSERT", async () => {
+    snsMock.on(PublishCommand).resolves({});
 
-    await fanOutRequestRecord(makeStreamRecord(), { sqsClient, queueUrl: QUEUE_URL });
+    await fanOutRequestRecord(makeStreamRecord(), { snsClient, topicArn: TOPIC_ARN });
 
-    const calls = sqsMock.commandCalls(SendMessageCommand);
+    const calls = snsMock.commandCalls(PublishCommand);
     expect(calls).toHaveLength(1);
     const input = calls[0]?.args[0].input;
-    expect(input?.QueueUrl).toBe(QUEUE_URL);
-    expect(JSON.parse(input?.MessageBody as string)).toEqual({
+    expect(input?.TopicArn).toBe(TOPIC_ARN);
+    expect(JSON.parse(input?.Message as string)).toEqual({
       request_id: "01ABCDEF",
       external_unique_key: "12345",
       status: "DRAFT",
     });
+    expect(input?.MessageAttributes).toEqual({
+      event_name: { DataType: "String", StringValue: "INSERT" },
+    });
   });
 
-  it("skips a MODIFY record without publishing anything", async () => {
-    await fanOutRequestRecord(makeStreamRecord({ eventName: "MODIFY" }), { sqsClient, queueUrl: QUEUE_URL });
+  it("publishes a MODIFY record too (a status transition), tagged event_name=MODIFY", async () => {
+    snsMock.on(PublishCommand).resolves({});
 
-    expect(sqsMock.calls()).toHaveLength(0);
+    await fanOutRequestRecord(makeStreamRecord({ eventName: "MODIFY" }), { snsClient, topicArn: TOPIC_ARN });
+
+    const input = snsMock.commandCalls(PublishCommand)[0]?.args[0].input;
+    expect(input?.TopicArn).toBe(TOPIC_ARN);
+    expect(input?.MessageAttributes).toEqual({
+      event_name: { DataType: "String", StringValue: "MODIFY" },
+    });
   });
 
   it("skips a REMOVE record without publishing anything", async () => {
-    await fanOutRequestRecord(makeStreamRecord({ eventName: "REMOVE" }), { sqsClient, queueUrl: QUEUE_URL });
+    await fanOutRequestRecord(makeStreamRecord({ eventName: "REMOVE" }), { snsClient, topicArn: TOPIC_ARN });
 
-    expect(sqsMock.calls()).toHaveLength(0);
+    expect(snsMock.calls()).toHaveLength(0);
   });
 
   it("skips an INSERT record with no NewImage at all (e.g. KEYS_ONLY delivery)", async () => {
     await fanOutRequestRecord(
       { eventName: "INSERT", dynamodb: { SequenceNumber: "111" } },
-      { sqsClient, queueUrl: QUEUE_URL }
+      { snsClient, topicArn: TOPIC_ARN }
     );
 
-    expect(sqsMock.calls()).toHaveLength(0);
+    expect(snsMock.calls()).toHaveLength(0);
   });
 
-  it("skips an INSERT record whose NewImage has no external_unique_key (the CURSOR#NYC_311 sentinel or a poller-metrics row)", async () => {
+  it("skips a record whose NewImage has no external_unique_key (the CURSOR#NYC_311 sentinel or a poller-metrics row)", async () => {
     const record = makeStreamRecord({
       dynamodb: {
         NewImage: { last_watermark: { S: "2026-08-10T00:00:00" } },
@@ -443,60 +452,46 @@ describe("fanOutRequestRecord", () => {
       },
     });
 
-    await fanOutRequestRecord(record, { sqsClient, queueUrl: QUEUE_URL });
+    await fanOutRequestRecord(record, { snsClient, topicArn: TOPIC_ARN });
 
-    expect(sqsMock.calls()).toHaveLength(0);
+    expect(snsMock.calls()).toHaveLength(0);
   });
 
-  it("lets an SQS SendMessage failure propagate", async () => {
-    sqsMock.on(SendMessageCommand).rejects(new Error("SQS unavailable"));
+  it("lets an SNS Publish failure propagate", async () => {
+    snsMock.on(PublishCommand).rejects(new Error("SNS unavailable"));
 
-    await expect(fanOutRequestRecord(makeStreamRecord(), { sqsClient, queueUrl: QUEUE_URL })).rejects.toThrow(
-      "SQS unavailable"
+    await expect(fanOutRequestRecord(makeStreamRecord(), { snsClient, topicArn: TOPIC_ARN })).rejects.toThrow(
+      "SNS unavailable"
     );
   });
 
-  it("throws when queueUrl isn't provided and ORDER_INGESTION_QUEUE_URL isn't set", async () => {
-    const previous = process.env["ORDER_INGESTION_QUEUE_URL"];
-    delete process.env["ORDER_INGESTION_QUEUE_URL"];
+  it("throws when topicArn isn't provided and REQUEST_EVENTS_TOPIC_ARN isn't set", async () => {
+    const previous = process.env["REQUEST_EVENTS_TOPIC_ARN"];
+    delete process.env["REQUEST_EVENTS_TOPIC_ARN"];
 
     try {
-      await expect(fanOutRequestRecord(makeStreamRecord(), { sqsClient })).rejects.toThrow(
-        "Missing required environment variable: ORDER_INGESTION_QUEUE_URL"
+      await expect(fanOutRequestRecord(makeStreamRecord(), { snsClient })).rejects.toThrow(
+        "Missing required environment variable: REQUEST_EVENTS_TOPIC_ARN"
       );
     } finally {
-      if (previous !== undefined) process.env["ORDER_INGESTION_QUEUE_URL"] = previous;
+      if (previous !== undefined) process.env["REQUEST_EVENTS_TOPIC_ARN"] = previous;
     }
   });
 
-  it("falls back to ORDER_INGESTION_QUEUE_URL when queueUrl isn't provided in deps", async () => {
-    const previous = process.env["ORDER_INGESTION_QUEUE_URL"];
-    process.env["ORDER_INGESTION_QUEUE_URL"] = QUEUE_URL;
-    sqsMock.on(SendMessageCommand).resolves({});
-
-    try {
-      await fanOutRequestRecord(makeStreamRecord(), { sqsClient });
-
-      const calls = sqsMock.commandCalls(SendMessageCommand);
-      expect(calls[0]?.args[0].input.QueueUrl).toBe(QUEUE_URL);
-    } finally {
-      if (previous === undefined) delete process.env["ORDER_INGESTION_QUEUE_URL"];
-      else process.env["ORDER_INGESTION_QUEUE_URL"] = previous;
-    }
-  });
-
-  it("falls back to a freshly constructed SQSClient when sqsClient isn't provided in deps", async () => {
-    const previous = process.env["ORDER_INGESTION_QUEUE_URL"];
-    process.env["ORDER_INGESTION_QUEUE_URL"] = QUEUE_URL;
-    sqsMock.on(SendMessageCommand).resolves({});
+  it("falls back to REQUEST_EVENTS_TOPIC_ARN and a fresh SNSClient when deps are omitted", async () => {
+    const previous = process.env["REQUEST_EVENTS_TOPIC_ARN"];
+    process.env["REQUEST_EVENTS_TOPIC_ARN"] = TOPIC_ARN;
+    snsMock.on(PublishCommand).resolves({});
 
     try {
       await fanOutRequestRecord(makeStreamRecord());
 
-      expect(sqsMock.commandCalls(SendMessageCommand)).toHaveLength(1);
+      const calls = snsMock.commandCalls(PublishCommand);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.args[0].input.TopicArn).toBe(TOPIC_ARN);
     } finally {
-      if (previous === undefined) delete process.env["ORDER_INGESTION_QUEUE_URL"];
-      else process.env["ORDER_INGESTION_QUEUE_URL"] = previous;
+      if (previous === undefined) delete process.env["REQUEST_EVENTS_TOPIC_ARN"];
+      else process.env["REQUEST_EVENTS_TOPIC_ARN"] = previous;
     }
   });
 });

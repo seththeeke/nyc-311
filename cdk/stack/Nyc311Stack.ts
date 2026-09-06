@@ -9,10 +9,12 @@ import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
-import { Nyc311OrderFanOutLambda } from "../lambda/Nyc311OrderFanOutLambda";
+import { Nyc311RequestsFanOutLambda } from "../lambda/Nyc311RequestsFanOutLambda";
+import { Nyc311RequestEventsTopic } from "../lambda/Nyc311RequestEventsTopic";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
 import { Nyc311OrderEventsTopic } from "../lambda/Nyc311OrderEventsTopic";
-import { Nyc311OrderEventFanOutLambda } from "../lambda/Nyc311OrderEventFanOutLambda";
+import { Nyc311OrdersStreamFanOutLambda } from "../lambda/Nyc311OrdersStreamFanOutLambda";
+import { Nyc311OrderProjectionsTopic } from "../lambda/Nyc311OrderProjectionsTopic";
 import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue";
 import { Nyc311OrderEvaluationLambda } from "../lambda/Nyc311OrderEvaluationLambda";
 import { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
@@ -78,18 +80,25 @@ export class Nyc311Stack extends Stack {
     });
 
     /*
-     * 3-order-ingestion.md §2 — the order-ingestion fan-out Lambda: listens
-     * to the Requests table's DynamoDB Stream and republishes relevant
-     * records onto this queue.
+     * 7-data-warehousing.md §4 — the Requests table's sole stream
+     * consumer publishes every real Request row change here; the
+     * order-ingestion queue subscribes with an INSERT-only filter policy
+     * (unchanged behavior), the requests warehouse Firehose (Leg 2)
+     * subscribes unfiltered.
      */
-    const orderIngestionQueue = new Nyc311OrderIngestionQueue(this, "Nyc311OrderIngestionQueue", {
+    const requestEventsTopic = new Nyc311RequestEventsTopic(this, "Nyc311RequestEventsTopic", {
       envName: props.envName,
     });
 
-    const orderFanOutLambda = new Nyc311OrderFanOutLambda(this, "Nyc311OrderFanOutLambda", {
+    const orderIngestionQueue = new Nyc311OrderIngestionQueue(this, "Nyc311OrderIngestionQueue", {
+      envName: props.envName,
+      requestEventsTopic,
+    });
+
+    const requestsFanOutLambda = new Nyc311RequestsFanOutLambda(this, "Nyc311RequestsFanOutLambda", {
       envName: props.envName,
       requestsTable,
-      orderIngestionQueue,
+      requestEventsTopic,
     });
 
     const locationsTable = new LocationsTable(this, "LocationsTable", { envName: props.envName });
@@ -105,19 +114,25 @@ export class Nyc311Stack extends Stack {
     });
 
     /*
-     * 5-order-evaluation.md §3 — the order-evaluation fan-out Lambda:
-     * listens to the Orders table's own DynamoDB Stream and republishes
-     * every appended OrderEvent onto this topic, tagged with an
-     * event_type message attribute for downstream filtered subscriptions.
+     * 5-order-evaluation.md §3 / 7-data-warehousing.md §4 — the Orders
+     * table's sole stream consumer routes each appended OrderEvent onto
+     * this topic (tagged event_type, for the evaluation pipeline) and
+     * each #METADATA projection change onto Nyc311OrderProjectionsTopic
+     * (tagged event_name, for the order_snapshots warehouse).
      */
     const orderEventsTopic = new Nyc311OrderEventsTopic(this, "Nyc311OrderEventsTopic", {
       envName: props.envName,
     });
 
-    const orderEventFanOutLambda = new Nyc311OrderEventFanOutLambda(this, "Nyc311OrderEventFanOutLambda", {
+    const orderProjectionsTopic = new Nyc311OrderProjectionsTopic(this, "Nyc311OrderProjectionsTopic", {
+      envName: props.envName,
+    });
+
+    const ordersStreamFanOutLambda = new Nyc311OrdersStreamFanOutLambda(this, "Nyc311OrdersStreamFanOutLambda", {
       envName: props.envName,
       ordersTable,
       orderEventsTopic,
+      orderProjectionsTopic,
     });
 
     /*
@@ -138,7 +153,7 @@ export class Nyc311Stack extends Stack {
 
     new Nyc311OrderPipelineAlarms(this, "Nyc311OrderPipelineAlarms", {
       envName: props.envName,
-      orderEventFanOutLambda,
+      ordersStreamFanOutLambda,
       orderEvaluationQueue,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
@@ -183,9 +198,9 @@ export class Nyc311Stack extends Stack {
     const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", {
       envName: props.envName,
       pollerFunctionName: pollerLambda.functionName,
-      orderFanOutFunctionName: orderFanOutLambda.functionName,
+      orderFanOutFunctionName: requestsFanOutLambda.functionName,
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
-      orderEventFanOutFunctionName: orderEventFanOutLambda.functionName,
+      orderEventFanOutFunctionName: ordersStreamFanOutLambda.functionName,
       orderEvaluationFunctionName: orderEvaluationLambda.functionName,
       orderSchedulingFunctionName: orderSchedulingLambda.functionName,
       metricsApiFunctionName: metricsApiLambda.functionName,

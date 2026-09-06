@@ -46,13 +46,13 @@ describe("LambdaMonitoringPage", () => {
   it("renders one chart per lambda once data resolves", async () => {
     const lambdas: LambdaHealth[] = [
       { logicalName: "Poller", functionName: "Nyc311Poller-Test", points: [] },
-      { logicalName: "OrderFanOut", functionName: "Nyc311OrderFanOut-Test", points: [] },
+      { logicalName: "RequestsFanOut", functionName: "Nyc311RequestsFanOut-Test", points: [] },
     ];
     mockedListLambdaHealth.mockResolvedValue(lambdas);
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Poller" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "OrderFanOut" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "RequestsFanOut" })).toBeInTheDocument();
   });
 
   it("shows an empty-state message when no lambdas are configured", async () => {
