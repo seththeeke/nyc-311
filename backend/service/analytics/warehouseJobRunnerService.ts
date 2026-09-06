@@ -1,4 +1,4 @@
-import { setTimeout as sleep } from "node:timers/promises";
+import { setTimeout as delayMs } from "node:timers/promises";
 import { ulid } from "ulid";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
@@ -57,7 +57,7 @@ function resolve(deps: WarehouseJobRunnerDeps): ResolvedDeps {
     database: deps.database ?? requireEnv("WAREHOUSE_DATABASE_NAME"),
     workgroup: deps.workgroup ?? requireEnv("ATHENA_WORKGROUP"),
     now: deps.now ?? (() => new Date()),
-    sleep: deps.sleep ?? ((ms) => sleep(ms)),
+    sleep: deps.sleep ?? delayMs,
   };
 }
 
