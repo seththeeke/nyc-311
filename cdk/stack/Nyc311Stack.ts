@@ -21,6 +21,11 @@ import { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda
 import { Nyc311OrderPipelineAlarms } from "../lambda/Nyc311OrderPipelineAlarms";
 import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
+import { Nyc311WarehouseBucket } from "../warehouse/Nyc311WarehouseBucket";
+import { Nyc311WarehouseCatalog } from "../warehouse/Nyc311WarehouseCatalog";
+import { Nyc311AnalyticsWorkgroup } from "../warehouse/Nyc311AnalyticsWorkgroup";
+import { Nyc311WarehouseTransformLambda } from "../warehouse/Nyc311WarehouseTransformLambda";
+import { Nyc311WarehouseFirehose } from "../warehouse/Nyc311WarehouseFirehose";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -156,6 +161,51 @@ export class Nyc311Stack extends Stack {
       ordersStreamFanOutLambda,
       orderEvaluationQueue,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    /*
+     * 7-data-warehousing.md §5-§7 (Leg 2) — the landing zone: an S3 bucket,
+     * a Glue database + three external Parquet tables with partition
+     * projection, an Athena workgroup, and three Firehoses (SNS → transform
+     * Lambda → Parquet) landing order_events / order_snapshots / requests
+     * under data/<table>/dt=<date>/.
+     */
+    const warehouseBucket = new Nyc311WarehouseBucket(this, "Nyc311WarehouseBucket", { envName: props.envName });
+    const warehouseCatalog = new Nyc311WarehouseCatalog(this, "Nyc311WarehouseCatalog", {
+      envName: props.envName,
+      warehouseBucket,
+    });
+    new Nyc311AnalyticsWorkgroup(this, "Nyc311AnalyticsWorkgroup", { envName: props.envName, warehouseBucket });
+    const warehouseTransformLambda = new Nyc311WarehouseTransformLambda(this, "Nyc311WarehouseTransformLambda", {
+      envName: props.envName,
+    });
+
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderEventsFirehose", {
+      envName: props.envName,
+      label: "OrderEvents",
+      tableName: "order_events",
+      sourceTopic: orderEventsTopic.topic,
+      glueTable: warehouseCatalog.tables["order_events"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderSnapshotsFirehose", {
+      envName: props.envName,
+      label: "OrderSnapshots",
+      tableName: "order_snapshots",
+      sourceTopic: orderProjectionsTopic.topic,
+      glueTable: warehouseCatalog.tables["order_snapshots"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseRequestsFirehose", {
+      envName: props.envName,
+      label: "Requests",
+      tableName: "requests",
+      sourceTopic: requestEventsTopic.topic,
+      glueTable: warehouseCatalog.tables["requests"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
     });
 
     /*

@@ -121,6 +121,22 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
+  it("wires the data-warehouse landing zone: bucket, Glue db + 3 tables, workgroup, 3 Firehoses (7-data-warehousing.md §5-§7)", () => {
+    const { template } = testEnv;
+
+    template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-warehouse-test" });
+    template.hasResourceProperties("AWS::Glue::Database", { DatabaseInput: { Name: "nyc311_warehouse_test" } });
+    template.resourceCountIs("AWS::Glue::Table", 3);
+    template.hasResourceProperties("AWS::Athena::WorkGroup", { Name: "Nyc311Analytics-Test" });
+    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 3);
+    for (const name of ["Nyc311Warehouse-OrderEvents-Test", "Nyc311Warehouse-OrderSnapshots-Test", "Nyc311Warehouse-Requests-Test"]) {
+      template.hasResourceProperties("AWS::KinesisFirehose::DeliveryStream", { DeliveryStreamName: name });
+    }
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseTransform-Test" });
+    /* Each of the 3 warehouse topics gets a firehose subscription; the ingestion queue's is the only SQS one. */
+    template.hasResourceProperties("AWS::SNS::Subscription", { Protocol: "firehose", RawMessageDelivery: true });
+  });
+
   it("wires the order-scheduling Lambda, its hourly schedule, and IAM scoping (6-order-scheduling.md §1/§8)", () => {
     const { template } = testEnv;
 

@@ -359,6 +359,7 @@ exception still requires the explicit-specification bar this rule sets.
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
  -> web - static-site hosting constructs (S3 + CloudFront) for `web-app/`, per `claude-prompt-initial.md` §5/§7's hosting decision
  -> api - the public API Gateway (HTTP API) and its route/integration constructs, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint
+ -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
 **Per-environment physical resource naming.** `Nyc311-Test` and `Nyc311-Prod`
