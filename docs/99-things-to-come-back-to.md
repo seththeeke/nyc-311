@@ -15,7 +15,7 @@ See [#9](https://github.com/seththeeke/nyc-311/issues/9).
 
 ## Manual/forced polling controls for the ingestion Lambda
 
-See [#1](https://github.com/seththeeke/nyc-311/issues/1).
+**Resolved 2026-09-07** — see [#1](https://github.com/seththeeke/nyc-311/issues/1) (closed).
 
 ---
 
@@ -27,13 +27,13 @@ See [#1](https://github.com/seththeeke/nyc-311/issues/1).
 
 ## Poller is permanently capped — the ingestion window hasn't advanced in 6+ days
 
-See [#3](https://github.com/seththeeke/nyc-311/issues/3).
+**Resolved 2026-09-07** — see [#3](https://github.com/seththeeke/nyc-311/issues/3) (closed).
 
 ---
 
 ## Custom domain names for the site(s) and APIs
 
-See [#4](https://github.com/seththeeke/nyc-311/issues/4).
+**Resolved 2026-09-07** — see [#4](https://github.com/seththeeke/nyc-311/issues/4) (closed); `docs/8-domain-name-assignment.md`.
 
 ---
 
@@ -45,7 +45,7 @@ See [#5](https://github.com/seththeeke/nyc-311/issues/5).
 
 ## Lambda metrics on the Monitoring Page
 
-See [#6](https://github.com/seththeeke/nyc-311/issues/6).
+**Resolved 2026-09-07** — see [#6](https://github.com/seththeeke/nyc-311/issues/6) (closed).
 
 ---
 
@@ -75,35 +75,37 @@ See [#11](https://github.com/seththeeke/nyc-311/issues/11).
 
 ## cdk/ local test:coverage runs ~30 synth-heavy files fully serial for a CI-only reason
 
-See [#12](https://github.com/seththeeke/nyc-311/issues/12).
+**Resolved 2026-09-02** — see [#12](https://github.com/seththeeke/nyc-311/issues/12) (closed).
+
+---
 
 ## Stale demo-frontend/ prototype slows local Claude searches
 
-See [#14](https://github.com/seththeeke/nyc-311/issues/14).
+**Resolved 2026-08-30** — see [#14](https://github.com/seththeeke/nyc-311/issues/14) (closed).
 
 ---
 
 ## test:coverage prints ~163 zero-signal 100%-covered rows every Operational-Loop run
 
-See [#16](https://github.com/seththeeke/nyc-311/issues/16).
+**Resolved 2026-09-01** — see [#16](https://github.com/seththeeke/nyc-311/issues/16) (closed).
 
 ---
 
 ## Pipeline integration suite runs 4 live-API test files serially
 
-See [#18](https://github.com/seththeeke/nyc-311/issues/18).
+**Resolved 2026-09-02** — see [#18](https://github.com/seththeeke/nyc-311/issues/18) (closed).
 
 ---
 
 ## cdk pipeline tests re-synth the full pipeline stack once per it()
 
-See [#20](https://github.com/seththeeke/nyc-311/issues/20).
+**Resolved 2026-09-02** — see [#20](https://github.com/seththeeke/nyc-311/issues/20) (closed).
 
 ---
 
 ## web-app test suite dominated by jsdom + forks per-file startup
 
-See [#22](https://github.com/seththeeke/nyc-311/issues/22).
+**Resolved 2026-09-03** — see [#22](https://github.com/seththeeke/nyc-311/issues/22) (closed).
 
 ---
 
