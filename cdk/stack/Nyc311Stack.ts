@@ -27,12 +27,11 @@ import { Nyc311AnalyticsWorkgroup } from "../warehouse/Nyc311AnalyticsWorkgroup"
 import { Nyc311WarehouseTransformLambda } from "../warehouse/Nyc311WarehouseTransformLambda";
 import { Nyc311WarehouseFirehose } from "../warehouse/Nyc311WarehouseFirehose";
 import { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
-import { AnalyticsRollupsTable } from "../data/AnalyticsRollupsTable";
 import { Nyc311WarehouseJobRunnerLambda } from "../warehouse/Nyc311WarehouseJobRunnerLambda";
 import { Nyc311WarehouseJobSchedule } from "../warehouse/Nyc311WarehouseJobSchedule";
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
-import { Nyc311RollupsApiLambda } from "../warehouse/Nyc311RollupsApiLambda";
+import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -219,19 +218,20 @@ export class Nyc311Stack extends Stack {
     });
 
     /*
-     * 7-data-warehousing.md §8-§9/§11-§12 (Leg 3) — the daily aggregation
-     * job: two plain tables (WarehouseJobRuns for run history + automatic
-     * retry, AnalyticsRollups for the folded output), one Lambda runner on
-     * a `rate(1 day)` EventBridge Schedule with a DLQ + failure alarm, and
-     * three read-only API Lambdas behind `GET /data/{schema,jobs,rollups}`.
+     * 7-data-warehousing.md §8-§12 — the reporting substrate. One DynamoDB
+     * table (WarehouseJobRuns: run history + automatic retry, pointer to
+     * each run's S3 resultset), one generic Lambda runner on a `rate(1 day)`
+     * EventBridge Schedule (DLQ + failure alarm) that writes every job's
+     * result verbatim to `job-results/` in the warehouse bucket (the
+     * catalog's CDK-declared `job_results` Glue table sits over it), and
+     * three read-only API Lambdas behind
+     * `GET /data/{schema,jobs,jobs/{name}/result}`.
      */
     const warehouseJobRunsTable = new WarehouseJobRunsTable(this, "WarehouseJobRunsTable", { envName: props.envName });
-    const analyticsRollupsTable = new AnalyticsRollupsTable(this, "AnalyticsRollupsTable", { envName: props.envName });
 
     const warehouseJobRunnerLambda = new Nyc311WarehouseJobRunnerLambda(this, "Nyc311WarehouseJobRunnerLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
-      rollupsTable: analyticsRollupsTable,
       warehouseBucket,
       warehouseCatalog,
       analyticsWorkgroup,
@@ -253,9 +253,10 @@ export class Nyc311Stack extends Stack {
       jobRunsTable: warehouseJobRunsTable,
     });
 
-    const rollupsApiLambda = new Nyc311RollupsApiLambda(this, "Nyc311RollupsApiLambda", {
+    const jobResultApiLambda = new Nyc311JobResultApiLambda(this, "Nyc311JobResultApiLambda", {
       envName: props.envName,
-      rollupsTable: analyticsRollupsTable,
+      jobRunsTable: warehouseJobRunsTable,
+      warehouseBucket,
     });
 
     /*
@@ -309,7 +310,7 @@ export class Nyc311Stack extends Stack {
       warehouseJobRunnerFunctionName: warehouseJobRunnerLambda.functionName,
       warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
-      rollupsApiFunctionName: rollupsApiLambda.functionName,
+      jobResultApiFunctionName: jobResultApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -320,7 +321,7 @@ export class Nyc311Stack extends Stack {
       lambdaMetricsApiLambda,
       warehouseSchemaApiLambda,
       warehouseJobsApiLambda,
-      rollupsApiLambda,
+      jobResultApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });
 

@@ -7,7 +7,6 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
-import type { AnalyticsRollupsTable } from "../data/AnalyticsRollupsTable";
 import type { Nyc311WarehouseBucket } from "./Nyc311WarehouseBucket";
 import type { Nyc311WarehouseCatalog } from "./Nyc311WarehouseCatalog";
 import type { Nyc311AnalyticsWorkgroup } from "./Nyc311AnalyticsWorkgroup";
@@ -16,24 +15,36 @@ import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 export interface Nyc311WarehouseJobRunnerLambdaProps {
   envName: Nyc311Environment;
   jobRunsTable: WarehouseJobRunsTable;
-  rollupsTable: AnalyticsRollupsTable;
   warehouseBucket: Nyc311WarehouseBucket;
   warehouseCatalog: Nyc311WarehouseCatalog;
   analyticsWorkgroup: Nyc311AnalyticsWorkgroup;
 }
 
-/* The sample job's SQL (cdk/warehouse/sql/) — read at synth and baked into the Lambda env, so no runtime S3/asset fetch. */
-const SAMPLE_JOB_SQL_FILE = path.join(__dirname, "sql", "order_volume_by_stage.sql");
+const SQL_DIR = path.join(__dirname, "sql");
 
 /**
- * The daily warehouse aggregation job runner (`7-data-warehousing.md`
- * §8/§9), one Lambda rather than a Step Functions state machine — the
- * query scans kilobytes and returns in seconds. Entry point is
- * `backend/controller/analytics/runWarehouseJobController.ts`. Least-
- * privilege: `WarehouseJobRuns` read+write, `AnalyticsRollups`
- * write-only, Athena start/poll/results on the one workgroup, Glue
- * catalog reads on the one database, S3 read on `data/` + read/write on
- * `athena-results/`.
+ * The registered jobs (`7-data-warehousing.md` §8) — every `.sql` file in
+ * `cdk/warehouse/sql/`, read at synth and passed as the `WAREHOUSE_JOBS`
+ * env var so the runner never fetches an asset at runtime. `name` is the
+ * file basename (S3 partition value + `WarehouseJobRuns.job_name`).
+ */
+function readJobManifest(): { name: string; sql: string }[] {
+  return fs
+    .readdirSync(SQL_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => ({ name: f.replace(/\.sql$/, ""), sql: fs.readFileSync(path.join(SQL_DIR, f), "utf-8") }));
+}
+
+/**
+ * The daily warehouse job runner (`7-data-warehousing.md` §8/§9) — one
+ * generic Lambda, not per-job Step Functions. Entry:
+ * `backend/controller/analytics/runWarehouseJobController.ts`. Per job it
+ * runs the Athena query and writes the resultset envelope to
+ * `job-results/` (§11); it never touches the Glue catalog. Least-
+ * privilege: Athena on the one workgroup, read-only `glue:Get*`, S3 read
+ * on `data/`, read/write on `job-results/` + `athena-results/`,
+ * `WarehouseJobRuns` read+write.
  */
 export class Nyc311WarehouseJobRunnerLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311WarehouseJobRunnerLambdaProps) {
@@ -54,23 +65,22 @@ export class Nyc311WarehouseJobRunnerLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "analytics", "runWarehouseJobController.ts"),
       handler: "runWarehouseJobController",
       runtime: Runtime.NODEJS_22_X,
-      /* The runner polls Athena up to 120s (QUERY_MAX_WAIT_MS); 180s leaves headroom for the DynamoDB writes around it. */
-      timeout: Duration.seconds(180),
+      /* Polls Athena up to 120s per job (QUERY_MAX_WAIT_MS); 300s covers a few jobs plus the DynamoDB/S3 writes. */
+      timeout: Duration.seconds(300),
       memorySize: 256,
       logGroup,
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
-        SAMPLE_JOB_SQL: fs.readFileSync(SAMPLE_JOB_SQL_FILE, "utf-8"),
+        WAREHOUSE_JOBS: JSON.stringify(readJobManifest()),
+        JOB_RESULTS_BUCKET: props.warehouseBucket.bucketName,
         WAREHOUSE_DATABASE_NAME: props.warehouseCatalog.databaseName,
         ATHENA_WORKGROUP: props.analyticsWorkgroup.workgroupName,
         WAREHOUSE_JOB_RUNS_TABLE_NAME: props.jobRunsTable.tableName,
-        ANALYTICS_ROLLUPS_TABLE_NAME: props.rollupsTable.tableName,
       },
     });
 
     props.jobRunsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
-    props.rollupsTable.grant(this, "dynamodb:PutItem");
 
     const stack = Stack.of(this);
 
@@ -115,6 +125,12 @@ export class Nyc311WarehouseJobRunnerLambda extends NodejsFunction {
     this.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["s3:GetObject", "s3:PutObject"],
+        resources: [`${bucketArn}/job-results/*`, `${bucketArn}/athena-results/*`],
+      })
+    );
+    this.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:DeleteObject"],
         resources: [`${bucketArn}/athena-results/*`],
       })
     );

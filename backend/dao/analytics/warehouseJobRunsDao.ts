@@ -68,4 +68,29 @@ export class WarehouseJobRunsDao extends Dao<WarehouseJobRun> {
     const items = result.Items ?? [];
     return items.length > 0 ? this.validate(items[0]) : null;
   }
+
+  /**
+   * The most recent `SUCCEEDED` run for a `job_name`, or `null` — backs
+   * `GET /data/jobs/{name}/result`, which needs the latest run that
+   * actually produced a `result_location`. Scans a wider page than
+   * {@link getLatestRunForJob} since RUNNING/FAILED runs in between don't
+   * count.
+   */
+  async getLatestSucceededRunForJob(jobName: string): Promise<WarehouseJobRun | null> {
+    logInfo("WarehouseJobRunsDao.getLatestSucceededRunForJob", { table: this.tableName, jobName });
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: RECENT_RUNS_INDEX,
+        KeyConditionExpression: "gsi1pk = :pk",
+        FilterExpression: "job_name = :jn AND #status = :st",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: { ":pk": JOB_RUNS_GSI1_PK, ":jn": jobName, ":st": "SUCCEEDED" },
+        ScanIndexForward: false,
+        Limit: 100,
+      })
+    );
+    const items = result.Items ?? [];
+    return items.length > 0 ? this.validate(items[0]) : null;
+  }
 }

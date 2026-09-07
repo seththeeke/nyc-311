@@ -2,8 +2,10 @@ import { z } from "zod";
 
 /*
  * One row of the WarehouseJobRuns table (`7-data-warehousing.md` §9) —
- * the daily aggregation job, its bounded automatic retries, and (later)
- * the on-demand rebuild, all one shape. The web-app mirrors this exactly
+ * the daily aggregation jobs, their bounded automatic retries, and
+ * (later) the on-demand rebuild, all one shape. The run row is the index
+ * into the job's output: `result_location` points at the immutable
+ * `result.json` in S3 (§11). The web-app mirrors this exactly
  * (`web-app/src/models/warehouseJobRun.ts`).
  */
 
@@ -27,6 +29,10 @@ export const WarehouseJobRunSchema = z.object({
   started_at: z.string().min(1),
   completed_at: z.string().min(1).nullable(),
   execution_ref: z.string().min(1).nullable(),
+  /** `s3://…/job-results/job_name=<job>/run_date=<date>/result.json` — null while RUNNING and for runs that produce no resultset. */
+  result_location: z.string().min(1).nullable(),
+  /** Rows in the resultset; null while RUNNING / for resultless runs. */
+  row_count: z.number().int().nonnegative().nullable(),
   error_message: z.string().min(1).nullable(),
   retry_count: z.number().int().nonnegative(),
   retried_from_job_run_id: z.string().min(1).nullable(),

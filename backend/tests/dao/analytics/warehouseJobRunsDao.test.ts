@@ -11,12 +11,14 @@ const dao = new WarehouseJobRunsDao(DynamoDBDocumentClient.from(new DynamoDBClie
 function run(overrides: Partial<WarehouseJobRun> = {}): WarehouseJobRun {
   return {
     job_run_id: "01RUN",
-    job_name: "ORDER_VOLUME_BY_STAGE",
+    job_name: "order_volume_by_stage_7d",
     status: "RUNNING",
     trigger: "SCHEDULED",
     started_at: "2026-09-06T09:00:00.000Z",
     completed_at: null,
     execution_ref: null,
+    result_location: null,
+    row_count: null,
     error_message: null,
     retry_count: 0,
     retried_from_job_run_id: null,
@@ -77,13 +79,13 @@ describe("WarehouseJobRunsDao.listRecentJobRuns", () => {
 describe("WarehouseJobRunsDao.getLatestRunForJob", () => {
   it("filters by job_name and returns the first (most recent) match", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [run({ job_run_id: "latest" }), run({ job_run_id: "older" })] });
-    const latest = await dao.getLatestRunForJob("ORDER_VOLUME_BY_STAGE");
+    const latest = await dao.getLatestRunForJob("order_volume_by_stage_7d");
 
     const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
     expect(input).toMatchObject({
       IndexName: "gsi1-recent-runs",
       FilterExpression: "job_name = :jn",
-      ExpressionAttributeValues: { ":pk": "JOB#RUNS", ":jn": "ORDER_VOLUME_BY_STAGE" },
+      ExpressionAttributeValues: { ":pk": "JOB#RUNS", ":jn": "order_volume_by_stage_7d" },
       ScanIndexForward: false,
     });
     expect(latest?.job_run_id).toBe("latest");
@@ -91,11 +93,40 @@ describe("WarehouseJobRunsDao.getLatestRunForJob", () => {
 
   it("returns null when the job has never run (empty page)", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
-    expect(await dao.getLatestRunForJob("ORDER_VOLUME_BY_STAGE")).toBeNull();
+    expect(await dao.getLatestRunForJob("order_volume_by_stage_7d")).toBeNull();
   });
 
   it("returns null when DynamoDB omits Items entirely", async () => {
     ddbMock.on(QueryCommand).resolves({});
-    expect(await dao.getLatestRunForJob("ORDER_VOLUME_BY_STAGE")).toBeNull();
+    expect(await dao.getLatestRunForJob("order_volume_by_stage_7d")).toBeNull();
+  });
+});
+
+describe("WarehouseJobRunsDao.getLatestSucceededRunForJob", () => {
+  it("filters by job_name AND status = SUCCEEDED (with #status name placeholder), returns the first match", async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        run({ job_run_id: "ok", status: "SUCCEEDED", result_location: "s3://b/k" }),
+        run({ job_run_id: "older-ok", status: "SUCCEEDED" }),
+      ],
+    });
+
+    const latest = await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d");
+
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({
+      IndexName: "gsi1-recent-runs",
+      FilterExpression: "job_name = :jn AND #status = :st",
+      ExpressionAttributeNames: { "#status": "status" },
+      ExpressionAttributeValues: { ":pk": "JOB#RUNS", ":jn": "order_volume_by_stage_7d", ":st": "SUCCEEDED" },
+      ScanIndexForward: false,
+      Limit: 100,
+    });
+    expect(latest?.job_run_id).toBe("ok");
+  });
+
+  it("returns null when the job has no succeeded run", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    expect(await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d")).toBeNull();
   });
 });

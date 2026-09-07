@@ -22,7 +22,7 @@ export const KNOWN_ROUTES = [
   "/lambda-metrics",
   "/data/schema",
   "/data/jobs",
-  "/data/rollups",
+  "/data/jobs/{name}/result",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

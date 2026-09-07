@@ -14,8 +14,15 @@ const PARQUET_INPUT_FORMAT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquet
 const PARQUET_OUTPUT_FORMAT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
 const PARQUET_SERDE = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe";
 
-/* Earliest date any `dt=` partition can exist — partition projection needs a lower bound. */
+const JSON_INPUT_FORMAT = "org.apache.hadoop.mapred.TextInputFormat";
+const JSON_OUTPUT_FORMAT = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
+const JSON_SERDE = "org.openx.data.jsonserde.JsonSerDe";
+
+/* Earliest date any `dt=` / `run_date=` partition can exist — partition projection needs a lower bound. */
 const PROJECTION_START = "2026-09-01";
+
+/** The one table over `job-results/` — every job's every run, `7-data-warehousing.md` §11. */
+export const JOB_RESULTS_TABLE_NAME = "job_results";
 
 /**
  * The Glue Data Catalog for the warehouse (`7-data-warehousing.md` §7):
@@ -28,6 +35,8 @@ export class Nyc311WarehouseCatalog extends Construct {
   public readonly database: glue.CfnDatabase;
   public readonly databaseName: string;
   public readonly tables: Record<string, glue.CfnTable> = {};
+  /** `job_results` — one table over the whole `job-results/` prefix (§11). */
+  public readonly jobResultsTable: glue.CfnTable;
 
   constructor(scope: Construct, id: string, props: Nyc311WarehouseCatalogProps) {
     super(scope, id);
@@ -72,5 +81,53 @@ export class Nyc311WarehouseCatalog extends Construct {
       table.node.addDependency(this.database);
       this.tables[schema.tableName] = table;
     }
+
+    /*
+     * job_results (§11) — JSON, not Parquet, over `job-results/`. The
+     * runner writes one self-describing `result.json` per job per run;
+     * this table exposes them for "trend of trends" via
+     * `CROSS JOIN UNNEST(rows)`. `job_name` is an `injected` projection
+     * (any value, must appear in the query's WHERE — which every access
+     * pattern does), so a new job needs no catalog change. `columns` /
+     * `rows` mirror models/jobResult.ts.
+     */
+    const jobResultsLocation = `s3://${bucketName}/job-results/`;
+    this.jobResultsTable = new glue.CfnTable(this, "TableJobResults", {
+      catalogId: Aws.ACCOUNT_ID,
+      databaseName: this.databaseName,
+      tableInput: {
+        name: JOB_RESULTS_TABLE_NAME,
+        tableType: "EXTERNAL_TABLE",
+        partitionKeys: [
+          { name: "job_name", type: "string" },
+          { name: "run_date", type: "string" },
+        ],
+        parameters: {
+          EXTERNAL: "TRUE",
+          classification: "json",
+          "projection.enabled": "true",
+          "projection.job_name.type": "injected",
+          "projection.run_date.type": "date",
+          "projection.run_date.format": "yyyy-MM-dd",
+          "projection.run_date.range": `${PROJECTION_START},NOW`,
+          "projection.run_date.interval": "1",
+          "projection.run_date.interval.unit": "DAYS",
+          "storage.location.template": `${jobResultsLocation}job_name=\${job_name}/run_date=\${run_date}/`,
+        },
+        storageDescriptor: {
+          columns: [
+            { name: "job_run_id", type: "string" },
+            { name: "computed_at", type: "string" },
+            { name: "columns", type: "array<struct<name:string,type:string>>" },
+            { name: "rows", type: "array<map<string,string>>" },
+          ],
+          location: jobResultsLocation,
+          inputFormat: JSON_INPUT_FORMAT,
+          outputFormat: JSON_OUTPUT_FORMAT,
+          serdeInfo: { serializationLibrary: JSON_SERDE },
+        },
+      },
+    });
+    this.jobResultsTable.node.addDependency(this.database);
   }
 }

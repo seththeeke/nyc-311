@@ -1,21 +1,21 @@
 import { config } from "../config";
 import { WarehouseSchemaResponseSchema, type WarehouseSchemaResponse } from "../models/warehouseSchema";
 import { WarehouseJobRunListResponseSchema, type WarehouseJobRunListResponse } from "../models/warehouseJobRun";
-import { AnalyticsRollupListResponseSchema, type AnalyticsRollupListResponse } from "../models/analyticsRollup";
+import { JobResultSchema, type JobResult } from "../models/jobResult";
 import { MOCK_WAREHOUSE_SCHEMA } from "../test-data/warehouseSchema";
 import { MOCK_WAREHOUSE_JOB_RUNS } from "../test-data/warehouseJobRuns";
-import { MOCK_ANALYTICS_ROLLUPS } from "../test-data/analyticsRollups";
+import { MOCK_JOB_RESULTS } from "../test-data/jobResult";
 
 /*
  * One interface, two implementations, selected by config.dataMode
  * (CLAUDE.md §5.1) — same shape as pipelineStatusService.ts. Backs
- * GET /data/schema, GET /data/jobs and GET /data/rollups
- * (7-data-warehousing.md §12).
+ * GET /data/schema, GET /data/jobs and GET /data/jobs/{name}/result
+ * (7-data-warehousing.md §11/§12).
  */
 export interface WarehouseDataService {
   getSchema(): Promise<WarehouseSchemaResponse>;
   getJobRuns(): Promise<WarehouseJobRunListResponse>;
-  getRollups(): Promise<AnalyticsRollupListResponse>;
+  getJobResult(jobName: string): Promise<JobResult>;
 }
 
 export class LiveWarehouseDataService implements WarehouseDataService {
@@ -37,13 +37,13 @@ export class LiveWarehouseDataService implements WarehouseDataService {
     return WarehouseJobRunListResponseSchema.parse(body);
   }
 
-  async getRollups(): Promise<AnalyticsRollupListResponse> {
-    const response = await fetch(`${config.apiBaseUrl}/data/rollups`);
+  async getJobResult(jobName: string): Promise<JobResult> {
+    const response = await fetch(`${config.apiBaseUrl}/data/jobs/${encodeURIComponent(jobName)}/result`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch analytics rollups: HTTP ${response.status}`);
+      throw new Error(`Failed to fetch result for '${jobName}': HTTP ${response.status}`);
     }
     const body: unknown = await response.json();
-    return AnalyticsRollupListResponseSchema.parse(body);
+    return JobResultSchema.parse(body);
   }
 }
 
@@ -56,8 +56,12 @@ class MockWarehouseDataService implements WarehouseDataService {
     return MOCK_WAREHOUSE_JOB_RUNS;
   }
 
-  async getRollups(): Promise<AnalyticsRollupListResponse> {
-    return MOCK_ANALYTICS_ROLLUPS;
+  async getJobResult(jobName: string): Promise<JobResult> {
+    const result = MOCK_JOB_RESULTS[jobName];
+    if (!result) {
+      throw new Error(`Failed to fetch result for '${jobName}': HTTP 404`);
+    }
+    return result;
   }
 }
 

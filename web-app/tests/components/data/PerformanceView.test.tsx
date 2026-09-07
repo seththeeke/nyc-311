@@ -12,6 +12,8 @@ function run(overrides: Partial<WarehouseJobRun>): WarehouseJobRun {
     started_at: "2026-09-04T09:00:01.000Z",
     completed_at: "2026-09-04T09:00:14.000Z",
     execution_ref: "ref",
+    result_location: null,
+    row_count: null,
     error_message: null,
     retry_count: 0,
     retried_from_job_run_id: null,

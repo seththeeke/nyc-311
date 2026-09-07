@@ -18,6 +18,7 @@ export const ApiGatewayHttpEventSchema = z.object({
     }),
   }),
   queryStringParameters: z.record(z.string(), z.string()).nullable().optional(),
+  pathParameters: z.record(z.string(), z.string()).nullable().optional(),
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().nullable().optional(),
 });

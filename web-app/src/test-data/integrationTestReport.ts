@@ -11,6 +11,6 @@ export const MOCK_INTEGRATION_TEST_REPORT: IntegrationTestReport = {
     "/lambda-metrics": { hit: true, statusCode: 200, ok: true },
     "/data/schema": { hit: true, statusCode: 200, ok: true },
     "/data/jobs": { hit: true, statusCode: 200, ok: true },
-    "/data/rollups": { hit: true, statusCode: 200, ok: true },
+    "/data/jobs/{name}/result": { hit: true, statusCode: 200, ok: true },
   },
 };

@@ -7,12 +7,14 @@ import {
 
 const valid = {
   job_run_id: "01RUN",
-  job_name: "ORDER_VOLUME_BY_STAGE",
+  job_name: "order_volume_by_stage_7d",
   status: "SUCCEEDED",
   trigger: "SCHEDULED",
   started_at: "2026-09-06T09:00:00.000Z",
   completed_at: "2026-09-06T09:00:12.000Z",
   execution_ref: "q-1",
+  result_location: "s3://nyc311-warehouse-test/job-results/job_name=order_volume_by_stage_7d/run_date=2026-09-06/result.json",
+  row_count: 21,
   error_message: null,
   retry_count: 0,
   retried_from_job_run_id: null,
@@ -32,6 +34,8 @@ describe("WarehouseJobRunSchema", () => {
       status: "RUNNING",
       completed_at: null,
       execution_ref: null,
+      result_location: null,
+      row_count: null,
       data_scanned_bytes: null,
       engine_execution_time_ms: null,
       query_queue_time_ms: null,
@@ -44,10 +48,11 @@ describe("WarehouseJobRunSchema", () => {
     expect(WarehouseJobRunSchema.parse(retry)).toEqual(retry);
   });
 
-  it("rejects an unknown status / trigger / negative retry_count", () => {
+  it("rejects an unknown status / trigger / negative retry_count / row_count", () => {
     expect(WarehouseJobRunSchema.safeParse({ ...valid, status: "PENDING" }).success).toBe(false);
     expect(WarehouseJobRunSchema.safeParse({ ...valid, trigger: "WEBHOOK" }).success).toBe(false);
     expect(WarehouseJobRunSchema.safeParse({ ...valid, retry_count: -1 }).success).toBe(false);
+    expect(WarehouseJobRunSchema.safeParse({ ...valid, row_count: -1 }).success).toBe(false);
   });
 });
 

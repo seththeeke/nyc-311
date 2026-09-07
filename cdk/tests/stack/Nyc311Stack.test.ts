@@ -121,12 +121,13 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
-  it("wires the data-warehouse landing zone: bucket, Glue db + 3 tables, workgroup, 3 Firehoses (7-data-warehousing.md §5-§7)", () => {
+  it("wires the data-warehouse landing zone: bucket, Glue db + 4 tables (3 sources + job_results), workgroup, 3 Firehoses (7-data-warehousing.md §5-§7/§11)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-warehouse-test" });
     template.hasResourceProperties("AWS::Glue::Database", { DatabaseInput: { Name: "nyc311_warehouse_test" } });
-    template.resourceCountIs("AWS::Glue::Table", 3);
+    template.resourceCountIs("AWS::Glue::Table", 4);
+    template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "job_results" } });
     template.hasResourceProperties("AWS::Athena::WorkGroup", { Name: "Nyc311Analytics-Test" });
     template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 3);
     for (const name of ["Nyc311Warehouse-OrderEvents-Test", "Nyc311Warehouse-OrderSnapshots-Test", "Nyc311Warehouse-Requests-Test"]) {
@@ -152,21 +153,26 @@ describe("Nyc311Stack", () => {
     });
   });
 
-  it("wires the warehouse job runner, its daily schedule, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12, Leg 3)", () => {
+  it("wires the warehouse job runner, its daily schedule, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WarehouseJobRuns-Test" });
-    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "AnalyticsRollups-Test" });
+    /* AnalyticsRollups is gone — job output is S3/Athena now (§11) */
+    expect(
+      Object.values(template.findResources("AWS::DynamoDB::GlobalTable")).some(
+        (t) => (t.Properties as { TableName?: string }).TableName === "AnalyticsRollups-Test"
+      )
+    ).toBe(false);
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseJobRunner-Test" });
     template.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "Nyc311WarehouseJobSchedule-Test",
       ScheduleExpression: "rate(1 day)",
     });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobFailureAlarm-Test" });
-    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/rollups"]) {
+    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result"]) {
       template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }
-    for (const fn of ["Nyc311WarehouseSchemaApi-Test", "Nyc311WarehouseJobsApi-Test", "Nyc311RollupsApi-Test"]) {
+    for (const fn of ["Nyc311WarehouseSchemaApi-Test", "Nyc311WarehouseJobsApi-Test", "Nyc311JobResultApi-Test"]) {
       template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
     }
   });
@@ -221,7 +227,7 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobRunnerLambda") },
           MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseSchemaApiLambda") },
           MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },
-          MONITORED_LAMBDA_ROLLUPS_API: { Ref: Match.stringLikeRegexp("^Nyc311RollupsApiLambda") },
+          MONITORED_LAMBDA_JOB_RESULT_API: { Ref: Match.stringLikeRegexp("^Nyc311JobResultApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

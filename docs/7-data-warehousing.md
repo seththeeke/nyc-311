@@ -1,29 +1,35 @@
 # Data Warehousing — Orders/OrderEvents/Requests Into a Queryable SQL Store
 
-> **Status: Design finalized for the Orders/OrderEvents/Requests pipeline
-> (2026-09-05). The `/data` frontend prototype (§12) is built (mock-only);
-> everything else is designed, not yet built** — see the
-> [Build Checklist](#build-checklist). Written **declaratively** — this
-> doc describes what will be built, not the negotiation that produced it.
-> Tradeoffs, rejected alternatives, and the reasoning behind each call live
-> in the [Appendix](#appendix-design-rationale--alternatives-considered),
-> not inline. Anything still genuinely undecided is called out explicitly
-> in [Open Items](#open-items), not folded into the declarative sections.
+> **Status: Legs 1–3 + the `/data` frontend shipped to `Nyc311-Prod`
+> (2026-09-06). The serving layer was reworked 2026-09-07 — job results
+> are resultsets in S3, not rows in a DynamoDB table** (see §8/§11 and
+> Appendix A.10). Leg 4 (on-demand rebuild) and Leg 5 (observability) are
+> still designed-not-built — see the [Build Checklist](#build-checklist).
+> Written **declaratively** — this doc describes the current design, not
+> the negotiation that produced it. Tradeoffs, rejected alternatives, and
+> the reasoning behind each call live in the
+> [Appendix](#appendix-design-rationale--alternatives-considered), not
+> inline. Anything still genuinely undecided is called out explicitly in
+> [Open Items](#open-items).
 >
 > This is the implementation-level build-out of `business-insights.md` §3
-> ("Analytics Infrastructure"), which already set the top-level engine
-> choices this doc builds against: **S3 + Athena, not Redshift** (§3.2);
-> **Kinesis Firehose for landing** (§3.3); **manual Glue DDL, no crawler**
-> (§3.5); **EventBridge Scheduler → Step Functions → Athena** for job
-> orchestration (§3.4); **pre-aggregated results copied into a dedicated
-> DynamoDB table** for the dashboard API to read (§3.6). This doc
-> supersedes `business-insights.md` §3.1/§3.3 where they conflict (see
-> Appendix A.9) and closes every `[OPEN]` item that section left.
+> ("Analytics Infrastructure"), which set the top-level engine choices:
+> **S3 + Athena, not Redshift** (§3.2); **Kinesis Firehose for landing**
+> (§3.3); **manual Glue DDL, no crawler** (§3.5). It diverges from §3.4/§3.6
+> deliberately: job orchestration is **one generic EventBridge → Lambda →
+> Athena runner**, not a per-job Step Functions machine (Appendix A.10),
+> and job output is **an immutable resultset in S3 + an Athena-queryable
+> history table**, not pre-aggregated rows in a DynamoDB serving table.
+> The reframe: this is the **reporting substrate for the whole app** — a
+> job is `{ name, SQL }`, its output is stored verbatim, and any
+> presentation layer (the `/data` page, a future feature, ad-hoc Athena, a
+> user-authored query) structures it as needed. This doc supersedes
+> `business-insights.md` §3.1/§3.3/§3.4/§3.6 where they conflict (see
+> Appendix A.9/A.10) and closes every `[OPEN]` item that section left.
 >
-> `backend/`/`cdk/` are already unlocked (`CLAUDE.md` §5.1/§5.2). This doc
-> also proposes one genuinely new repo convention — `.sql` files as
-> versioned assets under `cdk/warehouse/sql/` (§13) — flagged in Open
-> Items as still wanting explicit sign-off before code lands.
+> `backend/`/`cdk/` are unlocked (`CLAUDE.md` §5.1/§5.2). `.sql` files as
+> versioned assets under `cdk/warehouse/sql/` is an established convention
+> as of Leg 3 (`CLAUDE.md` §5.3).
 
 ---
 
@@ -54,19 +60,21 @@ S3: s3://nyc311-warehouse-<env>/data/<entity>/dt=<date>/*.parquet
    ├──────────────► Athena (ad-hoc SQL, console/CLI)
    │
    ▼
-EventBridge Scheduler (daily) ──► Step Functions job runner
-                                       │  runs order_volume_by_borough.sql
-                                       ▼
-                              AnalyticsRollups (DynamoDB)
-                                       │
-                              WarehouseJobRuns (DynamoDB) ◄── also written
-                                       │                       by the
-                                       │                       on-demand
-                                       ▼                       rebuild (§10)
-                          GET /data/jobs, GET /data/schema (live Glue read)
-                                       │
-                                       ▼
-                                  /data page (public, read-only)
+EventBridge Scheduler (daily) ──► Nyc311WarehouseJobRunner (one Lambda)
+                                       │  for each cdk/warehouse/sql/<job>.sql:
+                                       │  run in Athena, then
+                                       ├─► s3://…/job-results/job_name=<job>/run_date=<date>/result.json
+                                       │        (immutable, self-describing: columns + string-valued row objects)
+                                       │        └─► Glue table job_results (one, CDK-declared, over the whole
+                                       │             prefix) → Athena "trend of trends" via CROSS JOIN UNNEST
+                                       └─► WarehouseJobRuns (DynamoDB) — run log + pointer to result_location
+                                                │                            (also written by the rebuild, §10)
+                                                ▼
+                       GET /data/jobs, GET /data/jobs/{name}/result (S3 GetObject),
+                       GET /data/schema (live Glue read)
+                                                │
+                                                ▼
+                                  /data page (public, read-only) — one renderer per job
 ```
 
 A separate, on-demand **`Nyc311WarehouseRebuildStateMachine`** (§10) can
@@ -82,14 +90,17 @@ This build delivers, end to end, for **`Orders` (both `OrderEvent` and the
 
 - Live change capture off DynamoDB into S3, catalogued in Glue and
   queryable ad hoc in Athena.
-- One real scheduled aggregation — **daily order volume by borough** —
-  running on a genuine EventBridge → Step Functions → Athena job runner,
-  writing to a DynamoDB serving table.
+- One real scheduled aggregation — **7-day order volume by stage**
+  (`order_volume_by_stage_7d`, created-date × current stage over the
+  trailing week) — running on a generic EventBridge → Lambda → Athena job
+  runner. Its output is stored as an immutable resultset in S3 plus an
+  Athena-queryable history table; no presentation-specific shaping lives
+  in the job layer.
 - Job run history, automatic bounded retry, and query-performance metrics
   for every run.
 - An on-demand, fully isolated rebuild capability per source.
-- A public, read-only `/data` page surfacing warehouse schema and job
-  history.
+- A public, read-only `/data` page surfacing warehouse schema, job
+  history, and the latest resultset of each job.
 
 **Explicitly out of scope for this build** (see [Open Items](#open-items)):
 `Locations`, every aggregation in `business-insights.md` §2 beyond the one
@@ -238,31 +249,59 @@ versioned and reviewed alongside the Firehose that writes to it.
 
 ---
 
-## 8. The Sample Job & Job Orchestration
+## 8. Jobs & the Job Runner
 
-**Job: `order_volume_by_borough`** — daily `COUNT(*)` of Orders per
-`borough`, joining `order_snapshots` to `locations`... *(pending
-`Locations` — see Open Items; until `locations` is warehoused, the query
-joins `order_snapshots` against a live `dynamodb:GetItem`-backed lookup is
-**not** an option for a SQL job, so this job's first real run is blocked
-on `Locations` landing — named explicitly, not silently glossed over)*.
+**A job is `{ name, SQL }`** — a `.sql` file under `cdk/warehouse/sql/`.
+The runner is generic: it does not know or care what any job's query
+returns. It runs the SQL, stores the resultset verbatim, and appends it to
+that job's history table. Presentation-specific shaping (which columns to
+chart, how to render) lives entirely in the consumer, never here.
 
-**Orchestration: EventBridge Scheduler (`rate(1 day)`) → Step Functions →
-Athena**, mirroring the poller's scheduled-job precedent:
+### The one job today: `order_volume_by_stage_7d`
 
-1. **Retry sweep** (§9) — retry any eligible previously-failed run first.
-2. **`AthenaStartQueryExecution`** (`aws-stepfunctions-tasks`, direct
-   service integration — no Lambda) runs `order_volume_by_borough.sql`
-   (§13) against the one Athena workgroup.
-3. **`AthenaGetQueryExecution`** polls to completion, capturing
-   `Statistics` (`DataScannedInBytes`, `EngineExecutionTimeInMillis`,
-   `QueryQueueTimeInMillis`) for §9.
-4. **Result-copy Lambda** (`backend/controller/analytics/`) reads the
-   query result and writes it into `AnalyticsRollups` (§11) via a new DAO
-   — entered through a controller with a zod-parsed trigger model, per
-   `CLAUDE.md` §5.2.
-5. **`RecordJobRun`** (§9) writes the outcome, including the captured
-   query statistics.
+Created-date × current-stage `COUNT(*)` over the trailing 7 days
+(`created_at >= current_date - interval '6' day`), from the latest
+`order_snapshots` row per `order_id`. Emits `(created_date, stage,
+order_count)`. Replaces Leg 3's `order_volume_by_stage` (a point-in-time
+stage snapshot). `order_volume_by_borough` stays deferred with
+`Locations` (Open Items).
+
+### The runner: `Nyc311WarehouseJobRunner` (one Lambda, EventBridge `rate(1 day)`)
+
+Not Step Functions (Appendix A.10): the queries scan kilobytes and return
+in seconds — orchestration buys nothing, and a per-job SFN machine fights
+the "add a job = add a `.sql` file" goal. One Lambda, `controller/analytics/
+runWarehouseJobController.ts`, zod-parsed trigger, per `CLAUDE.md` §5.2.
+
+Per invocation:
+
+1. **Retry sweep** (§9) — re-run any job whose most recent run `FAILED`
+   with `retry_count < MAX_JOB_RETRIES`, as a `RETRY` run.
+2. **For each registered job**, isolated in its own try/catch so one
+   failure never blocks the rest:
+   a. Write a `RUNNING` `WarehouseJobRuns` row.
+   b. `StartQueryExecution` / poll `GetQueryExecution` against the one
+      workgroup; capture `Statistics` (`DataScannedInBytes`,
+      `EngineExecutionTimeInMillis`, `QueryQueueTimeInMillis`) for §9.
+   c. `GetQueryResults` → build the **self-describing resultset envelope**
+      (§11) and `s3:PutObject` it to
+      `job-results/job_name=<job>/run_date=<date>/result.json`, immutable.
+      Athena hands every value back as a string, so envelope `rows` are
+      string-valued; `columns[].type` carries the Athena type so any
+      consumer can cast. A same-day retry overwrites that `run_date`
+      partition's `result.json` (the later run wins — a retry corrects).
+   d. Update the `WarehouseJobRuns` row to `SUCCEEDED`/`FAILED` with the
+      stats, `result_location`, and `row_count`. This tracking write is
+      its own try/catch — it never changes the outcome it describes.
+
+That single `result.json` per run is *also* the history record: one Glue
+table (`job_results`, §11) sits over the whole `job-results/` prefix with
+partition projection on `(job_name, run_date)`, so "trend of trends" is a
+plain Athena query with no second write, no CTAS, no `glue:CreateTable`.
+
+The `.sql` files are read at synth (`fs.readFileSync`) and passed to the
+Lambda as one `WAREHOUSE_JOBS` env var (a JSON `[{name, sql}]` manifest
+built from the `sql/` directory) — no runtime S3/asset fetch.
 
 ---
 
@@ -273,11 +312,13 @@ Athena**, mirroring the poller's scheduled-job precedent:
 | Field | Notes |
 |---|---|
 | `job_run_id` | PK. ULID. |
-| `job_name` | e.g. `"ORDER_VOLUME_BY_BOROUGH"`, or `"REBUILD_ORDER_EVENTS"`/`"REBUILD_ORDER_SNAPSHOTS"`/`"REBUILD_REQUESTS"` for §10's on-demand rebuilds — same table, one more `job_name` value. |
+| `job_name` | e.g. `"order_volume_by_stage_7d"`, or `"REBUILD_ORDER_EVENTS"`/`"REBUILD_ORDER_SNAPSHOTS"`/`"REBUILD_REQUESTS"` for §10's on-demand rebuilds — same table, one more `job_name` value. |
 | `status` | `RUNNING` \| `SUCCEEDED` \| `FAILED`. |
 | `trigger` | `SCHEDULED` \| `RETRY` \| `MANUAL` (the on-demand rebuild path, §10). |
 | `started_at` / `completed_at` | `completed_at` nullable while `RUNNING`. |
-| `execution_ref` | Athena `QueryExecutionId`, the DynamoDB export ARN, or the Step Functions execution ARN — opaque, interpreted per `job_name`. |
+| `execution_ref` | Athena `QueryExecutionId`, or the DynamoDB export ARN for a rebuild — opaque, interpreted per `job_name`. |
+| `result_location` | Nullable. `s3://…/job-results/job_name=<job>/run_date=<date>/result.json` — where this run's resultset lives (§11). Null while `RUNNING` and for runs that produce no resultset. |
+| `row_count` | Nullable. Number of rows in the resultset. |
 | `error_message` | Nullable. |
 | `retry_count` | `0` for an original run; a `RETRY` row carries `previous.retry_count + 1`. |
 | `retried_from_job_run_id` | Nullable FK, links a `RETRY` row to what it's retrying. |
@@ -297,15 +338,15 @@ write itself is wrapped in its own try/catch that only logs on failure,
 never allowed to change the real outcome it's describing.
 
 **Automatic retry:** at the start of each scheduled invocation, before
-running the day's regular job, the runner queries `gsi2-status` for
-`status = "FAILED"` rows with `retry_count < MAX_JOB_RETRIES` (**3**) and
-re-runs each one, writing a new `RETRY`-triggered row. This is on top of
-whatever `Retry`/`Catch` the Step Functions definition does at the task
-level — the sweep picks up a run that failed *and exhausted* its
-in-execution retries, on the *next* scheduled invocation. Once
-`MAX_JOB_RETRIES` is exhausted, a run simply stops being retried
-automatically and shows as permanently failed on `/data` — no automatic
-Case creation. Same Lambda/schedule as §8, not a second cron.
+running the day's jobs, the runner checks — per registered job — whether
+that job's most recent run `FAILED` with `retry_count < MAX_JOB_RETRIES`
+(**3**), and if so re-runs it first as a `RETRY` row carrying
+`previous.retry_count + 1`. (The `gsi2-status` `Query gsi2pk = "FAILED"`
+is the general form; with a handful of registered jobs, "latest run per
+job" via `gsi1-recent-runs` is what the code actually does.) Once
+`MAX_JOB_RETRIES` is exhausted, a run stops being retried automatically
+and shows as permanently failed on `/data` — no automatic Case creation.
+Same Lambda/schedule as §8, not a second cron.
 
 ---
 
@@ -355,9 +396,10 @@ uninterrupted throughout).
 8. **`RecordJobRun`** — writes a `WarehouseJobRuns` row, `job_name =
    "REBUILD_<SOURCE>"`, `trigger = "MANUAL"`.
 
-**After every source's branch completes:** `RecomputeRollups` re-runs
-`order_volume_by_borough.sql` so `AnalyticsRollups` reflects the rebuild
-without waiting for the next scheduled invocation.
+**After every source's branch completes:** `RecomputeJobs` invokes
+`Nyc311WarehouseJobRunner` once so every registered job re-runs against
+the rebuilt data — a fresh `run_date` resultset and history row — without
+waiting for the next scheduled invocation.
 
 **Trigger: `test-scripts/5-warehouse-rebuild.py`** — looks up the state
 machine's ARN (a new `CfnOutput`), calls `aws stepfunctions
@@ -369,23 +411,81 @@ summary. An operator running a script under the `nyc311` profile — not a
 
 ## 11. Serving Layer
 
-**Table: `AnalyticsRollups-<env>`** — PK `metric_view` (e.g.
-`"ORDER_VOLUME_BY_BOROUGH"`), SK the dimension + period key (e.g.
-`"2026-09-05#QUEENS"`). One table, every future view lands here the same
-way. Backed by a plain `Dao<T>`, a new `service/analytics/`, and a
-`controller/web-api/` GET route, same pattern as every existing read path
-in the app. The route(s) participate in
-`4-pipeline-integration-tests.md`'s endpoint-coverage gate.
+No serving-specific database. A job's output is stored **once, verbatim**,
+in two forms, and consumers read whichever fits:
+
+### Per-run resultset — `result.json` in S3
+
+`s3://nyc311-warehouse-<env>/job-results/job_name=<job>/run_date=<date>/result.json`,
+written by the runner (§8), immutable except a same-day retry which
+overwrites it. A self-describing envelope:
+
+```jsonc
+{
+  "job_name": "order_volume_by_stage_7d",
+  "job_run_id": "01M1Y3MPBM…",
+  "run_date": "2026-09-07",
+  "computed_at": "2026-09-07T14:16:36.410Z",
+  "columns": [
+    { "name": "created_date", "type": "varchar" },
+    { "name": "stage",        "type": "varchar" },
+    { "name": "order_count",  "type": "bigint" }
+  ],
+  "rows": [
+    { "created_date": "2026-09-01", "stage": "SCHEDULE", "order_count": "8830" },
+    { "created_date": "2026-09-01", "stage": "INGEST",   "order_count": "4918" }
+  ]
+}
+```
+
+`rows` are keyed objects (not positional), string-valued (Athena's native
+output); `columns[].type` is the Athena type, so a consumer casts what it
+needs. `GET /data/jobs/{name}/result` returns this body **unchanged** —
+the API resolves `result_location` from the latest `SUCCEEDED`
+`WarehouseJobRuns` row and does an `s3:GetObject`.
+
+### Run history — Glue table `job_results`, Athena-queryable
+
+One Glue table (`nyc311_warehouse_<env>.job_results`) sits over the whole
+`job-results/` prefix, partition projection on `(job_name, run_date)`,
+columns `job_run_id string`, `computed_at string`,
+`columns array<struct<name:string,type:string>>`,
+`rows array<map<string,string>>`. Every `result.json` the runner writes
+*is* a history row — no second write. "Trend of trends" — how a given
+day's numbers drifted across successive runs — is a plain query:
+
+```sql
+SELECT p.run_date, r['created_date'] AS created_date, r['stage'] AS stage,
+       CAST(r['order_count'] AS bigint) AS order_count
+FROM job_results p
+CROSS JOIN UNNEST(p.rows) AS x(r)
+WHERE p.job_name = 'order_volume_by_stage_7d' AND r['stage'] = 'SCHEDULE'
+ORDER BY p.run_date, created_date
+```
+
+A job that wants clean typed columns for heavy analysis gets an Athena
+`CREATE VIEW` (pure SQL, zero infra) — the "users add layers on top"
+path. No API or UI over history yet (Open Items) — it's ad-hoc-queryable
+substrate, decoupled from presentation until a feature needs it.
+
+### Why this shape
+
+The reporting substrate serves the whole app, not one dashboard: ad-hoc
+queries, user-authored SQL jobs, features built on job output, Athena
+views layered on top. A DynamoDB table pre-shaped for one chart
+(`metric_view`/`dimension`/`value`) actively fought that — it was already
+awkward for a 2-D result. Storing the resultset verbatim + a queryable
+history table means adding a job is adding a `.sql` file, and consumers
+own their own shaping. Full rationale: Appendix A.10.
 
 ---
 
 ## 12. The `/data` Page
 
-A new, top-level route (`/data`, `PublicRoute` tier — not nested under
+A top-level route (`/data`, `PublicRoute` tier — not nested under
 `/monitoring/`; linked from the home page as "Explore the data
-warehouse"). **The frontend is built and the layout is settled (mock-only
-prototype, 2026-09-05 — see Build Checklist).** Backed by two read-only
-GET routes the backend must implement to the shapes below.
+warehouse"). **Built and live against real routes (Legs 1–3, 2026-09-06).**
+Read-only; backed by the GET routes below.
 
 ### Layout
 
@@ -399,24 +499,29 @@ A two-column grid (`lg:grid-cols-5`, stacks on mobile):
 - **Right column (3/5) — a tab strip over a panel.** An AWS-console-style
   tab strip (`role="tablist"` — full-width bottom rule, a divider between
   options, an accent underline under the active tab) sitting flush on top
-  of a `role="tabpanel"`, switching between two views:
+  of a `role="tabpanel"`, switching between:
   - **Jobs** — client-side filters (status / trigger / `job_name`
     substring) over a most-recent-first run table. Condensed rows (job
     name, status icon + screen-reader label, trigger badge, started,
     duration) expand to a detail row: run id, `execution_ref`, the retry
     chain (`↻ retry of <id>`, plus a "retries exhausted (max 3)" note
     once `retry_count >= MAX_JOB_RETRIES`), the query-performance stats,
-    and the error message. A backfill/rebuild run is just another row,
-    `job_name` starting `REBUILD_`.
+    `result_location` / `row_count`, and the error message. A
+    backfill/rebuild run is just another row, `job_name` starting
+    `REBUILD_`.
   - **Performance** — the runs that carry Athena execution metrics
     (non-null `data_scanned_bytes` / `engine_execution_time_ms` /
-    `query_queue_time_ms` — i.e. query runs, not rebuilds or
-    still-running jobs), as a summary line (`N query runs · avg engine
-    time · avg scanned`) over a per-run metrics table. This is the
-    concrete surface for the time series Appendix A.8 keeps for later
-    compaction/optimization analysis.
+    `query_queue_time_ms`), as a summary line (`N query runs · avg engine
+    time · avg scanned`) over a per-run metrics table. Appendix A.8's
+    time-series surface for later compaction/optimization work.
+  - **Results** — the latest resultset of the selected job, rendered by a
+    **per-job component keyed on `job_name`** (`order_volume_by_stage_7d`
+    → a created-date × stage view). An unknown job falls back to a
+    generic table dump off `columns` + `rows`. This is the only place
+    job-specific presentation code lives; the job/warehouse layer knows
+    nothing about it.
 
-### The two routes — response contracts
+### The routes — response contracts
 
 `GET /data/schema` — live `glue:GetTables` against the warehouse
 database:
@@ -433,54 +538,59 @@ most-recent-first:
 
 ```jsonc
 { "jobRuns": [ {
-  "job_run_id": "01J…", "job_name": "ORDER_VOLUME_BY_BOROUGH",
+  "job_run_id": "01J…", "job_name": "order_volume_by_stage_7d",
   "status": "SUCCEEDED",              // RUNNING | SUCCEEDED | FAILED
   "trigger": "SCHEDULED",             // SCHEDULED | RETRY | MANUAL
   "started_at": "2026-09-04T09:00:01.000Z",
   "completed_at": "2026-09-04T09:00:14.000Z",   // null while RUNNING
-  "execution_ref": "…",                          // null | Athena QueryExecutionId | export ARN | SFN exec ARN
+  "execution_ref": "…",                          // null | Athena QueryExecutionId | export ARN
+  "result_location": "s3://…/job-results/job_name=order_volume_by_stage_7d/run_date=2026-09-04/result.json",
+  "row_count": 21,                                // null while RUNNING
   "error_message": null,
   "retry_count": 0,
   "retried_from_job_run_id": null,
-  "data_scanned_bytes": 4213888,                 // null unless a completed Athena query
-  "engine_execution_time_ms": 1842,              // null …
-  "query_queue_time_ms": 96                       // null …
+  "data_scanned_bytes": 485778,                  // null unless a completed Athena query
+  "engine_execution_time_ms": 1332,              // null …
+  "query_queue_time_ms": 56                       // null …
 } ] }
 ```
 
-These are exactly the shapes `web-app/src/models/warehouseSchema.ts` and
-`warehouseJobRun.ts` already validate every response through — the
-backend build hooks into the mocked interface without a frontend change.
+`GET /data/jobs/{name}/result` — the latest `SUCCEEDED` run's resultset,
+the §11 envelope, `s3:GetObject`'d and returned unchanged. `404` if the
+job has never produced one.
 
 ### No write routes
 
 No "retry this job" or "run a rebuild" button, no `POST` routes — see
 Open Items. §10's rebuild stays script-triggered under the `nyc311`
-profile.
+profile. Every `/data` Lambda is asserted (CDK test) to carry no
+`dynamodb:Put*`/`Update*`/`Delete*`, `athena:StartQueryExecution`, or
+`states:StartExecution` — the "no writes" line holds at the IAM layer.
 
-### Frontend files (built)
+### Frontend files
 
 `web-app/src/`:
-- `models/warehouseSchema.ts`, `models/warehouseJobRun.ts` (+ the
-  `MAX_JOB_RETRIES = 3` constant, mirroring §9)
-- `services/warehouseDataService.ts` — **hardcoded to the mock
-  implementation for now**, unlike every other service: these two routes
-  don't exist yet, so selecting "live" would always fail regardless of a
-  developer's ambient `VITE_DATA_MODE`. `LiveWarehouseDataService` is
-  defined and unit-tested as the target contract; restore the usual
-  `config.dataMode === "live" ? … : …` selection once the backend ships.
-- `hooks/useWarehouseSchema.ts` (no poll — schema changes are deploy-time),
-  `hooks/useWarehouseJobRuns.ts` (30s poll, like pipeline status)
-- `components/data/`: `WarehouseSchemaView.tsx`, `DataViewTabs.tsx`,
-  `JobsView.tsx`, `JobRunFilters.tsx`, `JobRunHistoryTable.tsx`,
-  `PerformanceView.tsx`, `warehouseJobStatusVisuals.ts` (reuses the
-  pipeline status palette), `formatters.ts`
+- `models/warehouseSchema.ts`, `models/warehouseJobRun.ts`
+  (+ `MAX_JOB_RETRIES = 3`, mirroring §9), `models/jobResult.ts` — the
+  §11 envelope (`{ job_name, job_run_id, run_date, computed_at, columns,
+  rows }`, `rows` is `Record<string, unknown>[]`).
+- `services/warehouseDataService.ts` — `config.dataMode`-gated
+  `Live`/`Mock`, like every other service. `getSchema()` / `getJobRuns()`
+  / `getJobResult(name)`.
+- `hooks/useWarehouseSchema.ts` (no poll), `useWarehouseJobRuns.ts`
+  (30s poll), `useJobResult.ts` (30s poll).
+- `components/data/`: `WarehouseSchemaView.tsx`, `DataViewTabs.tsx`
+  (Jobs / Performance / Results), `JobsView.tsx`, `JobRunFilters.tsx`,
+  `JobRunHistoryTable.tsx`, `PerformanceView.tsx`, `ResultsView.tsx`
+  (dispatches on `job_name`), `jobRenderers/OrderVolumeByStage7dView.tsx`
+  + `GenericResultTable.tsx`, `warehouseJobStatusVisuals.ts`,
+  `formatters.ts`
 - `components/pages/DataPage.tsx`, route `/data` in `routes/AppRoutes.tsx`
-- `test-data/warehouseSchema.ts`, `test-data/warehouseJobRuns.ts` — mock
-  fixtures exercising every visual state (running, succeeded-with-stats,
-  failed, resolved-by-retry, manual rebuild, retry-chain-exhausted)
-- full mirrored tests under `web-app/tests/`; `npm run build` / `lint` /
-  `test:coverage` all green, 100% per-file on every new file.
+- `test-data/{warehouseSchema,warehouseJobRuns,jobResult}.ts`
+- full mirrored tests under `web-app/tests/`.
+
+`AnalyticsRollup` and its model/hook/view/fixture, plus the "Rollups"
+tab, were removed in the 2026-09-07 rework (Appendix A.10).
 
 ---
 
@@ -495,23 +605,33 @@ cdk/
     Nyc311RequestsFirehose.ts         # SNS→Firehose, subscribes Nyc311RequestEventsTopic
     Nyc311WarehouseCatalog.ts         # glue.CfnDatabase + glue.CfnTable ×3 + partition projection
     Nyc311AnalyticsWorkgroup.ts       # athena.CfnWorkGroup
-    Nyc311WarehouseJobRunner.ts       # daily EventBridge Scheduler + Step Functions (§8/§9)
-    Nyc311WarehouseRebuild.ts         # on-demand Step Functions (§10)
+    Nyc311WarehouseJobRunnerLambda.ts # generic runner Lambda (§8/§9)
+    Nyc311WarehouseJobSchedule.ts     # daily EventBridge Scheduler + DLQ + failure alarm
+    Nyc311Warehouse{Schema,Jobs,JobResult}ApiLambda.ts   # the three read routes (§12)
+    Nyc311WarehouseRebuild.ts         # on-demand Step Functions (§10, not built)
     sql/
-      order_volume_by_borough.sql
+      order_volume_by_stage_7d.sql
 ```
+
+`backend/`: `models/{warehouseJobRun,jobResult,warehouseJobTrigger}.ts`,
+`dao/analytics/warehouseJobRunsDao.ts`, `service/analytics/{warehouseJobRunnerService,
+warehouseJobRunsService,warehouseSchemaService,jobResultService}.ts`,
+`controller/analytics/runWarehouseJobController.ts`,
+`controller/web-api/get{WarehouseSchema,WarehouseJobRuns,JobResult}Controller.ts`.
+The 2026-09-07 rework deleted `dao/analytics/analyticsRollupsDao.ts`,
+`models/analyticsRollup.ts`, `service/analytics/analyticsRollupsService.ts`,
+`controller/web-api/getRollupsController.ts`, and the rollup-fold logic in
+`warehouseJobRunnerService.ts`.
 
 No new fan-out Lambda file — §4 retrofits the two that already exist
 (`cdk/lambda/Nyc311OrdersStreamFanOutLambda.ts`,
 `cdk/lambda/Nyc311RequestsFanOutLambda.ts`, both renamed in place).
 
-**`CLAUDE.md` changes:** §5.3's tree gains `warehouse/` under `cdk/`
-(matches the `api/`/`web/` precedent — a new per-resource subfolder under
-an already-unlocked directory, not a fresh unlock round). `.sql` files as
-versioned assets under `cdk/warehouse/sql/` is flagged in Open Items as
-still wanting explicit sign-off — the one genuine new-convention decision
-in this doc. `business-insights.md` §3 gets a note that this doc
-supersedes it for implementation detail.
+**`CLAUDE.md`:** §5.3's tree has `warehouse/` under `cdk/` and notes
+`sql/` as a `.sql`-asset location (added in Leg 2/3). §5.2 documents the
+`dao/analytics/` + `controller/analytics/` carve-out. `business-insights.md`
+§3 still wants the "superseded for implementation detail" note (Build
+Checklist).
 
 ---
 
@@ -543,25 +663,28 @@ construct default:
 - **The two renamed fan-out Lambdas:** stream-read (unchanged, automatic)
   + `sns:Publish` on their own topic(s) only. Still no `dynamodb:*` write
   access — asserted absent in a CDK test.
-- **Job-runner Step Functions role:** `athena:StartQueryExecution`/
-  `GetQueryExecution`/`GetQueryResults` scoped to the one workgroup;
-  `glue:GetTable`/`GetDatabase`/`GetPartitions` on the one database;
-  `s3:GetObject` on `data/*`, `s3:PutObject` on `athena-results/*`.
-  Result-copy Lambda: `dynamodb:PutItem`/`BatchWriteItem` on
-  `AnalyticsRollups` and `WarehouseJobRuns`.
+- **Job-runner Lambda role:** `athena:StartQueryExecution`/
+  `GetQueryExecution`/`GetQueryResults`/`StopQueryExecution` scoped to the
+  one workgroup; `glue:GetDatabase`/`GetTable`/`GetPartitions` on the one
+  database (read-only — the `job_results` table is CDK-declared, the
+  runner never touches the catalog); `s3:GetObject` on `data/*`,
+  `s3:PutObject`/`GetObject` on `job-results/*`, `s3:PutObject`/
+  `GetObject`/`DeleteObject` on `athena-results/*`;
+  `dynamodb:GetItem`/`PutItem`/`Query` on `WarehouseJobRuns`. No
+  `AnalyticsRollups` — it no longer exists; no Glue writes.
 - **Rebuild state machine role:** `sns:Subscribe`/`Unsubscribe` scoped to
   the three warehouse topics; `dynamodb:ExportTableToPointInTime`/
   `DescribeExport` on the three source table ARNs; `s3:DeleteObject`/
   `ListBucket` on `data/*`, `s3:GetObject`/`PutObject` on
   `export-staging/*`; `firehose:PutRecordBatch` on the three delivery
   streams; `dynamodb:PutItem` on `WarehouseJobRuns`.
-- **`/data`'s two Lambdas — read-only, no exceptions:** the schema route
-  gets `glue:GetTable`/`GetTables`/`GetDatabase` only; the jobs route gets
-  `dynamodb:Query` on `WarehouseJobRuns` only. **Neither gets any
-  `dynamodb:Put*`/`Update*`/`Delete*`, `states:StartExecution`, or
-  `athena:StartQueryExecution`** — asserted absent in a CDK test, since
-  §12's "no write actions" decision needs to hold at the IAM layer, not
-  just "no button exists in the UI."
+- **`/data`'s three Lambdas — read-only, no exceptions:** schema route →
+  `glue:GetTable`/`GetTables`/`GetDatabase` only; jobs route →
+  `dynamodb:Query` on `WarehouseJobRuns` only; job-result route →
+  `dynamodb:Query`/`GetItem` on `WarehouseJobRuns` (to resolve the latest
+  `result_location`) + `s3:GetObject` on `job-results/*` only. **None gets
+  any `dynamodb:Put*`/`Update*`/`Delete*`, `states:StartExecution`, or
+  `athena:StartQueryExecution`** — asserted absent in a CDK test.
 
 ---
 
@@ -574,8 +697,10 @@ construct default:
 | Athena | $5/TB scanned — a daily job over this data volume is effectively free. |
 | Glue Data Catalog | Free tier covers this outright. |
 | SNS (3 topics) | Free tier covers this outright. |
-| `WarehouseJobRuns` + `AnalyticsRollups` (DynamoDB, on-demand) | Cents/month at most. |
-| Step Functions (daily runner + occasional rebuilds) | Rounding error at this execution frequency. |
+| `WarehouseJobRuns` (DynamoDB, on-demand) | Cents/month at most. |
+| S3 `job-results/` (one small JSON + a Parquet partition per job per day) | Rounding error. |
+| Lambda (daily runner + the three read routes) | Free tier covers it. |
+| Step Functions (occasional rebuilds only, §10) | Rounding error. |
 
 **No new recurring infrastructure cost** — widening the two existing
 fan-out Lambdas (§4) rather than adding a Kinesis Data Stream (Appendix
@@ -588,32 +713,31 @@ A.2) is the entire reason.
 Same four-tier model (`testing-framework.md`):
 
 - **Unit (Vitest, 90% per-file):** both widened fan-out
-  controllers/services (relevance + routing per branch, `unmarshall`,
-  `sns:Publish` shape); the result-copy controller/service/DAO; the
-  job-run-tracking DAO/service (write-then-update lifecycle, the retry
-  sweep, `MAX_JOB_RETRIES` cutoff); the rebuild's `WipePrefix`/
-  `ReplayExportFiles` Lambdas; `warehouseSchemaService`/
-  `warehouseJobRunsService` with the Glue/DynamoDB clients mocked.
-- **CDK assertions:** bucket config; Firehose ×3 (buffering, Parquet
-  conversion pointed at the right Glue table, delivery-role policy scoped
-  — not `*`); `CfnDatabase`/`CfnTable` ×3 (partition-projection
-  `parameters` map asserted directly — a typo there silently breaks every
-  query); §6's schema-drift test itself; both job-runner and rebuild Step
-  Functions definitions; `WarehouseJobRuns`/`AnalyticsRollups` key
-  schema/GSIs; every Lambda's IAM, including an explicit assertion that
-  `/data`'s two Lambdas carry no write actions.
-- **Real integration:** `test-scripts/4-warehouse-test.py` (write a
-  synthetic Order/OrderEvent, wait out the Firehose buffer, query Athena,
-  assert the row appears) and `test-scripts/5-warehouse-rebuild.py`
-  (§10). Not pipeline-blocking gates yet. The two `/data` GET routes do
-  join `4-pipeline-integration-tests.md`'s real endpoint-coverage gate.
-- **Frontend (built 2026-09-05):** full mirrored Vitest/RTL suite for
-  every `/data` model, service, hook, and component — `warehouseDataService`'s
-  mock-selection *and* `LiveWarehouseDataService`'s fetch/parse/error
-  contract, the tab switch, the schema-collapsed default, the retry-chain
-  and retries-exhausted rendering, the Performance view's metric-run
-  filter and averages. `web-app` build/lint/`test:coverage` all green,
-  100% per-file on every new file.
+  controllers/services; the job runner (manifest iteration, per-job
+  try/catch isolation, resultset-envelope build with string values +
+  column types, `result.json` PutObject, `WarehouseJobRuns` lifecycle
+  with `result_location`/`row_count`, retry decision, `MAX_JOB_RETRIES`
+  cutoff) with the Athena/S3/DynamoDB clients mocked; `jobResultService`
+  (resolve latest `result_location`, GetObject, parse, 404 path);
+  `warehouseSchemaService`/`warehouseJobRunsService`; the rebuild's
+  Lambdas (Leg 4).
+- **CDK assertions:** bucket config; Firehose ×3; `CfnDatabase` + the
+  four `CfnTable`s (`order_events`/`order_snapshots`/`requests` +
+  `job_results`, partition-projection `parameters` asserted directly);
+  §6's schema-drift test; `WarehouseJobRuns` key schema/GSIs; the runner
+  Lambda's IAM (Athena + read-only `glue:Get*` + scoped `job-results/*`
+  S3 write + `WarehouseJobRuns` — asserted **no** `glue:CreateTable`/
+  `PutObject` outside `job-results/`); the schedule (`rate(1 day)` + DLQ
+  + alarm); an explicit assertion that all three `/data` Lambdas carry no
+  write actions.
+- **Real integration:** `test-scripts/4-warehouse-test.py` and (Leg 4)
+  `5-warehouse-rebuild.py`. `GET /data/schema`, `/data/jobs`,
+  `/data/jobs/{name}/result` are in `4-pipeline-integration-tests.md`'s
+  real endpoint-coverage gate.
+- **Frontend:** full mirrored Vitest/RTL suite for every `/data` model,
+  service, hook, and component — including the per-job `ResultsView`
+  dispatch and the `order_volume_by_stage_7d` renderer, and the generic
+  fallback table. `web-app` build/lint/`test:coverage` all green.
 
 ---
 
@@ -628,14 +752,15 @@ Same four-tier model (`testing-framework.md`):
 | Firehose (×3) | `Nyc311Warehouse-OrderEvents-<Test\|Prod>`, `…-OrderSnapshots-…`, `…-Requests-…` |
 | Fan-out Lambdas | `Nyc311OrdersStreamFanOutLambda` (renamed from `Nyc311OrderEventFanOutLambda`), `Nyc311RequestsFanOutLambda` (renamed from `Nyc311OrderFanOutLambda`) |
 | SNS topics (new) | `Nyc311OrderProjectionsTopic`, `Nyc311RequestEventsTopic` |
-| Job run history table | `WarehouseJobRuns-<Test\|Prod>` |
-| Serving table | `AnalyticsRollups-<Test\|Prod>` |
-| Rebuild state machine | `Nyc311WarehouseRebuild-<Test\|Prod>` |
-| Job runner state machine | `Nyc311WarehouseJobRunner-<Test\|Prod>` |
-| SQL assets | `cdk/warehouse/sql/order_volume_by_borough.sql` |
-| `/data` routes | `GET /data/schema`, `GET /data/jobs` |
-| `/data` frontend | `web-app/src/models/{warehouseSchema,warehouseJobRun}.ts`, `services/warehouseDataService.ts`, `hooks/{useWarehouseSchema,useWarehouseJobRuns}.ts`, `components/data/*`, `components/pages/DataPage.tsx`, route `/data` (§12) |
-| Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` |
+| Job run history table (DynamoDB) | `WarehouseJobRuns-<Test\|Prod>` |
+| Job result store (S3) | `s3://nyc311-warehouse-<test\|prod>/job-results/job_name=<job>/run_date=<date>/result.json` |
+| Job history table (Glue/Athena) | `nyc311_warehouse_<test\|prod>.job_results` (one table, `rows array<map<string,string>>`, over the whole `job-results/` prefix) |
+| Rebuild state machine | `Nyc311WarehouseRebuild-<Test\|Prod>` (Leg 4) |
+| Job runner Lambda / schedule | `Nyc311WarehouseJobRunner-<Test\|Prod>`, `Nyc311WarehouseJobSchedule-<Test\|Prod>` |
+| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql` |
+| `/data` routes | `GET /data/schema`, `GET /data/jobs`, `GET /data/jobs/{name}/result` |
+| `/data` frontend | `web-app/src/models/{warehouseSchema,warehouseJobRun,jobResult}.ts`, `services/warehouseDataService.ts`, `hooks/{useWarehouseSchema,useWarehouseJobRuns,useJobResult}.ts`, `components/data/*`, `components/pages/DataPage.tsx`, route `/data` (§12) |
+| Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` (Leg 4) |
 
 ---
 
@@ -646,14 +771,50 @@ Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
 
-- [x] Models, mock service (hardcoded), hooks, components, page, route,
-      fixtures, full mirrored tests — **done 2026-09-05** (§12).
-- [x] Restore `config.dataMode`-gated service selection; add `getRollups()`
-      + `AnalyticsRollup` model/hook + a "Rollups" inspection tab on `/data`
-      — **done 2026-09-06**, alongside Leg 3's `GET /data/rollups`.
-- [x] Add `GET /data/{schema,jobs,rollups}` to
-      `4-pipeline-integration-tests.md`'s endpoint-coverage report
-      (`KNOWN_ROUTES` + three `*.integration.test.ts` files) — **done 2026-09-06**.
+- [x] Models, mock service, hooks, components, page, route, fixtures, full
+      mirrored tests — **done 2026-09-05**; `config.dataMode`-gated and
+      live against real routes **2026-09-06** (§12).
+- [x] `GET /data/{schema,jobs}` in `4-pipeline-integration-tests.md`'s
+      endpoint-coverage report — **done 2026-09-06** (the `/data/rollups`
+      entry is replaced by `/data/jobs/{name}/result` in Leg 3.5).
+
+### Leg 3.5 — reporting-substrate rework (§8/§11, 2026-09-07)
+
+Job output becomes an immutable resultset in S3 + an Athena-queryable
+history table; the DynamoDB EAV serving table is deleted.
+
+- [ ] **Delete** `AnalyticsRollups` (CDK `TableV2` + `cdk/tests`), `dao/
+      analytics/analyticsRollupsDao`, `models/analyticsRollup`,
+      `service/analytics/analyticsRollupsService`,
+      `controller/web-api/getRollupsController` + its API Lambda/route,
+      and the rollup-fold loop in `warehouseJobRunnerService`. Web-app:
+      `models/analyticsRollup`, `hooks/useRollups`, `components/data/
+      RollupsView`, `test-data/analyticsRollups`, the "Rollups" tab. Drop
+      `/data/rollups` from `KNOWN_ROUTES` + delete its integration test.
+- [ ] `cdk/warehouse/sql/order_volume_by_stage_7d.sql` — created-date ×
+      current-stage `COUNT(*)`, trailing 7 days by `created_at`.
+- [ ] Rework the runner: iterate the `WAREHOUSE_JOBS` manifest (built from
+      `sql/`), per job → run Athena → build the §11 envelope (string-valued
+      rows + column types) → `PutObject` `result.json` → write
+      `WarehouseJobRuns` with `result_location` + `row_count`. Runner role
+      gains scoped `job-results/*` S3 write; no Glue writes.
+- [ ] `Nyc311WarehouseCatalog`: add the CDK-declared `job_results` Glue
+      table (`rows array<map<string,string>>`, partition projection on
+      `job_name`/`run_date`) over the `job-results/` prefix.
+- [ ] `WarehouseJobRuns` model + DAO: add `result_location`, `row_count`.
+- [ ] `backend/service/analytics/jobResultService` +
+      `controller/web-api/getJobResultController` + `Nyc311WarehouseJobResultApiLambda`
+      + `GET /data/jobs/{name}/result` (resolve latest `result_location`,
+      `s3:GetObject`, return envelope, 404 if none). Read-only IAM
+      asserted.
+- [ ] Web-app: `models/jobResult`, `hooks/useJobResult`,
+      `services/warehouseDataService.getJobResult()`, `ResultsView` +
+      per-job `OrderVolumeByStage7dView` + `GenericResultTable`, "Results"
+      tab, fixtures, full mirrored tests.
+- [ ] `KNOWN_ROUTES` + `warehouseJobResultApi.integration.test.ts`.
+- [ ] Ship, verify in `Nyc311-Test`: force a run, confirm `result.json`
+      in S3, `SELECT ... FROM job_results WHERE job_name = '...'` works in
+      Athena, and the `/data` Results tab renders the 7-day-by-stage view.
 
 ### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
@@ -687,7 +848,7 @@ Tracked as legs, roughly in dependency order.
   `timestamp` — the Firehose Parquet converter rejects ISO-8601 strings
   for a `timestamp` column. Flagged and accepted.
 
-### Leg 3 — job runner + tracking + serving (§8–§9, §11) — **shipped 2026-09-06**
+### Leg 3 — job runner + tracking + serving (§8–§9, §11) — **shipped 2026-09-06, serving layer superseded by Leg 3.5**
 
 - [x] `WarehouseJobRuns` table + `dao/analytics/warehouseJobRunsDao` +
       service (RUNNING→SUCCEEDED/FAILED write lifecycle, retry decision,
@@ -729,39 +890,43 @@ Tracked as legs, roughly in dependency order.
 
 - [ ] `business-insights.md` §3 — add the "superseded by
       `7-data-warehousing.md` for implementation detail" note.
-- [ ] Resolve the remaining Open Items (`Locations`, `.sql`-asset
-      sign-off).
 
 ---
 
 ## Open Items
 
-- **`Locations`.** Explicitly deferred — no fan-out, no Firehose, no Glue
-  table this round. Consequence named in §8: the sample job's `borough`
-  join has nothing to join against until `Locations` lands, so
-  `order_volume_by_borough.sql`'s first real run is blocked on this.
-  Revisit once the Orders/OrderEvents/Requests pipeline is verified
-  working end to end.
+- **`Locations` + `order_volume_by_borough`.** `Locations` is deferred —
+  no fan-out, no Firehose, no Glue table yet. The borough job (daily
+  `COUNT(*)` per borough, joining `order_snapshots` to `locations`) is a
+  second `.sql` file once `Locations` lands — no runner change, it's just
+  another entry in `sql/`.
+- **History read path (`GET /data/jobs/{name}/history`).** The per-job
+  Glue history table (§11) makes "trend of trends" ad-hoc Athena-queryable
+  now. An API/UI over it is deferred until a feature needs it — the
+  substrate stays decoupled from presentation until then.
+- **User-authored SQL jobs / ad-hoc query API.** The substrate framing
+  (§1) points here: users defining `{ name, SQL }` jobs, or running one-off
+  queries, through the app. Out of scope now — needs job CRUD, SQL
+  validation/sandboxing, per-user auth, and per-query cost controls
+  (`bytesScannedCutoffPerQuery` on the workgroup is the only piece that
+  exists). Jobs stay checked-in `.sql` files until then.
 - **`/data` write actions.** No "retry"/"rebuild" button, no `POST`
   routes. Deferred until real role-gated auth exists
-  (`2-pipeline-monitoring.md` §11's unbuilt `AuthenticatedRoute`) — not in
-  scope for this doc. §10's rebuild stays script-triggered, under the
-  `nyc311` profile, until then.
-- **`.sql` files as versioned repo assets** (`cdk/warehouse/sql/`) — the
-  one genuine new convention this doc introduces (no non-TS/non-doc
-  source has existed in this repo before). Wants explicit sign-off before
-  the first file lands.
+  (`2-pipeline-monitoring.md` §11's unbuilt `AuthenticatedRoute`). §10's
+  rebuild stays script-triggered under the `nyc311` profile until then.
 - **`Cases`/`Operators`/`Shifts`.** Join this same pipeline once those
   tables are built — no redesign needed, per §3's design principle.
 - **Every other `business-insights.md` §2 aggregation** (cost model, Case
-  MTTR, SLA-breach rate) — stays designed-not-built; added later as more
-  entries in the same job runner (§8), using `order_volume_by_borough` as
-  the template.
-- **Compaction / small-file consolidation** — not designed or built this
-  round. §9's captured query-performance metrics (`data_scanned_bytes`,
-  `engine_execution_time_ms`) exist specifically so this can be measured
-  and reasoned about later (by a human or an agent) without new
-  instrumentation, once it's worth doing.
+  MTTR, SLA-breach rate) — designed-not-built; each is another `.sql`
+  file in the registry.
+- **Compaction / small-file consolidation** — not built. §9's captured
+  query-performance metrics exist so this can be measured and reasoned
+  about later without new instrumentation.
+- **Same-day retry overwrites.** A `RETRY` run overwrites that
+  `run_date`'s `result.json` (later run wins — a retry corrects). Clean
+  for the API's "latest" read and for the `job_results` history table
+  (one row per `run_date`); the superseded resultset is lost, which is
+  the intended semantics for a retry.
 
 ---
 
@@ -928,3 +1093,52 @@ against once compaction is worth doing.
 - `Nyc311OrderEventsTopic` (`5-order-evaluation.md` §3) didn't exist when
   §3 was written — it's part of why the stream-tap analysis in A.2 came
   out the way it did.
+
+### A.10 — Why job results moved from a DynamoDB EAV table to S3 resultsets
+
+Leg 3 shipped `AnalyticsRollups` — a DynamoDB table with `metric_view`
+(PK) / `<run_date>#<dimension>` (SK) / `value`, and a fold loop in the
+runner turning each query result row into one item. It worked for the
+1-D sample job (count per stage). It broke down the moment a second
+dimension appeared: `order_volume_by_stage_7d` is created-date × stage,
+and the EAV key had nowhere to put the second axis without encoding a
+composite string into `dimension` — at which point the "structure" the
+table imposed was actively lying about the data.
+
+The deeper issue: this layer isn't a dashboard backend, it's the app's
+**reporting substrate**. Ad-hoc Athena queries, user-authored SQL jobs,
+features built on job output, Athena views layered on job history — all
+of that wants the raw resultset, not a shape pre-chewed for one chart.
+Every bespoke fold rule in the runner is coupling the warehouse layer to
+one consumer's needs.
+
+So: the runner stores the Athena resultset **verbatim** —
+`{ columns, rows }` as a self-describing JSON envelope in S3, immutable,
+one object per run. That same object *is* the history record: one
+CDK-declared Glue table (`job_results`, `rows array<map<string,string>>`,
+partition projection on `job_name`/`run_date`) sits over the whole
+prefix, so "trend of trends" is a `CROSS JOIN UNNEST` query with no
+second write. The runner never inspects what a query returns and never
+touches the catalog. Adding a job is adding a `.sql` file. Consumers own
+their shaping: the `/data` page has one small renderer per `job_name`,
+an unknown job falls back to a generic table, and a job wanting typed
+history columns gets an Athena `CREATE VIEW`.
+
+Costs: the dashboard read is an `s3:GetObject` (~30ms) instead of a
+single-digit-ms DynamoDB `Query` — irrelevant here. Row values are
+strings (Athena's native output) + a `type` per column — consumers cast.
+What it buys: no per-job backend code ever again, immutable versioned
+results, and history queryable from day one with only read grants on the
+runner.
+
+Rejected: (a) keeping `AnalyticsRollups`, encoding the 2-D key as a
+composite `dimension` string — pure-SQL but the model lies and the UI
+shows raw `2026-09-01|SCHEDULE` labels; (b) generalizing the DynamoDB
+table with a `dimensions: map` attribute — still EAV, still fights
+ad-hoc SQL; (c) per-job Glue tables via Athena `CTAS`/`INSERT INTO` —
+real typed columns, but needs `glue:CreateTable` on the runner, a second
+Athena query per run, and `external_location` is fragile if a table is
+ever dropped; the `map<string,string>` table + optional views gets 90%
+of the value with read-only grants and one write; (d) a per-job Step
+Functions machine — orchestration for a KB-scale query, and it fights
+"a job is just a `.sql` file."

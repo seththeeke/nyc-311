@@ -1,12 +1,13 @@
 import { z } from "zod";
 
 /*
- * Mirrors the future backend/models/warehouseJobRun.ts (7-data-warehousing.md
- * §9) — one row of the WarehouseJobRuns table, as returned by GET /data/jobs.
- * Covers the daily aggregation job, its automatic bounded retries, and the
- * on-demand rebuild state machine (§10) — all one shape, distinguished by
- * job_name/trigger. Every service response is parsed through this schema
- * before it reaches a component (CLAUDE.md §5.1's network-boundary rule).
+ * Mirrors backend/models/warehouseJobRun.ts (7-data-warehousing.md §9) —
+ * one row of the WarehouseJobRuns table, as returned by GET /data/jobs.
+ * Covers the daily aggregation jobs, their automatic bounded retries, and
+ * the on-demand rebuild (§10) — all one shape, distinguished by
+ * job_name/trigger. `result_location` points at the run's immutable
+ * result.json in S3 (§11). Every service response is parsed through this
+ * schema before it reaches a component (CLAUDE.md §5.1).
  */
 
 export const WAREHOUSE_JOB_RUN_STATUSES = ["RUNNING", "SUCCEEDED", "FAILED"] as const;
@@ -26,6 +27,8 @@ export const WarehouseJobRunSchema = z.object({
   started_at: z.string().min(1),
   completed_at: z.string().min(1).nullable(),
   execution_ref: z.string().min(1).nullable(),
+  result_location: z.string().min(1).nullable(),
+  row_count: z.number().int().nonnegative().nullable(),
   error_message: z.string().min(1).nullable(),
   retry_count: z.number().int().nonnegative(),
   retried_from_job_run_id: z.string().min(1).nullable(),

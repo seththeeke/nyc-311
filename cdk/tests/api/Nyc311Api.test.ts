@@ -8,12 +8,11 @@ import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
 import { Nyc311OrderEventsApiLambda } from "../../lambda/Nyc311OrderEventsApiLambda";
 import { Nyc311LambdaMetricsApiLambda } from "../../lambda/Nyc311LambdaMetricsApiLambda";
 import { WarehouseJobRunsTable } from "../../data/WarehouseJobRunsTable";
-import { AnalyticsRollupsTable } from "../../data/AnalyticsRollupsTable";
 import { Nyc311WarehouseBucket } from "../../warehouse/Nyc311WarehouseBucket";
 import { Nyc311WarehouseCatalog } from "../../warehouse/Nyc311WarehouseCatalog";
 import { Nyc311WarehouseSchemaApiLambda } from "../../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../../warehouse/Nyc311WarehouseJobsApiLambda";
-import { Nyc311RollupsApiLambda } from "../../warehouse/Nyc311RollupsApiLambda";
+import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const WEB_APP_DOMAIN = "d123456abcdef.cloudfront.net";
@@ -43,10 +42,9 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
     warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
     warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
-    rollupsApiFunctionName: "Nyc311RollupsApi-Test",
+    jobResultApiFunctionName: "Nyc311JobResultApi-Test",
   });
   const warehouseJobRunsTable = new WarehouseJobRunsTable(stack, "WarehouseJobRunsTable", { envName });
-  const analyticsRollupsTable = new AnalyticsRollupsTable(stack, "AnalyticsRollupsTable", { envName });
   const warehouseBucket = new Nyc311WarehouseBucket(stack, "Nyc311WarehouseBucket", { envName });
   const warehouseCatalog = new Nyc311WarehouseCatalog(stack, "Nyc311WarehouseCatalog", { envName, warehouseBucket });
   const warehouseSchemaApiLambda = new Nyc311WarehouseSchemaApiLambda(stack, "Nyc311WarehouseSchemaApiLambda", {
@@ -57,9 +55,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     jobRunsTable: warehouseJobRunsTable,
   });
-  const rollupsApiLambda = new Nyc311RollupsApiLambda(stack, "Nyc311RollupsApiLambda", {
+  const jobResultApiLambda = new Nyc311JobResultApiLambda(stack, "Nyc311JobResultApiLambda", {
     envName,
-    rollupsTable: analyticsRollupsTable,
+    jobRunsTable: warehouseJobRunsTable,
+    warehouseBucket,
   });
   new Nyc311Api(stack, "Nyc311Api", {
     envName,
@@ -69,7 +68,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     lambdaMetricsApiLambda,
     warehouseSchemaApiLambda,
     warehouseJobsApiLambda,
-    rollupsApiLambda,
+    jobResultApiLambda,
     webAppDomainName: WEB_APP_DOMAIN,
   });
   return Template.fromStack(stack);
@@ -138,7 +137,7 @@ describe("Nyc311Api", () => {
   it("wires the three GET /data/* warehouse routes", () => {
     const template = synthesize("TEST");
 
-    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/rollups"]) {
+    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result"]) {
       template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }
   });

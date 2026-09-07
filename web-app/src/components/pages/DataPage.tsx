@@ -2,15 +2,21 @@ import { useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { useWarehouseSchema } from "../../hooks/useWarehouseSchema";
 import { useWarehouseJobRuns } from "../../hooks/useWarehouseJobRuns";
-import { useRollups } from "../../hooks/useRollups";
+import { useJobResult } from "../../hooks/useJobResult";
 import { WarehouseSchemaView } from "../data/WarehouseSchemaView";
 import { DataViewTabs, dataViewPanelId, dataViewTabId, type DataView } from "../data/DataViewTabs";
 import { JobsView } from "../data/JobsView";
 import { PerformanceView } from "../data/PerformanceView";
-import { RollupsView } from "../data/RollupsView";
+import { ResultsView } from "../data/ResultsView";
 
 const CARD_CLASSES =
   "rounded-2xl border border-white/10 bg-white shadow-2xl shadow-cyan-950/20 ring-1 ring-black/5";
+
+/*
+ * The job whose latest result the "Results" tab shows. One job today; a
+ * job picker lands here when there are several (7-data-warehousing.md §12).
+ */
+const RESULTS_JOB = "order_volume_by_stage_7d";
 
 function Section({ title, children }: { title: string; children: ReactElement }): ReactElement {
   return (
@@ -35,20 +41,19 @@ function QueryState({ isPending, error, label }: { isPending: boolean; error: un
 /**
  * The data warehouse's public, read-only surface (7-data-warehousing.md
  * §12) — schema on the left; the job runner's history, its query
- * performance, or the sample job's rollup output on the right.
- * Deliberately not nested under /monitoring. No write actions exist here
- * or on any route this page reaches.
+ * performance, or a job's latest resultset on the right. Deliberately not
+ * nested under /monitoring. No write actions exist here or on any route
+ * this page reaches.
  */
 export function DataPage(): ReactElement {
   const schemaQuery = useWarehouseSchema();
   const jobRunsQuery = useWarehouseJobRuns();
-  const rollupsQuery = useRollups();
+  const jobResultQuery = useJobResult(RESULTS_JOB);
   const [view, setView] = useState<DataView>("jobs");
 
   const jobRuns = jobRunsQuery.data?.jobRuns ?? [];
-  const rollups = rollupsQuery.data?.rollups ?? [];
-  const panelQuery = view === "rollups" ? rollupsQuery : jobRunsQuery;
-  const panelLabel = view === "rollups" ? "rollups" : "job runs";
+  const panelQuery = view === "results" ? jobResultQuery : jobRunsQuery;
+  const panelLabel = view === "results" ? `result for ${RESULTS_JOB}` : "job runs";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
@@ -69,7 +74,7 @@ export function DataPage(): ReactElement {
           Data
         </h1>
         <p className="mt-2 text-slate-400">
-          The warehouse's schema and job history — read-only, refreshes every 30s.
+          The warehouse's schema, job history, and job results — read-only, refreshes every 30s.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -90,12 +95,12 @@ export function DataPage(): ReactElement {
             <div id={dataViewPanelId(view)} role="tabpanel" aria-labelledby={dataViewTabId(view)} className="p-4">
               {panelQuery.isPending || panelQuery.isError ? (
                 <QueryState isPending={panelQuery.isPending} error={panelQuery.error} label={panelLabel} />
-              ) : view === "jobs" ? (
-                <JobsView jobRuns={jobRuns} />
               ) : view === "performance" ? (
                 <PerformanceView jobRuns={jobRuns} />
+              ) : view === "results" ? (
+                jobResultQuery.data ? <ResultsView result={jobResultQuery.data} /> : null
               ) : (
-                <RollupsView rollups={rollups} />
+                <JobsView jobRuns={jobRuns} />
               )}
             </div>
           </div>

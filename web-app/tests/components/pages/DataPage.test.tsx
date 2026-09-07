@@ -7,64 +7,65 @@ import { DataPage } from "../../../src/components/pages/DataPage";
 import { warehouseDataService } from "../../../src/services/warehouseDataService";
 import type { WarehouseSchemaResponse } from "../../../src/models/warehouseSchema";
 import type { WarehouseJobRunListResponse } from "../../../src/models/warehouseJobRun";
-import type { AnalyticsRollupListResponse } from "../../../src/models/analyticsRollup";
+import type { JobResult } from "../../../src/models/jobResult";
 
 vi.mock("../../../src/services/warehouseDataService", () => ({
-  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getRollups: vi.fn() },
+  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getJobResult: vi.fn() },
 }));
 
 const mockedGetSchema = vi.mocked(warehouseDataService.getSchema);
 const mockedGetJobRuns = vi.mocked(warehouseDataService.getJobRuns);
-const mockedGetRollups = vi.mocked(warehouseDataService.getRollups);
+const mockedGetJobResult = vi.mocked(warehouseDataService.getJobResult);
 
 const emptySchema: WarehouseSchemaResponse = { tables: [] };
 
-const rollups: AnalyticsRollupListResponse = {
-  rollups: [
-    {
-      metric_view: "ORDER_VOLUME_BY_STAGE",
-      rollup_key: "2026-09-04#SCHEDULE",
-      run_date: "2026-09-04",
-      dimension: "SCHEDULE",
-      value: 412,
-      computed_at: "2026-09-04T09:00:14.000Z",
-      job_run_id: "01J8Z2SUCCEEDED000000000002",
-    },
+const jobResult: JobResult = {
+  job_name: "order_volume_by_stage_7d",
+  job_run_id: "01J8Z2SUCCEEDED000000000002",
+  run_date: "2026-09-04",
+  computed_at: "2026-09-04T09:00:14.000Z",
+  columns: [
+    { name: "created_date", type: "varchar" },
+    { name: "stage", type: "varchar" },
+    { name: "order_count", type: "bigint" },
   ],
+  rows: [{ created_date: "2026-09-04", stage: "SCHEDULE", order_count: "412" }],
 };
+
+function jobRun(overrides: Partial<WarehouseJobRunListResponse["jobRuns"][number]>) {
+  return {
+    job_run_id: "01J8Z2SUCCEEDED000000000002",
+    job_name: "order_volume_by_stage_7d",
+    status: "SUCCEEDED" as const,
+    trigger: "SCHEDULED" as const,
+    started_at: "2026-09-04T09:00:01.000Z",
+    completed_at: "2026-09-04T09:00:14.000Z",
+    execution_ref: "6e1b9c22",
+    result_location: "s3://b/k",
+    row_count: 12,
+    error_message: null,
+    retry_count: 0,
+    retried_from_job_run_id: null,
+    data_scanned_bytes: 4_213_888,
+    engine_execution_time_ms: 1_842,
+    query_queue_time_ms: 96,
+    ...overrides,
+  };
+}
 
 const jobRuns: WarehouseJobRunListResponse = {
   jobRuns: [
-    {
-      job_run_id: "01J8Z2SUCCEEDED000000000002",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
-      status: "SUCCEEDED",
-      trigger: "SCHEDULED",
-      started_at: "2026-09-04T09:00:01.000Z",
-      completed_at: "2026-09-04T09:00:14.000Z",
-      execution_ref: "6e1b9c22",
-      error_message: null,
-      retry_count: 0,
-      retried_from_job_run_id: null,
-      data_scanned_bytes: 4_213_888,
-      engine_execution_time_ms: 1_842,
-      query_queue_time_ms: 96,
-    },
-    {
-      job_run_id: "01J8Z0FAILED00000000000004",
-      job_name: "ORDER_VOLUME_BY_BOROUGH",
+    jobRun({ job_run_id: "a" }),
+    jobRun({
+      job_run_id: "b",
       status: "FAILED",
-      trigger: "SCHEDULED",
-      started_at: "2026-09-03T09:00:03.000Z",
-      completed_at: "2026-09-03T09:00:19.000Z",
-      execution_ref: "8a3f5e17",
       error_message: "Athena query failed",
-      retry_count: 0,
-      retried_from_job_run_id: null,
+      result_location: null,
+      row_count: null,
       data_scanned_bytes: null,
       engine_execution_time_ms: null,
       query_queue_time_ms: null,
-    },
+    }),
   ],
 };
 
@@ -84,8 +85,8 @@ function renderPage() {
 beforeEach(() => {
   mockedGetSchema.mockReset();
   mockedGetJobRuns.mockReset();
-  mockedGetRollups.mockReset();
-  mockedGetRollups.mockResolvedValue({ rollups: [] });
+  mockedGetJobResult.mockReset();
+  mockedGetJobResult.mockResolvedValue({ ...jobResult, rows: [] });
 });
 
 describe("DataPage", () => {
@@ -156,7 +157,7 @@ describe("DataPage", () => {
     mockedGetJobRuns.mockResolvedValue(jobRuns);
     renderPage();
 
-    expect(await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH")).toHaveLength(2);
+    expect(await screen.findAllByText("order_volume_by_stage_7d")).toHaveLength(2);
     expect(screen.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Status")).toBeInTheDocument();
   });
@@ -167,7 +168,7 @@ describe("DataPage", () => {
     mockedGetJobRuns.mockResolvedValue(jobRuns);
     renderPage();
 
-    await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH");
+    await screen.findAllByText("order_volume_by_stage_7d");
     await user.click(screen.getByRole("tab", { name: "Performance" }));
 
     expect(screen.getByRole("tab", { name: "Performance" })).toHaveAttribute("aria-selected", "true");
@@ -176,35 +177,35 @@ describe("DataPage", () => {
     expect(screen.getByText("4.0 MB")).toBeInTheDocument();
   });
 
-  it("switches the right column to the Rollups tab, showing the latest run's dimensions", async () => {
+  it("switches to the Results tab, rendering the job's latest resultset via its dedicated view", async () => {
     const user = userEvent.setup();
     mockedGetSchema.mockResolvedValue(emptySchema);
     mockedGetJobRuns.mockResolvedValue(jobRuns);
-    mockedGetRollups.mockResolvedValue(rollups);
+    mockedGetJobResult.mockResolvedValue(jobResult);
     renderPage();
 
-    await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH");
-    await user.click(screen.getByRole("tab", { name: "Rollups" }));
+    await screen.findAllByText("order_volume_by_stage_7d");
+    await user.click(screen.getByRole("tab", { name: "Results" }));
 
-    expect(screen.getByRole("tab", { name: "Rollups" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByText("SCHEDULE")).toBeInTheDocument();
-    expect(screen.getByText(/latest run 2026-09-04/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Results" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("columnheader", { name: "SCHEDULE" })).toBeInTheDocument();
+    expect(mockedGetJobResult).toHaveBeenCalledWith("order_volume_by_stage_7d");
   });
 
-  it("shows an error message when the rollups fetch fails, only on the Rollups tab", async () => {
+  it("shows an error message when the job-result fetch fails, only on the Results tab", async () => {
     const user = userEvent.setup();
     mockedGetSchema.mockResolvedValue(emptySchema);
     mockedGetJobRuns.mockResolvedValue(jobRuns);
-    mockedGetRollups.mockRejectedValue(new Error("HTTP 500"));
+    mockedGetJobResult.mockRejectedValue(new Error("HTTP 404"));
     renderPage();
 
-    await screen.findAllByText("ORDER_VOLUME_BY_BOROUGH");
-    expect(screen.queryByText(/Failed to load rollups/)).not.toBeInTheDocument();
+    await screen.findAllByText("order_volume_by_stage_7d");
+    expect(screen.queryByText(/Failed to load result/)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Rollups" }));
+    await user.click(screen.getByRole("tab", { name: "Results" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Failed to load rollups: HTTP 500");
+    expect(alert).toHaveTextContent("Failed to load result for order_volume_by_stage_7d: HTTP 404");
   });
 
   it("shows an error message when the job-runs fetch fails", async () => {

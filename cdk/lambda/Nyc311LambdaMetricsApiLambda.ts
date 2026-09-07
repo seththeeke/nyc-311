@@ -23,7 +23,7 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   warehouseJobRunnerFunctionName: string;
   warehouseSchemaApiFunctionName: string;
   warehouseJobsApiFunctionName: string;
-  rollupsApiFunctionName: string;
+  jobResultApiFunctionName: string;
 }
 
 /**
@@ -73,7 +73,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: props.warehouseSchemaApiFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_JOBS_API: props.warehouseJobsApiFunctionName,
-        MONITORED_LAMBDA_ROLLUPS_API: props.rollupsApiFunctionName,
+        MONITORED_LAMBDA_JOB_RESULT_API: props.jobResultApiFunctionName,
         MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
       },
     });

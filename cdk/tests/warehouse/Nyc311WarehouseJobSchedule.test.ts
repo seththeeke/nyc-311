@@ -2,7 +2,6 @@ import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, it } from "vitest";
 import { WarehouseJobRunsTable } from "../../data/WarehouseJobRunsTable";
-import { AnalyticsRollupsTable } from "../../data/AnalyticsRollupsTable";
 import { Nyc311WarehouseBucket } from "../../warehouse/Nyc311WarehouseBucket";
 import { Nyc311WarehouseCatalog } from "../../warehouse/Nyc311WarehouseCatalog";
 import { Nyc311AnalyticsWorkgroup } from "../../warehouse/Nyc311AnalyticsWorkgroup";
@@ -13,14 +12,12 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const jobRunsTable = new WarehouseJobRunsTable(stack, "WarehouseJobRunsTable", { envName });
-  const rollupsTable = new AnalyticsRollupsTable(stack, "AnalyticsRollupsTable", { envName });
   const warehouseBucket = new Nyc311WarehouseBucket(stack, "Nyc311WarehouseBucket", { envName });
   const warehouseCatalog = new Nyc311WarehouseCatalog(stack, "Nyc311WarehouseCatalog", { envName, warehouseBucket });
   const analyticsWorkgroup = new Nyc311AnalyticsWorkgroup(stack, "Nyc311AnalyticsWorkgroup", { envName, warehouseBucket });
   const jobRunnerLambda = new Nyc311WarehouseJobRunnerLambda(stack, "Nyc311WarehouseJobRunnerLambda", {
     envName,
     jobRunsTable,
-    rollupsTable,
     warehouseBucket,
     warehouseCatalog,
     analyticsWorkgroup,

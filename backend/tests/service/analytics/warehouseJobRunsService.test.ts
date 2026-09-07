@@ -19,12 +19,14 @@ afterEach(() => {
 function run(id: string): WarehouseJobRun {
   return {
     job_run_id: id,
-    job_name: "ORDER_VOLUME_BY_STAGE",
+    job_name: "order_volume_by_stage_7d",
     status: "SUCCEEDED",
     trigger: "SCHEDULED",
     started_at: "2026-09-06T09:00:00.000Z",
     completed_at: "2026-09-06T09:00:10.000Z",
     execution_ref: "q",
+    result_location: "s3://b/job-results/job_name=order_volume_by_stage_7d/run_date=2026-09-06/result.json",
+    row_count: 21,
     error_message: null,
     retry_count: 0,
     retried_from_job_run_id: null,
