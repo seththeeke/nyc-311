@@ -62,4 +62,9 @@ describe("AppRoutes", () => {
     renderAt("/monitoring/integration-tests");
     expect(screen.getByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
   });
+
+  it("renders ReportsPage at /reports", () => {
+    renderAt("/reports");
+    expect(screen.getByRole("heading", { name: "Reports" })).toBeInTheDocument();
+  });
 });

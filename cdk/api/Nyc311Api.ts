@@ -10,6 +10,7 @@ import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetrics
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
+import type { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -20,6 +21,7 @@ export interface Nyc311ApiProps {
   warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
+  reportsApiLambda: Nyc311ReportsApiLambda;
   /** WebsiteHosting's CloudFront `distribution.domainName` — allowed by CORS alongside local dev. */
   webAppDomainName: string;
 }
@@ -39,7 +41,7 @@ const LOCAL_DEV_ORIGIN = "http://localhost:5173";
  *
  * Routes: `GET /ingestion/metrics`, `GET /orders`, `GET /order-events`,
  * `GET /lambda-metrics`, `GET /data/schema`, `GET /data/jobs`,
- * `GET /data/jobs/{name}/result`.
+ * `GET /data/jobs/{name}/result`, `GET /reports`.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -95,6 +97,12 @@ export class Nyc311Api extends HttpApi {
       path: "/data/jobs/{name}/result",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetJobResultIntegration", props.jobResultApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/reports",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetReportsIntegration", props.reportsApiLambda),
     });
   }
 }

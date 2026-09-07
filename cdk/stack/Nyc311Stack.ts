@@ -34,6 +34,7 @@ import { Nyc311WarehouseJobSchedule } from "../warehouse/Nyc311WarehouseJobSched
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
+import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
@@ -286,6 +287,13 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
     });
 
+    /* 7-data-warehousing.md §12 — GET /reports: weekly trends assembled from the materialized job resultsets, no Athena on the read path. */
+    const reportsApiLambda = new Nyc311ReportsApiLambda(this, "Nyc311ReportsApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      warehouseBucket,
+    });
+
     /*
      * 6-order-scheduling.md — the job-based, prioritized dispatch of Orders
      * waiting in SCHEDULE against mock capacity. Runs hourly.
@@ -339,6 +347,7 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
       jobResultApiFunctionName: jobResultApiLambda.functionName,
+      reportsApiFunctionName: reportsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -350,6 +359,7 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiLambda,
       warehouseJobsApiLambda,
       jobResultApiLambda,
+      reportsApiLambda,
       webAppDomainName: websiteHosting.distribution.domainName,
     });
 

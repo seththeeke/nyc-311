@@ -9,6 +9,7 @@ import { OrderMonitoringPage } from "../components/pages/OrderMonitoringPage";
 import { OrderEventMonitoringPage } from "../components/pages/OrderEventMonitoringPage";
 import { LambdaMonitoringPage } from "../components/pages/LambdaMonitoringPage";
 import { IntegrationTestReportPage } from "../components/pages/IntegrationTestReportPage";
+import { ReportsPage } from "../components/pages/ReportsPage";
 import { PublicRoute } from "./PublicRoute";
 
 export function AppRoutes(): ReactElement {
@@ -83,6 +84,14 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <IntegrationTestReportPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <PublicRoute>
+            <ReportsPage />
           </PublicRoute>
         }
       />

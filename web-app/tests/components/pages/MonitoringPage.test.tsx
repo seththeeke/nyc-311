@@ -102,4 +102,16 @@ describe("MonitoringPage", () => {
     expect(link).toHaveAttribute("href", "/data");
     expect(link).not.toHaveAttribute("target");
   });
+
+  it("renders a Reports tile linking to /reports", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: /reports week-over-week/i });
+    expect(link).toHaveAttribute("href", "/reports");
+    expect(link).not.toHaveAttribute("target");
+  });
 });

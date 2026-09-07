@@ -23,6 +23,7 @@ export const KNOWN_ROUTES = [
   "/data/schema",
   "/data/jobs",
   "/data/jobs/{name}/result",
+  "/reports",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

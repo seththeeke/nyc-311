@@ -93,8 +93,9 @@ This build delivers, end to end, for **`Orders` (both `OrderEvent` and the
   queryable ad hoc in Athena.
 - Real scheduled aggregations on a generic EventBridge → Lambda → Athena
   job runner — `order_volume_by_stage_7d` (created-date × current stage,
-  trailing week) and `order_volume_by_borough` (`order_snapshots` joined
-  to `locations`). Output is an immutable resultset in S3 plus an
+  trailing week), `order_volume_by_stage_8w` (creation-week × stage,
+  trailing 8 weeks), and `order_volume_by_borough` (`order_snapshots`
+  joined to `locations`). Output is an immutable resultset in S3 plus an
   Athena-queryable history table; no presentation-specific shaping lives
   in the job layer.
 - Job run history, automatic bounded retry, and query-performance metrics
@@ -102,8 +103,8 @@ This build delivers, end to end, for **`Orders` (both `OrderEvent` and the
 - An on-demand, fully isolated rebuild capability per source (designed,
   Leg 4 — not built).
 - A public, read-only `/data` page surfacing warehouse schema, job
-  history, and the latest resultset of each job; a `/reports` page (in
-  progress) for business-facing weekly trends.
+  history, and the latest resultset of each job; a `/reports` page for
+  business-facing weekly trends (`GET /reports`, 2026-09-07).
 
 **Explicitly out of scope** (see [Open Items](#open-items)):
 `business-insights.md` §2's other aggregations, `Cases`/`Operators`/`Shifts`
@@ -281,6 +282,13 @@ chart, how to render) lives entirely in the consumer, never here.
   row per `location_id` (= `bbl`); orders with no resolved `bbl` or no
   borough land in `'UNKNOWN'`. Emits `(borough, order_count)`. Unblocked
   once `Locations` was warehoused (§3, 2026-09-07).
+- **`order_volume_by_stage_8w`** — like `order_volume_by_stage_7d` but
+  bucketed by ISO creation-*week* over the trailing 8 weeks
+  (`date_trunc('week', …)`), from the latest `order_snapshots` row per
+  `order_id`. Emits `(week_start, stage, order_count)`. Every daily run
+  recomputes all 8 weeks against current stages, so it stays a live
+  trend rather than freezing old cohorts. This is the job the `/reports`
+  page (§12) reads.
 
 Every registered job runs daily; adding one is adding a `.sql` file.
 
@@ -611,6 +619,45 @@ profile. Every `/data` Lambda is asserted (CDK test) to carry no
 `AnalyticsRollup` and its model/hook/view/fixture, plus the "Rollups"
 tab, were removed in the 2026-09-07 rework (Appendix A.10).
 
+### The `/reports` page
+
+A second top-level route (`/reports`, `PublicRoute` tier), reached from a
+"Reports" tile on the Monitoring page — the start of a **centralized
+reporting surface** deliberately decoupled from the warehouse/job layer.
+Adding a report is a backend concern; the page renders whatever
+`GET /reports` returns. **Built and live 2026-09-07 (Build Checklist).**
+
+`GET /reports` — for each *registered report job* (a small in-code list,
+`backend/service/analytics/reportsService.ts`, today just
+`order_volume_by_stage_8w`), the API resolves that job's latest
+`SUCCEEDED` run, `s3:GetObject`'s its §11 `result.json`, and reshapes the
+`(week, series, value)` resultset into a week-over-week trend — **no
+Athena on the read path**. A report whose job has no result yet, or whose
+resultset isn't a 3-column table, is silently omitted.
+
+```jsonc
+{ "reports": [ {
+  "job_name": "order_volume_by_stage_8w",
+  "title": "Order volume by stage — 8-week trend",
+  "run_date": "2026-09-04", "computed_at": "2026-09-04T09:00:14.000Z",
+  "week_column": "week_start", "series_column": "stage", "value_column": "order_count",
+  "series": ["CLOSED", "EVALUATION", "INGEST", "SCHEDULE", "WORK"],   // sorted; the chart legend / matrix columns
+  "weeks": [                                                          // oldest-first
+    { "week": "2026-07-13", "values": { "CLOSED": 8210, "WORK": 41 } },  // values omits a series with no rows that week
+    …
+  ]
+} ] }
+```
+
+Backend: `models/report.ts`, `service/analytics/reportsService.ts`
+(built on `jobResultService`), `controller/web-api/getReportsController.ts`,
+`cdk/warehouse/Nyc311ReportsApiLambda.ts` (`dynamodb:Query` +
+`s3:GetObject` on `job-results/*`, nothing that writes), `/reports` route
+on `Nyc311Api`. Frontend: `models/report.ts`, `services/reportsService.ts`,
+`hooks/useReports.ts` (60s poll), `components/reports/ReportTrendTable.tsx`
+(week × series matrix with totals), `components/pages/ReportsPage.tsx`,
+`test-data/reports.ts`, full mirrored tests.
+
 ---
 
 ## 13. Repo Layout & `CLAUDE.md` Changes
@@ -627,10 +674,11 @@ cdk/
     Nyc311AnalyticsWorkgroup.ts       # athena.CfnWorkGroup
     Nyc311WarehouseJobRunnerLambda.ts # generic runner Lambda (§8/§9)
     Nyc311WarehouseJobSchedule.ts     # daily EventBridge Scheduler + DLQ + failure alarm
-    Nyc311Warehouse{Schema,Jobs}ApiLambda.ts, Nyc311JobResultApiLambda.ts   # the three read routes (§12)
+    Nyc311Warehouse{Schema,Jobs}ApiLambda.ts, Nyc311JobResultApiLambda.ts   # three /data read routes (§12)
+    Nyc311ReportsApiLambda.ts         # GET /reports — the centralized reporting surface (§12)
     Nyc311WarehouseRebuild.ts         # on-demand Step Functions (§10, not built)
     sql/
-      order_volume_by_stage_7d.sql, order_volume_by_borough.sql
+      order_volume_by_stage_7d.sql, order_volume_by_stage_8w.sql, order_volume_by_borough.sql
 cdk/lambda/
   Nyc311LocationEventsTopic.ts, Nyc311LocationsFanOutLambda.ts   # §4, added 2026-09-07
 ```
@@ -756,12 +804,13 @@ Same four-tier model (`testing-framework.md`):
   write actions.
 - **Real integration:** `test-scripts/4-warehouse-test.py` and (Leg 4)
   `5-warehouse-rebuild.py`. `GET /data/schema`, `/data/jobs`,
-  `/data/jobs/{name}/result` are in `4-pipeline-integration-tests.md`'s
-  real endpoint-coverage gate.
-- **Frontend:** full mirrored Vitest/RTL suite for every `/data` model,
-  service, hook, and component — including the per-job `ResultsView`
-  dispatch and the `order_volume_by_stage_7d` renderer, and the generic
-  fallback table. `web-app` build/lint/`test:coverage` all green.
+  `/data/jobs/{name}/result`, `/reports` are in
+  `4-pipeline-integration-tests.md`'s real endpoint-coverage gate.
+- **Frontend:** full mirrored Vitest/RTL suite for every `/data` and
+  `/reports` model, service, hook, and component — including the per-job
+  `ResultsView` dispatch and the `order_volume_by_stage_7d` renderer, the
+  generic fallback table, and `ReportTrendTable`. `web-app`
+  build/lint/`test:coverage` all green.
 
 ---
 
@@ -781,9 +830,12 @@ Same four-tier model (`testing-framework.md`):
 | Job history table (Glue/Athena) | `nyc311_warehouse_<test\|prod>.job_results` (one table, `rows array<map<string,string>>`, over the whole `job-results/` prefix) |
 | Rebuild state machine | `Nyc311WarehouseRebuild-<Test\|Prod>` (Leg 4) |
 | Job runner Lambda / schedule | `Nyc311WarehouseJobRunner-<Test\|Prod>`, `Nyc311WarehouseJobSchedule-<Test\|Prod>` |
-| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql`, `order_volume_by_borough.sql` |
+| Reports API Lambda | `Nyc311ReportsApi-<Test\|Prod>` |
+| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql`, `order_volume_by_stage_8w.sql`, `order_volume_by_borough.sql` |
 | `/data` routes | `GET /data/schema`, `GET /data/jobs`, `GET /data/jobs/{name}/result` |
+| `/reports` route | `GET /reports` (§12) |
 | `/data` frontend | `web-app/src/models/{warehouseSchema,warehouseJobRun,jobResult}.ts`, `services/warehouseDataService.ts`, `hooks/{useWarehouseSchema,useWarehouseJobRuns,useJobResult}.ts`, `components/data/*`, `components/pages/DataPage.tsx`, route `/data` (§12) |
+| `/reports` frontend | `web-app/src/models/report.ts`, `services/reportsService.ts`, `hooks/useReports.ts`, `components/reports/ReportTrendTable.tsx`, `components/pages/ReportsPage.tsx`, route `/reports` (§12) |
 | Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` (Leg 4) |
 
 ---
@@ -857,18 +909,40 @@ table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
 `Locations` data now exists in the tables, so it joins the pipeline —
 unblocking the borough job.
 
-- [ ] Stream on `Locations-{Test,Prod}` (non-replacing update);
+- [x] Stream on `Locations-{Test,Prod}` (non-replacing update);
       `Nyc311LocationEventsTopic` + `Nyc311LocationsFanOutLambda`
       (`INSERT`-only, `sns:Publish` only); 4th `Nyc311WarehouseFirehose` →
       `locations` Glue table; `warehouseTableSchemas` + `schemaSync` entry;
       `LocationsFanOut` in the lambda-health monitored list; stack wiring.
-- [ ] `cdk/warehouse/sql/order_volume_by_borough.sql` — `order_snapshots
+      Shipped `64e8baf` (2026-09-07).
+- [x] `cdk/warehouse/sql/order_volume_by_borough.sql` — `order_snapshots
       LEFT JOIN locations` per borough, `'UNKNOWN'` bucket for unresolved.
-- [ ] Ship, verify in `Nyc311-Test`: a synthetic `Location` lands in
+- [ ] Verify in `Nyc311-Test`: a synthetic `Location` lands in
       `locations` (Athena-queryable), and a forced job run produces an
-      `order_volume_by_borough` resultset.
+      `order_volume_by_borough` resultset. (Pipeline deploying as of
+      2026-09-07.)
 - **Deferred to Leg 5:** a dedicated CloudWatch email alarm on the
       Locations fan-out Lambda (it's in the lambda-health tile for now).
+
+### Reports — `/reports` page + `GET /reports` (§12, 2026-09-07)
+
+The centralized reporting surface, decoupled from the warehouse/job layer.
+
+- [x] `cdk/warehouse/sql/order_volume_by_stage_8w.sql` — creation-week ×
+      stage `COUNT(*)` over the trailing 8 ISO weeks, recomputed every run.
+- [x] `models/report.ts` + `service/analytics/reportsService.ts` (built on
+      `jobResultService`, registered-report list) + `getReportsController`
+      + `Nyc311ReportsApiLambda` + `GET /reports` route (read-only IAM
+      asserted); `ReportsApi` in the lambda-health monitored list;
+      `KNOWN_ROUTES` + `reportsApi.integration.test.ts`.
+- [x] Web-app: `report` model/service/`useReports` hook,
+      `ReportTrendTable` (week × series matrix with totals), `ReportsPage`
+      at `/reports`, "Reports" tile on `/monitoring`, fixtures, full
+      mirrored tests. Monitoring-tile icons extracted to
+      `components/monitoring/MonitoringTileIcons.tsx` (200-line cap).
+- [ ] Verify in `Nyc311-Test`: forced job run produces an
+      `order_volume_by_stage_8w` resultset; `GET /reports` returns the
+      weekly trend; `/reports` page renders; "Reports" tile works.
 
 ### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
@@ -951,12 +1025,13 @@ unblocking the borough job.
 
 ## Open Items
 
-- **History read path — the `/reports` page.** The `job_results` history
-  table (§11) makes "trend of trends" ad-hoc Athena-queryable. A
-  business-facing surface over it is being built: a "Reports" tile on
-  `/monitoring` → `/reports` → a `GET /reports` endpoint that assembles a
-  weekly trend from the materialized `result.json` files (no Athena on the
-  read path). Started 2026-09-07 (Build Checklist).
+- **History read path — the `/reports` page.** ✅ Built 2026-09-07 (§12,
+  Build Checklist). "Reports" tile on `/monitoring` → `/reports` →
+  `GET /reports`, which assembles a weekly trend from each registered
+  report job's materialized `result.json` (no Athena on the read path).
+  Today one report (`order_volume_by_stage_8w`); this is the seam the
+  centralized reporting layer grows from. The `job_results` history table
+  (§11) still makes deeper "trend of trends" ad-hoc Athena-queryable.
 - **biz-intel-agent** ([#24](https://github.com/seththeeke/nyc-311/issues/24))
   — an agent that owns job authoring (new `.sql` on business request or
   autonomously), their surfacing, retirement, and Athena/Glue efficiency;
