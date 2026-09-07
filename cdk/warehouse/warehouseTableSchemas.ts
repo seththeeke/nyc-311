@@ -86,4 +86,20 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       ...INGEST_METADATA_COLUMNS,
     ],
   },
+  {
+    tableName: "locations",
+    opaqueFields: [],
+    columns: [
+      { name: "location_id", type: "string" },
+      { name: "bbl", type: "string" },
+      { name: "address", type: "string" },
+      { name: "borough", type: "string" },
+      { name: "community_board", type: "string" },
+      { name: "zip", type: "string" },
+      { name: "latitude", type: "string" },
+      { name: "longitude", type: "string" },
+      { name: "created_at", type: "string" },
+      ...INGEST_METADATA_COLUMNS,
+    ],
+  },
 ];

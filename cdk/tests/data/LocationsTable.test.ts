@@ -26,6 +26,12 @@ describe("LocationsTable", () => {
     expect(props["GlobalSecondaryIndexes"]).toBeUndefined();
   });
 
+  it("enables a NEW_AND_OLD_IMAGES stream for the warehouse fan-out (7-data-warehousing.md §4)", () => {
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      StreamSpecification: { StreamViewType: "NEW_AND_OLD_IMAGES" },
+    });
+  });
+
   it("suffixes the physical table name by environment", () => {
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Prod" });

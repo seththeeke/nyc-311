@@ -86,26 +86,28 @@ DynamoDB at any time, independent of this live pipeline.
 ## 2. Scope
 
 This build delivers, end to end, for **`Orders` (both `OrderEvent` and the
-`Order` projection) and `Requests`**:
+`Order` projection), `Requests`, and `Locations`** (the last added
+2026-09-07 once that data existed):
 
 - Live change capture off DynamoDB into S3, catalogued in Glue and
   queryable ad hoc in Athena.
-- One real scheduled aggregation — **7-day order volume by stage**
-  (`order_volume_by_stage_7d`, created-date × current stage over the
-  trailing week) — running on a generic EventBridge → Lambda → Athena job
-  runner. Its output is stored as an immutable resultset in S3 plus an
+- Real scheduled aggregations on a generic EventBridge → Lambda → Athena
+  job runner — `order_volume_by_stage_7d` (created-date × current stage,
+  trailing week) and `order_volume_by_borough` (`order_snapshots` joined
+  to `locations`). Output is an immutable resultset in S3 plus an
   Athena-queryable history table; no presentation-specific shaping lives
   in the job layer.
 - Job run history, automatic bounded retry, and query-performance metrics
   for every run.
-- An on-demand, fully isolated rebuild capability per source.
+- An on-demand, fully isolated rebuild capability per source (designed,
+  Leg 4 — not built).
 - A public, read-only `/data` page surfacing warehouse schema, job
-  history, and the latest resultset of each job.
+  history, and the latest resultset of each job; a `/reports` page (in
+  progress) for business-facing weekly trends.
 
-**Explicitly out of scope for this build** (see [Open Items](#open-items)):
-`Locations`, every aggregation in `business-insights.md` §2 beyond the one
-sample job, `Cases`/`Operators`/`Shifts` (not built yet), and any write
-action on `/data`.
+**Explicitly out of scope** (see [Open Items](#open-items)):
+`business-insights.md` §2's other aggregations, `Cases`/`Operators`/`Shifts`
+(not built yet), and any write action on `/data`.
 
 ---
 
@@ -116,17 +118,17 @@ action on `/data`.
 | `Orders` table — `OrderEvent` items (`EVENT#<n>`) | `order_events` | Fact stream — every `ORDER_CREATED`/`ORDER_ACCEPTED`/`ORDER_REJECTED`/`ORDER_SCHEDULED`/… with `occurred_at`, `stage`, `actor`, `payload`. |
 | `Orders` table — `#METADATA` projection | `order_snapshots` | Current-state dimension — `current_stage`, `status`, `location_id`, `sla_deadline`, `priority_tier`, etc. as plain typed columns. |
 | `Requests` table — real `Request` rows | `requests` | Intake dimension + status CDC — `complaint_type`, `agency`, `created_at`, and every `DRAFT → PROMOTED/FILTERED/DUPLICATE/REJECTED` transition. |
+| `Locations` table — real `Location` rows | `locations` | Geography dimension — `bbl`, `borough`, `zip`, `latitude`/`longitude`, joined to `order_snapshots`/`requests` on `location_id`. Written once per `bbl` (`findOrCreate`), never updated — `INSERT`-only. |
 
 **Excluded, by design:** `Requests`' `METRIC#<ulid>` poller-metrics rows
 and `CURSOR#NYC_311` sentinel (operational, already served by
 `GET /ingestion/metrics`) — the widened fan-out Lambda's relevance check
 (§4) filters these out before they ever reach a topic.
 
-**Deferred:** `Locations` (see Open Items), `CaseEvent`/`Cases`,
-`OperatorEvent`/`Operators`/`Shifts` (none of these tables exist yet).
-When any of them ship, each attaches to this exact pipeline the same
-way — one more fan-out branch, one more Firehose, one more Glue table —
-not a redesign.
+**Deferred:** `CaseEvent`/`Cases`, `OperatorEvent`/`Operators`/`Shifts`
+(none of these tables exist yet). When any of them ship, each attaches to
+this exact pipeline the same way — one more fan-out branch, one more
+Firehose, one more Glue table — not a redesign.
 
 ---
 
@@ -161,6 +163,15 @@ consumer moves from in-handler code to a declarative SNS filter policy:
 
 Both Lambdas' destinations remain declared in CDK — every topic/queue a
 Lambda can publish to is infrastructure, not an in-handler side channel.
+
+**`Nyc311LocationsFanOutLambda`** (new, added 2026-09-07 when `Locations`
+data appeared in the tables) — the `Locations` stream's sole consumer.
+`Locations` is `INSERT`-only (`findOrCreate` by `bbl`, never updated), so
+the fan-out is trivial: `sns:Publish` every new row to
+`Nyc311LocationEventsTopic`, tagged `event_name` (always `INSERT`), for
+the `locations` warehouse Firehose. No DAO calls, `sns:Publish` only.
+Enabling the stream on the existing `Locations` table is a non-replacing
+update.
 
 ---
 
@@ -257,14 +268,21 @@ returns. It runs the SQL, stores the resultset verbatim, and appends it to
 that job's history table. Presentation-specific shaping (which columns to
 chart, how to render) lives entirely in the consumer, never here.
 
-### The one job today: `order_volume_by_stage_7d`
+### The registered jobs
 
-Created-date × current-stage `COUNT(*)` over the trailing 7 days
-(`created_at >= current_date - interval '6' day`), from the latest
-`order_snapshots` row per `order_id`. Emits `(created_date, stage,
-order_count)`. Replaces Leg 3's `order_volume_by_stage` (a point-in-time
-stage snapshot). `order_volume_by_borough` stays deferred with
-`Locations` (Open Items).
+- **`order_volume_by_stage_7d`** — created-date × current-stage
+  `COUNT(*)` over the trailing 7 days (`created_at >= current_date -
+  interval '6' day`), from the latest `order_snapshots` row per
+  `order_id`. Emits `(created_date, stage, order_count)`. Replaces
+  Leg 3's `order_volume_by_stage` (a point-in-time stage snapshot).
+  Surfaced on `/data`'s Results tab as a date × stage matrix.
+- **`order_volume_by_borough`** — `COUNT(*)` per borough, latest
+  `order_snapshots` row per `order_id` `LEFT JOIN` the latest `locations`
+  row per `location_id` (= `bbl`); orders with no resolved `bbl` or no
+  borough land in `'UNKNOWN'`. Emits `(borough, order_count)`. Unblocked
+  once `Locations` was warehoused (§3, 2026-09-07).
+
+Every registered job runs daily; adding one is adding a `.sql` file.
 
 ### The runner: `Nyc311WarehouseJobRunner` (one Lambda, EventBridge `rate(1 day)`)
 
@@ -604,29 +622,34 @@ cdk/
     Nyc311OrderEventsFirehose.ts      # SNS→Firehose, subscribes Nyc311OrderEventsTopic
     Nyc311OrderSnapshotsFirehose.ts   # SNS→Firehose, subscribes Nyc311OrderProjectionsTopic
     Nyc311RequestsFirehose.ts         # SNS→Firehose, subscribes Nyc311RequestEventsTopic
-    Nyc311WarehouseCatalog.ts         # glue.CfnDatabase + glue.CfnTable ×3 + partition projection
+    Nyc311Warehouse{OrderEvents,OrderSnapshots,Requests,Locations}Firehose  # via one reusable Nyc311WarehouseFirehose, one instance per source
+    Nyc311WarehouseCatalog.ts         # glue.CfnDatabase + glue.CfnTable ×5 (4 sources + job_results) + partition projection
     Nyc311AnalyticsWorkgroup.ts       # athena.CfnWorkGroup
     Nyc311WarehouseJobRunnerLambda.ts # generic runner Lambda (§8/§9)
     Nyc311WarehouseJobSchedule.ts     # daily EventBridge Scheduler + DLQ + failure alarm
-    Nyc311Warehouse{Schema,Jobs,JobResult}ApiLambda.ts   # the three read routes (§12)
+    Nyc311Warehouse{Schema,Jobs}ApiLambda.ts, Nyc311JobResultApiLambda.ts   # the three read routes (§12)
     Nyc311WarehouseRebuild.ts         # on-demand Step Functions (§10, not built)
     sql/
-      order_volume_by_stage_7d.sql
+      order_volume_by_stage_7d.sql, order_volume_by_borough.sql
+cdk/lambda/
+  Nyc311LocationEventsTopic.ts, Nyc311LocationsFanOutLambda.ts   # §4, added 2026-09-07
 ```
 
-`backend/`: `models/{warehouseJobRun,jobResult,warehouseJobTrigger}.ts`,
+`backend/`: `models/{warehouseJobRun,jobResult,warehouseJob,warehouseJobTrigger,locationStreamEvent}.ts`,
 `dao/analytics/warehouseJobRunsDao.ts`, `service/analytics/{warehouseJobRunnerService,
 warehouseJobRunsService,warehouseSchemaService,jobResultService}.ts`,
+`service/ingestion/locationEventService.ts`,
 `controller/analytics/runWarehouseJobController.ts`,
+`controller/ingestion/fanOutLocationEventsController.ts`,
 `controller/web-api/get{WarehouseSchema,WarehouseJobRuns,JobResult}Controller.ts`.
 The 2026-09-07 rework deleted `dao/analytics/analyticsRollupsDao.ts`,
 `models/analyticsRollup.ts`, `service/analytics/analyticsRollupsService.ts`,
 `controller/web-api/getRollupsController.ts`, and the rollup-fold logic in
 `warehouseJobRunnerService.ts`.
 
-No new fan-out Lambda file — §4 retrofits the two that already exist
-(`cdk/lambda/Nyc311OrdersStreamFanOutLambda.ts`,
-`cdk/lambda/Nyc311RequestsFanOutLambda.ts`, both renamed in place).
+§4's Orders/Requests fan-out retrofits the two Lambdas that already exist
+(renamed in place); the Locations fan-out is a genuinely new Lambda
+(there was no prior `Locations` stream consumer).
 
 **`CLAUDE.md`:** §5.3's tree has `warehouse/` under `cdk/` and notes
 `sql/` as a `.sql`-asset location (added in Leg 2/3). §5.2 documents the
@@ -694,7 +717,7 @@ construct default:
 | Component | Cost |
 |---|---|
 | S3 storage | Cents/month. |
-| Kinesis Firehose (×3) | Low single-digit dollars/month at most; likely cents. |
+| Kinesis Firehose (×4) | Low single-digit dollars/month at most; likely cents. |
 | Athena | $5/TB scanned — a daily job over this data volume is effectively free. |
 | Glue Data Catalog | Free tier covers this outright. |
 | SNS (3 topics) | Free tier covers this outright. |
@@ -722,9 +745,9 @@ Same four-tier model (`testing-framework.md`):
   (resolve latest `result_location`, GetObject, parse, 404 path);
   `warehouseSchemaService`/`warehouseJobRunsService`; the rebuild's
   Lambdas (Leg 4).
-- **CDK assertions:** bucket config; Firehose ×3; `CfnDatabase` + the
-  four `CfnTable`s (`order_events`/`order_snapshots`/`requests` +
-  `job_results`, partition-projection `parameters` asserted directly);
+- **CDK assertions:** bucket config; Firehose ×4; `CfnDatabase` + the
+  five `CfnTable`s (`order_events`/`order_snapshots`/`requests`/`locations`
+  + `job_results`, partition-projection `parameters` asserted directly);
   §6's schema-drift test; `WarehouseJobRuns` key schema/GSIs; the runner
   Lambda's IAM (Athena + read-only `glue:Get*` + scoped `job-results/*`
   S3 write + `WarehouseJobRuns` — asserted **no** `glue:CreateTable`/
@@ -748,17 +771,17 @@ Same four-tier model (`testing-framework.md`):
 |---|---|
 | S3 bucket | `nyc311-warehouse-<test\|prod>` |
 | Glue database | `nyc311_warehouse_<test\|prod>` |
-| Glue tables | `order_events`, `order_snapshots`, `requests` |
+| Glue source tables | `order_events`, `order_snapshots`, `requests`, `locations` |
 | Athena workgroup | `Nyc311Analytics-<Test\|Prod>` |
-| Firehose (×3) | `Nyc311Warehouse-OrderEvents-<Test\|Prod>`, `…-OrderSnapshots-…`, `…-Requests-…` |
-| Fan-out Lambdas | `Nyc311OrdersStreamFanOutLambda` (renamed from `Nyc311OrderEventFanOutLambda`), `Nyc311RequestsFanOutLambda` (renamed from `Nyc311OrderFanOutLambda`) |
-| SNS topics (new) | `Nyc311OrderProjectionsTopic`, `Nyc311RequestEventsTopic` |
+| Firehose (×4) | `Nyc311Warehouse-OrderEvents-<Test\|Prod>`, `…-OrderSnapshots-…`, `…-Requests-…`, `…-Locations-…` |
+| Fan-out Lambdas | `Nyc311OrdersStreamFanOutLambda`, `Nyc311RequestsFanOutLambda`, `Nyc311LocationsFanOutLambda` (+ their `…FanOutDlq-<Test\|Prod>` queues) |
+| SNS topics | `Nyc311OrderProjectionsTopic`, `Nyc311RequestEventsTopic`, `Nyc311LocationEventsTopic` (physical `Nyc311<Order Projections\|RequestEvents\|LocationEvents>-<Test\|Prod>`) |
 | Job run history table (DynamoDB) | `WarehouseJobRuns-<Test\|Prod>` |
 | Job result store (S3) | `s3://nyc311-warehouse-<test\|prod>/job-results/job_name=<job>/run_date=<date>/result.json` |
 | Job history table (Glue/Athena) | `nyc311_warehouse_<test\|prod>.job_results` (one table, `rows array<map<string,string>>`, over the whole `job-results/` prefix) |
 | Rebuild state machine | `Nyc311WarehouseRebuild-<Test\|Prod>` (Leg 4) |
 | Job runner Lambda / schedule | `Nyc311WarehouseJobRunner-<Test\|Prod>`, `Nyc311WarehouseJobSchedule-<Test\|Prod>` |
-| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql` |
+| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql`, `order_volume_by_borough.sql` |
 | `/data` routes | `GET /data/schema`, `GET /data/jobs`, `GET /data/jobs/{name}/result` |
 | `/data` frontend | `web-app/src/models/{warehouseSchema,warehouseJobRun,jobResult}.ts`, `services/warehouseDataService.ts`, `hooks/{useWarehouseSchema,useWarehouseJobRuns,useJobResult}.ts`, `components/data/*`, `components/pages/DataPage.tsx`, route `/data` (§12) |
 | Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` (Leg 4) |
@@ -829,6 +852,24 @@ table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
 - [x] Moved the `/data` entry point off the home page into a "Data
       Warehouse" tile on `/monitoring` (2026-09-07).
 
+### Locations → warehouse (§3/§4, 2026-09-07)
+
+`Locations` data now exists in the tables, so it joins the pipeline —
+unblocking the borough job.
+
+- [ ] Stream on `Locations-{Test,Prod}` (non-replacing update);
+      `Nyc311LocationEventsTopic` + `Nyc311LocationsFanOutLambda`
+      (`INSERT`-only, `sns:Publish` only); 4th `Nyc311WarehouseFirehose` →
+      `locations` Glue table; `warehouseTableSchemas` + `schemaSync` entry;
+      `LocationsFanOut` in the lambda-health monitored list; stack wiring.
+- [ ] `cdk/warehouse/sql/order_volume_by_borough.sql` — `order_snapshots
+      LEFT JOIN locations` per borough, `'UNKNOWN'` bucket for unresolved.
+- [ ] Ship, verify in `Nyc311-Test`: a synthetic `Location` lands in
+      `locations` (Athena-queryable), and a forced job run produces an
+      `order_volume_by_borough` resultset.
+- **Deferred to Leg 5:** a dedicated CloudWatch email alarm on the
+      Locations fan-out Lambda (it's in the lambda-health tile for now).
+
 ### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
 - [x] Rename `Nyc311OrderEventFanOutLambda` → `Nyc311OrdersStreamFanOutLambda`;
@@ -896,8 +937,10 @@ table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
 
 ### Leg 5 — observability (§14)
 
-- [ ] Firehose `DataFreshness` / `errors/` alarms; SFN `ExecutionsFailed`;
-      stuck-`FAILED` alarm. Route to `FAILURE_NOTIFICATION_EMAIL`.
+- [ ] Firehose `DataFreshness` / `errors/` alarms (×4); SFN
+      `ExecutionsFailed`; stuck-`FAILED` alarm; **`Nyc311LocationsFanOut`
+      `Errors`/`IteratorAge` alarms** (deferred from the Locations work).
+      Route to `FAILURE_NOTIFICATION_EMAIL`.
 
 ### Doc
 
@@ -908,15 +951,17 @@ table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
 
 ## Open Items
 
-- **`Locations` + `order_volume_by_borough`.** `Locations` is deferred —
-  no fan-out, no Firehose, no Glue table yet. The borough job (daily
-  `COUNT(*)` per borough, joining `order_snapshots` to `locations`) is a
-  second `.sql` file once `Locations` lands — no runner change, it's just
-  another entry in `sql/`.
-- **History read path (`GET /data/jobs/{name}/history`).** The per-job
-  Glue history table (§11) makes "trend of trends" ad-hoc Athena-queryable
-  now. An API/UI over it is deferred until a feature needs it — the
-  substrate stays decoupled from presentation until then.
+- **History read path — the `/reports` page.** The `job_results` history
+  table (§11) makes "trend of trends" ad-hoc Athena-queryable. A
+  business-facing surface over it is being built: a "Reports" tile on
+  `/monitoring` → `/reports` → a `GET /reports` endpoint that assembles a
+  weekly trend from the materialized `result.json` files (no Athena on the
+  read path). Started 2026-09-07 (Build Checklist).
+- **biz-intel-agent** ([#24](https://github.com/seththeeke/nyc-311/issues/24))
+  — an agent that owns job authoring (new `.sql` on business request or
+  autonomously), their surfacing, retirement, and Athena/Glue efficiency;
+  replaces standing BI work. Deferred until `Cases`/`Operators`/`Shifts`
+  land and `/reports` is established.
 - **User-authored SQL jobs / ad-hoc query API.** The substrate framing
   (§1) points here: users defining `{ name, SQL }` jobs, or running one-off
   queries, through the app. Out of scope now — needs job CRUD, SQL
@@ -924,17 +969,19 @@ table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
   (`bytesScannedCutoffPerQuery` on the workgroup is the only piece that
   exists). Jobs stay checked-in `.sql` files until then.
 - **`/data` write actions.** No "retry"/"rebuild" button, no `POST`
-  routes. Deferred until real role-gated auth exists
+  routes. **Deferred indefinitely** — would need real role-gated auth
   (`2-pipeline-monitoring.md` §11's unbuilt `AuthenticatedRoute`). §10's
-  rebuild stays script-triggered under the `nyc311` profile until then.
+  rebuild stays script-triggered under the `nyc311` profile.
 - **`Cases`/`Operators`/`Shifts`.** Join this same pipeline once those
   tables are built — no redesign needed, per §3's design principle.
 - **Every other `business-insights.md` §2 aggregation** (cost model, Case
   MTTR, SLA-breach rate) — designed-not-built; each is another `.sql`
-  file in the registry.
-- **Compaction / small-file consolidation** — not built. §9's captured
-  query-performance metrics exist so this can be measured and reasoned
-  about later without new instrumentation.
+  file. On hold until more of the domain exists; then biz-intel-agent
+  ([#24](https://github.com/seththeeke/nyc-311/issues/24)) owns them.
+- **Compaction / small-file consolidation** — **deferred indefinitely**;
+  folded into biz-intel-agent's efficiency scope (#24). §9's captured
+  `data_scanned_bytes` / `engine_execution_time_ms` per run are the
+  baseline it would measure against.
 - **Same-day retry overwrites.** A `RETRY` run overwrites that
   `run_date`'s `result.json` (later run wins — a retry corrects). Clean
   for the API's "latest" read and for the `job_results` history table

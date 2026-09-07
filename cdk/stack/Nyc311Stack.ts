@@ -11,6 +11,8 @@ import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLa
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311RequestsFanOutLambda } from "../lambda/Nyc311RequestsFanOutLambda";
 import { Nyc311RequestEventsTopic } from "../lambda/Nyc311RequestEventsTopic";
+import { Nyc311LocationsFanOutLambda } from "../lambda/Nyc311LocationsFanOutLambda";
+import { Nyc311LocationEventsTopic } from "../lambda/Nyc311LocationEventsTopic";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
 import { Nyc311OrderEventsTopic } from "../lambda/Nyc311OrderEventsTopic";
 import { Nyc311OrdersStreamFanOutLambda } from "../lambda/Nyc311OrdersStreamFanOutLambda";
@@ -115,6 +117,22 @@ export class Nyc311Stack extends Stack {
     const locationsTable = new LocationsTable(this, "LocationsTable", { envName: props.envName });
     const ordersTable = new OrdersTable(this, "OrdersTable", { envName: props.envName });
 
+    /*
+     * 7-data-warehousing.md §4 — the Locations table's sole stream
+     * consumer republishes every new row (INSERT-only, findOrCreate)
+     * onto Nyc311LocationEventsTopic; the `locations` warehouse Firehose
+     * subscribes so `order_snapshots JOIN locations` (borough volume, §8)
+     * works in Athena.
+     */
+    const locationEventsTopic = new Nyc311LocationEventsTopic(this, "Nyc311LocationEventsTopic", {
+      envName: props.envName,
+    });
+    const locationsFanOutLambda = new Nyc311LocationsFanOutLambda(this, "Nyc311LocationsFanOutLambda", {
+      envName: props.envName,
+      locationsTable,
+      locationEventsTopic,
+    });
+
     /* 3-order-ingestion.md §3 — consumes orderIngestionQueue, runs the filter pipeline, promotes/creates the Order. */
     const requestEvaluationLambda = new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
       envName: props.envName,
@@ -216,6 +234,15 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseLocationsFirehose", {
+      envName: props.envName,
+      label: "Locations",
+      tableName: "locations",
+      sourceTopic: locationEventsTopic.topic,
+      glueTable: warehouseCatalog.tables["locations"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
 
     /*
      * 7-data-warehousing.md §8-§12 — the reporting substrate. One DynamoDB
@@ -300,6 +327,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       pollerFunctionName: pollerLambda.functionName,
       orderFanOutFunctionName: requestsFanOutLambda.functionName,
+      locationsFanOutFunctionName: locationsFanOutLambda.functionName,
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
       orderEventFanOutFunctionName: ordersStreamFanOutLambda.functionName,
       orderEvaluationFunctionName: orderEvaluationLambda.functionName,

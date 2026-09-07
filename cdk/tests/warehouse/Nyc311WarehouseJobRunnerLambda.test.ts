@@ -46,7 +46,7 @@ describe("Nyc311WarehouseJobRunnerLambda", () => {
       Timeout: 300,
       Environment: {
         Variables: Match.objectLike({
-          WAREHOUSE_JOBS: Match.stringLikeRegexp('"name":"order_volume_by_stage_7d"'),
+          WAREHOUSE_JOBS: Match.stringLikeRegexp('"name":"order_volume_by_borough".*"name":"order_volume_by_stage_7d"'),
           JOB_RESULTS_BUCKET: "nyc311-warehouse-test",
           WAREHOUSE_DATABASE_NAME: "nyc311_warehouse_test",
           ATHENA_WORKGROUP: "Nyc311Analytics-Test",

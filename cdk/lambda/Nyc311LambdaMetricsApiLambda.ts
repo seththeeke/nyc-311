@@ -15,6 +15,7 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   orderFanOutFunctionName: string;
   requestEvaluationFunctionName: string;
   orderEventFanOutFunctionName: string;
+  locationsFanOutFunctionName: string;
   orderEvaluationFunctionName: string;
   orderSchedulingFunctionName: string;
   metricsApiFunctionName: string;
@@ -51,7 +52,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getLambdaMetricsController.ts"),
       handler: "getLambdaMetricsController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.seconds(25), /* up to 26 parallel CloudWatch calls (13 monitored lambdas x 2 metrics) per invocation */
+      timeout: Duration.seconds(25), /* up to 30 parallel CloudWatch calls (15 monitored lambdas x 2 metrics) per invocation */
       memorySize: 256,
       logGroup,
       /*
@@ -65,6 +66,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
         MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
         MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
+        MONITORED_LAMBDA_LOCATIONS_FAN_OUT: props.locationsFanOutFunctionName,
         MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
         MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
         MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,

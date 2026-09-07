@@ -23,6 +23,7 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "RequestsFanOut", envVar: "MONITORED_LAMBDA_ORDER_FAN_OUT" },
   { logicalName: "RequestEvaluation", envVar: "MONITORED_LAMBDA_REQUEST_EVALUATION" },
   { logicalName: "OrdersStreamFanOut", envVar: "MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT" },
+  { logicalName: "LocationsFanOut", envVar: "MONITORED_LAMBDA_LOCATIONS_FAN_OUT" },
   { logicalName: "OrderEvaluation", envVar: "MONITORED_LAMBDA_ORDER_EVALUATION" },
   { logicalName: "OrderScheduling", envVar: "MONITORED_LAMBDA_ORDER_SCHEDULING" },
   { logicalName: "MetricsApi", envVar: "MONITORED_LAMBDA_METRICS_API" },

@@ -19,6 +19,7 @@ const TABLE_TO_MODEL: Record<string, { file: string; schema: string }> = {
   order_events: { file: "order.ts", schema: "OrderEventSchema" },
   order_snapshots: { file: "order.ts", schema: "OrderSchema" },
   requests: { file: "request.ts", schema: "RequestSchema" },
+  locations: { file: "location.ts", schema: "LocationSchema" },
 };
 
 function extractZodObjectFields(source: string, schemaName: string): string[] {
@@ -77,6 +78,6 @@ describe("warehouse schema sync (7-data-warehousing.md §4a)", () => {
   it("names every table exactly once", () => {
     const names = WAREHOUSE_TABLE_SCHEMAS.map((s) => s.tableName);
     expect(new Set(names).size).toBe(names.length);
-    expect(names).toEqual(["order_events", "order_snapshots", "requests"]);
+    expect(names).toEqual(["order_events", "order_snapshots", "requests", "locations"]);
   });
 });

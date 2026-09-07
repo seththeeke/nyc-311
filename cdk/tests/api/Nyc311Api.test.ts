@@ -32,6 +32,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     pollerFunctionName: "Nyc311Poller-Test",
     orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
+    locationsFanOutFunctionName: "Nyc311LocationsFanOut-Test",
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
     orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
     orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
