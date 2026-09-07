@@ -1,15 +1,24 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import * as route53 from "aws-cdk-lib/aws-route53";
 import { describe, it } from "vitest";
 import { WebsiteHosting } from "../../web/WebsiteHosting";
 import { WebsiteDeployment } from "../../web/WebsiteDeployment";
 
-const API_BASE_URL = "https://xvuarmn9v7.execute-api.us-east-1.amazonaws.com";
+const API_BASE_URL = "https://api.test.boroughsim.com";
 
 function synthesize(): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
-  const websiteHosting = new WebsiteHosting(stack, "WebsiteHosting", { envName: "TEST" });
+  const hostedZone = route53.PublicHostedZone.fromHostedZoneAttributes(stack, "HostedZone", {
+    hostedZoneId: "Z0123456789ABCDEFGHIJ",
+    zoneName: "boroughsim.com",
+  });
+  const websiteHosting = new WebsiteHosting(stack, "WebsiteHosting", {
+    envName: "TEST",
+    siteDomain: "test.boroughsim.com",
+    hostedZone,
+  });
   new WebsiteDeployment(stack, "WebsiteDeployment", { websiteHosting, apiBaseUrl: API_BASE_URL });
   return Template.fromStack(stack);
 }

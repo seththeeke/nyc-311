@@ -4,6 +4,16 @@ import { MemoryRouter } from "react-router-dom";
 import { HomePage } from "../../../src/components/pages/HomePage";
 
 describe("HomePage", () => {
+  it("shows the BoroughSim product name as the heading", () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: "BoroughSim" })).toBeInTheDocument();
+  });
+
   it("links to the monitoring section", () => {
     render(
       <MemoryRouter>

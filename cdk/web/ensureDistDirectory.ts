@@ -19,6 +19,6 @@ export function ensureDistDirectory(distDir: string): void {
   fs.mkdirSync(distDir, { recursive: true });
   fs.writeFileSync(
     path.join(distDir, "index.html"),
-    "<!doctype html><title>NYC 311</title><p>Deploying…</p>"
+    "<!doctype html><title>BoroughSim</title><p>Deploying…</p>"
   );
 }

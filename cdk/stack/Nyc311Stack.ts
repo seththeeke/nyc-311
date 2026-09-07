@@ -1,4 +1,5 @@
 import { CfnOutput, Stack, StackProps, Tags } from "aws-cdk-lib";
+import * as route53 from "aws-cdk-lib/aws-route53";
 import type { Construct } from "constructs";
 import { RequestsTable } from "../data/RequestsTable";
 import { LocationsTable } from "../data/LocationsTable";
@@ -36,6 +37,7 @@ import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsAp
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
+import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 
@@ -60,6 +62,30 @@ export const ENV_NAME_SUFFIX: Record<Nyc311Environment, string> = {
 };
 
 /*
+ * 8-domain-name-assignment.md — the registered domain and its Route 53
+ * hosted zone. Referenced by static attributes (not HostedZone.fromLookup)
+ * so synth needs no route53:List* and writes no cdk.context.json; the id
+ * is stable, and this matches how other infra ids are pinned in
+ * websiteHostingTargets.ts / Nyc311PipelineStatusApi.ts. Update the id
+ * here by hand if the zone is ever recreated.
+ */
+export const ROOT_DOMAIN = "boroughsim.com";
+export const HOSTED_ZONE_ID = "Z014904580HQD5MMLQWU";
+
+/*
+ * Per-environment public names for the site and the public API
+ * (Nyc311Api). Prod is the apex; Test sits one label down, with its API a
+ * further label down (api.test.boroughsim.com) — which is why the certs
+ * are per-consumer, not one *.boroughsim.com wildcard (a wildcard is one
+ * label only). Nyc311PipelineStatusApi is deliberately not here — it's a
+ * singleton, not per-environment (8-domain-name-assignment.md §1).
+ */
+export const DOMAIN_CONFIG: Record<Nyc311Environment, { siteDomain: string; apiDomain: string }> = {
+  TEST: { siteDomain: "test.boroughsim.com", apiDomain: "api.test.boroughsim.com" },
+  PROD: { siteDomain: "boroughsim.com", apiDomain: "api.boroughsim.com" },
+};
+
+/*
  * 1-data-ingestion.md §5 — same address the pipeline's own failure
  * notifications already go to (pipeline/Nyc311PipelineStack.ts).
  */
@@ -79,6 +105,17 @@ export class Nyc311Stack extends Stack {
     super(scope, id, props);
 
     Tags.of(this).add("Environment", props.envName);
+
+    /*
+     * 8-domain-name-assignment.md — the boroughsim.com hosted zone,
+     * imported by static attributes (no route53:List* at synth), and this
+     * environment's site/API names.
+     */
+    const hostedZone = route53.PublicHostedZone.fromHostedZoneAttributes(this, "HostedZone", {
+      hostedZoneId: HOSTED_ZONE_ID,
+      zoneName: ROOT_DOMAIN,
+    });
+    const domainConfig = DOMAIN_CONFIG[props.envName];
 
     const requestsTable = new RequestsTable(this, "RequestsTable", { envName: props.envName });
 
@@ -311,7 +348,18 @@ export class Nyc311Stack extends Stack {
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
-    const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", { envName: props.envName });
+    const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", {
+      envName: props.envName,
+      siteDomain: domainConfig.siteDomain,
+      hostedZone,
+    });
+
+    /* 8-domain-name-assignment.md §2 — the public API's custom domain (cert + DomainName + DNS), built before Nyc311Api so it can be its defaultDomainMapping. */
+    const apiDomain = new Nyc311ApiDomain(this, "Nyc311ApiDomain", {
+      envName: props.envName,
+      apiDomain: domainConfig.apiDomain,
+      hostedZone,
+    });
 
     const metricsApiLambda = new Nyc311MetricsApiLambda(this, "Nyc311MetricsApiLambda", {
       envName: props.envName,
@@ -360,7 +408,8 @@ export class Nyc311Stack extends Stack {
       warehouseJobsApiLambda,
       jobResultApiLambda,
       reportsApiLambda,
-      webAppDomainName: websiteHosting.distribution.domainName,
+      webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
+      apiDomainName: apiDomain.domainName,
     });
 
     /*
@@ -380,7 +429,8 @@ export class Nyc311Stack extends Stack {
      */
     new WebsiteDeployment(this, "WebsiteDeployment", {
       websiteHosting,
-      apiBaseUrl: nyc311Api.apiEndpoint,
+      /* The custom API domain (8-domain-name-assignment.md §1), not the raw execute-api URL — this is what the SPA calls at runtime. */
+      apiBaseUrl: apiDomain.url,
     });
   }
 }

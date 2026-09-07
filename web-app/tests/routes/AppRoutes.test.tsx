@@ -20,7 +20,7 @@ function renderAt(path: string) {
 describe("AppRoutes", () => {
   it("renders HomePage at /", () => {
     renderAt("/");
-    expect(screen.getByRole("heading", { name: "NYC 311" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "BoroughSim" })).toBeInTheDocument();
   });
 
   it("renders DataPage at /data", () => {

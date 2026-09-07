@@ -1,5 +1,5 @@
 import { Duration } from "aws-cdk-lib";
-import { CorsHttpMethod, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
+import { CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
@@ -22,8 +22,15 @@ export interface Nyc311ApiProps {
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
   reportsApiLambda: Nyc311ReportsApiLambda;
-  /** WebsiteHosting's CloudFront `distribution.domainName` — allowed by CORS alongside local dev. */
-  webAppDomainName: string;
+  /**
+   * Every web origin the SPA is served from — the custom site domain
+   * (`8-domain-name-assignment.md` §1) and WebsiteHosting's CloudFront
+   * default `*.cloudfront.net` name. All are allowed by CORS alongside
+   * local dev; issue #4 keeps the default name on the list for now.
+   */
+  webAppDomainNames: string[];
+  /** This environment's API custom domain (`Nyc311ApiDomain`) — mapped as the default domain. */
+  apiDomainName: IDomainName;
 }
 
 /*
@@ -34,14 +41,13 @@ export interface Nyc311ApiProps {
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
 /**
- * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — the
- * first API Gateway in the project. An HTTP API (`aws-apigatewayv2`), not
- * a REST API (`aws-apigateway`): cheaper and simpler, and sufficient for
- * this project's basic GET-only REST surface (1-data-ingestion.md §8a).
- *
- * Routes: `GET /ingestion/metrics`, `GET /orders`, `GET /order-events`,
- * `GET /lambda-metrics`, `GET /data/schema`, `GET /data/jobs`,
- * `GET /data/jobs/{name}/result`, `GET /reports`.
+ * The public web API Gateway (`claude-prompt-initial.md` §5/§7). An HTTP
+ * API (`aws-apigatewayv2`), not REST — cheaper, and enough for this
+ * GET-only surface. Routes: `GET /ingestion/metrics`, `/orders`,
+ * `/order-events`, `/lambda-metrics`, `/data/schema`, `/data/jobs`,
+ * `/data/jobs/{name}/result`, `/reports`. Served on both its custom
+ * domain (`api.<env>.boroughsim.com`, via `defaultDomainMapping`) and the
+ * default `execute-api` URL.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -50,11 +56,12 @@ export class Nyc311Api extends HttpApi {
     super(scope, id, {
       apiName: `Nyc311Api-${suffix}`,
       corsPreflight: {
-        allowOrigins: [`https://${props.webAppDomainName}`, LOCAL_DEV_ORIGIN],
+        allowOrigins: [...props.webAppDomainNames.map((d) => `https://${d}`), LOCAL_DEV_ORIGIN],
         allowMethods: [CorsHttpMethod.GET],
         allowHeaders: ["Content-Type"],
         maxAge: Duration.days(1),
       },
+      defaultDomainMapping: { domainName: props.apiDomainName },
     });
 
     this.addRoutes({

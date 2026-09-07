@@ -196,6 +196,26 @@ describe("Nyc311Stack", () => {
     template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   });
 
+  it("assigns the custom domains per environment (8-domain-name-assignment.md §1)", () => {
+    testEnv.template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ Aliases: ["test.boroughsim.com"] }),
+    });
+    testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "api.test.boroughsim.com" });
+    testEnv.template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "test.boroughsim.com.",
+      Type: "A",
+    });
+    testEnv.template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "api.test.boroughsim.com.",
+      Type: "A",
+    });
+
+    prodEnv.template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ Aliases: ["boroughsim.com"] }),
+    });
+    prodEnv.template.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "api.boroughsim.com" });
+  });
+
   it("wires the public API Gateway with its first route, GET /ingestion/metrics (1-data-ingestion.md §8a)", () => {
     const { template } = testEnv;
 

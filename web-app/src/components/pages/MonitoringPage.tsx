@@ -107,7 +107,7 @@ export function MonitoringPage(): ReactElement {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
           </span>
-          Live &middot; Nyc311
+          Live &middot; BoroughSim
         </div>
 
         <h1

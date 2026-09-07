@@ -1,12 +1,19 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import * as route53 from "aws-cdk-lib/aws-route53";
 import { describe, it } from "vitest";
 import { WebsiteHosting } from "../../web/WebsiteHosting";
+
+const SITE_DOMAIN_BY_ENV = { TEST: "test.boroughsim.com", PROD: "boroughsim.com" } as const;
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
-  new WebsiteHosting(stack, "WebsiteHosting", { envName });
+  const hostedZone = route53.PublicHostedZone.fromHostedZoneAttributes(stack, "HostedZone", {
+    hostedZoneId: "Z0123456789ABCDEFGHIJ",
+    zoneName: "boroughsim.com",
+  });
+  new WebsiteHosting(stack, "WebsiteHosting", { envName, siteDomain: SITE_DOMAIN_BY_ENV[envName], hostedZone });
   return Template.fromStack(stack);
 }
 
@@ -63,6 +70,32 @@ describe("WebsiteHosting", () => {
         ]),
       }),
     });
+  });
+
+  it("attaches the custom domain as a CloudFront alias with a DNS-validated ACM cert", () => {
+    const template = synthesize("PROD");
+
+    template.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["boroughsim.com"],
+        ViewerCertificate: Match.objectLike({ SslSupportMethod: "sni-only" }),
+      }),
+    });
+    template.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      DomainName: "boroughsim.com",
+      ValidationMethod: "DNS",
+    });
+  });
+
+  it("creates A and AAAA alias records for the site domain in the hosted zone", () => {
+    const template = synthesize("PROD");
+
+    template.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "boroughsim.com.",
+      Type: "A",
+      HostedZoneId: "Z0123456789ABCDEFGHIJ",
+    });
+    template.hasResourceProperties("AWS::Route53::RecordSet", { Name: "boroughsim.com.", Type: "AAAA" });
   });
 
   it("deploys no content itself — that's WebsiteDeployment's job (see its own tests)", () => {

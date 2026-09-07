@@ -26,12 +26,14 @@ describe("Nyc311PipelineStatusApi", () => {
     template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   });
 
-  it("allows CORS from both the Test and Prod CloudFront domains, plus local dev, GET only", () => {
+  it("allows CORS from the Test and Prod site domains, the CloudFront defaults, and local dev, GET only", () => {
     const template = synthesize();
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       CorsConfiguration: {
         AllowOrigins: [
+          "https://test.boroughsim.com",
+          "https://boroughsim.com",
           "https://d3u5wagmbm10bm.cloudfront.net",
           "https://d3n0h6hoc7c771.cloudfront.net",
           "http://localhost:5173",

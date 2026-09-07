@@ -9,14 +9,18 @@ export interface Nyc311PipelineStatusApiProps {
 }
 
 /*
- * Nyc311Web-Test / Nyc311Web-Prod CloudFront domains — hardcoded, not
- * cross-stack-referenced (2-pipeline-monitoring.md §7). This API is a
- * singleton in Nyc311PipelineStack, but both per-environment sites call
- * it. A cross-stack SSM lookup was rejected as unneeded coupling; update
- * these two lines by hand if a distribution is ever replaced.
+ * The web origins that call this singleton API — hardcoded, not
+ * cross-stack-referenced (2-pipeline-monitoring.md §7); update by hand if
+ * a site domain changes. Custom domains are primary; the `*.cloudfront.net`
+ * defaults stay for now per 8-domain-name-assignment.md §4 (issue #4's
+ * "keep both") so the tile survives DNS/cert propagation lag.
  */
-const TEST_WEB_DOMAIN = "d3u5wagmbm10bm.cloudfront.net";
-const PROD_WEB_DOMAIN = "d3n0h6hoc7c771.cloudfront.net";
+const WEB_ORIGINS = [
+  "https://test.boroughsim.com",
+  "https://boroughsim.com",
+  "https://d3u5wagmbm10bm.cloudfront.net",
+  "https://d3n0h6hoc7c771.cloudfront.net",
+];
 
 /* The web-app's Vite dev server default port (web-app/vite.config.ts). */
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
@@ -35,7 +39,7 @@ export class Nyc311PipelineStatusApi extends HttpApi {
     super(scope, id, {
       apiName: "Nyc311PipelineStatusApi",
       corsPreflight: {
-        allowOrigins: [`https://${TEST_WEB_DOMAIN}`, `https://${PROD_WEB_DOMAIN}`, LOCAL_DEV_ORIGIN],
+        allowOrigins: [...WEB_ORIGINS, LOCAL_DEV_ORIGIN],
         allowMethods: [CorsHttpMethod.GET],
         allowHeaders: ["Content-Type"],
         maxAge: Duration.days(1),

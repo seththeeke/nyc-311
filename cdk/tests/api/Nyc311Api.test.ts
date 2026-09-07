@@ -1,5 +1,6 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
+import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { describe, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 import { OrdersTable } from "../../data/OrdersTable";
@@ -16,7 +17,8 @@ import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLamb
 import { Nyc311ReportsApiLambda } from "../../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
-const WEB_APP_DOMAIN = "d123456abcdef.cloudfront.net";
+const SITE_DOMAIN = "test.boroughsim.com";
+const CLOUDFRONT_DOMAIN = "d123456abcdef.cloudfront.net";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
@@ -68,6 +70,11 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
   });
+  const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
+    name: "api.test.boroughsim.com",
+    regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
+    regionalHostedZoneId: "Z1UJRXOUMOOFR7",
+  });
   new Nyc311Api(stack, "Nyc311Api", {
     envName,
     metricsApiLambda,
@@ -78,7 +85,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseJobsApiLambda,
     jobResultApiLambda,
     reportsApiLambda,
-    webAppDomainName: WEB_APP_DOMAIN,
+    webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
+    apiDomainName,
   });
   return Template.fromStack(stack);
 }
@@ -95,14 +103,22 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("allows CORS only from the web-app's CloudFront domain and local dev, GET only", () => {
+  it("allows CORS from the custom site domain, the CloudFront default, and local dev, GET only", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       CorsConfiguration: {
-        AllowOrigins: [`https://${WEB_APP_DOMAIN}`, "http://localhost:5173"],
+        AllowOrigins: [`https://${SITE_DOMAIN}`, `https://${CLOUDFRONT_DOMAIN}`, "http://localhost:5173"],
         AllowMethods: ["GET"],
       },
+    });
+  });
+
+  it("maps the API's custom domain as the default domain", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::ApiMapping", {
+      DomainName: "api.test.boroughsim.com",
     });
   });
 
