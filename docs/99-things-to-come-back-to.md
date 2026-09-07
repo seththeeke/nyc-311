@@ -106,3 +106,9 @@ See [#20](https://github.com/seththeeke/nyc-311/issues/20).
 See [#22](https://github.com/seththeeke/nyc-311/issues/22).
 
 ---
+
+## biz-intel-agent — own the BI/reporting layer (job authoring + Athena/Glue efficiency)
+
+See [#24](https://github.com/seththeeke/nyc-311/issues/24).
+
+---
