@@ -328,18 +328,21 @@ read directly, no runtime fetch involved:
 pipelineApiBaseUrl: import.meta.env.VITE_PIPELINE_API_BASE_URL || "",
 ```
 
-Set once in a new **checked-in** `web-app/.env` (not `.env.local`, which
-is git-ignored and personal — this value is the same for every developer
-and every deployed environment, so it belongs in source control):
+The deployed value is set in the pipeline's Synth step
+(`PIPELINE_STATUS_API_URL` in `cdk/pipeline/Nyc311PipelineStack.ts`,
+passed as `VITE_PIPELINE_API_BASE_URL` on the `web-app` build command,
+right next to `VITE_DATA_MODE=live`), and documented for local dev in the
+checked-in `web-app/.env.example`.
 
-```
-# web-app/.env
-VITE_PIPELINE_API_BASE_URL=<Nyc311PipelineStatusApiUrl, filled in during bootstrap — see §10>
-```
+> **Revised 2026-09-07.** Originally a checked-in `web-app/.env`. That
+> file is now git-ignored (personal, like `.env.local`), so the one place
+> that needs the value at build time — the pipeline — carries it as a
+> `.ts` constant instead, with `web-app/.env.example` as the local-dev
+> reference. Still a plain build-time value, no runtime fetch; only the
+> home moved.
 
-`web-app/vite-env.d.ts`'s `ImportMetaEnv` interface gains the matching
-`VITE_PIPELINE_API_BASE_URL: string` declaration alongside the existing
-two.
+`web-app/vite-env.d.ts`'s `ImportMetaEnv` interface has the matching
+`VITE_PIPELINE_API_BASE_URL: string` declaration alongside the others.
 
 ---
 
@@ -362,10 +365,12 @@ it happens exactly once:
    updating: `aws cloudformation describe-stacks --stack-name
    Nyc311PipelineStack --profile nyc311 --query
    "Stacks[0].Outputs[?OutputKey=='Nyc311PipelineStatusApiUrl'].OutputValue"`.
-3. **Fill it into `web-app/.env`**, commit, push. This deploy carries the
-   frontend changes (§8) *and* now has the real API URL baked into the
+3. **Fill it into the build's env**, commit, push. This deploy carries
+   the frontend changes (§8) *and* now has the real API URL baked into the
    build — the same push that finally makes the tile functional on both
-   `Nyc311-Test` and `Nyc311-Prod`.
+   `Nyc311-Test` and `Nyc311-Prod`. *(As of 2026-09-07 the home for this
+   value is `PIPELINE_STATUS_API_URL` in `Nyc311PipelineStack.ts`, not
+   `web-app/.env` — see §9.)*
 
 After step 3, this is genuinely done — no further manual step, matching
 "shouldn't need to touch after I make it once." The bootstrap is a
@@ -430,7 +435,7 @@ Same four-tier model as every other slice (`testing-framework.md`):
 | Frontend components | `web-app/src/components/pipeline/` |
 | Frontend page | `web-app/src/components/pages/PipelineMonitoringPage.tsx` |
 | Route | `/monitoring/pipeline` (`AppRoutes.tsx`) |
-| New checked-in env file | `web-app/.env` (`VITE_PIPELINE_API_BASE_URL`) |
+| Pipeline-status API URL home | `PIPELINE_STATUS_API_URL` in `cdk/pipeline/Nyc311PipelineStack.ts` (Synth step); `web-app/.env.example` for local dev. Was `web-app/.env` until 2026-09-07 — now git-ignored. |
 | Manual verification script | `test-scripts/3-pipeline-status-test.py` |
 
 ---

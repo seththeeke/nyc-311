@@ -26,6 +26,15 @@ const GITHUB_REPO = "nyc-311";
 const GITHUB_BRANCH = "main";
 
 /*
+ * 2-pipeline-monitoring.md §9 — Nyc311PipelineStatusApi's URL, one value
+ * for every environment (singleton pipeline), so a plain Vite build-time
+ * value. Set in the Synth step below (like VITE_DATA_MODE=live) now that
+ * web-app/.env is git-ignored; web-app/.env.example documents it for local
+ * dev. Update by hand only if that API is recreated.
+ */
+const PIPELINE_STATUS_API_URL = "https://vxw9vm74pa.execute-api.us-east-1.amazonaws.com";
+
+/*
  * The GitHub CodeConnections connection, authorized once by hand in the
  * AWS/GitHub console flow (aws-code-pipeline-plan.md §6) — its lifecycle
  * (creation + GitHub App repo authorization) is managed outside CDK.
@@ -71,16 +80,16 @@ export class Nyc311PipelineStack extends Stack {
      * §4 Synth: lint + test + coverage for backend/, web-app/, cdk/, then
      * cdk synth. web-app/ builds before cdk/'s step too, since
      * WebsiteHosting's BucketDeployment stages web-app/dist as an asset
-     * cdk's own tests exercise. Synths against bin/pipeline.ts — bin/app.ts
-     * lacks the Stage-wrapped structure self-mutation needs.
-     * VITE_DATA_MODE=live: this one build deploys to both real
-     * environments, never test-data/'s fixtures.
+     * cdk's own tests exercise. Synths against bin/pipeline.ts. The two
+     * VITE_ vars on the build command: DATA_MODE=live (this one build
+     * deploys to both real environments), and PIPELINE_API_BASE_URL (§9's
+     * singleton value, homed here now that web-app/.env is git-ignored).
      */
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
-        "cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live npm run build && cd ..",
+        `cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build && cd ..`,
         /*
          * test:coverage:ci (not the plain test:coverage every other
          * package/local dev uses) — cdk/scripts/test-coverage-sharded.sh
@@ -245,7 +254,8 @@ export class Nyc311PipelineStack extends Stack {
     });
     /*
      * Read once during the bootstrap sequence (2-pipeline-monitoring.md
-     * §10) to fill web-app/.env's VITE_PIPELINE_API_BASE_URL.
+     * §10) to fill this file's PIPELINE_STATUS_API_URL constant (used by
+     * the Synth step) — and web-app/.env.example, for local dev.
      */
     new CfnOutput(this, "Nyc311PipelineStatusApiUrl", { value: pipelineStatusApi.apiEndpoint });
 
