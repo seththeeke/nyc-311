@@ -767,7 +767,8 @@ Same four-tier model (`testing-framework.md`):
 
 ## Build Checklist
 
-Legs 1–3 shipped 2026-09-06 (see per-leg notes). Leg 4 and Leg 5 remain.
+Legs 1–3 shipped 2026-09-06; Leg 3.5 (reporting-substrate rework) shipped
+2026-09-07 (see per-leg notes). **Leg 4 and Leg 5 remain.**
 Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
@@ -779,43 +780,54 @@ Tracked as legs, roughly in dependency order.
       endpoint-coverage report — **done 2026-09-06** (the `/data/rollups`
       entry is replaced by `/data/jobs/{name}/result` in Leg 3.5).
 
-### Leg 3.5 — reporting-substrate rework (§8/§11, 2026-09-07)
+### Leg 3.5 — reporting-substrate rework (§8/§11) — **shipped 2026-09-07**
 
-Job output becomes an immutable resultset in S3 + an Athena-queryable
-history table; the DynamoDB EAV serving table is deleted.
+Job output is an immutable resultset in S3 + an Athena-queryable history
+table; the DynamoDB EAV serving table (`AnalyticsRollups`) is gone.
 
-- [ ] **Delete** `AnalyticsRollups` (CDK `TableV2` + `cdk/tests`), `dao/
-      analytics/analyticsRollupsDao`, `models/analyticsRollup`,
-      `service/analytics/analyticsRollupsService`,
-      `controller/web-api/getRollupsController` + its API Lambda/route,
-      and the rollup-fold loop in `warehouseJobRunnerService`. Web-app:
-      `models/analyticsRollup`, `hooks/useRollups`, `components/data/
-      RollupsView`, `test-data/analyticsRollups`, the "Rollups" tab. Drop
-      `/data/rollups` from `KNOWN_ROUTES` + delete its integration test.
-- [ ] `cdk/warehouse/sql/order_volume_by_stage_7d.sql` — created-date ×
+- [x] **Deleted** `AnalyticsRollups` (CDK `TableV2` + tests), its DAO,
+      model, service, `getRollupsController` + `Nyc311RollupsApiLambda` +
+      the `/data/rollups` route, and the rollup-fold loop. Web-app:
+      `analyticsRollup` model/hook/`RollupsView`/fixture + the "Rollups"
+      tab. `/data/rollups` dropped from `KNOWN_ROUTES`.
+- [x] `cdk/warehouse/sql/order_volume_by_stage_7d.sql` — created-date ×
       current-stage `COUNT(*)`, trailing 7 days by `created_at`.
-- [ ] Rework the runner: iterate the `WAREHOUSE_JOBS` manifest (built from
-      `sql/`), per job → run Athena → build the §11 envelope (string-valued
-      rows + column types) → `PutObject` `result.json` → write
-      `WarehouseJobRuns` with `result_location` + `row_count`. Runner role
-      gains scoped `job-results/*` S3 write; no Glue writes.
-- [ ] `Nyc311WarehouseCatalog`: add the CDK-declared `job_results` Glue
-      table (`rows array<map<string,string>>`, partition projection on
-      `job_name`/`run_date`) over the `job-results/` prefix.
-- [ ] `WarehouseJobRuns` model + DAO: add `result_location`, `row_count`.
-- [ ] `backend/service/analytics/jobResultService` +
-      `controller/web-api/getJobResultController` + `Nyc311WarehouseJobResultApiLambda`
-      + `GET /data/jobs/{name}/result` (resolve latest `result_location`,
-      `s3:GetObject`, return envelope, 404 if none). Read-only IAM
-      asserted.
-- [ ] Web-app: `models/jobResult`, `hooks/useJobResult`,
-      `services/warehouseDataService.getJobResult()`, `ResultsView` +
-      per-job `OrderVolumeByStage7dView` + `GenericResultTable`, "Results"
-      tab, fixtures, full mirrored tests.
-- [ ] `KNOWN_ROUTES` + `warehouseJobResultApi.integration.test.ts`.
-- [ ] Ship, verify in `Nyc311-Test`: force a run, confirm `result.json`
-      in S3, `SELECT ... FROM job_results WHERE job_name = '...'` works in
-      Athena, and the `/data` Results tab renders the 7-day-by-stage view.
+- [x] Generic runner: iterate the `WAREHOUSE_JOBS` manifest (built from
+      `sql/` at synth), per job (isolated try/catch) → run Athena → build
+      the §11 envelope (string values + column types from `ResultSetMetadata`)
+      → `PutObject` `result.json` → record the run with `result_location`
+      + `row_count`. Runner role: scoped `job-results/*` S3 write, no Glue
+      writes.
+- [x] `Nyc311WarehouseCatalog`: CDK-declared `job_results` Glue table
+      (JSON, `rows array<map<string,string>>`, injected `job_name` + date
+      `run_date` projection) over `job-results/`.
+- [x] `WarehouseJobRuns` model + DAO: `result_location` + `row_count`
+      (`.nullish()` — pre-Leg-3.5 rows still parse),
+      `getLatestSucceededRunForJob`.
+- [x] `jobResultService` + `getJobResultController` +
+      `Nyc311JobResultApiLambda` + `GET /data/jobs/{name}/result`
+      (read-only IAM asserted).
+- [x] Web-app: `jobResult` model/hook, `warehouseDataService.getJobResult()`,
+      `ResultsView` + `OrderVolumeByStage7dView` (date × stage matrix) +
+      `GenericResultTable`, "Results" tab, fixtures, full mirrored tests.
+- [x] `KNOWN_ROUTES` + `jobResultApi.integration.test.ts`;
+      `warehouseSchemaApi.integration.test` updated for the 4th table.
+- [x] **Verified in `Nyc311-Test`** (2026-09-07): forced runner invoke →
+      SUCCEEDED, `result.json` in S3 (envelope, string values), returned
+      verbatim by `GET /data/jobs/{name}/result`; `job_results` queryable
+      via `CROSS JOIN UNNEST(rows)`; `GET /data/jobs` loads legacy rows;
+      `GET /data/schema` lists 4 tables; `/data` Results tab renders the
+      2026-09-06/07 × INGEST/SCHEDULE matrix; Data Warehouse tile on
+      `/monitoring`.
+- **Follow-up (not blocking):** the pre-Leg-3.5 `WarehouseJobRuns` rows
+  still show under the old `ORDER_VOLUME_BY_STAGE` job_name on `/data`;
+  harmless, they age out of the read window. `AnalyticsRollups-{Test,Prod}`
+  DynamoDB tables are orphaned (RETAIN policy) — delete manually if wanted.
+
+### Data Warehouse tile
+
+- [x] Moved the `/data` entry point off the home page into a "Data
+      Warehouse" tile on `/monitoring` (2026-09-07).
 
 ### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
