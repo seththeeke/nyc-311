@@ -23,7 +23,7 @@ const WarehouseTableSchema = z.object({
 });
 
 describe("GET /data/schema against a live API", () => {
-  it("returns 200 with a tables array covering the three warehouse tables", async () => {
+  it("returns 200 with a tables array covering the three source tables plus job_results", async () => {
     const { status, body } = await getJson(ROUTE, ROUTE);
     expect(status).toBe(200);
 
@@ -33,8 +33,10 @@ describe("GET /data/schema against a live API", () => {
       expect(() => WarehouseTableSchema.parse(table)).not.toThrow();
     }
 
-    const names = (tables as { table_name: string }[]).map((t) => t.table_name).sort();
-    expect(names).toEqual(["order_events", "order_snapshots", "requests"]);
+    const names = new Set((tables as { table_name: string }[]).map((t) => t.table_name));
+    for (const expected of ["order_events", "order_snapshots", "requests", "job_results"]) {
+      expect(names.has(expected)).toBe(true);
+    }
   });
 
   it("responds with CORS headers allowing the local-dev origin", async () => {

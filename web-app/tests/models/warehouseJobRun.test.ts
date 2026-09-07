@@ -42,6 +42,15 @@ describe("WarehouseJobRunSchema", () => {
     expect(WarehouseJobRunSchema.parse(running)).toEqual(running);
   });
 
+  it("parses a pre-Leg-3.5 row that omits result_location / row_count", () => {
+    const legacyRow = { ...validJobRun } as Partial<typeof validJobRun>;
+    delete legacyRow.result_location;
+    delete legacyRow.row_count;
+    const parsed = WarehouseJobRunSchema.parse(legacyRow);
+    expect(parsed.result_location ?? null).toBeNull();
+    expect(parsed.row_count ?? null).toBeNull();
+  });
+
   it("accepts a FAILED run with an error message", () => {
     const failed = { ...validJobRun, status: "FAILED", error_message: "Athena query failed" };
     expect(WarehouseJobRunSchema.parse(failed)).toEqual(failed);

@@ -29,10 +29,15 @@ export const WarehouseJobRunSchema = z.object({
   started_at: z.string().min(1),
   completed_at: z.string().min(1).nullable(),
   execution_ref: z.string().min(1).nullable(),
-  /** `s3://…/job-results/job_name=<job>/run_date=<date>/result.json` — null while RUNNING and for runs that produce no resultset. */
-  result_location: z.string().min(1).nullable(),
-  /** Rows in the resultset; null while RUNNING / for resultless runs. */
-  row_count: z.number().int().nonnegative().nullable(),
+  /**
+   * `s3://…/job-results/job_name=<job>/run_date=<date>/result.json` — null
+   * while RUNNING and for resultless runs. `.nullish()` (nullable +
+   * optional) so pre-Leg-3.5 rows, written before this field existed,
+   * still parse — treat a missing value as null.
+   */
+  result_location: z.string().min(1).nullish(),
+  /** Rows in the resultset; null/absent while RUNNING, for resultless runs, and on pre-Leg-3.5 rows. */
+  row_count: z.number().int().nonnegative().nullish(),
   error_message: z.string().min(1).nullable(),
   retry_count: z.number().int().nonnegative(),
   retried_from_job_run_id: z.string().min(1).nullable(),

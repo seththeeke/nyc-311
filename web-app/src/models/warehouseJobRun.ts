@@ -27,8 +27,9 @@ export const WarehouseJobRunSchema = z.object({
   started_at: z.string().min(1),
   completed_at: z.string().min(1).nullable(),
   execution_ref: z.string().min(1).nullable(),
-  result_location: z.string().min(1).nullable(),
-  row_count: z.number().int().nonnegative().nullable(),
+  /* `.nullish()` so pre-Leg-3.5 rows (written before these fields existed) still parse. */
+  result_location: z.string().min(1).nullish(),
+  row_count: z.number().int().nonnegative().nullish(),
   error_message: z.string().min(1).nullable(),
   retry_count: z.number().int().nonnegative(),
   retried_from_job_run_id: z.string().min(1).nullable(),

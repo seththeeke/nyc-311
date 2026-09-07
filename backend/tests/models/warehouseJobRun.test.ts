@@ -43,6 +43,15 @@ describe("WarehouseJobRunSchema", () => {
     expect(WarehouseJobRunSchema.parse(running)).toEqual(running);
   });
 
+  it("parses a pre-Leg-3.5 row that omits result_location / row_count", () => {
+    const legacyRow: Record<string, unknown> = { ...valid };
+    delete legacyRow["result_location"];
+    delete legacyRow["row_count"];
+    const parsed = WarehouseJobRunSchema.parse(legacyRow);
+    expect(parsed.result_location ?? null).toBeNull();
+    expect(parsed.row_count ?? null).toBeNull();
+  });
+
   it("accepts a RETRY run linking back to the failure it retries", () => {
     const retry = { ...valid, trigger: "RETRY", retry_count: 2, retried_from_job_run_id: "01OLD" };
     expect(WarehouseJobRunSchema.parse(retry)).toEqual(retry);
