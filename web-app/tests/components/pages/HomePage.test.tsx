@@ -17,13 +17,13 @@ describe("HomePage", () => {
     );
   });
 
-  it("links to the data warehouse", () => {
+  it("does not link straight to the data warehouse — that moved to a Monitoring tile", () => {
     render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("link", { name: /explore the data warehouse/i })).toHaveAttribute("href", "/data");
+    expect(screen.queryByRole("link", { name: /data warehouse/i })).not.toBeInTheDocument();
   });
 });

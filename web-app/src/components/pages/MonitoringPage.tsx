@@ -85,6 +85,16 @@ function IntegrationTestsIcon(): ReactElement {
   );
 }
 
+function DataWarehouseIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <ellipse cx="12" cy="5" rx="7" ry="3" />
+      <path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5" />
+      <path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
+    </svg>
+  );
+}
+
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Ingestion",
@@ -135,6 +145,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/integration-tests",
     accent: "indigo",
     icon: <IntegrationTestsIcon />,
+  },
+  {
+    title: "Data Warehouse",
+    description: "Explore the warehouse schema, job run history, and job results.",
+    to: "/data",
+    accent: "cyan",
+    icon: <DataWarehouseIcon />,
   },
 ];
 

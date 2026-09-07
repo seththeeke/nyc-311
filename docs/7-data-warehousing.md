@@ -482,10 +482,11 @@ own their own shaping. Full rationale: Appendix A.10.
 
 ## 12. The `/data` Page
 
-A top-level route (`/data`, `PublicRoute` tier — not nested under
-`/monitoring/`; linked from the home page as "Explore the data
-warehouse"). **Built and live against real routes (Legs 1–3, 2026-09-06).**
-Read-only; backed by the GET routes below.
+A top-level route (`/data`, `PublicRoute` tier — the page itself is not
+nested under `/monitoring/`, but it's reached from a "Data Warehouse"
+tile on the Monitoring page, alongside the other read-only surfaces).
+**Built and live against real routes (Legs 1–3, 2026-09-06).** Read-only;
+backed by the GET routes below.
 
 ### Layout
 
