@@ -31,6 +31,8 @@ import { Nyc311WarehouseTransformLambda } from "../warehouse/Nyc311WarehouseTran
 import { Nyc311WarehouseFirehose } from "../warehouse/Nyc311WarehouseFirehose";
 import { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
 import { Nyc311WarehouseJobRunnerLambda } from "../warehouse/Nyc311WarehouseJobRunnerLambda";
+import { Nyc311WarehouseRebuildLambda } from "../warehouse/Nyc311WarehouseRebuildLambda";
+import { Nyc311WarehouseRebuildStateMachine } from "../step-function/Nyc311WarehouseRebuildStateMachine";
 import { Nyc311WarehouseJobSchedule } from "../warehouse/Nyc311WarehouseJobSchedule";
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
@@ -245,7 +247,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
     });
 
-    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderEventsFirehose", {
+    const orderEventsFirehose = new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderEventsFirehose", {
       envName: props.envName,
       label: "OrderEvents",
       tableName: "order_events",
@@ -254,7 +256,7 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
-    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderSnapshotsFirehose", {
+    const orderSnapshotsFirehose = new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOrderSnapshotsFirehose", {
       envName: props.envName,
       label: "OrderSnapshots",
       tableName: "order_snapshots",
@@ -263,7 +265,7 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
-    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseRequestsFirehose", {
+    const requestsFirehose = new Nyc311WarehouseFirehose(this, "Nyc311WarehouseRequestsFirehose", {
       envName: props.envName,
       label: "Requests",
       tableName: "requests",
@@ -272,7 +274,7 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
-    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseLocationsFirehose", {
+    const locationsFirehose = new Nyc311WarehouseFirehose(this, "Nyc311WarehouseLocationsFirehose", {
       envName: props.envName,
       label: "Locations",
       tableName: "locations",
@@ -306,6 +308,38 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       jobRunnerLambda: warehouseJobRunnerLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    /*
+     * 7-data-warehousing.md §10 — the on-demand rebuild. A manually
+     * triggered Step Functions state machine (the project's only one)
+     * wipes and re-derives all three sources' warehoused data from a
+     * DynamoDB PITR export in parallel, without pausing live capture,
+     * then re-runs every job. `test-scripts/5-warehouse-rebuild.py`
+     * starts it under the nyc311 profile — never a /data page action.
+     */
+    const warehouseRebuildLambda = new Nyc311WarehouseRebuildLambda(this, "Nyc311WarehouseRebuildLambda", {
+      envName: props.envName,
+      warehouseBucket,
+      jobRunsTable: warehouseJobRunsTable,
+      orderEventsFirehose,
+      orderSnapshotsFirehose,
+      requestsFirehose,
+      locationsFirehose,
+    });
+
+    const warehouseRebuildStateMachine = new Nyc311WarehouseRebuildStateMachine(this, "Nyc311WarehouseRebuildStateMachine", {
+      envName: props.envName,
+      warehouseBucket,
+      ordersTable,
+      requestsTable,
+      locationsTable,
+      rebuildLambda: warehouseRebuildLambda,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+    });
+
+    new CfnOutput(this, "Nyc311WarehouseRebuildStateMachineArn", {
+      value: warehouseRebuildStateMachine.stateMachine.stateMachineArn,
     });
 
     const warehouseSchemaApiLambda = new Nyc311WarehouseSchemaApiLambda(this, "Nyc311WarehouseSchemaApiLambda", {

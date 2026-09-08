@@ -3,8 +3,10 @@
 > **Status: Legs 1–3 + the `/data` frontend shipped to `Nyc311-Prod`
 > (2026-09-06). The serving layer was reworked 2026-09-07 — job results
 > are resultsets in S3, not rows in a DynamoDB table** (see §8/§11 and
-> Appendix A.10). Leg 4 (on-demand rebuild) and Leg 5 (observability) are
-> still designed-not-built — see the [Build Checklist](#build-checklist).
+> Appendix A.10). Leg 4 (on-demand rebuild) shipped 2026-09-08; Leg 5
+> (observability) runs on OOTB metrics for now with the alarm suite
+> deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25) — see
+> the [Build Checklist](#build-checklist).
 > Written **declaratively** — this doc describes the current design, not
 > the negotiation that produced it. Tradeoffs, rejected alternatives, and
 > the reasoning behind each call live in the
@@ -100,8 +102,9 @@ This build delivers, end to end, for **`Orders` (both `OrderEvent` and the
   in the job layer.
 - Job run history, automatic bounded retry, and query-performance metrics
   for every run.
-- An on-demand, fully isolated rebuild capability per source (designed,
-  Leg 4 — not built).
+- An on-demand rebuild (`Nyc311WarehouseRebuild` state machine, §10) that
+  wipes and re-derives every source's warehoused data from a DynamoDB PITR
+  export without pausing live capture (Leg 4, 2026-09-08).
 - A public, read-only `/data` page surfacing warehouse schema, job
   history, and the latest resultset of each job; a `/reports` page for
   business-facing weekly trends (`GET /reports`, 2026-09-07).
@@ -338,7 +341,7 @@ built from the `sql/` directory) — no runtime S3/asset fetch.
 | Field | Notes |
 |---|---|
 | `job_run_id` | PK. ULID. |
-| `job_name` | e.g. `"order_volume_by_stage_7d"`, or `"REBUILD_ORDER_EVENTS"`/`"REBUILD_ORDER_SNAPSHOTS"`/`"REBUILD_REQUESTS"` for §10's on-demand rebuilds — same table, one more `job_name` value. |
+| `job_name` | e.g. `"order_volume_by_stage_7d"`, or `"REBUILD_ORDERS"`/`"REBUILD_REQUESTS"`/`"REBUILD_LOCATIONS"` for §10's on-demand rebuilds (keyed on the *source table*, not the warehouse table) — same table, one more `job_name` value. |
 | `status` | `RUNNING` \| `SUCCEEDED` \| `FAILED`. |
 | `trigger` | `SCHEDULED` \| `RETRY` \| `MANUAL` (the on-demand rebuild path, §10). |
 | `started_at` / `completed_at` | `completed_at` nullable while `RUNNING`. |
@@ -378,60 +381,73 @@ Same Lambda/schedule as §8, not a second cron.
 
 ## 10. On-Demand Rebuild
 
-**`Nyc311WarehouseRebuildStateMachine`** — manually triggered (never
-scheduled), fully wipes and re-derives one or more sources' warehoused
-data directly from DynamoDB, without ever touching the operational fan-out
-Lambdas or their event source mappings, and without pausing any
-operational traffic (order evaluation, request promotion continue
-uninterrupted throughout).
+> **Revised 2026-09-08 (Leg 4, as built).** The original design paused
+> live capture (`sns:Unsubscribe` → drain → wipe → `sns:Subscribe`) to
+> guarantee no export/stream overlap. That was dropped: unsubscribing the
+> Firehose subscription CDK declares would drift the stack (next deploy
+> recreates it → double delivery), and the overlap it guarded against is
+> already handled by the query-level dedup. The simpler design below is
+> what shipped.
 
-**Input:** `{ sources: string[] }` (defaults to all three).
+**`Nyc311WarehouseRebuild-<env>`** (`cdk/step-function/`) — the project's
+only Step Functions state machine, manually triggered (never scheduled),
+input `{}`. Wipes and re-derives **all three sources'** warehoused data
+straight from a DynamoDB PITR export, **without pausing live capture** —
+order evaluation, request promotion, and every fan-out Lambda keep running
+untouched.
 
-**Per source, run in parallel (`Map` state):**
+**Per source (`orders` / `requests` / `locations`), in a `Parallel`
+branch:**
 
-1. **`PauseCapture`** — `sns:Unsubscribe` the source's Firehose
-   subscription from its topic (`CallAwsService`). The fan-out Lambda
-   keeps running and keeps publishing to this topic throughout — only
-   Firehose stops receiving.
-2. **`DrainBuffer`** — `Wait` 300s, covering Firehose's own buffering
-   window so nothing already in flight before the unsubscribe is lost.
-3. **`WipePrefix`** — a Lambda (`controller/data-archival/
-   emptyWarehousePrefixController.ts`) deletes every object under
-   `data/<source>/`.
-4. **`ResumeCapture`** — `sns:Subscribe` Firehose back onto the topic
-   (unfiltered, no config to reproduce), immediately after the wipe.
-   Records the exact pre-subscribe timestamp as `T`. Live capture is back
-   online within this step, bounded by steps 1–3's duration, independent
-   of how long the export below takes.
-5. **`StartExport`** — `dynamodb:exportTableToPointInTime`
-   (`ExportFormat: DYNAMODB_JSON`, `ExportTime: T`) landing into
-   `export-staging/<source>/<export-id>/`. Pinning `ExportTime` to `T`
-   (the instant captured in step 4, *before* the resubscribe took effect)
-   guarantees no gap and no overlap with what the now-live stream
-   captures from `T` forward.
-6. **`WaitForExport`** — poll `dynamodb:describeExport` to `COMPLETED`.
-7. **`ReplayExportFiles`** (`Map` state, one branch per exported data
-   file) — a Lambda reads one export file, `unmarshall()`s each
-   DynamoDB-JSON item into the same plain-JSON shape the live fan-out
-   Lambdas already produce, and calls `firehose:PutRecordBatch` (batched,
-   ≤500 records/call) against the **same** per-source Firehose delivery
-   stream the live pipeline uses — reusing its existing Parquet
-   conversion rather than a second, parallel conversion mechanism. The
-   replayed rows land in `data/<source>/dt=<T's date>/` once Firehose's
-   own buffer flushes.
-8. **`RecordJobRun`** — writes a `WarehouseJobRuns` row, `job_name =
-   "REBUILD_<SOURCE>"`, `trigger = "MANUAL"`.
+1. **`StartExport-<source>`** (`CallAwsService`
+   `dynamodb:exportTableToPointInTime`, `ExportFormat: DYNAMODB_JSON`,
+   `ExportTime` = `$$.Execution.StartTime`) → `export-staging/<source>/`.
+2. **`WaitExport-<source>`** (`Wait` 30s) → **`DescribeExport-<source>`**
+   → **`ExportDone-<source>`** `Choice`: `IN_PROGRESS` loops back to the
+   Wait, `FAILED` → `Fail`, `COMPLETED` → the next step.
+3. **`Rebuild-<source>`** (`LambdaInvoke` `Nyc311WarehouseRebuildWorker-<env>`,
+   payload `{ source, exportArn, exportTime }`). The worker
+   (`controller/data-archival/warehouseRebuildController.ts` →
+   `service/analytics/warehouseRebuildService.ts`):
+   - **Wipes** `data/<table>/` for every warehouse table the source feeds
+     — `orders` feeds both `order_snapshots` (the `#METADATA` rows) and
+     `order_events` (`EVENT#` rows); `requests` → `requests`; `locations`
+     → `locations`.
+   - Reads the export's `manifest-files.json`, then each gzipped
+     DynamoDB-JSON data file: `unmarshall`s each `{ Item }`, applies the
+     **same relevance filter the live fan-out uses** (`sk === "#METADATA"`
+     / `sk` starts `EVENT#` / `external_unique_key` present /
+     `location_id` present), and stamps `ingestion_source: "REBUILD"` +
+     `warehouse_ingested_at: <exportTime>`.
+   - `firehose:PutRecordBatch` (≤500/call, failed-record retry) onto the
+     **same per-table Firehose the live pipeline uses** — reusing its
+     transform Lambda + Parquet conversion. The transform respects the
+     pre-set `ingestion_source` / `warehouse_ingested_at` rather than
+     re-stamping.
+   - Writes a `WarehouseJobRuns` row (`job_name: "REBUILD_<SOURCE>"`,
+     `trigger: "MANUAL"`, `RUNNING` → `SUCCEEDED`/`FAILED`, `row_count` =
+     rows replayed). On failure it re-throws so the branch fails too.
 
-**After every source's branch completes:** `RecomputeJobs` invokes
-`Nyc311WarehouseJobRunner` once so every registered job re-runs against
-the rebuilt data — a fresh `run_date` resultset and history row — without
-waiting for the next scheduled invocation.
+**No gap, no overlap staleness:** the stream keeps capturing changes from
+`ExportTime` forward while the export runs. A replayed row carries
+`warehouse_ingested_at = ExportTime`; a stream row for the same entity
+written *after* the export carries a later timestamp. Every query resolves
+"latest per entity" with `ROW_NUMBER() OVER (PARTITION BY <id> ORDER BY
+warehouse_ingested_at DESC)`, so the newer stream row always wins.
+`order_events` (append-only, no dedup) can carry a few duplicate rows for
+events in the `[ExportTime, replay]` window — harmless: no job queries it
+yet, and any future one dedups on `(order_id, sk)`.
 
-**Trigger: `test-scripts/5-warehouse-rebuild.py`** — looks up the state
-machine's ARN (a new `CfnOutput`), calls `aws stepfunctions
-start-execution --profile nyc311`, polls `describe-execution`, prints a
-summary. An operator running a script under the `nyc311` profile — not a
-`/data` page action (§12).
+**After every branch completes:** **`RecomputeJobs`** (`LambdaInvoke`
+`Nyc311WarehouseJobRunner`) re-runs every job against the rebuilt data — a
+fresh `run_date` resultset + history row — without waiting for the daily
+schedule.
+
+**Trigger: `test-scripts/5-warehouse-rebuild.py`** — looks up
+`Nyc311WarehouseRebuildStateMachineArn` (a `CfnOutput`), `aws stepfunctions
+start-execution --profile nyc311`, polls `describe-execution`, prints the
+per-source replay counts. An operator running a script under the `nyc311`
+profile — not a `/data` page action (§12). `--prod` targets `Nyc311-Prod`.
 
 ---
 
@@ -676,20 +692,24 @@ cdk/
     Nyc311WarehouseJobSchedule.ts     # daily EventBridge Scheduler + DLQ + failure alarm
     Nyc311Warehouse{Schema,Jobs}ApiLambda.ts, Nyc311JobResultApiLambda.ts   # three /data read routes (§12)
     Nyc311ReportsApiLambda.ts         # GET /reports — the centralized reporting surface (§12)
-    Nyc311WarehouseRebuild.ts         # on-demand Step Functions (§10, not built)
+    Nyc311WarehouseRebuildLambda.ts   # the rebuild worker Lambda (§10, Leg 4)
     sql/
       order_volume_by_stage_7d.sql, order_volume_by_stage_8w.sql, order_volume_by_borough.sql
+cdk/step-function/
+  Nyc311WarehouseRebuildStateMachine.ts   # on-demand rebuild Step Functions (§10, Leg 4)
 cdk/lambda/
   Nyc311LocationEventsTopic.ts, Nyc311LocationsFanOutLambda.ts   # §4, added 2026-09-07
 ```
 
-`backend/`: `models/{warehouseJobRun,jobResult,warehouseJob,warehouseJobTrigger,locationStreamEvent}.ts`,
+`backend/`: `models/{warehouseJobRun,jobResult,warehouseJob,warehouseJobTrigger,locationStreamEvent,report,warehouseRebuild}.ts`,
 `dao/analytics/warehouseJobRunsDao.ts`, `service/analytics/{warehouseJobRunnerService,
-warehouseJobRunsService,warehouseSchemaService,jobResultService}.ts`,
+warehouseJobRunsService,warehouseSchemaService,jobResultService,reportsService,warehouseRebuildService,warehouseRecordTransformService}.ts`,
 `service/ingestion/locationEventService.ts`,
 `controller/analytics/runWarehouseJobController.ts`,
 `controller/ingestion/fanOutLocationEventsController.ts`,
-`controller/web-api/get{WarehouseSchema,WarehouseJobRuns,JobResult}Controller.ts`.
+`controller/data-archival/warehouseRebuildController.ts`,
+`controller/web-api/get{WarehouseSchema,WarehouseJobRuns,JobResult,Reports}Controller.ts`.
+Rebuild adds the `@aws-sdk/client-firehose` dependency.
 The 2026-09-07 rework deleted `dao/analytics/analyticsRollupsDao.ts`,
 `models/analyticsRollup.ts`, `service/analytics/analyticsRollupsService.ts`,
 `controller/web-api/getRollupsController.ts`, and the rollup-fold logic in
@@ -707,20 +727,40 @@ Checklist).
 
 ---
 
-## 14. Observability & Alarms
+## 14. Observability
 
-Structured logs + targeted alarms, no new `MetricFilter`s (7 of the
-project-wide 10-custom-metric cap remain unspent by this build):
+**Revised 2026-09-08.** The originally-planned alarm suite (below) is
+**deferred to the backlog** — while the project is scaled down for cost,
+the interim observability story is the out-of-the-box CloudWatch metrics
+plus the structured logs, no CloudWatch Alarms and no email routing:
 
-- Alarm on Firehose `DeliveryToS3.DataFreshness` exceeding ~2× the
-  buffering interval, and on any object landing under `errors/`.
-- The two renamed fan-out Lambdas keep their existing `Errors`/
-  `IteratorAge` alarms from their pre-existing pipelines — no new alarm
-  needed on the Lambdas themselves from this build.
-- Step Functions `ExecutionsFailed` on both the daily job runner and the
-  rebuild state machine; alarm on `WarehouseJobRuns` rows stuck `FAILED`
-  past `MAX_JOB_RETRIES`.
-- All alarms route to the existing `FAILURE_NOTIFICATION_EMAIL` SNS topic.
+- **Firehose** (×4) — `DeliveryToS3.DataFreshness`,
+  `DeliveryToS3.Success`, `DeliveryToS3.Records`, and any object under
+  `errors/<table>/` are all visible in the console with no setup.
+- **Always-on Lambdas** (fan-out ×2, job runner) — `Errors` /
+  `Invocations` / `Duration` / `IteratorAge` are covered by the public
+  **Lambda-health tile** (`GET /lambda-metrics`, §12's sibling), which
+  lists them in its monitored set.
+- **Rebuild** (`Nyc311WarehouseRebuild-<env>` state machine +
+  `Nyc311WarehouseRebuildWorker-<env>` Lambda) — a manual, rare tool, so
+  its story is: SFN `ExecutionsFailed` (OOTB metric), the
+  `REBUILD_<SOURCE>` `WarehouseJobRuns` row the worker writes
+  (`RUNNING` → `SUCCEEDED`/`FAILED`, visible on `/data`), and the
+  operator watching `describe-execution` from
+  `test-scripts/5-warehouse-rebuild.py`.
+- **Stuck `FAILED` jobs** — surfaced on the `/data` Jobs tab (the run row
+  shows `FAILED` + "retries exhausted"), and in `WarehouseJobRuns` via
+  `gsi2-status`.
+- **`dao/service/controller` structured JSON logs** (`logger.ts`) — the
+  same substrate a future `MetricFilter` would read; 7 of the 10-custom-
+  metric cap remain unspent.
+
+**Deferred to backlog** ([#25](https://github.com/seththeeke/nyc-311/issues/25)):
+CloudWatch Alarms on Firehose `DataFreshness` / `errors/` (×4), SFN
+`ExecutionsFailed` (rebuild machine), a stuck-`FAILED`-past-`MAX_JOB_RETRIES`
+alarm, and `Nyc311LocationsFanOut` `Errors`/`IteratorAge` alarms — all
+routing to `FAILURE_NOTIFICATION_EMAIL`. Pick this up when the project
+scales back up.
 
 ---
 
@@ -744,12 +784,17 @@ construct default:
   `GetObject`/`DeleteObject` on `athena-results/*`;
   `dynamodb:GetItem`/`PutItem`/`Query` on `WarehouseJobRuns`. No
   `AnalyticsRollups` — it no longer exists; no Glue writes.
-- **Rebuild state machine role:** `sns:Subscribe`/`Unsubscribe` scoped to
-  the three warehouse topics; `dynamodb:ExportTableToPointInTime`/
-  `DescribeExport` on the three source table ARNs; `s3:DeleteObject`/
-  `ListBucket` on `data/*`, `s3:GetObject`/`PutObject` on
-  `export-staging/*`; `firehose:PutRecordBatch` on the three delivery
-  streams; `dynamodb:PutItem` on `WarehouseJobRuns`.
+- **Rebuild state machine role** (§10, as built): `dynamodb:ExportTableToPointInTime`
+  on each source table + `dynamodb:DescribeExport` on `<table>/export/*`;
+  `s3:PutObject`/`AbortMultipartUpload` on `export-staging/*` +
+  `s3:GetBucketLocation`/`ListBucketMultipartUploads` on the bucket (the
+  export writes as this role); `lambda:InvokeFunction` on the rebuild
+  worker + the job runner. **No `sns:*`** — live capture is never touched.
+- **Rebuild worker Lambda role:** `s3:ListBucket` on the bucket +
+  `s3:GetObject` on `export-staging/*` + `s3:DeleteObject` on `data/*`;
+  `firehose:PutRecordBatch` on the four delivery streams; `dynamodb:PutItem`
+  on `WarehouseJobRuns`. No read of the operational tables — asserted in a
+  CDK test.
 - **`/data`'s three Lambdas — read-only, no exceptions:** schema route →
   `glue:GetTable`/`GetTables`/`GetDatabase` only; jobs route →
   `dynamodb:Query` on `WarehouseJobRuns` only; job-result route →
@@ -791,8 +836,11 @@ Same four-tier model (`testing-framework.md`):
   with `result_location`/`row_count`, retry decision, `MAX_JOB_RETRIES`
   cutoff) with the Athena/S3/DynamoDB clients mocked; `jobResultService`
   (resolve latest `result_location`, GetObject, parse, 404 path);
-  `warehouseSchemaService`/`warehouseJobRunsService`; the rebuild's
-  Lambdas (Leg 4).
+  `warehouseSchemaService`/`warehouseJobRunsService`; `reportsService`
+  (the `(week, series, value)` pivot); `warehouseRebuildService` (prefix
+  wipe pagination, manifest + gzip data-file parse, per-source
+  filter/route, `REBUILD` stamp, Firehose retry, `RUNNING`→`FAILED` on
+  error) with S3/Firehose/DynamoDB mocked.
 - **CDK assertions:** bucket config; Firehose ×4; `CfnDatabase` + the
   five `CfnTable`s (`order_events`/`order_snapshots`/`requests`/`locations`
   + `job_results`, partition-projection `parameters` asserted directly);
@@ -800,8 +848,12 @@ Same four-tier model (`testing-framework.md`):
   Lambda's IAM (Athena + read-only `glue:Get*` + scoped `job-results/*`
   S3 write + `WarehouseJobRuns` — asserted **no** `glue:CreateTable`/
   `PutObject` outside `job-results/`); the schedule (`rate(1 day)` + DLQ
-  + alarm); an explicit assertion that all three `/data` Lambdas carry no
-  write actions.
+  + alarm); an explicit assertion that all `/data`/`/reports` Lambdas
+  carry no write actions; the rebuild state machine (per-source
+  export→poll→rebuild flow, `ExportTableToPointInTime`/`DescribeExport`
+  IAM, S3 write on `export-staging/*`, ALL-level SFN logging) and the
+  rebuild worker Lambda (asserted `firehose:PutRecordBatch` + scoped S3 +
+  `dynamodb:PutItem` **only** — no operational-store read).
 - **Real integration:** `test-scripts/4-warehouse-test.py` and (Leg 4)
   `5-warehouse-rebuild.py`. `GET /data/schema`, `/data/jobs`,
   `/data/jobs/{name}/result`, `/reports` are in
@@ -828,7 +880,7 @@ Same four-tier model (`testing-framework.md`):
 | Job run history table (DynamoDB) | `WarehouseJobRuns-<Test\|Prod>` |
 | Job result store (S3) | `s3://nyc311-warehouse-<test\|prod>/job-results/job_name=<job>/run_date=<date>/result.json` |
 | Job history table (Glue/Athena) | `nyc311_warehouse_<test\|prod>.job_results` (one table, `rows array<map<string,string>>`, over the whole `job-results/` prefix) |
-| Rebuild state machine | `Nyc311WarehouseRebuild-<Test\|Prod>` (Leg 4) |
+| Rebuild state machine / worker Lambda | `Nyc311WarehouseRebuild-<Test\|Prod>`, `Nyc311WarehouseRebuildWorker-<Test\|Prod>` (Leg 4); ARN in the `Nyc311WarehouseRebuildStateMachineArn` stack output; export staging under `s3://…/export-staging/<source>/` |
 | Job runner Lambda / schedule | `Nyc311WarehouseJobRunner-<Test\|Prod>`, `Nyc311WarehouseJobSchedule-<Test\|Prod>` |
 | Reports API Lambda | `Nyc311ReportsApi-<Test\|Prod>` |
 | SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql`, `order_volume_by_stage_8w.sql`, `order_volume_by_borough.sql` |
@@ -842,8 +894,12 @@ Same four-tier model (`testing-framework.md`):
 
 ## Build Checklist
 
-Legs 1–3 shipped 2026-09-06; Leg 3.5 (reporting-substrate rework) shipped
-2026-09-07 (see per-leg notes). **Leg 4 and Leg 5 remain.**
+Legs 1–3 shipped 2026-09-06; Leg 3.5 (reporting-substrate rework) +
+Monitoring tile 2026-09-07; Locations + Reports 2026-09-07; Leg 4
+(on-demand rebuild) 2026-09-08. Leg 5's alarm suite is deferred to
+[#25](https://github.com/seththeeke/nyc-311/issues/25). **The warehouse
+build is otherwise complete** — remaining items are per-`Nyc311-Test`
+verification and future `.sql` jobs as the domain grows.
 Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
@@ -1014,27 +1070,51 @@ The centralized reporting surface, decoupled from the warehouse/job layer.
 - [x] `CLAUDE.md` §5.2: documented the `dao/analytics/` +
       `controller/analytics/` carve-out.
 
-### Leg 4 — on-demand rebuild (§10)
+### Leg 4 — on-demand rebuild (§10) — **shipped 2026-09-08**
 
-- [ ] `Nyc311WarehouseRebuild` state machine — per-source `Map`:
-      unsubscribe Firehose → drain → wipe → resubscribe → pinned-`ExportTime`
-      export → replay files through Firehose → `RecordJobRun`.
-- [ ] `emptyWarehousePrefixController` + `ReplayExportFiles` Lambdas.
-- [ ] `test-scripts/5-warehouse-rebuild.py`.
-- [ ] Verify `ExportTime` can be pinned close to "now" (PITR's ~5-minute
-      floor — Appendix A.6).
+Design simplified vs §10 original: no SNS pause (CDK-drift risk; the query
+dedup handles overlap), always all three sources, one worker Lambda per
+branch (not a per-file `Map`).
+
+- [x] `cdk/step-function/Nyc311WarehouseRebuildStateMachine.ts` — the
+      project's only SFN. `Parallel` over orders/requests/locations: each
+      `StartExport` (`ExportTime = $$.Execution.StartTime`) → poll
+      `DescribeExport` → `LambdaInvoke` the worker; then `RecomputeJobs`.
+- [x] `cdk/warehouse/Nyc311WarehouseRebuildLambda.ts` +
+      `backend/{models/warehouseRebuild,service/analytics/warehouseRebuildService,
+      controller/data-archival/warehouseRebuildController}.ts` — wipe
+      `data/<table>/`, read the export manifest + gzipped data files,
+      filter/route/stamp (`ingestion_source: "REBUILD"`,
+      `warehouse_ingested_at: <ExportTime>`), `firehose:PutRecordBatch`,
+      write a `REBUILD_<SOURCE>` `WarehouseJobRuns` row. `@aws-sdk/client-firehose`
+      added.
+- [x] `warehouseRecordTransformService` respects a pre-set
+      `ingestion_source` / `warehouse_ingested_at`.
+- [x] `Nyc311WarehouseRebuildStateMachineArn` `CfnOutput`;
+      `test-scripts/5-warehouse-rebuild.py` (`--prod` flag).
+- [x] Full unit + CDK assertion tests (worker IAM asserts no operational-
+      store read). `backend`/`cdk` build + lint + test:coverage green.
+- [ ] Verify in `Nyc311-Test`: `5-warehouse-rebuild.py` runs the machine
+      to `SUCCEEDED`, `data/<table>/` is repopulated, `REBUILD_*` rows
+      show on `/data`, and `RecomputeJobs` produces fresh resultsets.
 
 ### Leg 5 — observability (§14)
 
-- [ ] Firehose `DataFreshness` / `errors/` alarms (×4); SFN
-      `ExecutionsFailed`; stuck-`FAILED` alarm; **`Nyc311LocationsFanOut`
-      `Errors`/`IteratorAge` alarms** (deferred from the Locations work).
-      Route to `FAILURE_NOTIFICATION_EMAIL`.
+- [x] **Interim story (2026-09-08):** OOTB CloudWatch metrics (Firehose
+      `DataFreshness`/`errors/`, Lambda `Errors`/`IteratorAge` via the
+      Lambda-health tile, SFN `ExecutionsFailed`) + structured logs. No
+      CloudWatch Alarms, no email routing while the project is scaled
+      down.
+- [ ] **Deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25):**
+      the full alarm suite (Firehose freshness/errors ×4, SFN
+      `ExecutionsFailed`, stuck-`FAILED` job, `Nyc311LocationsFanOut`
+      `Errors`/`IteratorAge`) → `FAILURE_NOTIFICATION_EMAIL`. Build when
+      scaling back up.
 
 ### Doc
 
-- [ ] `business-insights.md` §3 — add the "superseded by
-      `7-data-warehousing.md` for implementation detail" note.
+- [x] `business-insights.md` §3 — "superseded by `7-data-warehousing.md`
+      for implementation detail" note added.
 
 ---
 

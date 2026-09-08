@@ -51,6 +51,15 @@ describe("transformWarehouseRecord", () => {
     const out2 = transformWarehouseRecord({ order_id: "01ORDER", payload: "already-a-string" }, NOW);
     expect(out2.payload).toBe("already-a-string");
   });
+
+  it("respects a rebuild replay's pre-set ingestion_source / warehouse_ingested_at (§10)", () => {
+    const out = transformWarehouseRecord(
+      { order_id: "01ORDER", ingestion_source: "REBUILD", warehouse_ingested_at: "2026-08-01T00:00:00.000Z" },
+      NOW
+    );
+    expect(out.ingestion_source).toBe("REBUILD");
+    expect(out.warehouse_ingested_at).toBe("2026-08-01T00:00:00.000Z");
+  });
 });
 
 describe("transformFirehoseRecordData", () => {

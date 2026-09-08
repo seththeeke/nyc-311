@@ -176,6 +176,12 @@ describe("Nyc311Stack", () => {
       ScheduleExpression: "rate(1 day)",
     });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobFailureAlarm-Test" });
+
+    /* §10 Leg 4 — the on-demand rebuild state machine + its worker Lambda + the ARN output. */
+    template.hasResourceProperties("AWS::StepFunctions::StateMachine", { StateMachineName: "Nyc311WarehouseRebuild-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseRebuildWorker-Test" });
+    template.hasOutput("Nyc311WarehouseRebuildStateMachineArn", {});
+
     for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result", "GET /reports"]) {
       template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }

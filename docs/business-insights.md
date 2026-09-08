@@ -123,6 +123,17 @@ aren't re-litigated from scratch later:
 
 ## 3. Analytics Infrastructure
 
+> **Superseded by [`7-data-warehousing.md`](./7-data-warehousing.md) for
+> implementation detail.** That doc is the built design — DynamoDB Streams
+> → SNS → Firehose (JSON→Parquet) → S3 → Glue/Athena, a generic `{name,
+> SQL}` job runner writing immutable `result.json` envelopes + a
+> `job_results` history table, and read paths at `GET /data/*` +
+> `GET /reports`. The §3.6 "dashboard-ready aggregate DynamoDB tables"
+> step here was tried (`AnalyticsRollups`) and then dropped
+> (`7-data-warehousing.md` Appendix A.10). This section stays for the
+> engine-choice rationale (§3.2/§3.3) and the business questions it
+> frames; treat the pipeline sketch below as historical.
+
 DynamoDB (the operational store) is good at transactional access, not at
 cross-entity aggregation — the queries this doc needs (cost by borough by day, MTTR
 by complaint type, etc.) need a proper analytical layer fed from the same event

@@ -27,8 +27,16 @@ export function transformWarehouseRecord(
     }
   }
 
-  shaped["warehouse_ingested_at"] = now.toISOString();
-  shaped["ingestion_source"] = "STREAM";
+  /*
+   * A live fan-out record carries neither field, so the stream stamps
+   * both. A rebuild replay (§10) pre-sets them — `ingestion_source:
+   * "REBUILD"` and `warehouse_ingested_at` pinned to the export time so
+   * replayed rows sort correctly against live rows — and is respected.
+   */
+  shaped["warehouse_ingested_at"] =
+    typeof parsed["warehouse_ingested_at"] === "string" ? parsed["warehouse_ingested_at"] : now.toISOString();
+  shaped["ingestion_source"] =
+    typeof parsed["ingestion_source"] === "string" ? parsed["ingestion_source"] : "STREAM";
   return shaped;
 }
 

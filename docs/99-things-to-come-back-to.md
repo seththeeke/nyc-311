@@ -114,3 +114,10 @@ See [#11](https://github.com/seththeeke/nyc-311/issues/11).
 See [#24](https://github.com/seththeeke/nyc-311/issues/24).
 
 ---
+
+## Warehouse pipeline alarm suite (Firehose freshness/errors, SFN ExecutionsFailed, stuck-FAILED, LocationsFanOut)
+
+Deferred from `7-data-warehousing.md` Leg 5 — runs on OOTB metrics + logs
+for now, no alarms/email while scaled down. See [#25](https://github.com/seththeeke/nyc-311/issues/25).
+
+---
