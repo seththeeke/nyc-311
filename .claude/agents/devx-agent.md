@@ -95,22 +95,19 @@ Pick from (roughly in order of preference — highest signal first):
 
 ## Running in parallel (worktrees)
 
-Many of these runs happen concurrently (`docs/autonomous-agent-plan.md`). Each
-gets its own **git worktree** so the shared working tree / index / HEAD can't
-collide:
+Many of these runs happen concurrently. Each gets its own **git worktree** via
+`scripts/agent-worktree.sh` — the generic isolation primitive described in
+`CLAUDE.md` §9 (not devx-agent-specific). The run is launched from inside the
+worktree (`cd "$(scripts/agent-worktree.sh new)"` then
+`claude --agent devx-agent -p "…"`), so everything below just works: you
+`git checkout -b` your branch in step 4, `CLAUDE.md` §2's per-package
+build/test/coverage runs against the worktree's own CoW `node_modules`, and the
+`devx-agent-guard.sh` + committer stamp both work unchanged. Teardown with
+`scripts/agent-worktree.sh rm <name>` once the PR is open (branch + PR survive).
 
-- Create one: `WT=$(scripts/devx-worktree.sh new)` — prints the path; it's a
-  detached-HEAD checkout of `origin/main` with `node_modules` CoW-cloned and the
-  gitignored `settings.local.json` / `.env.local` copied in.
-- The run is launched from inside that worktree (`claude --agent devx-agent -p
-  "…"`), so everything below just works — you `git checkout -b` your own branch
-  in step 4, and `CLAUDE.md` §2's per-package build/test/coverage runs against
-  the worktree's own `node_modules`.
-- Teardown: `scripts/devx-worktree.sh rm <name>` once the PR is open — the
-  branch and PR survive teardown.
-- Parallel runs each appending to `docs/99-things-to-come-back-to.md` on
-  separate branches can conflict at merge time; that's a human-merge concern,
-  acceptable.
+Note: parallel runs each appending to `docs/99-things-to-come-back-to.md` on
+separate branches can conflict at merge time — a human-merge concern,
+acceptable.
 
 ## Workflow
 

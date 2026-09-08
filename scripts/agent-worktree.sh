@@ -1,32 +1,37 @@
 #!/bin/sh
 #
-# devx-worktree.sh — per-agent git-worktree isolation for parallel autonomous
-# devx-agent runs (docs/autonomous-agent-plan.md).
+# agent-worktree.sh — git-worktree isolation for running ANY agent (or several
+# at once) against this repo without their working tree / index / HEAD
+# colliding. Not tied to any one agent (docs/autonomous-agent-plan.md).
 #
 # A git worktree shares one .git object store and ref namespace but has its own
-# working tree, index, and HEAD — the isolation needed to run 10-15 agents at
-# once without their `git add` / `git commit` / `git checkout` colliding.
-# node_modules is populated by an APFS copy-on-write clone (`cp -c`) so it costs
-# near-zero disk and only diverges from the primary on write.
+# working tree, index, and HEAD. node_modules is populated by an APFS
+# copy-on-write clone (`cp -c`) so it costs near-zero disk and only diverges
+# from the primary on write.
 #
 # Subcommands:
 #   new [name]     create a worktree at origin/main (detached HEAD), print its path
-#   rm <name|path> remove a worktree; its branch is left intact for the PR
-#   ls             list devx worktrees with branch + dirty-file count
+#   rm <name|path> remove a worktree; its branch (if any) is left intact
+#   ls             list agent worktrees with branch + dirty-file count
 #
-# Worktrees live in a sibling dir ../nyc-311-worktrees/<name> (override with
-# DEVX_WORKTREE_ROOT) — outside the repo, so no tool/glob recursion or
+# Worktrees live in a sibling dir <repo>-worktrees/<name> (override with
+# AGENT_WORKTREE_ROOT) — outside the repo, so no tool/glob recursion or
 # nested-repo edge cases.
 #
-# NOTE: the plan specified `flock` to serialize the `fetch`; macOS ships no
+# Per-worktree commit stamping: .claude/hooks/stamp-committer.sh and
+# .githooks/prepare-commit-msg key the committer stamp to the per-worktree git
+# dir, so concurrent commits from parallel worktrees keep their correct agent
+# prefix regardless of which agent (or the main session) made them.
+#
+# NOTE: the design doc specified `flock` to serialize the fetch; macOS ships no
 # flock, so `new` uses an atomic `mkdir` lock with the same effect.
 
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PRIMARY=$(git -C "$script_dir" rev-parse --show-toplevel)
-DEVX_WORKTREE_ROOT=${DEVX_WORKTREE_ROOT:-"$(dirname -- "$PRIMARY")/nyc-311-worktrees"}
-LOCK_DIR="$DEVX_WORKTREE_ROOT/.devx-worktree.lock"
+AGENT_WORKTREE_ROOT=${AGENT_WORKTREE_ROOT:-"$(dirname -- "$PRIMARY")/$(basename -- "$PRIMARY")-worktrees"}
+LOCK_DIR="$AGENT_WORKTREE_ROOT/.agent-worktree.lock"
 
 # gitignored-but-required files to copy into each worktree (relative to repo root).
 # Without settings.local.json a headless `-p` run prompts on nearly every tool call.
@@ -37,21 +42,21 @@ web-app/.env.local'
 # Packages whose node_modules get CoW-cloned.
 NODE_PKGS='. web-app backend cdk'
 
-die() { printf 'devx-worktree: %s\n' "$*" >&2; exit 1; }
+die() { printf 'agent-worktree: %s\n' "$*" >&2; exit 1; }
 
 cmd_new() {
   name=${1:-}
   if [ -z "$name" ]; then
     rand=$(od -An -N2 -tx1 /dev/urandom | tr -d ' \n')
-    name="run-$(date +%s)-$rand"
+    name="wt-$(date +%s)-$rand"
   fi
   case "$name" in
     */* | .* | '') die "invalid worktree name: '$name'" ;;
   esac
-  dest="$DEVX_WORKTREE_ROOT/$name"
+  dest="$AGENT_WORKTREE_ROOT/$name"
   [ -e "$dest" ] && die "worktree path already exists: $dest"
 
-  mkdir -p "$DEVX_WORKTREE_ROOT"
+  mkdir -p "$AGENT_WORKTREE_ROOT"
 
   # Serialize the ref update against overlapping `new` calls (atomic mkdir lock).
   i=0
@@ -84,7 +89,7 @@ cmd_new() {
       mkdir -p "$dest/$(dirname -- "$rel")"
       cp "$PRIMARY/$rel" "$dest/$rel"
     else
-      printf 'devx-worktree: note: %s absent in primary, not copied\n' "$rel" >&2
+      printf 'agent-worktree: note: %s absent in primary, not copied\n' "$rel" >&2
     fi
   done
 
@@ -92,14 +97,14 @@ cmd_new() {
 }
 
 cmd_rm() {
-  [ "$#" -ge 1 ] || die "usage: devx-worktree.sh rm <name|path>"
+  [ "$#" -ge 1 ] || die "usage: agent-worktree.sh rm <name|path>"
   case "$1" in
     /*) raw="$1" ;;
-    *) raw="$DEVX_WORKTREE_ROOT/$1" ;;
+    *) raw="$AGENT_WORKTREE_ROOT/$1" ;;
   esac
   path=$(CDPATH= cd -- "$raw" 2>/dev/null && pwd) || die "not a directory: $1"
 
-  root=$(CDPATH= cd -- "$DEVX_WORKTREE_ROOT" 2>/dev/null && pwd) || die "no worktree root at $DEVX_WORKTREE_ROOT"
+  root=$(CDPATH= cd -- "$AGENT_WORKTREE_ROOT" 2>/dev/null && pwd) || die "no worktree root at $AGENT_WORKTREE_ROOT"
   case "$path/" in
     "$root"/?*) : ;;
     *) die "refusing to remove a path outside $root: $path" ;;
@@ -107,12 +112,12 @@ cmd_rm() {
 
   git -C "$PRIMARY" worktree remove --force "$path"
   git -C "$PRIMARY" worktree prune
-  printf 'devx-worktree: removed %s (its branch is left intact for the PR)\n' "$path" >&2
+  printf 'agent-worktree: removed %s (its branch, if any, is left intact)\n' "$path" >&2
 }
 
 cmd_ls() {
-  [ -d "$DEVX_WORKTREE_ROOT" ] || { printf 'devx-worktree: no worktrees (%s does not exist)\n' "$DEVX_WORKTREE_ROOT" >&2; return 0; }
-  root=$(CDPATH= cd -- "$DEVX_WORKTREE_ROOT" && pwd)
+  [ -d "$AGENT_WORKTREE_ROOT" ] || { printf 'agent-worktree: no worktrees (%s does not exist)\n' "$AGENT_WORKTREE_ROOT" >&2; return 0; }
+  root=$(CDPATH= cd -- "$AGENT_WORKTREE_ROOT" && pwd)
 
   git -C "$PRIMARY" worktree list --porcelain | awk -v root="$root/" '
     /^worktree / { wt = substr($0, 10); br = "(detached)"; next }
@@ -131,5 +136,5 @@ case "$sub" in
   new) cmd_new "$@" ;;
   rm) cmd_rm "$@" ;;
   ls) cmd_ls ;;
-  *) die "usage: devx-worktree.sh {new [name] | rm <name|path> | ls}" ;;
+  *) die "usage: agent-worktree.sh {new [name] | rm <name|path> | ls}" ;;
 esac

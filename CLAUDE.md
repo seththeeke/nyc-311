@@ -512,15 +512,35 @@ already `.gitignore`d at the repo root (same as every other generated
 artifact — `cdk.out/`, `dist/`, each package's own `coverage/`), so this
 output is never committed.
 
-## 9. Parallel Autonomous Agent Runs
+## 9. Parallel Agent Runs (worktree isolation)
 
-When several autonomous agents (`devx-agent`) run at once, each gets its own
-**git worktree** so their `git add`/`commit`/`checkout` and the committer-stamp
-hook don't collide — `scripts/devx-worktree.sh {new|rm|ls}` is the primitive.
-Worktrees live outside the repo at `../nyc-311-worktrees/<name>`, share the one
-`.git` object store, and get a copy-on-write `node_modules` clone. See
-`docs/autonomous-agent-plan.md` and `.claude/agents/devx-agent.md`
-(*Running in parallel*) for detail. The committer stamp
-(`.claude/hooks/stamp-committer.sh` → `.githooks/prepare-commit-msg`) is keyed
-to the per-worktree git dir so concurrent commits keep their correct agent
-prefix.
+Running **any** agent — or several at once, of any kind — against this repo
+without their working tree / index / HEAD colliding uses one primitive:
+
+```
+scripts/agent-worktree.sh new [name]     # -> prints an isolated worktree path
+scripts/agent-worktree.sh rm  <name>     # tear down (branch, if any, survives)
+scripts/agent-worktree.sh ls             # list worktrees + branch + dirty count
+```
+
+Each worktree is a detached-HEAD checkout of `origin/main` in a sibling dir
+`<repo>-worktrees/<name>` (override `AGENT_WORKTREE_ROOT`), sharing the one
+`.git` object store, with `node_modules` populated by an APFS copy-on-write
+clone and the gitignored `.claude/settings.local.json` / `web-app/.env.local`
+copied in. Launch the agent from **inside** that directory
+(`cd "$(scripts/agent-worktree.sh new)"` then `claude --agent <name> -p "…"`).
+
+- **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
+  `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
+  concurrent commits keep their correct agent prefix no matter which agent (or
+  the main session) made them — no config needed per agent.
+- **A branch is checked out in at most one worktree**, so inside a worktree an
+  agent must **never `git checkout main`** — branch straight off `origin/main`
+  (`git fetch origin && git checkout -b <branch> origin/main`). Any agent doc
+  with a git workflow should say this.
+- An agent that must not touch `main` at all wires its own `PreToolUse` guard
+  hook (`.claude/hooks/devx-agent-guard.sh` is the working example, scoped via
+  that agent's frontmatter); the guard reads the branch from
+  `CLAUDE_PROJECT_DIR`, which is the worktree, so it works unchanged.
+
+Design + rationale: `docs/autonomous-agent-plan.md`.
