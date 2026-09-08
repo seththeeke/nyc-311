@@ -917,10 +917,14 @@ unblocking the borough job.
       Shipped `64e8baf` (2026-09-07).
 - [x] `cdk/warehouse/sql/order_volume_by_borough.sql` — `order_snapshots
       LEFT JOIN locations` per borough, `'UNKNOWN'` bucket for unresolved.
-- [ ] Verify in `Nyc311-Test`: a synthetic `Location` lands in
-      `locations` (Athena-queryable), and a forced job run produces an
-      `order_volume_by_borough` resultset. (Pipeline deploying as of
-      2026-09-07.)
+- [x] **Verified in `Nyc311-Test`** (2026-09-08, organic data): the
+      Locations fan-out ran 1,892×/24h with no errors; the `locations`
+      Glue table holds 2,530 rows across all 5 boroughs, Athena-queryable
+      (`warehouse_ingested_at` from 2026-09-08). The 2026-09-08 scheduled
+      run produced an `order_volume_by_borough` resultset (6 rows) — the
+      `LEFT JOIN locations` resolves real boroughs, with `UNKNOWN` for
+      orders whose location pre-dates the LATEST stream cursor (self-heals
+      as new data lands). `/data` lists `locations` in the schema.
 - **Deferred to Leg 5:** a dedicated CloudWatch email alarm on the
       Locations fan-out Lambda (it's in the lambda-health tile for now).
 
@@ -940,9 +944,20 @@ The centralized reporting surface, decoupled from the warehouse/job layer.
       at `/reports`, "Reports" tile on `/monitoring`, fixtures, full
       mirrored tests. Monitoring-tile icons extracted to
       `components/monitoring/MonitoringTileIcons.tsx` (200-line cap).
-- [ ] Verify in `Nyc311-Test`: forced job run produces an
-      `order_volume_by_stage_8w` resultset; `GET /reports` returns the
-      weekly trend; `/reports` page renders; "Reports" tile works.
+- [x] **Verified in `Nyc311-Test`** (2026-09-08, organic data): the
+      scheduled run produced an `order_volume_by_stage_8w` resultset
+      (5 rows, `(week_start, stage, order_count)`); `GET /reports` returns
+      the pivoted week-over-week trend (series `[EXECUTE, INGEST,
+      SCHEDULE]`, weeks oldest-first); `/reports` renders the
+      `ReportTrendTable` matrix with totals; the "Reports" tile on
+      `/monitoring` navigates there. Page served from `test.boroughsim.com`
+      calls `api.test.boroughsim.com` with no CORS/console errors.
+- **Prod note (not a warehouse defect):** `Nyc311-Prod` has had zero
+      ingestion activity — 0 poller runs, 0 orders, empty warehouse — so
+      all three jobs run `SUCCEEDED` with 0 rows there and `GET /reports`
+      returns a well-formed empty report (`/reports` shows its empty
+      state). The pre-existing `order_volume_by_stage_7d` job is 0 rows in
+      Prod too; Prod's ingestion never having run is a separate issue.
 
 ### Leg 1 — change capture (§4) — **shipped 2026-09-06**
 
