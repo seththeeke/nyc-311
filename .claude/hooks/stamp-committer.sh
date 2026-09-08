@@ -8,9 +8,12 @@
 # Mechanism:
 #   - Claude Code passes `agent_type` on stdin only when the tool call fires
 #     inside a subagent (e.g. "devx-agent"). Absent => the main session.
-#   - We write "<name> <epoch>" to <git-dir>/CLAUDE_COMMITTER. The git hook
-#     reads it, checks freshness, and prepends "<name>: " to the commit
-#     message. A commit made outside Claude Code leaves no stamp => no prefix.
+#   - We write "<name> <epoch>" to <git-dir>/CLAUDE_COMMITTER, where <git-dir>
+#     is the *per-worktree* git dir (`.git` in the primary checkout,
+#     `.git/worktrees/<name>` in a worktree) — so parallel agents in separate
+#     worktrees each stamp their own file and never race. The git hook reads
+#     it, checks freshness, and prepends "<name>: " to the commit message. A
+#     commit made outside Claude Code leaves no stamp => no prefix.
 #
 # Never blocks: every path exits 0. A failure here must not stop a commit.
 
@@ -25,12 +28,16 @@ name=$(printf '%s' "$input" | jq -r '.agent_type // "claude-default-agent"' 2>/d
 project_dir="$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)"
 [ -z "$project_dir" ] && project_dir="${CLAUDE_PROJECT_DIR:-.}"
 
-stamp_path=$(git -C "$project_dir" rev-parse --git-path CLAUDE_COMMITTER 2>/dev/null)
-[ -z "$stamp_path" ] && exit 0
-case "$stamp_path" in
+# --git-dir (not --git-path CLAUDE_COMMITTER): for a non-standard file name,
+# --git-path resolves to the shared *common* git dir, which would make the
+# stamp global again. --git-dir is per-worktree.
+git_dir=$(git -C "$project_dir" rev-parse --git-dir 2>/dev/null)
+[ -z "$git_dir" ] && exit 0
+case "$git_dir" in
   /*) : ;;
-  *) stamp_path="$project_dir/$stamp_path" ;;
+  *) git_dir="$project_dir/$git_dir" ;;
 esac
+stamp_path="$git_dir/CLAUDE_COMMITTER"
 
 printf '%s %s\n' "$name" "$(date +%s)" > "$stamp_path" 2>/dev/null
 

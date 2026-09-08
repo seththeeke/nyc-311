@@ -5,8 +5,10 @@
 #
 # The agent name comes from <git-dir>/CLAUDE_COMMITTER, written by the
 # .claude/hooks/stamp-committer.sh PreToolUse hook immediately before a
-# `git commit` runs inside Claude Code. No stamp (or a stale one) => this is a
-# human commit and the message is left untouched.
+# `git commit` runs inside Claude Code. <git-dir> is the per-worktree git dir
+# (`.git` in the primary checkout, `.git/worktrees/<name>` in a worktree), so
+# parallel agents in separate worktrees don't race on one stamp. No stamp (or a
+# stale one) => this is a human commit and the message is left untouched.
 #
 # Activate with:  git config core.hooksPath .githooks
 # (the stamp hook also sets this automatically when it is unset).
@@ -24,8 +26,11 @@ case "$source" in
   *) exit 0 ;;
 esac
 
-stamp_path="$(git rev-parse --git-path CLAUDE_COMMITTER 2>/dev/null)"
-[ -n "$stamp_path" ] && [ -f "$stamp_path" ] || exit 0
+# --git-dir + /CLAUDE_COMMITTER (not --git-path CLAUDE_COMMITTER, whose
+# resolution for a non-standard file name has varied across git versions).
+# This hook runs with cwd = the worktree, so --git-dir is that worktree's.
+stamp_path="$(git rev-parse --git-dir 2>/dev/null)/CLAUDE_COMMITTER"
+[ -f "$stamp_path" ] || exit 0
 
 read -r name stamped_at _ < "$stamp_path"
 rm -f "$stamp_path"

@@ -40,7 +40,10 @@ the run.
    and is off-limits to you. A subagent-scoped `PreToolUse` hook
    (`.claude/hooks/devx-agent-guard.sh`) hard-blocks `git commit` on `main` and
    any `git push` targeting `main` — treat a block from it as a bug in your
-   workflow to correct, not an obstacle to route around.
+   workflow to correct, not an obstacle to route around. The guard and the
+   committer-stamp both work unchanged in a worktree: the guard reads
+   `git branch --show-current` in `CLAUDE_PROJECT_DIR` (your worktree), and the
+   stamp is written to the per-worktree git dir.
 2. **One improvement per run.** Scope creep is the enemy. If you spot three
    problems, fix one and file the other two as tickets (via `log-backlog-item`)
    for later runs. A reviewable PR is small. DO NOT log more than one issue per run,
@@ -89,6 +92,25 @@ Pick from (roughly in order of preference — highest signal first):
   boundary.
 
 ---
+
+## Running in parallel (worktrees)
+
+Many of these runs happen concurrently (`docs/autonomous-agent-plan.md`). Each
+gets its own **git worktree** so the shared working tree / index / HEAD can't
+collide:
+
+- Create one: `WT=$(scripts/devx-worktree.sh new)` — prints the path; it's a
+  detached-HEAD checkout of `origin/main` with `node_modules` CoW-cloned and the
+  gitignored `settings.local.json` / `.env.local` copied in.
+- The run is launched from inside that worktree (`claude --agent devx-agent -p
+  "…"`), so everything below just works — you `git checkout -b` your own branch
+  in step 4, and `CLAUDE.md` §2's per-package build/test/coverage runs against
+  the worktree's own `node_modules`.
+- Teardown: `scripts/devx-worktree.sh rm <name>` once the PR is open — the
+  branch and PR survive teardown.
+- Parallel runs each appending to `docs/99-things-to-come-back-to.md` on
+  separate branches can conflict at merge time; that's a human-merge concern,
+  acceptable.
 
 ## Workflow
 
@@ -142,9 +164,13 @@ Capture the issue number and URL.
 ### 4. Branch
 
 ```
-git checkout main && git pull --ff-only origin main
-git checkout -b devx/<issue-number>-<short-slug>
+git fetch origin
+git checkout -b devx/<issue-number>-<short-slug> origin/main
 ```
+
+You may be running in a git worktree (see *Running in parallel* below); never
+`git checkout main` — it is checked out in another worktree and the checkout
+will fail. Always branch straight off `origin/main`.
 
 Confirm with `git branch --show-current` that you are **not** on `main` before
 proceeding. Every later commit lands here.

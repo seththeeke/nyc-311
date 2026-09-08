@@ -511,3 +511,16 @@ at the repo root, then open `build/coverage/index.html`. `build/` is
 already `.gitignore`d at the repo root (same as every other generated
 artifact — `cdk.out/`, `dist/`, each package's own `coverage/`), so this
 output is never committed.
+
+## 9. Parallel Autonomous Agent Runs
+
+When several autonomous agents (`devx-agent`) run at once, each gets its own
+**git worktree** so their `git add`/`commit`/`checkout` and the committer-stamp
+hook don't collide — `scripts/devx-worktree.sh {new|rm|ls}` is the primitive.
+Worktrees live outside the repo at `../nyc-311-worktrees/<name>`, share the one
+`.git` object store, and get a copy-on-write `node_modules` clone. See
+`docs/autonomous-agent-plan.md` and `.claude/agents/devx-agent.md`
+(*Running in parallel*) for detail. The committer stamp
+(`.claude/hooks/stamp-committer.sh` → `.githooks/prepare-commit-msg`) is keyed
+to the per-worktree git dir so concurrent commits keep their correct agent
+prefix.
