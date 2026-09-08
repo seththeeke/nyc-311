@@ -514,21 +514,28 @@ output is never committed.
 
 ## 9. Parallel Agent Runs (worktree isolation)
 
-Running **any** agent — or several at once, of any kind — against this repo
-without their working tree / index / HEAD colliding uses one primitive:
+Running **any** agent against this repo without its working tree / index / HEAD
+colliding with a parallel run or your own session:
 
 ```
-scripts/agent-worktree.sh new [name]     # -> prints an isolated worktree path
-scripts/agent-worktree.sh rm  <name>     # tear down (branch, if any, survives)
-scripts/agent-worktree.sh ls             # list worktrees + branch + dirty count
+scripts/agent-worktree.sh run <agent> "<prompt>"
 ```
+
+That's the whole thing — one command. It makes an isolated worktree, runs
+`claude --agent <agent> -p "<prompt>"` inside it, and tears the worktree back
+down afterward (its branch/PR survive) unless the run failed or left
+uncommitted changes, in which case it's kept for you to inspect. Run it 15×
+in backgrounded shells for parallelism; the user drives that, there's no fleet
+runner.
+
+Lower-level subcommands if you need them: `new [name]` (make a worktree, print
+its path), `rm <name>` (tear one down), `ls` (list them + branch + dirty count).
 
 Each worktree is a detached-HEAD checkout of `origin/main` in a sibling dir
 `<repo>-worktrees/<name>` (override `AGENT_WORKTREE_ROOT`), sharing the one
 `.git` object store, with `node_modules` populated by an APFS copy-on-write
 clone and the gitignored `.claude/settings.local.json` / `web-app/.env.local`
-copied in. Launch the agent from **inside** that directory
-(`cd "$(scripts/agent-worktree.sh new)"` then `claude --agent <name> -p "…"`).
+copied in.
 
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so

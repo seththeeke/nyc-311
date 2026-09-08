@@ -93,17 +93,20 @@ Pick from (roughly in order of preference — highest signal first):
 
 ---
 
-## Running in parallel (worktrees)
+## Running this agent
 
-Many of these runs happen concurrently. Each gets its own **git worktree** via
-`scripts/agent-worktree.sh` — the generic isolation primitive described in
-`CLAUDE.md` §9 (not devx-agent-specific). The run is launched from inside the
-worktree (`cd "$(scripts/agent-worktree.sh new)"` then
-`claude --agent devx-agent -p "…"`), so everything below just works: you
-`git checkout -b` your branch in step 4, `CLAUDE.md` §2's per-package
-build/test/coverage runs against the worktree's own CoW `node_modules`, and the
-`devx-agent-guard.sh` + committer stamp both work unchanged. Teardown with
-`scripts/agent-worktree.sh rm <name>` once the PR is open (branch + PR survive).
+One command, from the repo root:
+
+```
+scripts/agent-worktree.sh run devx-agent "find one measurable repo-health win"
+```
+
+It runs you in an isolated git worktree (`CLAUDE.md` §9) and cleans up after a
+clean run. Everything below then just works: you `git checkout -b` your branch
+in step 4, `CLAUDE.md` §2's per-package build/test/coverage runs against the
+worktree's own CoW `node_modules`, and `devx-agent-guard.sh` + the committer
+stamp work unchanged. Run it several times in parallel (backgrounded shells)
+when you want concurrency.
 
 Note: parallel runs each appending to `docs/99-things-to-come-back-to.md` on
 separate branches can conflict at merge time — a human-merge concern,

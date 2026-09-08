@@ -10,6 +10,11 @@
 # from the primary on write.
 #
 # Subcommands:
+#   run <agent> <prompt…>  one-shot: make a worktree, run `claude --agent
+#                          <agent> -p "<prompt>"` inside it, then tear the
+#                          worktree down (its branch survives) if the run
+#                          exited 0 and left nothing uncommitted. This is the
+#                          normal way to kick off one run.
 #   new [name]     create a worktree at origin/main (detached HEAD), print its path
 #   rm <name|path> remove a worktree; its branch (if any) is left intact
 #   ls             list agent worktrees with branch + dirty-file count
@@ -96,6 +101,37 @@ cmd_new() {
   printf '%s\n' "$dest"
 }
 
+cmd_run() {
+  [ "$#" -ge 2 ] || die "usage: agent-worktree.sh run <agent> <prompt...>"
+  agent=$1
+  shift
+  command -v claude >/dev/null 2>&1 || die "'claude' not found on PATH"
+
+  rand=$(od -An -N2 -tx1 /dev/urandom | tr -d ' \n')
+  name="$agent-$(date +%s)-$rand"
+  case "$name" in
+    */* | .*) name="run-$(date +%s)-$rand" ;;
+  esac
+
+  dest=$(cmd_new "$name")
+  printf 'agent-worktree: running %s in %s\n' "$agent" "$dest" >&2
+
+  set +e
+  (cd "$dest" && claude --agent "$agent" -p "$*")
+  status=$?
+  set -e
+
+  dirty=$(git -C "$dest" status --porcelain 2>/dev/null | grep -c . || true)
+  if [ "$status" -eq 0 ] && [ "$dirty" -eq 0 ]; then
+    cmd_rm "$dest"
+  else
+    printf 'agent-worktree: kept %s (exit %s, %s uncommitted). Inspect: cd %s\n' \
+      "$name" "$status" "$dirty" "$dest" >&2
+    printf 'agent-worktree: remove when done: %s rm %s\n' "$0" "$name" >&2
+  fi
+  exit "$status"
+}
+
 cmd_rm() {
   [ "$#" -ge 1 ] || die "usage: agent-worktree.sh rm <name|path>"
   case "$1" in
@@ -133,8 +169,9 @@ cmd_ls() {
 sub=${1:-}
 [ "$#" -gt 0 ] && shift || true
 case "$sub" in
+  run) cmd_run "$@" ;;
   new) cmd_new "$@" ;;
   rm) cmd_rm "$@" ;;
   ls) cmd_ls ;;
-  *) die "usage: agent-worktree.sh {new [name] | rm <name|path> | ls}" ;;
+  *) die "usage: agent-worktree.sh {run <agent> <prompt...> | new [name] | rm <name|path> | ls}" ;;
 esac

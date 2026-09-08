@@ -49,11 +49,16 @@ follow and are handled below:
 
 ### 1. `scripts/agent-worktree.sh` — the isolation primitive (new file)
 
-One POSIX-sh script, `chmod +x`, three subcommands. Worktrees live in a sibling
-directory `<repo-basename>-worktrees/<name>` (i.e. `../nyc-311-worktrees/`;
-override with `AGENT_WORKTREE_ROOT`) — outside the repo, so no tool/glob
-recursion or nested-repo edge cases.
+One POSIX-sh script, `chmod +x`. Worktrees live in a sibling directory
+`<repo-basename>-worktrees/<name>` (i.e. `../nyc-311-worktrees/`; override with
+`AGENT_WORKTREE_ROOT`) — outside the repo, so no tool/glob recursion or
+nested-repo edge cases.
 
+- **`run <agent> <prompt…>`** (added 2026-09-08) — the one-command entry point.
+  `new` → `cd` → `claude --agent <agent> -p "<prompt>"` → `rm` the worktree iff
+  the run exited 0 with nothing uncommitted (else keep it and print how to
+  inspect/remove). Exits with `claude`'s status. Refuses if `claude` isn't on
+  `PATH`.
 - **`new [name]`** — `name` defaults to `wt-<epoch>-<rand4>`. Not agent-scoped;
   pass a name if you want the agent visible in `ls`.
   1. `mkdir -p "$AGENT_WORKTREE_ROOT"`.
@@ -145,7 +150,9 @@ note that a must-not-touch-`main` agent wires its own guard hook
 
 ## Out of scope
 
-- No fleet runner / concurrency cap (user chose primitives only).
+- No fleet runner / concurrency cap. `run` is a single-shot convenience
+  wrapper (one worktree, one `claude`, one teardown) — parallelism is still the
+  user backgrounding several `run` calls.
 - No `docs/99-things-to-come-back-to.md` conflict handling beyond the note above.
 - No shared-`node_modules` optimisation beyond CoW; no pnpm-store migration.
 - `scripts/` is an established repo-root directory (`rollup-coverage.js`,
