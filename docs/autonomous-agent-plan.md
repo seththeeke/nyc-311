@@ -1,9 +1,21 @@
 # Parallel agent runs — worktree isolation plan
 
-> **Built + generalized 2026-09-08.** First cut targeted `devx-agent`; it is
-> now a **generic primitive** (`scripts/agent-worktree.sh`) usable by any agent
-> — the isolation and the per-worktree committer stamp don't care which agent
-> (or the main session) is running. `CLAUDE.md` §9 is the canonical pointer.
+> **✅ Complete — 2026-09-08.** Built, generalized, and verified end to end
+> (including a real autonomous `devx-agent` run from a worktree: branched off
+> `origin/main`, ran the Operational Loop, filed a backlog issue, opened a PR,
+> and the primary checkout never moved). It is now a **generic primitive**
+> (`scripts/agent-worktree.sh` — `run` / `new` / `rm` / `ls`) usable by any
+> agent; the isolation and the per-worktree committer stamp don't care which
+> agent is running. `CLAUDE.md` §9 is the canonical pointer.
+>
+> Two things were added after the first run surfaced them:
+> - **`run` subcommand** — one command: worktree → `claude --agent … -p` →
+>   teardown-on-clean-exit.
+> - **`.claude/agent-settings/<agent>.json`** — a committed per-agent permission
+>   allowlist merged via `claude --settings` (the first run couldn't
+>   `git checkout -b` / `gh pr create` / `Write` — headless `-p` can't answer a
+>   prompt). `devx-agent.json` is the worked example.
+>
 > Sections below that still say "devx-agent" describe the first use case, not a
 > constraint.
 
@@ -189,9 +201,12 @@ shell tooling, git hooks, and docs only.
 
 ## Verification
 
-**Status:** 1, 2, 4 (guard reads the worktree branch), 5 done on
-implementation. 3 (a live `claude --agent … -p` run from a worktree) needs a
-real agent run — not done from the implementing session.
+**Status: all ✅ (2026-09-08).** 1, 2, 4, 5 confirmed during implementation.
+**3** — a live `scripts/agent-worktree.sh run devx-agent "…"` initially stalled
+(couldn't `git checkout -b` / `gh pr create` / `Write` headlessly); after adding
+`.claude/agent-settings/devx-agent.json` the re-run branched off `origin/main`
+with no guard block, landed a branch, filed a `backlog` issue, opened a PR, and
+left the primary checkout untouched.
 
 1. **Single worktree, end to end**
    - `scripts/agent-worktree.sh new smoke` prints `.../nyc-311-worktrees/smoke`.
@@ -209,10 +224,11 @@ real agent run — not done from the implementing session.
 2. **Two worktrees, concurrent commits** — create `a` and `b`, commit in both
    within the same second from two shells; each commit gets the correct agent
    prefix and neither loses its stamp.
-3. **Real agent run** — `cd` into a fresh worktree, run
-   `claude --agent devx-agent -p "find one measurable repo-health win"`; confirm
-   it branches off `origin/main` (no guard block), lands a branch + PR, and the
-   primary checkout never moves.
+3. **Real agent run** ✅ — `scripts/agent-worktree.sh run devx-agent "find one
+   measurable repo-health win"`; branches off `origin/main` (no guard block),
+   files one `backlog` issue, opens a PR, primary checkout never moves.
+   (First attempt exposed the missing per-agent permissions — see the status
+   note at the top.)
 4. **Guard still bites** — in a worktree, `git checkout main` then `git commit`
    is blocked; `git push origin main` is blocked.
 5. `scripts/agent-worktree.sh ls` shows clean state after `rm` + `prune`.
