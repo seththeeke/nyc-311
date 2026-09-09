@@ -70,6 +70,15 @@ describe("Nyc311WarehouseRebuildStateMachine", () => {
     expect(definition).toContain("$$.Execution.StartTime");
   });
 
+  it("chains the sources serially (no Parallel) — orders → requests → locations → RecomputeJobs", () => {
+    const { definition } = synth("TEST");
+    expect(definition).not.toContain('"Type":"Parallel"');
+    expect(definition).toContain('"StartAt":"StartExport-orders"');
+    expect(definition).toContain('"Finalize-orders":{"Next":"StartExport-requests"');
+    expect(definition).toContain('"Finalize-requests":{"Next":"StartExport-locations"');
+    expect(definition).toContain('"Finalize-locations":{"Next":"RecomputeJobs"');
+  });
+
   it("replays serially (maxConcurrency 1), pacing each chunk with a Wait, item captured via ItemSelector", () => {
     const { definition } = synth("TEST");
     expect(definition).toContain('"MaxConcurrency":1');

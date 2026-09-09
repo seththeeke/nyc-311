@@ -398,8 +398,10 @@ input `{}`, `TimeoutSeconds: 21600` (6 h). Wipes and re-derives **all
 three sources'** warehoused data from a DynamoDB PITR export, **without
 pausing live capture**.
 
-**Per source (`orders` / `requests` / `locations`), in a `Parallel`
-branch — the worker (`controller/data-archival/warehouseRebuildController.ts`
+**Sources run one at a time** (`orders → requests → locations` — *not*
+`Parallel`: the account's Lambda-concurrency quota is small, and 3
+concurrent replay chains once starved the API Lambdas into a `GET /data/jobs`
+503). **Per source — the worker (`controller/data-archival/warehouseRebuildController.ts`
 → `service/analytics/warehouseRebuildService.ts`) is one Lambda,
 dispatched on a `phase` field:**
 
@@ -446,7 +448,7 @@ warehouse_ingested_at DESC)`, so the newer stream row always wins.
 events in the `[ExportTime, replay]` window — harmless: no job queries it
 yet, and any future one dedups on `(order_id, sk)`.
 
-**After every branch completes:** **`RecomputeJobs`** (`LambdaInvoke`
+**After the last source finalizes:** **`RecomputeJobs`** (`LambdaInvoke`
 `Nyc311WarehouseJobRunner`) re-runs every job against the rebuilt data — a
 fresh `run_date` resultset + history row — without waiting for the daily
 schedule.
@@ -858,9 +860,9 @@ Same four-tier model (`testing-framework.md`):
   S3 write + `WarehouseJobRuns` — asserted **no** `glue:CreateTable`/
   `PutObject` outside `job-results/`); the schedule (`rate(1 day)` + DLQ
   + alarm); an explicit assertion that all `/data`/`/reports` Lambdas
-  carry no write actions; the rebuild state machine (per-source
-  export→poll→wipe→paced-`Map`→finalize flow, `MaxConcurrency: 1`, the
-  `Wait` before each chunk, `Catch`→`MarkFailed`,
+  carry no write actions; the rebuild state machine (serial source
+  chain, per-source export→poll→wipe→paced-`Map`→finalize, `MaxConcurrency: 1`,
+  the `Wait` before each chunk, `itemSelector` capture, `Catch`→`MarkFailed`,
   `ExportTableToPointInTime`/`DescribeExport` IAM, S3 write on
   `export-staging/*`, ALL-level SFN logging) and the rebuild worker Lambda
   (asserted `firehose:PutRecordBatch` + scoped S3 + `dynamodb:PutItem`
@@ -1090,10 +1092,11 @@ whole source per invocation, throttled Firehose, and gutted the Test
 warehouse on its first real run — hence the chunked redesign.)
 
 - [x] `cdk/step-function/Nyc311WarehouseRebuildStateMachine.ts` — the
-      project's only SFN. `Parallel` over orders/requests/locations: each
+      project's only SFN. Sources chained **serially** (`orders → requests
+      → locations`, not `Parallel` — Lambda-concurrency quota): each
       `StartExport` → poll `DescribeExport` → `Wipe` → `Map`(`PaceChunk`
-      `Wait` → `ReplayChunk`) → `Finalize`, `Catch` → `MarkFailed`; then
-      `RecomputeJobs`. `TimeoutSeconds: 21600`.
+      `Wait` → `ReplayChunk`, item via `itemSelector`) → `Finalize`,
+      `Catch` → `MarkFailed`; then `RecomputeJobs`. `TimeoutSeconds: 21600`.
 - [x] `cdk/warehouse/Nyc311WarehouseRebuildLambda.ts` +
       `backend/{models/warehouseRebuild,service/analytics/warehouseRebuildService,
       controller/data-archival/warehouseRebuildController}.ts` — one

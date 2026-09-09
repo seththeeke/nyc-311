@@ -54,7 +54,16 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
       { source: "locations", table: props.locationsTable },
     ];
 
-    const branches = sourceTables.map(({ source, table }) => {
+    /*
+     * Sources run **serially**, not in parallel: the account's Lambda
+     * concurrency quota is small, and 3 concurrent replay chains starved
+     * the API/fan-out Lambdas (a `GET /data/jobs` 503'd mid-rebuild once).
+     * One `ReplayChunk` at a time leaves the rest of the account alone.
+     */
+    let head: sfn.IChainable | undefined;
+    let prevEnd: sfn.INextable | undefined;
+
+    for (const { source, table } of sourceTables) {
       const startExport = new tasks.CallAwsService(this, `StartExport-${source}`, {
         service: "dynamodb",
         action: "exportTableToPointInTime",
@@ -167,16 +176,19 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
         .when(sfn.Condition.stringEquals("$.export.ExportDescription.ExportStatus", "FAILED"), exportFailed)
         .otherwise(wait);
 
-      return startExport.next(wait).next(describe).next(check);
-    });
+      startExport.next(wait).next(describe).next(check);
 
-    const rebuildAll = new sfn.Parallel(this, "RebuildAllSources").branch(...branches);
+      if (!head) head = startExport;
+      if (prevEnd) prevEnd.next(startExport);
+      prevEnd = finalize;
+    }
 
     const recomputeJobs = new tasks.LambdaInvoke(this, "RecomputeJobs", {
       lambdaFunction: props.jobRunnerLambda,
       payload: sfn.TaskInput.fromObject({}),
       payloadResponseOnly: true,
     });
+    (prevEnd as sfn.INextable).next(recomputeJobs);
 
     const logGroup = new logs.LogGroup(this, "LogGroup", {
       logGroupName: `/aws/vendedlogs/states/Nyc311WarehouseRebuild-${suffix}`,
@@ -186,7 +198,7 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
 
     this.stateMachine = new sfn.StateMachine(this, "StateMachine", {
       stateMachineName: `Nyc311WarehouseRebuild-${suffix}`,
-      definitionBody: sfn.DefinitionBody.fromChainable(rebuildAll.next(recomputeJobs)),
+      definitionBody: sfn.DefinitionBody.fromChainable(head as sfn.IChainable),
       timeout: Duration.hours(6),
       logs: { destination: logGroup, level: sfn.LogLevel.ALL },
     });
