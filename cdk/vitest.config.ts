@@ -33,6 +33,12 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
+      /*
+       * step-function/ and warehouse/ were added for 7-data-warehousing.md
+       * but never appended here, so their 14 files (26% of cdk/'s
+       * construct sources) sat outside the 90%-per-file gate entirely —
+       * a regression there would have passed silently.
+       */
       include: [
         "bin/**/*.ts",
         "stack/**/*.ts",
@@ -41,6 +47,8 @@ export default defineConfig({
         "lambda/**/*.ts",
         "web/**/*.ts",
         "api/**/*.ts",
+        "step-function/**/*.ts",
+        "warehouse/**/*.ts",
       ],
       exclude: [
         "**/*.d.ts",

@@ -121,3 +121,9 @@ Deferred from `7-data-warehousing.md` Leg 5 — runs on OOTB metrics + logs
 for now, no alarms/email while scaled down. See [#25](https://github.com/seththeeke/nyc-311/issues/25).
 
 ---
+
+## cdk/ coverage gate excludes step-function/ and warehouse/ (14/53 files, 26%, unenforced)
+
+See [#26](https://github.com/seththeeke/nyc-311/issues/26).
+
+---
