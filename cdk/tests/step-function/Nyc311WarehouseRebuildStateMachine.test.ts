@@ -70,11 +70,14 @@ describe("Nyc311WarehouseRebuildStateMachine", () => {
     expect(definition).toContain("$$.Execution.StartTime");
   });
 
-  it("replays serially (maxConcurrency 1) with a Wait before each chunk, catching failures to MarkFailed", () => {
+  it("replays serially (maxConcurrency 1), pacing each chunk with a Wait, item captured via ItemSelector", () => {
     const { definition } = synth("TEST");
     expect(definition).toContain('"MaxConcurrency":1');
     expect(definition).toContain('"Type":"Wait","Seconds":3');
     expect(definition).toContain('"Next":"MarkFailed-orders"');
+    /* $$.Map.Item.Value is captured at the Map boundary, not referenced deep in the nested Wait→Task. */
+    expect(definition).toContain('"ItemSelector":{"chunk.$":"$$.Map.Item.Value"');
+    expect(definition).toContain('"chunk.$":"$.chunk"');
   });
 
   it("grants ExportTableToPointInTime + DescribeExport on the source tables and S3 write on export-staging", () => {

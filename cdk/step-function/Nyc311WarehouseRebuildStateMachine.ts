@@ -100,11 +100,12 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
 
       const replayChunk = new tasks.LambdaInvoke(this, `ReplayChunk-${source}`, {
         lambdaFunction: props.rebuildLambda,
+        /* Reads plain `$.chunk` / `$.exportTime` — the Map's itemSelector (below) shapes each iteration's input. */
         payload: sfn.TaskInput.fromObject({
           phase: "replay",
           source,
-          exportTime: startTime,
-          "chunk.$": "$$.Map.Item.Value",
+          "exportTime.$": "$.exportTime",
+          "chunk.$": "$.chunk",
         }),
         payloadResponseOnly: true,
       });
@@ -113,6 +114,16 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
         itemsPath: "$.wipe.chunks",
         maxConcurrency: 1,
         resultPath: "$.replayResults",
+        /*
+         * `$$.Map.Item.Value` is only reliably resolvable here at the Map
+         * boundary, not deep in a nested `Wait → Task` processor — so
+         * capture the chunk + execution start time into each iteration's
+         * input.
+         */
+        itemSelector: {
+          "chunk.$": "$$.Map.Item.Value",
+          "exportTime.$": "$$.Execution.StartTime",
+        },
       });
       replayMap.itemProcessor(
         new sfn.Wait(this, `PaceChunk-${source}`, { time: sfn.WaitTime.duration(CHUNK_PACE) }).next(replayChunk)
