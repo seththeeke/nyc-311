@@ -3,7 +3,7 @@
 > **Status: Legs 1–3 + the `/data` frontend shipped to `Nyc311-Prod`
 > (2026-09-06). The serving layer was reworked 2026-09-07 — job results
 > are resultsets in S3, not rows in a DynamoDB table** (see §8/§11 and
-> Appendix A.10). Leg 4 (on-demand rebuild) built 2026-09-08 (verifying); Leg 5
+> Appendix A.10). Leg 4 (on-demand rebuild) shipped + verified 2026-09-09; Leg 5
 > (observability) runs on OOTB metrics for now with the alarm suite
 > deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25) — see
 > the [Build Checklist](#build-checklist).
@@ -908,11 +908,11 @@ Same four-tier model (`testing-framework.md`):
 ## Build Checklist
 
 Legs 1–3 shipped 2026-09-06; Leg 3.5 (reporting-substrate rework) +
-Monitoring tile 2026-09-07; Locations + Reports 2026-09-07; Leg 4
-(on-demand rebuild) 2026-09-08. Leg 5's alarm suite is deferred to
-[#25](https://github.com/seththeeke/nyc-311/issues/25). **The warehouse
-build is otherwise complete** — remaining items are per-`Nyc311-Test`
-verification and future `.sql` jobs as the domain grows.
+Monitoring tile 2026-09-07; Locations + Reports 2026-09-07 (verified
+2026-09-08); Leg 4 (on-demand rebuild) shipped 2026-09-08, verified
+2026-09-09. **The warehouse build is complete.** Leg 5's alarm suite is
+deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25); new
+`.sql` jobs land as the domain grows (biz-intel-agent, [#24](https://github.com/seththeeke/nyc-311/issues/24)).
 Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
@@ -1108,9 +1108,19 @@ warehouse on its first real run — hence the chunked redesign.)
       `test-scripts/5-warehouse-rebuild.py` (`--prod` flag).
 - [x] Full unit + CDK assertion tests (worker IAM asserts no operational-
       store read). `backend`/`cdk` build + lint + test:coverage green.
-- [ ] Verify in `Nyc311-Test`: `5-warehouse-rebuild.py` runs the machine
-      to `SUCCEEDED`, `data/<table>/` is repopulated, `REBUILD_*` rows
-      show on `/data`, and `RecomputeJobs` produces fresh resultsets.
+- [x] **Verified in `Nyc311-Test`** (2026-09-09). Two runtime bugs found
+      and fixed first: the initial "whole source per invocation" replay
+      burst-throttled Firehose and gutted the warehouse (→ chunked +
+      `Wait`-paced), and `$$.Map.Item.Value` referenced deep in the
+      processor didn't resolve (→ `itemSelector`). A third fix landed
+      after: sources chained serially, not `Parallel`, after 3 concurrent
+      replay chains threw a `GET /data/jobs` 503 (Lambda-concurrency
+      throttle) during a pipeline integration run. Final run: `SUCCEEDED`
+      in ~90 min — `REBUILD_ORDERS` 967 874 rows, `REBUILD_REQUESTS`
+      294 408, `REBUILD_LOCATIONS` 75 289; `data/<table>/` repopulated
+      (~185 MB); `export-staging/` auto-cleaned; `RecomputeJobs` produced
+      3 fresh resultsets (~12 MB scanned each); `GET /reports` returns the
+      trend.
 
 ### Leg 5 — observability (§14)
 
