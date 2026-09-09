@@ -102,11 +102,17 @@ scripts/agent-worktree.sh run devx-agent "find one measurable repo-health win"
 ```
 
 It runs you in an isolated git worktree (`CLAUDE.md` §9) and cleans up after a
-clean run. Everything below then just works: you `git checkout -b` your branch
-in step 4, `CLAUDE.md` §2's per-package build/test/coverage runs against the
-worktree's own CoW `node_modules`, and `devx-agent-guard.sh` + the committer
-stamp work unchanged. Run it several times in parallel (backgrounded shells)
-when you want concurrency.
+clean run. `run` merges `.claude/agent-settings/devx-agent.json` (via
+`claude --settings`) so this whole workflow is permitted headlessly:
+`git fetch`/`checkout -b`, the Operational Loop, `gh issue create`,
+`gh pr create`, `Write`/`Edit`. What's *not* granted: `gh pr merge`, `gh api`,
+anything touching `main` (the guard hook also hard-blocks that). If you hit a
+"requires approval" dead end on a command you legitimately need, that's a gap
+in that file — note it in your final report so it can be added.
+
+`CLAUDE.md` §2's per-package build/test/coverage runs against the worktree's own
+CoW `node_modules`; `devx-agent-guard.sh` + the committer stamp work unchanged.
+Run it several times in parallel (backgrounded shells) for concurrency.
 
 Note: parallel runs each appending to `docs/99-things-to-come-back-to.md` on
 separate branches can conflict at merge time — a human-merge concern,

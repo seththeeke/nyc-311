@@ -116,8 +116,18 @@ cmd_run() {
   dest=$(cmd_new "$name")
   printf 'agent-worktree: running %s in %s\n' "$agent" "$dest" >&2
 
+  # Per-agent permission allowlist (committed, reviewable). `--settings` merges
+  # it on top of .claude/settings{,.local}.json — headless `-p` can't answer a
+  # prompt, so anything not allowed is silently denied.
+  agent_settings=".claude/agent-settings/$agent.json"
+
   set +e
-  (cd "$dest" && claude --agent "$agent" -p "$*")
+  if [ -f "$dest/$agent_settings" ]; then
+    (cd "$dest" && claude --agent "$agent" --settings "$agent_settings" -p "$*")
+  else
+    printf 'agent-worktree: note: no %s — %s runs with the base allowlist only\n' "$agent_settings" "$agent" >&2
+    (cd "$dest" && claude --agent "$agent" -p "$*")
+  fi
   status=$?
   set -e
 

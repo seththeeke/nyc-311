@@ -537,6 +537,13 @@ Each worktree is a detached-HEAD checkout of `origin/main` in a sibling dir
 clone and the gitignored `.claude/settings.local.json` / `web-app/.env.local`
 copied in.
 
+- **Per-agent permissions.** A headless `-p` run can't answer a permission
+  prompt, so anything not on the allowlist is silently denied. `run` merges a
+  committed **`.claude/agent-settings/<agent>.json`** (via `claude --settings`)
+  on top of `.claude/settings{,.local}.json` — scoped to that agent's own
+  workflow and reviewable in a PR. `devx-agent.json` is the worked example
+  (branch off `origin/main`, run the Operational Loop, `gh issue/pr create`,
+  `Write`/`Edit` — but never `gh pr merge`, never main).
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

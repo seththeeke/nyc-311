@@ -55,10 +55,20 @@ One POSIX-sh script, `chmod +x`. Worktrees live in a sibling directory
 nested-repo edge cases.
 
 - **`run <agent> <prompt…>`** (added 2026-09-08) — the one-command entry point.
-  `new` → `cd` → `claude --agent <agent> -p "<prompt>"` → `rm` the worktree iff
-  the run exited 0 with nothing uncommitted (else keep it and print how to
-  inspect/remove). Exits with `claude`'s status. Refuses if `claude` isn't on
-  `PATH`.
+  `new` → `cd` → `claude --agent <agent> [--settings .claude/agent-settings/<agent>.json] -p "<prompt>"`
+  → `rm` the worktree iff the run exited 0 with nothing uncommitted (else keep
+  it and print how to inspect/remove). Exits with `claude`'s status. Refuses if
+  `claude` isn't on `PATH`.
+  - **Per-agent permissions** (added 2026-09-08, after devx-agent's first run
+    couldn't `git checkout -b` / `gh pr create` / `Write` — headless `-p` can't
+    answer a prompt, so unallowed tools are silently denied). If a committed
+    `.claude/agent-settings/<agent>.json` exists, `run` merges it via
+    `claude --settings`. It's version-controlled (the "what can this agent do"
+    contract is reviewable), scoped to that agent's workflow, and additive on
+    top of `.claude/settings{,.local}.json`. `devx-agent.json` is the first:
+    branch git, the Operational Loop, `gh issue/pr create`, `Write`/`Edit` —
+    **not** `gh pr merge`, `gh api`, or anything on `main` (the guard hook is
+    the backstop for the last).
 - **`new [name]`** — `name` defaults to `wt-<epoch>-<rand4>`. Not agent-scoped;
   pass a name if you want the agent visible in `ls`.
   1. `mkdir -p "$AGENT_WORKTREE_ROOT"`.
@@ -75,10 +85,12 @@ nested-repo edge cases.
      `npm install`) never touch the primary's modules — CoW blocks diverge on
      write.
   5. Copy gitignored-but-required files the checkout won't contain:
-     `.claude/settings.local.json` (the permission allowlist — without it a
+     `.claude/settings.local.json` (the base permission allowlist — without it a
      headless `-p` run prompts on nearly every tool call) and
      `web-app/.env.local`. The list lives in a `COPY_UNTRACKED=( … )` array at
      the top of the script. Root `.env` is personal notes only — not copied.
+     `.claude/agent-settings/<agent>.json` is *committed*, so a worktree
+     already has it — `run` just points `--settings` at it.
   6. Print the absolute worktree path as the last line of stdout, so a caller
      can `cd "$(scripts/agent-worktree.sh new)"`.
 - **`rm <name|path>`** — `git -C <primary> worktree remove --force <path>` then
@@ -164,10 +176,11 @@ note that a must-not-touch-`main` agent wires its own guard hook
 
 | File | Change |
 |---|---|
-| `scripts/agent-worktree.sh` | **new** — `new` / `rm` / `ls` primitive |
+| `scripts/agent-worktree.sh` | **new** — `run` / `new` / `rm` / `ls`; `run` loads `.claude/agent-settings/<agent>.json` via `--settings` |
+| `.claude/agent-settings/devx-agent.json` | **new** — devx-agent's committed permission allowlist (PoC for the per-agent pattern) |
 | `.claude/hooks/stamp-committer.sh` | stamp path → per-worktree `--git-dir` |
 | `.githooks/prepare-commit-msg` | read stamp from per-worktree `--git-dir` |
-| `.claude/agents/devx-agent.md` | step 4 branch-from-`origin/main`; parallel section points at §9 |
+| `.claude/agents/devx-agent.md` | step 4 branch-from-`origin/main`; parallel + permissions section points at §9 |
 | `CLAUDE.md` | §9 — the canonical, agent-agnostic contract |
 
 Because nothing under `web-app/`, `backend/`, or `cdk/` changes, CLAUDE.md §2's
