@@ -15,23 +15,29 @@ export interface Nyc311WarehouseRebuildStateMachineProps {
   ordersTable: TableV2;
   requestsTable: TableV2;
   locationsTable: TableV2;
-  /** `Nyc311WarehouseRebuildLambda` — one invocation per source, after that source's export completes. */
+  /** `Nyc311WarehouseRebuildWorker` — invoked once per phase/chunk. */
   rebuildLambda: IFunction;
   /** `Nyc311WarehouseJobRunnerLambda` — invoked once at the end so every job re-runs against the rebuilt data. */
   jobRunnerLambda: IFunction;
 }
 
-/** Poll cadence for `DescribeExport` — a PITR export of this project's tables completes in a few minutes. */
+/** Poll cadence for `DescribeExport`. */
 const EXPORT_POLL_INTERVAL = Duration.seconds(30);
+/*
+ * `Wait` before each replay chunk — this is where rate-limiting lives.
+ * The worker replays ~3k rows per chunk with no proactive pacing;
+ * `3s / chunk` holds each stream well under its throughput limit while
+ * letting the whole backfill run as long as it needs.
+ */
+const CHUNK_PACE = Duration.seconds(3);
 
 /**
  * `Nyc311WarehouseRebuild` (`7-data-warehousing.md` §10) — manually
- * triggered (`test-scripts/5-warehouse-rebuild.py`), never scheduled.
- * Per source, in parallel: export the table pinned to the execution start
- * time, poll to `COMPLETED`, then invoke the rebuild worker Lambda. Live
- * capture is never paused. Once every branch finishes, `RecomputeJobs`
- * re-runs the job runner. The project's only state machine — justified by
- * the unbounded `DescribeExport` poll-wait, not orchestration.
+ * triggered (`test-scripts/5-warehouse-rebuild.py`), never scheduled. Per
+ * source, in parallel: PITR-export → poll to `COMPLETED` → wipe
+ * `data/<table>/` → replay the export one small line-range chunk at a
+ * time (`Map`, `maxConcurrency:1`, a `Wait` before each — this is the
+ * rate-limit). Then the job runner re-runs. Live capture is never paused.
  */
 export class Nyc311WarehouseRebuildStateMachine extends Construct {
   public readonly stateMachine: sfn.StateMachine;
@@ -40,6 +46,7 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
     super(scope, id);
 
     const suffix = ENV_NAME_SUFFIX[props.envName];
+    const startTime = sfn.JsonPath.stringAt("$$.Execution.StartTime");
 
     const sourceTables: { source: string; table: TableV2 }[] = [
       { source: "orders", table: props.ordersTable },
@@ -48,10 +55,6 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
     ];
 
     const branches = sourceTables.map(({ source, table }) => {
-      const exportFailed = new sfn.Fail(this, `ExportFailed-${source}`, {
-        causePath: "$.export.ExportDescription.FailureMessage",
-      });
-
       const startExport = new tasks.CallAwsService(this, `StartExport-${source}`, {
         service: "dynamodb",
         action: "exportTableToPointInTime",
@@ -79,19 +82,77 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
         resultPath: "$.export",
       });
 
-      const rebuild = new tasks.LambdaInvoke(this, `Rebuild-${source}`, {
-        lambdaFunction: props.rebuildLambda,
-        payload: sfn.TaskInput.fromObject({
-          source,
-          "exportArn.$": "$.export.ExportDescription.ExportArn",
-          "exportTime.$": "$$.Execution.StartTime",
-        }),
-        payloadResponseOnly: true,
-        resultPath: "$.rebuildResult",
+      const exportFailed = new sfn.Fail(this, `ExportFailed-${source}`, {
+        causePath: "$.export.ExportDescription.FailureMessage",
       });
 
+      const wipe = new tasks.LambdaInvoke(this, `Wipe-${source}`, {
+        lambdaFunction: props.rebuildLambda,
+        payload: sfn.TaskInput.fromObject({
+          phase: "wipe",
+          source,
+          "exportArn.$": "$.export.ExportDescription.ExportArn",
+          startedAt: startTime,
+        }),
+        payloadResponseOnly: true,
+        resultPath: "$.wipe",
+      });
+
+      const replayChunk = new tasks.LambdaInvoke(this, `ReplayChunk-${source}`, {
+        lambdaFunction: props.rebuildLambda,
+        payload: sfn.TaskInput.fromObject({
+          phase: "replay",
+          source,
+          exportTime: startTime,
+          "chunk.$": "$$.Map.Item.Value",
+        }),
+        payloadResponseOnly: true,
+      });
+
+      const replayMap = new sfn.Map(this, `ReplayChunks-${source}`, {
+        itemsPath: "$.wipe.chunks",
+        maxConcurrency: 1,
+        resultPath: "$.replayResults",
+      });
+      replayMap.itemProcessor(
+        new sfn.Wait(this, `PaceChunk-${source}`, { time: sfn.WaitTime.duration(CHUNK_PACE) }).next(replayChunk)
+      );
+
+      const finalize = new tasks.LambdaInvoke(this, `Finalize-${source}`, {
+        lambdaFunction: props.rebuildLambda,
+        payload: sfn.TaskInput.fromObject({
+          phase: "finalize",
+          source,
+          "exportArn.$": "$.export.ExportDescription.ExportArn",
+          "jobRunId.$": "$.wipe.job_run_id",
+          startedAt: startTime,
+          "replayResults.$": "$.replayResults",
+        }),
+        payloadResponseOnly: true,
+      });
+
+      const markFailed = new tasks.LambdaInvoke(this, `MarkFailed-${source}`, {
+        lambdaFunction: props.rebuildLambda,
+        payload: sfn.TaskInput.fromObject({
+          phase: "fail",
+          source,
+          "exportArn.$": "$.export.ExportDescription.ExportArn",
+          "jobRunId.$": "$.wipe.job_run_id",
+          startedAt: startTime,
+          "error.$": "$.rebuildError.Cause",
+        }),
+        payloadResponseOnly: true,
+      }).next(new sfn.Fail(this, `RebuildFailed-${source}`));
+
+      /* A wipe/replay/finalize failure closes the RUNNING job row as FAILED, then fails the branch. */
+      replayMap.addCatch(markFailed, { resultPath: "$.rebuildError" });
+      finalize.addCatch(markFailed, { resultPath: "$.rebuildError" });
+
+      /* wipe → replayMap → finalize; the Choice below routes a COMPLETED export into `wipe`. */
+      wipe.next(replayMap).next(finalize);
+
       const check = new sfn.Choice(this, `ExportDone-${source}`)
-        .when(sfn.Condition.stringEquals("$.export.ExportDescription.ExportStatus", "COMPLETED"), rebuild)
+        .when(sfn.Condition.stringEquals("$.export.ExportDescription.ExportStatus", "COMPLETED"), wipe)
         .when(sfn.Condition.stringEquals("$.export.ExportDescription.ExportStatus", "FAILED"), exportFailed)
         .otherwise(wait);
 
@@ -115,7 +176,7 @@ export class Nyc311WarehouseRebuildStateMachine extends Construct {
     this.stateMachine = new sfn.StateMachine(this, "StateMachine", {
       stateMachineName: `Nyc311WarehouseRebuild-${suffix}`,
       definitionBody: sfn.DefinitionBody.fromChainable(rebuildAll.next(recomputeJobs)),
-      timeout: Duration.hours(2),
+      timeout: Duration.hours(6),
       logs: { destination: logGroup, level: sfn.LogLevel.ALL },
     });
 

@@ -3,7 +3,7 @@
 > **Status: Legs 1–3 + the `/data` frontend shipped to `Nyc311-Prod`
 > (2026-09-06). The serving layer was reworked 2026-09-07 — job results
 > are resultsets in S3, not rows in a DynamoDB table** (see §8/§11 and
-> Appendix A.10). Leg 4 (on-demand rebuild) shipped 2026-09-08; Leg 5
+> Appendix A.10). Leg 4 (on-demand rebuild) built 2026-09-08 (verifying); Leg 5
 > (observability) runs on OOTB metrics for now with the alarm suite
 > deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25) — see
 > the [Build Checklist](#build-checklist).
@@ -381,52 +381,60 @@ Same Lambda/schedule as §8, not a second cron.
 
 ## 10. On-Demand Rebuild
 
-> **Revised 2026-09-08 (Leg 4, as built).** The original design paused
-> live capture (`sns:Unsubscribe` → drain → wipe → `sns:Subscribe`) to
-> guarantee no export/stream overlap. That was dropped: unsubscribing the
-> Firehose subscription CDK declares would drift the stack (next deploy
-> recreates it → double delivery), and the overlap it guarded against is
-> already handled by the query-level dedup. The simpler design below is
-> what shipped.
+> **Revised 2026-09-08 (Leg 4).** Two designs were dropped before this
+> one: the original `sns:Unsubscribe` pause (CDK-drift risk), and a
+> replay-only "no wipe" variant (owner kept the wipe — the data isn't
+> sensitive enough to complicate). The first *built* version replayed a
+> whole source per Lambda invocation and immediately throttled Firehose
+> and gutted the Test warehouse on first run. **As-built now:** wipe +
+> rebuild, with rate-limiting in the state machine — the replay is a
+> `Map` of small line-range chunks with a `Wait` before each, so it can
+> run as long as it needs and no `PutRecordBatch` approaches the stream
+> limit.
 
 **`Nyc311WarehouseRebuild-<env>`** (`cdk/step-function/`) — the project's
 only Step Functions state machine, manually triggered (never scheduled),
-input `{}`. Wipes and re-derives **all three sources'** warehoused data
-straight from a DynamoDB PITR export, **without pausing live capture** —
-order evaluation, request promotion, and every fan-out Lambda keep running
-untouched.
+input `{}`, `TimeoutSeconds: 21600` (6 h). Wipes and re-derives **all
+three sources'** warehoused data from a DynamoDB PITR export, **without
+pausing live capture**.
 
 **Per source (`orders` / `requests` / `locations`), in a `Parallel`
-branch:**
+branch — the worker (`controller/data-archival/warehouseRebuildController.ts`
+→ `service/analytics/warehouseRebuildService.ts`) is one Lambda,
+dispatched on a `phase` field:**
 
 1. **`StartExport-<source>`** (`CallAwsService`
-   `dynamodb:exportTableToPointInTime`, `ExportFormat: DYNAMODB_JSON`,
-   `ExportTime` = `$$.Execution.StartTime`) → `export-staging/<source>/`.
-2. **`WaitExport-<source>`** (`Wait` 30s) → **`DescribeExport-<source>`**
-   → **`ExportDone-<source>`** `Choice`: `IN_PROGRESS` loops back to the
-   Wait, `FAILED` → `Fail`, `COMPLETED` → the next step.
-3. **`Rebuild-<source>`** (`LambdaInvoke` `Nyc311WarehouseRebuildWorker-<env>`,
-   payload `{ source, exportArn, exportTime }`). The worker
-   (`controller/data-archival/warehouseRebuildController.ts` →
-   `service/analytics/warehouseRebuildService.ts`):
-   - **Wipes** `data/<table>/` for every warehouse table the source feeds
-     — `orders` feeds both `order_snapshots` (the `#METADATA` rows) and
-     `order_events` (`EVENT#` rows); `requests` → `requests`; `locations`
-     → `locations`.
-   - Reads the export's `manifest-files.json`, then each gzipped
-     DynamoDB-JSON data file: `unmarshall`s each `{ Item }`, applies the
-     **same relevance filter the live fan-out uses** (`sk === "#METADATA"`
-     / `sk` starts `EVENT#` / `external_unique_key` present /
-     `location_id` present), and stamps `ingestion_source: "REBUILD"` +
-     `warehouse_ingested_at: <exportTime>`.
-   - `firehose:PutRecordBatch` (≤500/call, failed-record retry) onto the
-     **same per-table Firehose the live pipeline uses** — reusing its
-     transform Lambda + Parquet conversion. The transform respects the
-     pre-set `ingestion_source` / `warehouse_ingested_at` rather than
-     re-stamping.
-   - Writes a `WarehouseJobRuns` row (`job_name: "REBUILD_<SOURCE>"`,
-     `trigger: "MANUAL"`, `RUNNING` → `SUCCEEDED`/`FAILED`, `row_count` =
-     rows replayed). On failure it re-throws so the branch fails too.
+   `dynamodb:exportTableToPointInTime`, `DYNAMODB_JSON`, `ExportTime` =
+   `$$.Execution.StartTime`) → `export-staging/<source>/`.
+2. **`WaitExport-<source>`** (`Wait` 30 s) → **`DescribeExport-<source>`**
+   → **`ExportDone-<source>`** `Choice`: `IN_PROGRESS` loops, `FAILED` →
+   `Fail`, `COMPLETED` → next.
+3. **`Wipe-<source>`** (`phase: "wipe"`) — deletes `data/<table>/` for
+   every warehouse table the source feeds (`orders` → `order_snapshots`
+   + `order_events`), opens a `RUNNING` `REBUILD_<SOURCE>` job row, and
+   from the export's `manifest-files.json` `itemCount`s returns the list
+   of **chunks** `{ fileKey, start, count }` (`count` ≤ 3 000 rows).
+4. **`ReplayChunks-<source>`** — a `Map` over those chunks,
+   `maxConcurrency: 1`, each iteration **`PaceChunk-<source>`** (`Wait`
+   3 s) → **`ReplayChunk-<source>`** (`phase: "replay"`): GetObject the
+   file, take lines `[start, start+count)`, `unmarshall`, apply the
+   **same relevance filter the live fan-out uses** (`sk === "#METADATA"`
+   / `sk` starts `EVENT#` / `external_unique_key` present / `location_id`
+   present), stamp `ingestion_source: "REBUILD"` +
+   `warehouse_ingested_at: <exportTime>`, `firehose:PutRecordBatch`
+   (≤500/call, exponential-backoff retry on transient throttle) onto the
+   **same per-table Firehose the live pipeline uses**. ~3 k rows is a few
+   MB — inside the stream's burst allowance — and the `Wait` sets the
+   sustained rate, so a chunk never has to pace itself.
+5. **`Finalize-<source>`** (`phase: "finalize"`) — sums the per-chunk
+   counts, closes the job row `SUCCEEDED` (`row_count` = rows replayed),
+   deletes the consumed `export-staging/<source>/`.
+6. **Catch → `MarkFailed-<source>`** (`phase: "fail"`) — any wipe / replay
+   / finalize error closes the job row `FAILED` with the cause, then the
+   branch fails.
+
+The transform Lambda respects the pre-set `ingestion_source` /
+`warehouse_ingested_at` rather than re-stamping.
 
 **No gap, no overlap staleness:** the stream keeps capturing changes from
 `ExportTime` forward while the export runs. A replayed row carries
@@ -837,10 +845,11 @@ Same four-tier model (`testing-framework.md`):
   cutoff) with the Athena/S3/DynamoDB clients mocked; `jobResultService`
   (resolve latest `result_location`, GetObject, parse, 404 path);
   `warehouseSchemaService`/`warehouseJobRunsService`; `reportsService`
-  (the `(week, series, value)` pivot); `warehouseRebuildService` (prefix
-  wipe pagination, manifest + gzip data-file parse, per-source
-  filter/route, `REBUILD` stamp, Firehose retry, `RUNNING`→`FAILED` on
-  error) with S3/Firehose/DynamoDB mocked.
+  (the `(week, series, value)` pivot); `warehouseRebuildService`
+  (`wipe`: prefix-wipe pagination + manifest→chunk math; `replay`:
+  line-range slice + per-source filter/route + `REBUILD` stamp + Firehose
+  backoff-retry; `finalize`: count sum + staging drop; `fail`: FAILED row
+  ± fresh id) with S3/Firehose/DynamoDB mocked.
 - **CDK assertions:** bucket config; Firehose ×4; `CfnDatabase` + the
   five `CfnTable`s (`order_events`/`order_snapshots`/`requests`/`locations`
   + `job_results`, partition-projection `parameters` asserted directly);
@@ -850,10 +859,12 @@ Same four-tier model (`testing-framework.md`):
   `PutObject` outside `job-results/`); the schedule (`rate(1 day)` + DLQ
   + alarm); an explicit assertion that all `/data`/`/reports` Lambdas
   carry no write actions; the rebuild state machine (per-source
-  export→poll→rebuild flow, `ExportTableToPointInTime`/`DescribeExport`
-  IAM, S3 write on `export-staging/*`, ALL-level SFN logging) and the
-  rebuild worker Lambda (asserted `firehose:PutRecordBatch` + scoped S3 +
-  `dynamodb:PutItem` **only** — no operational-store read).
+  export→poll→wipe→paced-`Map`→finalize flow, `MaxConcurrency: 1`, the
+  `Wait` before each chunk, `Catch`→`MarkFailed`,
+  `ExportTableToPointInTime`/`DescribeExport` IAM, S3 write on
+  `export-staging/*`, ALL-level SFN logging) and the rebuild worker Lambda
+  (asserted `firehose:PutRecordBatch` + scoped S3 + `dynamodb:PutItem`
+  **only** — no operational-store read).
 - **Real integration:** `test-scripts/4-warehouse-test.py` and (Leg 4)
   `5-warehouse-rebuild.py`. `GET /data/schema`, `/data/jobs`,
   `/data/jobs/{name}/result`, `/reports` are in
@@ -1070,24 +1081,24 @@ The centralized reporting surface, decoupled from the warehouse/job layer.
 - [x] `CLAUDE.md` §5.2: documented the `dao/analytics/` +
       `controller/analytics/` carve-out.
 
-### Leg 4 — on-demand rebuild (§10) — **shipped 2026-09-08**
+### Leg 4 — on-demand rebuild (§10) — **built 2026-09-08**
 
-Design simplified vs §10 original: no SNS pause (CDK-drift risk; the query
-dedup handles overlap), always all three sources, one worker Lambda per
-branch (not a per-file `Map`).
+Design: wipe + rebuild, all three sources, **rate-limiting in the state
+machine** — the replay is a `Map` of ≤3 000-row line-range chunks,
+`maxConcurrency: 1`, a `Wait` before each. (First built version replayed a
+whole source per invocation, throttled Firehose, and gutted the Test
+warehouse on its first real run — hence the chunked redesign.)
 
 - [x] `cdk/step-function/Nyc311WarehouseRebuildStateMachine.ts` — the
       project's only SFN. `Parallel` over orders/requests/locations: each
-      `StartExport` (`ExportTime = $$.Execution.StartTime`) → poll
-      `DescribeExport` → `LambdaInvoke` the worker; then `RecomputeJobs`.
+      `StartExport` → poll `DescribeExport` → `Wipe` → `Map`(`PaceChunk`
+      `Wait` → `ReplayChunk`) → `Finalize`, `Catch` → `MarkFailed`; then
+      `RecomputeJobs`. `TimeoutSeconds: 21600`.
 - [x] `cdk/warehouse/Nyc311WarehouseRebuildLambda.ts` +
       `backend/{models/warehouseRebuild,service/analytics/warehouseRebuildService,
-      controller/data-archival/warehouseRebuildController}.ts` — wipe
-      `data/<table>/`, read the export manifest + gzipped data files,
-      filter/route/stamp (`ingestion_source: "REBUILD"`,
-      `warehouse_ingested_at: <ExportTime>`), `firehose:PutRecordBatch`,
-      write a `REBUILD_<SOURCE>` `WarehouseJobRuns` row. `@aws-sdk/client-firehose`
-      added.
+      controller/data-archival/warehouseRebuildController}.ts` — one
+      Lambda, `phase`-dispatched (`wipe` → `replay` ×N → `finalize`;
+      `fail` = Catch). `@aws-sdk/client-firehose` added.
 - [x] `warehouseRecordTransformService` respects a pre-set
       `ingestion_source` / `warehouse_ingested_at`.
 - [x] `Nyc311WarehouseRebuildStateMachineArn` `CfnOutput`;

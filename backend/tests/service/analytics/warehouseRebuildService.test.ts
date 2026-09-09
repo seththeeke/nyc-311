@@ -8,7 +8,12 @@ import {
 import { FirehoseClient, PutRecordBatchCommand } from "@aws-sdk/client-firehose";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { rebuildSource } from "../../../service/analytics/warehouseRebuildService";
+import {
+  wipeAndListExport,
+  replayExportChunk,
+  finalizeRebuild,
+  markRebuildFailed,
+} from "../../../service/analytics/warehouseRebuildService";
 import type { WarehouseJobRunsDao } from "../../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRun } from "../../../models/warehouseJobRun";
 
@@ -18,8 +23,10 @@ const firehoseMock = mockClient(FirehoseClient);
 const firehoseClient = new FirehoseClient({});
 
 const BUCKET = "nyc311-warehouse-test";
-const EXPORT_ARN = "arn:aws:dynamodb:us-east-1:111:table/Orders-Test/export/01EXPORTID";
+const ORDERS_ARN = "arn:aws:dynamodb:us-east-1:111:table/Orders-Test/export/01EXPORTID";
+const REQ_ARN = "arn:aws:dynamodb:us-east-1:111:table/Requests-Test/export/01EXPORTID";
 const EXPORT_TIME = "2026-09-08T12:00:00.000Z";
+const NOW = () => new Date("2026-09-08T13:00:00.000Z");
 
 const FIREHOSE_ENV = {
   ORDER_EVENTS_FIREHOSE_NAME: "Nyc311Warehouse-OrderEvents-Test",
@@ -28,22 +35,16 @@ const FIREHOSE_ENV = {
   LOCATIONS_FIREHOSE_NAME: "Nyc311Warehouse-Locations-Test",
 } as const;
 
-function putRunSpy() {
+function daoSpy() {
   const putJobRun = vi.fn<(run: WarehouseJobRun) => Promise<void>>().mockResolvedValue(undefined);
   return { dao: { putJobRun } as unknown as WarehouseJobRunsDao, putJobRun };
 }
 
-/** One export data file: JSON-lines of `{ Item: <ddb-json> }`, gzipped, as `transformToByteArray` bytes. */
-function exportDataFileBody(items: Record<string, unknown>[]): { transformToByteArray: () => Promise<Uint8Array> } {
-  const toDdbJson = (item: Record<string, unknown>): Record<string, unknown> => {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(item)) {
-      out[k] = typeof v === "number" ? { N: String(v) } : { S: String(v) };
-    }
-    return out;
-  };
-  const lines = items.map((item) => JSON.stringify({ Item: toDdbJson(item) })).join("\n");
-  const bytes = gzipSync(Buffer.from(lines, "utf-8"));
+function gzLines(items: Record<string, unknown>[]): { transformToByteArray: () => Promise<Uint8Array> } {
+  const toDdb = (o: Record<string, unknown>): Record<string, unknown> =>
+    Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" ? { N: String(v) } : { S: String(v) }]));
+  const text = items.map((i) => JSON.stringify({ Item: toDdb(i) })).join("\n");
+  const bytes = gzipSync(Buffer.from(text, "utf-8"));
   return { transformToByteArray: async () => new Uint8Array(bytes) };
 }
 
@@ -51,7 +52,13 @@ function textBody(text: string): { transformToString: () => Promise<string> } {
   return { transformToString: async () => text };
 }
 
-const MANIFEST = JSON.stringify({ dataFileS3Key: "export-staging/orders/AWSDynamoDB/01EXPORTID/data/f1.json.gz" });
+function manifest(files: { key: string; itemCount: number }[]): string {
+  return files.map((f) => JSON.stringify({ dataFileS3Key: f.key, itemCount: f.itemCount })).join("\n");
+}
+
+function deps(dao: WarehouseJobRunsDao) {
+  return { s3Client, firehoseClient, jobRunsDao: dao, bucket: BUCKET, now: NOW, sleep: async () => {} };
+}
 
 beforeEach(() => {
   s3Mock.reset();
@@ -59,6 +66,7 @@ beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   for (const [k, v] of Object.entries(FIREHOSE_ENV)) process.env[k] = v;
+  firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 0 });
 });
 
 afterEach(() => {
@@ -66,266 +74,236 @@ afterEach(() => {
   for (const k of Object.keys(FIREHOSE_ENV)) delete process.env[k];
 });
 
-function baseDeps(dao: WarehouseJobRunsDao) {
-  return {
-    s3Client,
-    firehoseClient,
-    jobRunsDao: dao,
-    bucket: BUCKET,
-    now: () => new Date("2026-09-08T13:00:00.000Z"),
-  };
-}
-
-describe("rebuildSource — orders", () => {
-  it("wipes both target prefixes, routes #METADATA and EVENT# rows to their Firehoses, and records a SUCCEEDED run", async () => {
-    const { dao, putJobRun } = putRunSpy();
+describe("wipeAndListExport", () => {
+  it("wipes both order targets, opens a RUNNING row, and returns CHUNK_ROWS-sized chunks per file", async () => {
+    const { dao, putJobRun } = daoSpy();
     s3Mock.on(ListObjectsV2Command).resolves({ Contents: [{ Key: "data/order_snapshots/dt=x/a.parquet" }], IsTruncated: false });
     s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/orders/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(MANIFEST) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/orders/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({
-        Body: exportDataFileBody([
-          { order_id: "o1", sk: "#METADATA", current_stage: "INGEST" },
-          { order_id: "o1", sk: "EVENT#0", event_type: "ORDER_CREATED" },
-          { order_id: "o1", sk: "EVENT#1", event_type: "ORDER_ACCEPTED" },
-        ]),
-      } as never);
-    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 0 });
+    s3Mock.on(GetObjectCommand, { Key: "export-staging/orders/AWSDynamoDB/01EXPORTID/manifest-files.json" }).resolves({
+      Body: textBody(manifest([{ key: "f1", itemCount: 3000 }, { key: "f2", itemCount: 500 }])),
+    } as never);
 
-    const result = await rebuildSource(
-      { source: "orders", exportArn: EXPORT_ARN, exportTime: EXPORT_TIME },
-      baseDeps(dao)
+    const result = await wipeAndListExport(
+      { phase: "wipe", source: "orders", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME },
+      deps(dao)
     );
 
-    expect(result.wiped_prefixes).toEqual(["data/order_snapshots/", "data/order_events/"]);
-    expect(result.replayed_by_table).toEqual({ order_snapshots: 1, order_events: 2 });
-    expect(result.total_replayed).toBe(3);
-
-    const snapshotPut = firehoseMock
-      .commandCalls(PutRecordBatchCommand)
-      .find((c) => c.args[0].input.DeliveryStreamName === FIREHOSE_ENV.ORDER_SNAPSHOTS_FIREHOSE_NAME);
-    const record = JSON.parse(Buffer.from(snapshotPut!.args[0].input.Records![0].Data as Uint8Array).toString("utf-8"));
-    expect(record).toMatchObject({ order_id: "o1", ingestion_source: "REBUILD", warehouse_ingested_at: EXPORT_TIME });
-
-    const statuses = putJobRun.mock.calls.map((c) => c[0].status);
-    expect(statuses).toEqual(["RUNNING", "SUCCEEDED"]);
-    expect(putJobRun.mock.calls[1][0]).toMatchObject({ job_name: "REBUILD_ORDERS", trigger: "MANUAL", row_count: 3 });
-  });
-});
-
-describe("rebuildSource — requests / locations filters", () => {
-  it("skips the request cursor sentinel row (no external_unique_key)", async () => {
-    const { dao } = putRunSpy();
-    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/requests/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/requests/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/requests/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({
-        Body: exportDataFileBody([
-          { request_id: "CURSOR#NYC_311", cursor_value: "abc" },
-          { request_id: "r1", external_unique_key: "ext-1" },
-        ]),
-      } as never);
-    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 0 });
-
-    const result = await rebuildSource(
-      { source: "requests", exportArn: EXPORT_ARN.replace("Orders", "Requests"), exportTime: EXPORT_TIME },
-      baseDeps(dao)
-    );
-
-    expect(result.replayed_by_table).toEqual({ requests: 1 });
-  });
-
-  it("skips non-location rows (no location_id)", async () => {
-    const { dao } = putRunSpy();
-    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({
-        Body: exportDataFileBody([
-          { something_else: "x" },
-          { location_id: "l1", borough: "BRONX" },
-        ]),
-      } as never);
-    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 0 });
-
-    const result = await rebuildSource(
-      { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-      baseDeps(dao)
-    );
-
-    expect(result.replayed_by_table).toEqual({ locations: 1 });
-  });
-});
-
-describe("rebuildSource — Firehose failures", () => {
-  function stubHappyS3(oneRow: Record<string, unknown>) {
-    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({ Body: exportDataFileBody([oneRow]) } as never);
-  }
-
-  it("retries only the failed records, then succeeds", async () => {
-    const { dao } = putRunSpy();
-    stubHappyS3({ location_id: "l1" });
-    firehoseMock
-      .on(PutRecordBatchCommand)
-      .resolvesOnce({ FailedPutCount: 1, RequestResponses: [{ ErrorCode: "ServiceUnavailable" }] })
-      .resolves({ FailedPutCount: 0 });
-
-    const result = await rebuildSource(
-      { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-      baseDeps(dao)
-    );
-
-    expect(result.total_replayed).toBe(1);
-    expect(firehoseMock.commandCalls(PutRecordBatchCommand)).toHaveLength(2);
-  });
-
-  it("throws and writes a FAILED run when Firehose never drains", async () => {
-    const { dao, putJobRun } = putRunSpy();
-    stubHappyS3({ location_id: "l1" });
-    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 1, RequestResponses: [{ ErrorCode: "InternalFailure" }] });
-
-    await expect(
-      rebuildSource(
-        { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-        baseDeps(dao)
-      )
-    ).rejects.toThrow(/unwritten/);
-
-    expect(putJobRun.mock.calls.map((c) => c[0].status)).toEqual(["RUNNING", "FAILED"]);
-    expect(putJobRun.mock.calls[1][0].error_message).toMatch(/unwritten/);
-  });
-});
-
-describe("rebuildSource — misc", () => {
-  it("paginates and batches the prefix wipe", async () => {
-    const { dao } = putRunSpy();
-    s3Mock
-      .on(ListObjectsV2Command)
-      .resolvesOnce({ Contents: [{ Key: "data/locations/a" }], IsTruncated: true, NextContinuationToken: "t2" })
-      .resolves({ Contents: [{ Key: "data/locations/b" }], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({ Body: exportDataFileBody([]) } as never);
-
-    await rebuildSource(
-      { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-      baseDeps(dao)
-    );
-
+    /* 3000 -> one chunk; 500 -> one chunk (CHUNK_ROWS is 3000). */
+    expect(result.chunks).toEqual([
+      { fileKey: "f1", start: 0, count: 3000 },
+      { fileKey: "f2", start: 0, count: 500 },
+    ]);
+    expect(putJobRun.mock.calls[0][0]).toMatchObject({ job_name: "REBUILD_ORDERS", status: "RUNNING", trigger: "MANUAL" });
+    expect(result.job_run_id).toBe(putJobRun.mock.calls[0][0].job_run_id);
+    /* two DeleteObjects passes had content -> one per target prefix */
     expect(s3Mock.commandCalls(DeleteObjectsCommand)).toHaveLength(2);
   });
 
-  it("throws on an unparseable export ARN", async () => {
-    const { dao } = putRunSpy();
+  it("splits a large file into multiple chunks", async () => {
+    const { dao } = daoSpy();
     s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
     s3Mock.on(DeleteObjectsCommand).resolves({});
+    s3Mock.on(GetObjectCommand).resolves({ Body: textBody(manifest([{ key: "big", itemCount: 7000 }])) } as never);
 
-    await expect(
-      rebuildSource({ source: "locations", exportArn: "", exportTime: EXPORT_TIME }, baseDeps(dao))
-    ).rejects.toThrow();
-  });
-
-  it("tolerates a ListObjectsV2 page with no Contents key", async () => {
-    const { dao } = putRunSpy();
-    s3Mock.on(ListObjectsV2Command).resolves({});
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({ Body: exportDataFileBody([]) } as never);
-
-    const result = await rebuildSource(
-      { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-      baseDeps(dao)
+    const result = await wipeAndListExport(
+      { phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME },
+      deps(dao)
     );
-    expect(result.total_replayed).toBe(0);
-    expect(s3Mock.commandCalls(DeleteObjectsCommand)).toHaveLength(0);
+    expect(result.chunks).toEqual([
+      { fileKey: "big", start: 0, count: 3000 },
+      { fileKey: "big", start: 3000, count: 3000 },
+      { fileKey: "big", start: 6000, count: 1000 },
+    ]);
   });
 
-  it("throws when the manifest object has no body", async () => {
-    const { dao } = putRunSpy();
+  it("throws when the export has no rows", async () => {
+    const { dao } = daoSpy();
     s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock.on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" }).resolves({} as never);
+    s3Mock.on(GetObjectCommand).resolves({ Body: textBody(manifest([{ key: "f1", itemCount: 0 }])) } as never);
 
     await expect(
-      rebuildSource(
-        { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-        baseDeps(dao)
-      )
-    ).rejects.toThrow(/Empty object/);
+      wipeAndListExport({ phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME }, deps(dao))
+    ).rejects.toThrow(/no rows/);
   });
 
-  it("throws when an export data file object has no body", async () => {
-    const { dao } = putRunSpy();
-    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
-    s3Mock.on(DeleteObjectsCommand).resolves({});
+  it("paginates the data/ wipe", async () => {
+    const { dao } = daoSpy();
     s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({} as never);
+      .on(ListObjectsV2Command)
+      .resolvesOnce({ Contents: [{ Key: "data/locations/a" }], IsTruncated: true, NextContinuationToken: "t" })
+      .resolves({ Contents: [{ Key: "data/locations/b" }], IsTruncated: false });
+    s3Mock.on(DeleteObjectsCommand).resolves({});
+    s3Mock.on(GetObjectCommand).resolves({ Body: textBody(manifest([{ key: "f1", itemCount: 10 }])) } as never);
 
-    await expect(
-      rebuildSource(
-        { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-        baseDeps(dao)
-      )
-    ).rejects.toThrow(/Empty object/);
+    await wipeAndListExport(
+      { phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME },
+      deps(dao)
+    );
+    expect(s3Mock.commandCalls(DeleteObjectsCommand)).toHaveLength(2);
+  });
+});
+
+describe("replayExportChunk", () => {
+  it("reads only its line range, routes #METADATA / EVENT# rows, and stamps REBUILD + exportTime", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand, { Key: "f1" }).resolves({
+      Body: gzLines([
+        { order_id: "skip", sk: "#METADATA" },
+        { order_id: "o1", sk: "#METADATA", current_stage: "INGEST" },
+        { order_id: "o1", sk: "EVENT#0" },
+        { order_id: "o1", sk: "EVENT#1" },
+      ]),
+    } as never);
+
+    const replayed = await replayExportChunk(
+      { phase: "replay", source: "orders", chunk: { fileKey: "f1", start: 1, count: 3 }, exportTime: EXPORT_TIME },
+      deps(dao)
+    );
+
+    expect(replayed).toEqual({ order_snapshots: 1, order_events: 2 });
+    const snap = firehoseMock
+      .commandCalls(PutRecordBatchCommand)
+      .find((c) => c.args[0].input.DeliveryStreamName === FIREHOSE_ENV.ORDER_SNAPSHOTS_FIREHOSE_NAME);
+    const rec = JSON.parse(Buffer.from(snap!.args[0].input.Records![0].Data as Uint8Array).toString("utf-8"));
+    expect(rec).toMatchObject({ order_id: "o1", ingestion_source: "REBUILD", warehouse_ingested_at: EXPORT_TIME });
   });
 
-  it("stringifies a non-Error throw in the FAILED run row", async () => {
-    const { dao, putJobRun } = putRunSpy();
-    s3Mock.on(ListObjectsV2Command).callsFake(() => {
-      throw "s3 exploded";
+  it("filters the request cursor sentinel row", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({
+      Body: gzLines([
+        { request_id: "CURSOR#NYC_311" },
+        { request_id: "r1", external_unique_key: "ext-1" },
+      ]),
+    } as never);
+
+    const replayed = await replayExportChunk(
+      { phase: "replay", source: "requests", chunk: { fileKey: "f1", start: 0, count: 2 }, exportTime: EXPORT_TIME },
+      deps(dao)
+    );
+    expect(replayed).toEqual({ requests: 1 });
+  });
+
+  it("retries only the records Firehose reports failed, with backoff", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({ Body: gzLines([{ location_id: "l1" }, { location_id: "l2" }]) } as never);
+    firehoseMock
+      .on(PutRecordBatchCommand)
+      .resolvesOnce({ FailedPutCount: 1, RequestResponses: [{ RecordId: "ok" }, { ErrorCode: "ServiceUnavailableException" }] })
+      .resolves({ FailedPutCount: 0 });
+
+    const replayed = await replayExportChunk(
+      { phase: "replay", source: "locations", chunk: { fileKey: "f1", start: 0, count: 2 }, exportTime: EXPORT_TIME },
+      deps(dao)
+    );
+    expect(replayed).toEqual({ locations: 2 });
+    expect(firehoseMock.commandCalls(PutRecordBatchCommand)).toHaveLength(2);
+  });
+
+  it("throws when Firehose never drains a batch", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({ Body: gzLines([{ location_id: "l1" }]) } as never);
+    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 1, RequestResponses: [{ ErrorCode: "InternalFailure" }] });
+
+    await expect(
+      replayExportChunk(
+        { phase: "replay", source: "locations", chunk: { fileKey: "f1", start: 0, count: 1 }, exportTime: EXPORT_TIME },
+        deps(dao)
+      )
+    ).rejects.toThrow(/unwritten/);
+  });
+});
+
+describe("finalizeRebuild", () => {
+  it("sums the per-chunk counts, closes the row SUCCEEDED, and drops the export staging", async () => {
+    const { dao, putJobRun } = daoSpy();
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [{ Key: "export-staging/orders/x" }], IsTruncated: false });
+    s3Mock.on(DeleteObjectsCommand).resolves({});
+
+    const result = await finalizeRebuild(
+      {
+        phase: "finalize",
+        source: "orders",
+        exportArn: ORDERS_ARN,
+        jobRunId: "01RUN",
+        startedAt: EXPORT_TIME,
+        replayResults: [
+          { order_snapshots: 100, order_events: 400 },
+          { order_snapshots: 50, order_events: 900 },
+        ],
+      },
+      deps(dao)
+    );
+
+    expect(result).toEqual({
+      source: "orders",
+      job_run_id: "01RUN",
+      replayed_by_table: { order_snapshots: 150, order_events: 1300 },
+      total_replayed: 1450,
     });
+    expect(putJobRun.mock.calls[0][0]).toMatchObject({ job_run_id: "01RUN", status: "SUCCEEDED", row_count: 1450 });
+    const del = s3Mock.commandCalls(DeleteObjectsCommand)[0].args[0].input;
+    expect((del.Delete!.Objects ?? [])[0].Key).toBe("export-staging/orders/x");
+  });
+});
 
-    await expect(
-      rebuildSource(
-        { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-        baseDeps(dao)
-      )
-    ).rejects.toBeDefined();
-    expect(putJobRun.mock.calls[1][0].status).toBe("FAILED");
-    expect(putJobRun.mock.calls[1][0].error_message).toBe("s3 exploded");
+describe("markRebuildFailed", () => {
+  it("closes the given job row as FAILED with the (truncated) error", async () => {
+    const { dao, putJobRun } = daoSpy();
+    await markRebuildFailed(
+      { phase: "fail", source: "requests", exportArn: REQ_ARN, startedAt: EXPORT_TIME, jobRunId: "01RUN", error: "x".repeat(2000) },
+      deps(dao)
+    );
+    const row = putJobRun.mock.calls[0][0];
+    expect(row).toMatchObject({ job_run_id: "01RUN", job_name: "REBUILD_REQUESTS", status: "FAILED" });
+    expect(row.error_message).toHaveLength(1000);
   });
 
-  it("constructs default clients + bucket from env when deps are omitted", async () => {
-    const { dao } = putRunSpy();
+  it("opens a fresh FAILED row when the wipe phase failed before a run id existed", async () => {
+    const { dao, putJobRun } = daoSpy();
+    await markRebuildFailed(
+      { phase: "fail", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME },
+      deps(dao)
+    );
+    const row = putJobRun.mock.calls[0][0];
+    expect(row).toMatchObject({ status: "FAILED", error_message: "rebuild failed" });
+    expect(row.job_run_id).toBeTruthy();
+  });
+});
+
+describe("default deps", () => {
+  it("constructs S3 / Firehose / DAO clients from env when omitted", async () => {
     process.env["WAREHOUSE_BUCKET_NAME"] = BUCKET;
     s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
     s3Mock.on(DeleteObjectsCommand).resolves({});
-    s3Mock
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/manifest-files.json" })
-      .resolves({ Body: textBody(JSON.stringify({ dataFileS3Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })) } as never)
-      .on(GetObjectCommand, { Key: "export-staging/locations/AWSDynamoDB/01EXPORTID/data/f1.json.gz" })
-      .resolves({ Body: exportDataFileBody([]) } as never);
+    s3Mock.on(GetObjectCommand).resolves({ Body: gzLines([{ location_id: "l1" }]) } as never);
     try {
-      const result = await rebuildSource(
-        { source: "locations", exportArn: EXPORT_ARN.replace("Orders", "Locations"), exportTime: EXPORT_TIME },
-        { jobRunsDao: dao }
-      );
-      expect(result.total_replayed).toBe(0);
+      const replayed = await replayExportChunk({
+        phase: "replay",
+        source: "locations",
+        chunk: { fileKey: "f1", start: 0, count: 1 },
+        exportTime: EXPORT_TIME,
+      });
+      expect(replayed).toEqual({ locations: 1 });
     } finally {
       delete process.env["WAREHOUSE_BUCKET_NAME"];
+    }
+  });
+
+  it("throws a clear error when WAREHOUSE_BUCKET_NAME is unset", async () => {
+    const prev = process.env["WAREHOUSE_BUCKET_NAME"];
+    delete process.env["WAREHOUSE_BUCKET_NAME"];
+    try {
+      await expect(
+        replayExportChunk({
+          phase: "replay",
+          source: "locations",
+          chunk: { fileKey: "f1", start: 0, count: 1 },
+          exportTime: EXPORT_TIME,
+        })
+      ).rejects.toThrow("WAREHOUSE_BUCKET_NAME");
+    } finally {
+      if (prev !== undefined) process.env["WAREHOUSE_BUCKET_NAME"] = prev;
     }
   });
 });

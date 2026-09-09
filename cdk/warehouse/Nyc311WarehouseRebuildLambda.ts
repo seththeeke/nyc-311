@@ -83,7 +83,11 @@ export class Nyc311WarehouseRebuildLambda extends NodejsFunction {
       new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [`${bucketArn}/export-staging/*`] })
     );
     this.addToRolePolicy(
-      new iam.PolicyStatement({ actions: ["s3:DeleteObject"], resources: [`${bucketArn}/data/*`] })
+      new iam.PolicyStatement({
+        /* wipe: empties data/<table>/ before the replay; finalize: drops the consumed export-staging/<source>/ */
+        actions: ["s3:DeleteObject"],
+        resources: [`${bucketArn}/data/*`, `${bucketArn}/export-staging/*`],
+      })
     );
     this.addToRolePolicy(
       new iam.PolicyStatement({

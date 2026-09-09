@@ -1,26 +1,23 @@
 import type { Context } from "aws-lambda";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { rebuildSource } from "../../../service/analytics/warehouseRebuildService";
+import * as service from "../../../service/analytics/warehouseRebuildService";
 import { warehouseRebuildController } from "../../../controller/data-archival/warehouseRebuildController";
 import { ValidationError } from "../../../models/errors";
-import type { WarehouseRebuildResult } from "../../../models/warehouseRebuild";
 
-vi.mock("../../../service/analytics/warehouseRebuildService", () => ({ rebuildSource: vi.fn() }));
-const mocked = vi.mocked(rebuildSource);
+vi.mock("../../../service/analytics/warehouseRebuildService", () => ({
+  wipeAndListExport: vi.fn(),
+  replayExportChunk: vi.fn(),
+  finalizeRebuild: vi.fn(),
+  markRebuildFailed: vi.fn(),
+}));
 
 const CONTEXT = { awsRequestId: "req-1" } as Context;
-const TASK = { source: "orders", exportArn: "arn:…/export/01ID", exportTime: "2026-09-08T12:00:00.000Z" };
-const RESULT: WarehouseRebuildResult = {
-  source: "orders",
-  job_run_id: "01RUN",
-  wiped_prefixes: ["data/order_snapshots/", "data/order_events/"],
-  replayed_by_table: { order_snapshots: 1, order_events: 2 },
-  total_replayed: 3,
-};
+const ARN = "arn:aws:dynamodb:us-east-1:111:table/Orders-Test/export/01ID";
 
 beforeEach(() => {
-  mocked.mockReset();
+  vi.clearAllMocks();
   vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -28,19 +25,69 @@ afterEach(() => {
 });
 
 describe("warehouseRebuildController", () => {
-  it("validates the task and returns the service result", async () => {
-    mocked.mockResolvedValue(RESULT);
-    await expect(warehouseRebuildController(TASK, CONTEXT)).resolves.toEqual(RESULT);
-    expect(mocked).toHaveBeenCalledWith(TASK);
+  it("dispatches phase=wipe", async () => {
+    vi.mocked(service.wipeAndListExport).mockResolvedValue({ job_run_id: "01RUN", chunks: [{ fileKey: "f", start: 0, count: 10 }] });
+    const res = await warehouseRebuildController(
+      { phase: "wipe", source: "orders", exportArn: ARN, startedAt: "2026-09-08T12:00:00.000Z" },
+      CONTEXT
+    );
+    expect(res).toEqual({ job_run_id: "01RUN", chunks: [{ fileKey: "f", start: 0, count: 10 }] });
+    expect(service.wipeAndListExport).toHaveBeenCalledOnce();
   });
 
-  it("throws a ValidationError on a malformed task, without calling the service", async () => {
-    await expect(warehouseRebuildController({ source: "nope" }, CONTEXT)).rejects.toBeInstanceOf(ValidationError);
-    expect(mocked).not.toHaveBeenCalled();
+  it("dispatches phase=replay", async () => {
+    vi.mocked(service.replayExportChunk).mockResolvedValue({ order_events: 3 });
+    const res = await warehouseRebuildController(
+      { phase: "replay", source: "orders", chunk: { fileKey: "f", start: 0, count: 10 }, exportTime: "2026-09-08T12:00:00.000Z" },
+      CONTEXT
+    );
+    expect(res).toEqual({ order_events: 3 });
   });
 
-  it("lets a service error propagate so the Step Functions branch fails", async () => {
-    mocked.mockRejectedValue(new Error("firehose down"));
-    await expect(warehouseRebuildController(TASK, CONTEXT)).rejects.toThrow("firehose down");
+  it("dispatches phase=finalize", async () => {
+    vi.mocked(service.finalizeRebuild).mockResolvedValue({
+      source: "orders",
+      job_run_id: "01RUN",
+      replayed_by_table: { order_events: 3 },
+      total_replayed: 3,
+    });
+    const res = await warehouseRebuildController(
+      {
+        phase: "finalize",
+        source: "orders",
+        exportArn: ARN,
+        jobRunId: "01RUN",
+        startedAt: "2026-09-08T12:00:00.000Z",
+        replayResults: [{ order_events: 3 }],
+      },
+      CONTEXT
+    );
+    expect(res).toMatchObject({ total_replayed: 3 });
+  });
+
+  it("dispatches phase=fail", async () => {
+    vi.mocked(service.markRebuildFailed).mockResolvedValue(undefined);
+    const res = await warehouseRebuildController(
+      { phase: "fail", source: "requests", exportArn: ARN, startedAt: "2026-09-08T12:00:00.000Z", jobRunId: "01RUN", error: "boom" },
+      CONTEXT
+    );
+    expect(res).toEqual({ source: "requests", status: "FAILED" });
+    expect(service.markRebuildFailed).toHaveBeenCalledOnce();
+  });
+
+  it("throws a ValidationError on a malformed / unknown-phase task, calling no service fn", async () => {
+    await expect(warehouseRebuildController({ phase: "nope" }, CONTEXT)).rejects.toBeInstanceOf(ValidationError);
+    expect(service.wipeAndListExport).not.toHaveBeenCalled();
+    expect(service.replayExportChunk).not.toHaveBeenCalled();
+  });
+
+  it("lets a service error propagate so the state machine fails the branch", async () => {
+    vi.mocked(service.replayExportChunk).mockRejectedValue(new Error("firehose down"));
+    await expect(
+      warehouseRebuildController(
+        { phase: "replay", source: "orders", chunk: { fileKey: "f", start: 0, count: 10 }, exportTime: "2026-09-08T12:00:00.000Z" },
+        CONTEXT
+      )
+    ).rejects.toThrow("firehose down");
   });
 });
