@@ -1,4 +1,15 @@
 {
+  /*
+   * `cdk synth`/`diff` run the app through ts-node (see cdk.json and the
+   * bin/pipeline.ts synth). Full type-checking there is redundant: the
+   * pipeline Synth step and local dev both run `npm run build` (tsc
+   * --noEmit) as a separate gate, and vitest transpiles without checking
+   * anyway. transpileOnly drops the per-synth type-check — grown with the
+   * warehouse constructs added Sept 2026 — from every synth/diff.
+   */
+  "ts-node": {
+    "transpileOnly": true
+  },
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
