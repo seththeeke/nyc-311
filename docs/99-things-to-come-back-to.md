@@ -127,3 +127,9 @@ for now, no alarms/email while scaled down. See [#25](https://github.com/seththe
 See [#26](https://github.com/seththeeke/nyc-311/issues/26).
 
 ---
+
+## Pipeline Synth + ProdDiff re-type-check the whole cdk app via ts-node on every run
+
+Sub-item of #9 — redundant with the Synth step's own `npm run build`. See [#28](https://github.com/seththeeke/nyc-311/issues/28).
+
+---
