@@ -10,7 +10,10 @@ import { OrderEventMonitoringPage } from "../components/pages/OrderEventMonitori
 import { LambdaMonitoringPage } from "../components/pages/LambdaMonitoringPage";
 import { IntegrationTestReportPage } from "../components/pages/IntegrationTestReportPage";
 import { ReportsPage } from "../components/pages/ReportsPage";
+import { LoginPage } from "../components/pages/LoginPage";
+import { AdminPage } from "../components/pages/AdminPage";
 import { PublicRoute } from "./PublicRoute";
+import { AdminRoute } from "./AdminRoute";
 
 export function AppRoutes(): ReactElement {
   return (
@@ -93,6 +96,22 @@ export function AppRoutes(): ReactElement {
           <PublicRoute>
             <ReportsPage />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
         }
       />
     </Routes>

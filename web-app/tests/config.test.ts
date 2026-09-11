@@ -17,20 +17,28 @@ describe("config", () => {
     vi.stubEnv("VITE_DATA_MODE", "");
     vi.stubEnv("VITE_API_BASE_URL", "");
     vi.stubEnv("VITE_PIPELINE_API_BASE_URL", "");
+    vi.stubEnv("VITE_USER_POOL_ID", "");
+    vi.stubEnv("VITE_USER_POOL_CLIENT_ID", "");
     const { config } = await import("../src/config");
     expect(config.dataMode).toBe("mock");
     expect(config.apiBaseUrl).toBe("");
     expect(config.pipelineApiBaseUrl).toBe("");
+    expect(config.userPoolId).toBe("");
+    expect(config.userPoolClientId).toBe("");
   });
 
-  it("resolves to live data mode and the configured apiBaseUrl/pipelineApiBaseUrl when set", async () => {
+  it("resolves to live data mode and the configured apiBaseUrl/pipelineApiBaseUrl/userPool ids when set", async () => {
     vi.stubEnv("VITE_DATA_MODE", "live");
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     vi.stubEnv("VITE_PIPELINE_API_BASE_URL", "https://pipeline-api.example.com");
+    vi.stubEnv("VITE_USER_POOL_ID", "us-east-1_abc123");
+    vi.stubEnv("VITE_USER_POOL_CLIENT_ID", "client-abc123");
     const { config } = await import("../src/config");
     expect(config.dataMode).toBe("live");
     expect(config.apiBaseUrl).toBe("https://api.example.com");
     expect(config.pipelineApiBaseUrl).toBe("https://pipeline-api.example.com");
+    expect(config.userPoolId).toBe("us-east-1_abc123");
+    expect(config.userPoolClientId).toBe("client-abc123");
   });
 
   it("falls back to mock for any non-live VITE_DATA_MODE value", async () => {
@@ -61,6 +69,22 @@ describe("loadRuntimeConfig", () => {
 
     expect(config.apiBaseUrl).toBe("https://deployed.example.com");
     expect(fetch).toHaveBeenCalledWith("/env-config.json");
+  });
+
+  it("overwrites userPoolId/userPoolClientId in place from /env-config.json when present", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ userPoolId: "us-east-1_deployed", userPoolClientId: "client-deployed" }),
+      })
+    );
+    const { config, loadRuntimeConfig } = await import("../src/config");
+
+    await loadRuntimeConfig();
+
+    expect(config.userPoolId).toBe("us-east-1_deployed");
+    expect(config.userPoolClientId).toBe("client-deployed");
   });
 
   it("keeps the Vite-build-time default when the fetch 404s (local dev)", async () => {

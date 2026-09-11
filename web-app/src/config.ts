@@ -4,6 +4,9 @@ export interface AppConfig {
   apiBaseUrl: string;
   pipelineApiBaseUrl: string;
   dataMode: DataMode;
+  /** Cognito User Pool / app client ids (`9-admin-auth-integration.md` §3) — same runtime-injected shape as `apiBaseUrl`. */
+  userPoolId: string;
+  userPoolClientId: string;
 }
 
 /*
@@ -30,10 +33,14 @@ export const config: AppConfig = {
    */
   pipelineApiBaseUrl: import.meta.env.VITE_PIPELINE_API_BASE_URL || "",
   dataMode: import.meta.env.VITE_DATA_MODE === "live" ? "live" : "mock",
+  userPoolId: import.meta.env.VITE_USER_POOL_ID || "",
+  userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
 };
 
 interface RuntimeEnvConfig {
   apiBaseUrl?: string;
+  userPoolId?: string;
+  userPoolClientId?: string;
 }
 
 const RUNTIME_CONFIG_PATH = "/env-config.json";
@@ -51,6 +58,12 @@ export async function loadRuntimeConfig(): Promise<void> {
     const runtime = (await response.json()) as RuntimeEnvConfig;
     if (typeof runtime.apiBaseUrl === "string" && runtime.apiBaseUrl.length > 0) {
       config.apiBaseUrl = runtime.apiBaseUrl;
+    }
+    if (typeof runtime.userPoolId === "string" && runtime.userPoolId.length > 0) {
+      config.userPoolId = runtime.userPoolId;
+    }
+    if (typeof runtime.userPoolClientId === "string" && runtime.userPoolClientId.length > 0) {
+      config.userPoolClientId = runtime.userPoolClientId;
     }
   } catch {
     /*

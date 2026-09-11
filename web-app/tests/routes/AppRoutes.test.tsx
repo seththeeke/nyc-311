@@ -67,4 +67,14 @@ describe("AppRoutes", () => {
     renderAt("/reports");
     expect(screen.getByRole("heading", { name: "Reports" })).toBeInTheDocument();
   });
+
+  it("renders LoginPage at /login", () => {
+    renderAt("/login");
+    expect(screen.getByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+  });
+
+  it("redirects /admin to /login when logged out (mock mode's default session state)", async () => {
+    renderAt("/admin");
+    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+  });
 });
