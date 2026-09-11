@@ -284,5 +284,10 @@ and the Secrets Manager/integration-test piece are still pending.
 - [x] Ran `test-scripts/6-setup-test-admin.py` against `Nyc311-Test` — test-admin user + `Nyc311AdminTestCredential-Test` secret created.
 - [x] Verified live: signed in as the test-admin via `InitiateAuth` and confirmed `GET /admin/whoami` — `200` with the token (correct `User` record), `401` with none.
 - [x] Found and fixed a real gap before creating the real admin: `authService`/`LoginPage` had no handling for Cognito's `NEW_PASSWORD_REQUIRED` challenge — a plain `AdminCreateUser` account would have been unable to log in through our own form at all (§3).
-- [ ] Run `test-scripts/6-setup-test-admin.py --prod` against `Nyc311-Prod`.
-- [ ] One-time `admin-create-user` for the real admin (seththeeke@gmail.com), both environments (manual, Deploy Safety Gate).
+- [x] Deployed to `Nyc311-Prod` (via the pipeline, 2026-09-10 — the first time Prod received any of Leg 0's infrastructure, since the earlier failed `IntegrationTestsTest` had blocked `DeployProd` from running at all until this batch, fix included).
+- [x] Ran `test-scripts/6-setup-test-admin.py --prod` against `Nyc311-Prod` — test-admin user + `Nyc311AdminTestCredential-Prod` secret created (`IntegrationTestsProd` is non-blocking/always-exits-0, so it had been silently no-op'ing rather than actually verifying anything until this ran).
+- [x] One-time `admin-create-user` for the real admin (seththeeke@gmail.com), both environments — temporary password, `FORCE_CHANGE_PASSWORD` state, so the new §3 challenge-handling gets exercised on first real login.
+- [x] Verified live in `Nyc311-Test`: real-admin login at `test.boroughsim.com` — temporary password accepted, `NEW_PASSWORD_REQUIRED` correctly triggered the new-password form, real password set successfully.
+- [ ] Verify the same real-admin login flow live in `Nyc311-Prod` (`boroughsim.com`) — temp password issued, not yet confirmed working.
+
+**Leg 0 is fully built and deployed to both environments as of 2026-09-10; live verification is confirmed in Test, pending confirmation in Prod.**
