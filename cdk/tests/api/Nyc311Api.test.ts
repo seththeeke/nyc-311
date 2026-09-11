@@ -1,7 +1,7 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
@@ -15,6 +15,9 @@ import { Nyc311WarehouseSchemaApiLambda } from "../../warehouse/Nyc311WarehouseS
 import { Nyc311WarehouseJobsApiLambda } from "../../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311ReportsApiLambda } from "../../warehouse/Nyc311ReportsApiLambda";
+import { UsersTable } from "../../data/UsersTable";
+import { Nyc311AdminAuth } from "../../auth/Nyc311AdminAuth";
+import { Nyc311AdminWhoamiApiLambda } from "../../lambda/Nyc311AdminWhoamiApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -70,6 +73,12 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
   });
+  const usersTable = new UsersTable(stack, "UsersTable", { envName });
+  const adminAuth = new Nyc311AdminAuth(stack, "Nyc311AdminAuth", { envName });
+  const adminWhoamiApiLambda = new Nyc311AdminWhoamiApiLambda(stack, "Nyc311AdminWhoamiApiLambda", {
+    envName,
+    usersTable,
+  });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -85,6 +94,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseJobsApiLambda,
     jobResultApiLambda,
     reportsApiLambda,
+    adminWhoamiApiLambda,
+    adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
   });
@@ -128,7 +139,7 @@ describe("Nyc311Api", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 8);
+    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 9);
     template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -175,8 +186,26 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly eight routes — the only public endpoints today", () => {
+  it("wires GET /admin/whoami to the admin-whoami Lambda, behind the JWT authorizer", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 8);
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /admin/whoami",
+      AuthorizationType: "JWT",
+    });
+  });
+
+  it("does not attach the JWT authorizer to any other route", () => {
+    const template = synthesize("TEST");
+    const routes = template.findResources("AWS::ApiGatewayV2::Route");
+    const authorizedRouteKeys = Object.values(routes)
+      .filter((route) => route.Properties?.AuthorizationType === "JWT")
+      .map((route) => route.Properties?.RouteKey);
+    expect(authorizedRouteKeys).toEqual(["GET /admin/whoami"]);
+  });
+
+  it("declares exactly nine routes today", () => {
+    const template = synthesize("TEST");
+    template.resourceCountIs("AWS::ApiGatewayV2::Route", 9);
   });
 });

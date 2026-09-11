@@ -52,6 +52,14 @@ describe("Nyc311Stack", () => {
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
+  it("exposes adminUserPoolClientIdOutput and Nyc311AdminUserPoolId, both CfnOutputs (9-admin-auth-integration.md §8)", () => {
+    const { stack, template } = testEnv;
+
+    expect(stack.adminUserPoolClientIdOutput).toBeInstanceOf(CfnOutput);
+    template.hasOutput("Nyc311AdminUserPoolClientId", {});
+    template.hasOutput("Nyc311AdminUserPoolId", {});
+  });
+
   it("wires the Requests table, poller Lambda, and its schedule together (first ingestion slice)", () => {
     const { template } = testEnv;
 

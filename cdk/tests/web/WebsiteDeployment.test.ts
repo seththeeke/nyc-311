@@ -19,7 +19,12 @@ function synthesize(): Template {
     siteDomain: "test.boroughsim.com",
     hostedZone,
   });
-  new WebsiteDeployment(stack, "WebsiteDeployment", { websiteHosting, apiBaseUrl: API_BASE_URL });
+  new WebsiteDeployment(stack, "WebsiteDeployment", {
+    websiteHosting,
+    apiBaseUrl: API_BASE_URL,
+    userPoolId: "us-east-1_abc123",
+    userPoolClientId: "client-abc123",
+  });
   return Template.fromStack(stack);
 }
 

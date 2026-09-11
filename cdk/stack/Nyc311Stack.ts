@@ -42,6 +42,9 @@ import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
+import { UsersTable } from "../data/UsersTable";
+import { Nyc311AdminAuth } from "../auth/Nyc311AdminAuth";
+import { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
 
 /* Enum-like discriminator, ALL_CAPS per CLAUDE.md §6. */
 export type Nyc311Environment = "TEST" | "PROD";
@@ -102,6 +105,8 @@ const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
 export class Nyc311Stack extends Stack {
   /** 4-pipeline-integration-tests.md §5 — exposed so Nyc311AppStage can pass it to the pipeline's integration-test step via envFromCfnOutputs. */
   public readonly apiUrlOutput: CfnOutput;
+  /** 9-admin-auth-integration.md §8 — exposed the same way, for the integration suite's test-admin sign-in. */
+  public readonly adminUserPoolClientIdOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: Nyc311StackProps) {
     super(scope, id, props);
@@ -156,6 +161,24 @@ export class Nyc311Stack extends Stack {
 
     const locationsTable = new LocationsTable(this, "LocationsTable", { envName: props.envName });
     const ordersTable = new OrdersTable(this, "OrdersTable", { envName: props.envName });
+
+    /* 9-admin-auth-integration.md — Leg 0, built in isolation ahead of anything that needs it. */
+    const usersTable = new UsersTable(this, "UsersTable", { envName: props.envName });
+    const adminAuth = new Nyc311AdminAuth(this, "Nyc311AdminAuth", { envName: props.envName });
+    const adminWhoamiApiLambda = new Nyc311AdminWhoamiApiLambda(this, "Nyc311AdminWhoamiApiLambda", {
+      envName: props.envName,
+      usersTable,
+    });
+    /*
+     * Consumed by test-scripts/6-setup-test-admin.py and the integration
+     * suite's Cognito auth helper (§8) — same "look up via CloudFormation
+     * Outputs rather than guessing a physical id" pattern apiUrlOutput
+     * already establishes below.
+     */
+    new CfnOutput(this, "Nyc311AdminUserPoolId", { value: adminAuth.userPool.userPoolId });
+    this.adminUserPoolClientIdOutput = new CfnOutput(this, "Nyc311AdminUserPoolClientId", {
+      value: adminAuth.userPoolClient.userPoolClientId,
+    });
 
     /*
      * 7-data-warehousing.md §4 — the Locations table's sole stream
@@ -442,6 +465,8 @@ export class Nyc311Stack extends Stack {
       warehouseJobsApiLambda,
       jobResultApiLambda,
       reportsApiLambda,
+      adminWhoamiApiLambda,
+      adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,
     });
@@ -465,6 +490,8 @@ export class Nyc311Stack extends Stack {
       websiteHosting,
       /* The custom API domain (8-domain-name-assignment.md §1), not the raw execute-api URL — this is what the SPA calls at runtime. */
       apiBaseUrl: apiDomain.url,
+      userPoolId: adminAuth.userPool.userPoolId,
+      userPoolClientId: adminAuth.userPoolClient.userPoolClientId,
     });
   }
 }

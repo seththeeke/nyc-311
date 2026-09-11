@@ -1,12 +1,14 @@
 import { Duration } from "aws-cdk-lib";
 import { CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import type { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import type { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import type { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
+import type { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
@@ -22,6 +24,10 @@ export interface Nyc311ApiProps {
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
   reportsApiLambda: Nyc311ReportsApiLambda;
+  /** `9-admin-auth-integration.md` §8 — the one route behind the admin JWT authorizer today. */
+  adminWhoamiApiLambda: Nyc311AdminWhoamiApiLambda;
+  /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
+  adminAuthorizer: HttpUserPoolAuthorizer;
   /**
    * Every web origin the SPA is served from — the custom site domain
    * (`8-domain-name-assignment.md` §1) and WebsiteHosting's CloudFront
@@ -41,13 +47,14 @@ export interface Nyc311ApiProps {
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
 /**
- * The public web API Gateway (`claude-prompt-initial.md` §5/§7). An HTTP
- * API (`aws-apigatewayv2`), not REST — cheaper, and enough for this
- * GET-only surface. Routes: `GET /ingestion/metrics`, `/orders`,
- * `/order-events`, `/lambda-metrics`, `/data/schema`, `/data/jobs`,
- * `/data/jobs/{name}/result`, `/reports`. Served on both its custom
- * domain (`api.<env>.boroughsim.com`, via `defaultDomainMapping`) and the
- * default `execute-api` URL.
+ * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — an HTTP
+ * API, cheaper than REST and enough for this mostly-GET surface. Serves
+ * both its custom domain and `execute-api`.
+ *
+ * `/admin/whoami` is the one admin-authorized route
+ * (`9-admin-auth-integration.md` §4/§8) — its JWT authorizer is attached
+ * per-route, never as the API's default, so every other route stays
+ * public/unauthenticated exactly as it is today.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -58,7 +65,7 @@ export class Nyc311Api extends HttpApi {
       corsPreflight: {
         allowOrigins: [...props.webAppDomainNames.map((d) => `https://${d}`), LOCAL_DEV_ORIGIN],
         allowMethods: [CorsHttpMethod.GET],
-        allowHeaders: ["Content-Type"],
+        allowHeaders: ["Content-Type", "Authorization"],
         maxAge: Duration.days(1),
       },
       defaultDomainMapping: { domainName: props.apiDomainName },
@@ -110,6 +117,13 @@ export class Nyc311Api extends HttpApi {
       path: "/reports",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetReportsIntegration", props.reportsApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/admin/whoami",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetAdminWhoamiIntegration", props.adminWhoamiApiLambda),
+      authorizer: props.adminAuthorizer,
     });
   }
 }

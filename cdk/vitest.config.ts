@@ -49,6 +49,7 @@ export default defineConfig({
         "api/**/*.ts",
         "step-function/**/*.ts",
         "warehouse/**/*.ts",
+        "auth/**/*.ts",
       ],
       exclude: [
         "**/*.d.ts",
