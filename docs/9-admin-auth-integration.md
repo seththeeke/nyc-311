@@ -91,7 +91,15 @@ Layered per `CLAUDE.md` §5.1's existing service/hook/component split:
 - `web-app/services/authService.ts` — one interface, two implementations
   (real Amplify-backed / in-memory mock), selected by `config.ts`'s
   `mock`/`live` flag, exactly like every other service. Wraps
-  `Amplify.configure`, `signIn`, `signOut`, `fetchAuthSession`.
+  `Amplify.configure`, `signIn`, `confirmSignIn`, `signOut`,
+  `fetchAuthSession`. **`signIn` handles Cognito's
+  `CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED` challenge** — the state a
+  plain `AdminCreateUser` (§1's real-admin provisioning path) leaves an
+  account in — returning `{status: "NEW_PASSWORD_REQUIRED"}` instead of
+  throwing; `completeNewPassword(newPassword)` finishes it via
+  `confirmSignIn`. Found and fixed 2026-09-10, before the real admin
+  account was created: without this, a temp-password account would have
+  been unable to log in through our own `LoginPage` at all.
 - `web-app/hooks/useAuth.ts` — exposes current auth state (logged
   in/out, the current `User`) to components; components never call
   `authService` directly.
@@ -99,7 +107,9 @@ Layered per `CLAUDE.md` §5.1's existing service/hook/component split:
   `data-model.md#user`'s admin-relevant fields (`user_id`, `email`,
   `display_name`), consumed by the service layer the same as every other
   model.
-- `web-app/components/pages/LoginPage.tsx` — the custom login form.
+- `web-app/components/pages/LoginPage.tsx` — the custom login form, with a
+  second stage (new-password form) rendered when `signIn` returns
+  `NEW_PASSWORD_REQUIRED`.
 - `web-app/routes/AdminRoute.tsx` — the second visibility-tier guard
   `CLAUDE.md` §5.1 already called for (alongside the existing
   `PublicRoute`): redirects to `/login` when `useAuth` reports logged out.
@@ -270,6 +280,9 @@ and the Secrets Manager/integration-test piece are still pending.
 - [x] `cdk/stack/Nyc311Stack.ts`/`Nyc311AppStage.ts` — `adminUserPoolClientIdOutput` exposed the same way `apiUrlOutput` already is.
 - [x] `cdk/pipeline/Nyc311IntegrationTestStep.ts` — `USER_POOL_CLIENT_ID` threaded via `envFromCfnOutputs`; `secretsmanager:GetSecretValue` (scoped to `Nyc311AdminTestCredential-<env>-*`) and `cognito-idp:InitiateAuth` (scoped to account/region — User Pool ids aren't deterministic pre-deploy) granted on the step's role.
 - [x] Unit tests + CDK assertion tests, 90%+ per file, `backend`/`cdk`/`web-app` all green.
-- [ ] Run `test-scripts/6-setup-test-admin.py` against `Nyc311-Test` (and `Nyc311-Prod`) — mutating, Deploy Safety Gate.
-- [ ] One-time `admin-create-user` for the real admin, both environments (manual, Deploy Safety Gate).
-- [ ] Deployed to `Nyc311-Test`, verified live (real login works, `/admin/whoami` returns 200 with a token / 401 without).
+- [x] Deployed to `Nyc311-Test` (via the pipeline, 2026-09-10).
+- [x] Ran `test-scripts/6-setup-test-admin.py` against `Nyc311-Test` — test-admin user + `Nyc311AdminTestCredential-Test` secret created.
+- [x] Verified live: signed in as the test-admin via `InitiateAuth` and confirmed `GET /admin/whoami` — `200` with the token (correct `User` record), `401` with none.
+- [x] Found and fixed a real gap before creating the real admin: `authService`/`LoginPage` had no handling for Cognito's `NEW_PASSWORD_REQUIRED` challenge — a plain `AdminCreateUser` account would have been unable to log in through our own form at all (§3).
+- [ ] Run `test-scripts/6-setup-test-admin.py --prod` against `Nyc311-Prod`.
+- [ ] One-time `admin-create-user` for the real admin (seththeeke@gmail.com), both environments (manual, Deploy Safety Gate).

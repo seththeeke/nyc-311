@@ -7,10 +7,11 @@ import { authService } from "../../src/services/authService";
 import type { User } from "../../src/models/user";
 
 vi.mock("../../src/services/authService", () => ({
-  authService: { signIn: vi.fn(), signOut: vi.fn(), getCurrentUser: vi.fn() },
+  authService: { signIn: vi.fn(), completeNewPassword: vi.fn(), signOut: vi.fn(), getCurrentUser: vi.fn() },
 }));
 
 const mockedSignIn = vi.mocked(authService.signIn);
+const mockedCompleteNewPassword = vi.mocked(authService.completeNewPassword);
 const mockedSignOut = vi.mocked(authService.signOut);
 const mockedGetCurrentUser = vi.mocked(authService.getCurrentUser);
 
@@ -33,6 +34,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   mockedSignIn.mockReset();
+  mockedCompleteNewPassword.mockReset();
   mockedSignOut.mockReset();
   mockedGetCurrentUser.mockReset();
 });
@@ -61,19 +63,37 @@ describe("useAuth", () => {
     expect(result.current.user).toBeNull();
   });
 
-  it("signIn calls the service and updates user on success", async () => {
+  it("signIn calls the service and updates user when the outcome is SIGNED_IN", async () => {
     mockedGetCurrentUser.mockResolvedValue(null);
-    mockedSignIn.mockResolvedValue(user);
+    mockedSignIn.mockResolvedValue({ status: "SIGNED_IN", user });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    let outcome: string | undefined;
     await act(async () => {
-      await result.current.signIn("admin@example.com", "password123");
+      outcome = await result.current.signIn("admin@example.com", "password123");
     });
 
     expect(mockedSignIn).toHaveBeenCalledWith("admin@example.com", "password123");
+    expect(outcome).toBe("SIGNED_IN");
     await waitFor(() => expect(result.current.user).toEqual(user));
+  });
+
+  it("signIn returns NEW_PASSWORD_REQUIRED without updating user", async () => {
+    mockedGetCurrentUser.mockResolvedValue(null);
+    mockedSignIn.mockResolvedValue({ status: "NEW_PASSWORD_REQUIRED" });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.signIn("admin@example.com", "temp-password");
+    });
+
+    expect(outcome).toBe("NEW_PASSWORD_REQUIRED");
+    expect(result.current.user).toBeNull();
   });
 
   it("surfaces a signIn failure via signInError, without updating user", async () => {
@@ -89,6 +109,37 @@ describe("useAuth", () => {
 
     await waitFor(() => expect(result.current.signInError?.message).toBe("Invalid email or password"));
     expect(result.current.user).toBeNull();
+  });
+
+  it("completeNewPassword calls the service and updates user on success", async () => {
+    mockedGetCurrentUser.mockResolvedValue(null);
+    mockedCompleteNewPassword.mockResolvedValue(user);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.completeNewPassword("new-password-123");
+    });
+
+    expect(mockedCompleteNewPassword).toHaveBeenCalledWith("new-password-123");
+    await waitFor(() => expect(result.current.user).toEqual(user));
+  });
+
+  it("surfaces a completeNewPassword failure via completeNewPasswordError", async () => {
+    mockedGetCurrentUser.mockResolvedValue(null);
+    mockedCompleteNewPassword.mockRejectedValue(new Error("Password does not meet policy"));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.completeNewPassword("weak")).rejects.toThrow();
+    });
+
+    await waitFor(() =>
+      expect(result.current.completeNewPasswordError?.message).toBe("Password does not meet policy")
+    );
   });
 
   it("signOut calls the service and clears the user", async () => {

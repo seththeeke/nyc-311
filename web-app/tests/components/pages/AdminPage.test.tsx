@@ -29,6 +29,9 @@ describe("AdminPage", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut: vi.fn(),
     });
 
@@ -45,6 +48,9 @@ describe("AdminPage", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut,
     });
 
@@ -61,6 +67,9 @@ describe("AdminPage", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut: vi.fn(),
     });
 

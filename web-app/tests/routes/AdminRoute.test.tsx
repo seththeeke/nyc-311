@@ -47,6 +47,9 @@ describe("AdminRoute", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut: vi.fn(),
     });
 
@@ -62,6 +65,9 @@ describe("AdminRoute", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut: vi.fn(),
     });
 
@@ -77,6 +83,9 @@ describe("AdminRoute", () => {
       signIn: vi.fn(),
       signInError: null,
       isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
       signOut: vi.fn(),
     });
 
