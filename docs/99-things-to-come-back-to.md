@@ -133,3 +133,9 @@ See [#26](https://github.com/seththeeke/nyc-311/issues/26).
 Sub-item of #9 — redundant with the Synth step's own `npm run build`. See [#28](https://github.com/seththeeke/nyc-311/issues/28).
 
 ---
+
+## backend/ warehouse-analytics files stuck below 100% branch coverage
+
+See [#30](https://github.com/seththeeke/nyc-311/issues/30).
+
+---

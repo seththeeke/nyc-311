@@ -57,6 +57,12 @@ describe("getWarehouseSchema", () => {
     expect(glueMock.commandCalls(GetTablesCommand)).toHaveLength(2);
   });
 
+  it("tolerates a page response that omits TableList entirely", async () => {
+    glueMock.on(GetTablesCommand).resolves({});
+    const result = await getWarehouseSchema({ glueClient, databaseName: "db" });
+    expect(result.tables).toEqual([]);
+  });
+
   it("throws when WAREHOUSE_DATABASE_NAME is unset and none is passed", async () => {
     const prev = process.env["WAREHOUSE_DATABASE_NAME"];
     delete process.env["WAREHOUSE_DATABASE_NAME"];

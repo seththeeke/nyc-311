@@ -129,4 +129,10 @@ describe("WarehouseJobRunsDao.getLatestSucceededRunForJob", () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
     expect(await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d")).toBeNull();
   });
+
+  it("returns null when the response omits Items entirely", async () => {
+    /* Exercises the `result.Items ?? []` fallback — the `Items: []` case above always sets the key explicitly. */
+    ddbMock.on(QueryCommand).resolves({});
+    expect(await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d")).toBeNull();
+  });
 });

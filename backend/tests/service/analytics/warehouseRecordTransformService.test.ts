@@ -87,6 +87,18 @@ describe("transformFirehoseRecordData", () => {
     expect(data).toBe(original);
   });
 
+  it("fails a record whose parse failure throws a non-Error value", () => {
+    /* JSON.parse always throws a real SyntaxError in practice — mock it to exercise the `err instanceof Error ? ... : err` non-Error arm directly. */
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(JSON, "parse").mockImplementationOnce(() => {
+      throw "boom";
+    });
+
+    const { data, ok } = transformFirehoseRecordData(b64({ a: 1 }), NOW);
+    expect(ok).toBe(false);
+    expect(data).toBe(b64({ a: 1 }));
+  });
+
   it("fails a record whose JSON is an array, a number, or null — not an object", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(transformFirehoseRecordData(b64([1, 2, 3]), NOW).ok).toBe(false);
