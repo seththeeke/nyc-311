@@ -16,6 +16,21 @@ export const ApiGatewayHttpEventSchema = z.object({
     http: z.object({
       method: z.string().min(1),
     }),
+    /*
+     * Present only on routes behind the JWT authorizer
+     * (`9-admin-auth-integration.md` §4) — API Gateway populates this after
+     * validating the token, before the Lambda ever runs. `claims` carries
+     * whatever the Cognito ID/access token's claims include (`sub`,
+     * `email`, ...) as plain strings.
+     */
+    authorizer: z
+      .object({
+        jwt: z.object({
+          claims: z.record(z.string(), z.string()),
+          scopes: z.array(z.string()).nullable().optional(),
+        }),
+      })
+      .optional(),
   }),
   queryStringParameters: z.record(z.string(), z.string()).nullable().optional(),
   pathParameters: z.record(z.string(), z.string()).nullable().optional(),

@@ -36,4 +36,23 @@ describe("ApiGatewayHttpEventSchema", () => {
     expect(ApiGatewayHttpEventSchema.safeParse("not-an-object").success).toBe(false);
     expect(ApiGatewayHttpEventSchema.safeParse(null).success).toBe(false);
   });
+
+  it("accepts a JWT-authorized event carrying requestContext.authorizer.jwt.claims", () => {
+    const authorized = {
+      rawPath: "/admin/whoami",
+      requestContext: {
+        http: { method: "GET" },
+        authorizer: { jwt: { claims: { sub: "abc-123", email: "admin@example.com" }, scopes: null } },
+      },
+    };
+    expect(ApiGatewayHttpEventSchema.parse(authorized)).toEqual(authorized);
+  });
+
+  it("rejects an authorizer.jwt.claims with non-string values", () => {
+    const malformed = {
+      rawPath: "/admin/whoami",
+      requestContext: { http: { method: "GET" }, authorizer: { jwt: { claims: { sub: 123 } } } },
+    };
+    expect(ApiGatewayHttpEventSchema.safeParse(malformed).success).toBe(false);
+  });
 });
