@@ -120,6 +120,12 @@ describe("getJobResult", () => {
     }
   });
 
+  it("constructs a default S3 client when none is injected", async () => {
+    /* No result_location means the default S3Client is built but never used to send — cheap way to exercise the `?? new S3Client({})` fallback. */
+    const dao = fakeDao(null);
+    expect(await getJobResult("order_volume_by_stage_7d", { jobRunsDao: dao })).toBeNull();
+  });
+
   it("throws when WAREHOUSE_JOB_RUNS_TABLE_NAME is unset and no DAO is injected", async () => {
     const prev = process.env["WAREHOUSE_JOB_RUNS_TABLE_NAME"];
     delete process.env["WAREHOUSE_JOB_RUNS_TABLE_NAME"];

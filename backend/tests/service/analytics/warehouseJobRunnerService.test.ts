@@ -333,10 +333,27 @@ describe("runWarehouseJobs", () => {
     ]);
   });
 
+  it("defaults a column's name/type to empty string when Athena omits them", async () => {
+    const jobRuns = fakeJobRunsDao();
+    mockAthenaSuccess();
+    athenaMock.on(GetQueryResultsCommand).resolves({
+      ResultSet: {
+        ResultSetMetadata: { ColumnInfo: [{}] },
+        Rows: [{ Data: [{ VarCharValue: "x" }] }],
+      },
+    } as never);
+
+    await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+
+    expect(lastPutBody().columns).toEqual([{ name: "", type: "" }]);
+  });
+
   it("stringifies a non-Error failure into error_message, records FAILED, does not throw", async () => {
     const jobRuns = fakeJobRunsDao();
     mockAthenaSuccess();
-    s3Mock.on(PutObjectCommand).rejects("raw string blow-up");
+    /* aws-sdk-client-mock's `.rejects(string)` wraps it in a real Error, which wouldn't exercise the
+     * `err instanceof Error ? ... : String(err)` non-Error arm — spy directly to reject with a bare string. */
+    vi.spyOn(s3Client, "send").mockRejectedValueOnce("raw string blow-up");
 
     const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
 

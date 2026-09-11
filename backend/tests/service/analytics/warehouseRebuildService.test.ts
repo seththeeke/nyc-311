@@ -60,6 +60,11 @@ function deps(dao: WarehouseJobRunsDao) {
   return { s3Client, firehoseClient, jobRunsDao: dao, bucket: BUCKET, now: NOW, sleep: async () => {} };
 }
 
+/** Omits `now`/`sleep` so the service's own default clock/sleep closures actually run. */
+function depsNoClock(dao: WarehouseJobRunsDao) {
+  return { s3Client, firehoseClient, jobRunsDao: dao, bucket: BUCKET };
+}
+
 beforeEach(() => {
   s3Mock.reset();
   firehoseMock.reset();
@@ -124,6 +129,41 @@ describe("wipeAndListExport", () => {
     await expect(
       wipeAndListExport({ phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME }, deps(dao))
     ).rejects.toThrow(/no rows/);
+  });
+
+  it("tolerates a ListObjectsV2 page that omits Contents entirely", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(ListObjectsV2Command).resolves({});
+    s3Mock.on(GetObjectCommand).resolves({ Body: textBody(manifest([{ key: "f1", itemCount: 10 }])) } as never);
+
+    const result = await wipeAndListExport(
+      { phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME },
+      deps(dao)
+    );
+    expect(result.chunks).toEqual([{ fileKey: "f1", start: 0, count: 10 }]);
+    expect(s3Mock.commandCalls(DeleteObjectsCommand)).toHaveLength(0);
+  });
+
+  it("throws when the export ARN has no parseable ExportId", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
+
+    await expect(
+      wipeAndListExport(
+        { phase: "wipe", source: "locations", exportArn: "arn:aws:dynamodb:us-east-1:111:table/Locations-Test/export/", startedAt: EXPORT_TIME },
+        deps(dao)
+      )
+    ).rejects.toThrow(/Cannot parse ExportId/);
+  });
+
+  it("throws when the manifest object has no Body", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
+    s3Mock.on(GetObjectCommand).resolves({});
+
+    await expect(
+      wipeAndListExport({ phase: "wipe", source: "locations", exportArn: ORDERS_ARN, startedAt: EXPORT_TIME }, deps(dao))
+    ).rejects.toThrow(/Empty object/);
   });
 
   it("paginates the data/ wipe", async () => {
@@ -212,6 +252,51 @@ describe("replayExportChunk", () => {
       )
     ).rejects.toThrow(/unwritten/);
   });
+
+  it("throws when the export data file object has no Body", async () => {
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({});
+
+    await expect(
+      replayExportChunk(
+        { phase: "replay", source: "locations", chunk: { fileKey: "f1", start: 0, count: 1 }, exportTime: EXPORT_TIME },
+        deps(dao)
+      )
+    ).rejects.toThrow(/Empty object/);
+  });
+
+  it("succeeds even when Firehose reports a failure but omits RequestResponses entirely", async () => {
+    /* A `FailedPutCount > 0` response with no `RequestResponses` key exercises the `?? []` fallback —
+     * every pending record then filters out (no ErrorCode to match), so the retry loop exits clean. */
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({ Body: gzLines([{ location_id: "l1" }]) } as never);
+    firehoseMock.on(PutRecordBatchCommand).resolves({ FailedPutCount: 1 });
+
+    const replayed = await replayExportChunk(
+      { phase: "replay", source: "locations", chunk: { fileKey: "f1", start: 0, count: 1 }, exportTime: EXPORT_TIME },
+      deps(dao)
+    );
+    expect(replayed).toEqual({ locations: 1 });
+    expect(firehoseMock.commandCalls(PutRecordBatchCommand)).toHaveLength(1);
+  });
+
+  it("uses the real backoff sleep when none is injected", async () => {
+    /* Omitting `sleep` from deps exercises the default `(ms) => delayMs(ms)` closure — a real,
+     * short (400ms) wait rather than a fake one, since this is the one path that must actually pace retries. */
+    const { dao } = daoSpy();
+    s3Mock.on(GetObjectCommand).resolves({ Body: gzLines([{ location_id: "l1" }]) } as never);
+    firehoseMock
+      .on(PutRecordBatchCommand)
+      .resolvesOnce({ FailedPutCount: 1, RequestResponses: [{ ErrorCode: "ServiceUnavailableException" }] })
+      .resolves({ FailedPutCount: 0 });
+
+    const replayed = await replayExportChunk(
+      { phase: "replay", source: "locations", chunk: { fileKey: "f1", start: 0, count: 1 }, exportTime: EXPORT_TIME },
+      depsNoClock(dao)
+    );
+    expect(replayed).toEqual({ locations: 1 });
+    expect(firehoseMock.commandCalls(PutRecordBatchCommand)).toHaveLength(2);
+  }, 10_000);
 });
 
 describe("finalizeRebuild", () => {
@@ -244,6 +329,27 @@ describe("finalizeRebuild", () => {
     expect(putJobRun.mock.calls[0][0]).toMatchObject({ job_run_id: "01RUN", status: "SUCCEEDED", row_count: 1450 });
     const del = s3Mock.commandCalls(DeleteObjectsCommand)[0].args[0].input;
     expect((del.Delete!.Objects ?? [])[0].Key).toBe("export-staging/orders/x");
+  });
+
+  it("uses the real clock's completed_at when no now() is injected", async () => {
+    /* Omitting `now` exercises the default `() => new Date()` closure. */
+    const { dao, putJobRun } = daoSpy();
+    s3Mock.on(ListObjectsV2Command).resolves({ Contents: [], IsTruncated: false });
+    s3Mock.on(DeleteObjectsCommand).resolves({});
+
+    await finalizeRebuild(
+      {
+        phase: "finalize",
+        source: "orders",
+        exportArn: ORDERS_ARN,
+        jobRunId: "01RUN",
+        startedAt: EXPORT_TIME,
+        replayResults: [],
+      },
+      depsNoClock(dao)
+    );
+
+    expect(putJobRun.mock.calls[0][0].completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
 
