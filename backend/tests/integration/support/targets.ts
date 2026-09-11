@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { lookupStackOutput } from "./cfnOutputs";
 
 /**
  * Resolves the integration suite's target base URL. `INTEGRATION_TARGET`
@@ -10,7 +10,6 @@ import { execFileSync } from "node:child_process";
  * same lookup the old `test-scripts/` Python scripts used.
  */
 
-const AWS_PROFILE = "nyc311";
 const LOCAL_BASE_URL = "http://localhost:3000";
 
 const STACK_NAME_BY_TARGET = {
@@ -26,17 +25,7 @@ function parseTarget(raw: string | undefined): IntegrationTarget {
 }
 
 function lookupDeployedApiUrl(stackName: string): string {
-  const output = execFileSync(
-    "aws",
-    ["cloudformation", "describe-stacks", "--stack-name", stackName, "--profile", AWS_PROFILE, "--output", "json"],
-    { encoding: "utf8" },
-  );
-  const stacks = JSON.parse(output).Stacks as { Outputs?: { OutputKey: string; OutputValue: string }[] }[];
-  const url = stacks[0]?.Outputs?.find((o) => o.OutputKey === "Nyc311ApiUrl")?.OutputValue;
-  if (!url) {
-    throw new Error(`No Nyc311ApiUrl output on ${stackName} — has Nyc311Api been deployed yet?`);
-  }
-  return url.replace(/\/$/, "");
+  return lookupStackOutput(stackName, "Nyc311ApiUrl").replace(/\/$/, "");
 }
 
 export function resolveBaseUrl(): string {

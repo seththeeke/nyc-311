@@ -181,7 +181,9 @@ export class Nyc311PipelineStack extends Stack {
       target: "test",
       blocking: true,
       account: this.account,
+      region: this.region,
       apiUrlOutput: deployTestStage.apiUrlOutput,
+      adminUserPoolClientIdOutput: deployTestStage.adminUserPoolClientIdOutput,
       source,
     });
 
@@ -222,7 +224,9 @@ export class Nyc311PipelineStack extends Stack {
       target: "prod",
       blocking: false,
       account: this.account,
+      region: this.region,
       apiUrlOutput: deployProdStage.apiUrlOutput,
+      adminUserPoolClientIdOutput: deployProdStage.adminUserPoolClientIdOutput,
       source,
     });
 

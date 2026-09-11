@@ -77,6 +77,60 @@ describe("Nyc311IntegrationTestStep", () => {
     });
   });
 
+  it("wires each environment's real Nyc311AdminUserPoolClientId output in as USER_POOL_CLIENT_ID, not a hardcoded value", () => {
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Name: "DeployTest",
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Name: "IntegrationTestsTest",
+              Configuration: Match.objectLike({
+                EnvironmentVariables: Match.stringLikeRegexp('.*"USER_POOL_CLIENT_ID".*#\\{.*\\.Nyc311AdminUserPoolClientId\\}.*'),
+              }),
+            }),
+          ]),
+        }),
+        Match.objectLike({
+          Name: "DeployProd",
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Name: "IntegrationTestsProd",
+              Configuration: Match.objectLike({
+                EnvironmentVariables: Match.stringLikeRegexp('.*"USER_POOL_CLIENT_ID".*#\\{.*\\.Nyc311AdminUserPoolClientId\\}.*'),
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it("grants secretsmanager:GetSecretValue scoped to that environment's test-admin secret name prefix, and cognito-idp:InitiateAuth scoped to account/region", () => {
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Sid: "ReadTestAdminCredential",
+            Action: "secretsmanager:GetSecretValue",
+            Resource: `arn:aws:secretsmanager:${TEST_ENV.region}:${TEST_ENV.account}:secret:Nyc311AdminTestCredential-Test-*`,
+          }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Sid: "SignInAsTestAdmin",
+            Action: "cognito-idp:InitiateAuth",
+            Resource: `arn:aws:cognito-idp:${TEST_ENV.region}:${TEST_ENV.account}:userpool/*`,
+          }),
+        ]),
+      }),
+    });
+  });
+
   it("scopes each publish role to only /integration-tests/* on that one bucket, never a wildcard resource", () => {
     const policies = Object.values(template.findResources("AWS::IAM::Policy")) as {
       Properties: { PolicyDocument: { Statement: { Sid?: string; Resource: string | string[] }[] } };

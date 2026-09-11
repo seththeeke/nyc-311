@@ -19,8 +19,12 @@ export interface IntegrationTestStepProps {
   blocking: boolean;
   /** The account the target bucket/distribution live in (for scoping the invalidation IAM statement). */
   account: string;
+  /** The region this environment's resources live in (for scoping the Cognito/Secrets Manager IAM statements below — 9-admin-auth-integration.md §8). */
+  region: string;
   /** That environment's Nyc311Stack.apiUrlOutput (via Nyc311AppStage) — wired in as API_BASE_URL, not hardcoded (the URL isn't deterministic). */
   apiUrlOutput: CfnOutput;
+  /** That environment's Nyc311Stack.adminUserPoolClientIdOutput (via Nyc311AppStage) — wired in as USER_POOL_CLIENT_ID for the admin-whoami test's Cognito sign-in (9-admin-auth-integration.md §8). */
+  adminUserPoolClientIdOutput: CfnOutput;
   /** Reused from the pipeline's own source, so backend/ is present in this step's workspace. */
   source: pipelines.CodePipelineSource;
 }
@@ -37,6 +41,7 @@ export interface IntegrationTestStepProps {
  */
 export function createIntegrationTestStep(props: IntegrationTestStepProps): pipelines.CodeBuildStep {
   const { bucketName, distributionId } = WEBSITE_HOSTING_TARGETS[props.target === "test" ? "TEST" : "PROD"];
+  const envSuffix = props.target === "test" ? "Test" : "Prod";
 
   /*
    * The test run's exit code is captured to a file, not checked directly,
@@ -54,7 +59,10 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
 
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
-    envFromCfnOutputs: { API_BASE_URL: props.apiUrlOutput },
+    envFromCfnOutputs: {
+      API_BASE_URL: props.apiUrlOutput,
+      USER_POOL_CLIENT_ID: props.adminUserPoolClientIdOutput,
+    },
     commands: [runAndCaptureExit, syncReport, invalidate, finish],
     /*
      * Least-privilege, not a blanket bucket grant: this step can write
@@ -77,6 +85,30 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
         sid: "InvalidateIntegrationTestReportPaths",
         actions: ["cloudfront:CreateInvalidation"],
         resources: [`arn:aws:cloudfront::${props.account}:distribution/${distributionId}`],
+      }),
+      /*
+       * 9-admin-auth-integration.md §8 — the admin-whoami test's Cognito
+       * sign-in. Secret name is deterministic (test-scripts/6-setup-
+       * test-admin.py's naming), but Secrets Manager appends a random
+       * 6-character suffix to every ARN, hence the trailing "-*".
+       */
+      new iam.PolicyStatement({
+        sid: "ReadTestAdminCredential",
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          `arn:aws:secretsmanager:${props.region}:${props.account}:secret:Nyc311AdminTestCredential-${envSuffix}-*`,
+        ],
+      }),
+      /*
+       * User Pool ids aren't deterministic pre-deploy (unlike this
+       * project's table/bucket names), so this is scoped by account/region
+       * and action only, not a specific pool — still far short of a
+       * blanket Cognito grant.
+       */
+      new iam.PolicyStatement({
+        sid: "SignInAsTestAdmin",
+        actions: ["cognito-idp:InitiateAuth"],
+        resources: [`arn:aws:cognito-idp:${props.region}:${props.account}:userpool/*`],
       }),
     ],
   });

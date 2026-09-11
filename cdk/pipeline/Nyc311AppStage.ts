@@ -20,6 +20,8 @@ const STACK_NAME_BY_ENV: Record<Nyc311Environment, string> = {
 export class Nyc311AppStage extends Stage {
   /** 4-pipeline-integration-tests.md §5 — passed to the pipeline's integration-test step via envFromCfnOutputs. */
   public readonly apiUrlOutput: CfnOutput;
+  /** 9-admin-auth-integration.md §8 — same mechanism, for the integration suite's test-admin sign-in. */
+  public readonly adminUserPoolClientIdOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: Nyc311AppStageProps) {
     super(scope, id, props);
@@ -31,5 +33,6 @@ export class Nyc311AppStage extends Stage {
     });
 
     this.apiUrlOutput = nyc311Stack.apiUrlOutput;
+    this.adminUserPoolClientIdOutput = nyc311Stack.adminUserPoolClientIdOutput;
   }
 }
