@@ -1,5 +1,11 @@
 # Admin Auth Integration — Design & Build Doc
 
+**Status: Shipped and verified live 2026-09-10.** Deployed to both
+`Nyc311-Test` and `Nyc311-Prod`; the real admin account logs in
+successfully at both `test.boroughsim.com` and `boroughsim.com`, including
+the `NEW_PASSWORD_REQUIRED` first-login flow. See the Build Checklist at
+the bottom for the full list of what shipped.
+
 > Leg 0 of the capacity-management effort (see `10-capacity-modeling-and-integration.md`
 > for Legs 1-4). Building this first, in isolation, so the authenticated-admin
 > tier already exists as reusable infrastructure by the time capacity
@@ -27,7 +33,7 @@
 | [5. `User` persistence & audit attribution](#5-user-persistence--audit-attribution) | **Agreed (2026-09-10)** |
 | [6. In-memory/mock mode behavior](#6-in-memorymock-mode-behavior) | **Agreed (2026-09-10)** |
 | [7. Local dev workflow](#7-local-dev-workflow) | **Agreed (2026-09-10)** |
-| [8. Testing](#8-testing) | **Agreed (2026-09-10) — fully built; live deploy/run still pending** |
+| [8. Testing](#8-testing) | **Agreed (2026-09-10) — fully built and verified live** |
 | [9. CDK construct shape & naming](#9-cdk-construct-shape--naming) | **Agreed (2026-09-10) — built as proposed** |
 
 ---
@@ -288,6 +294,6 @@ and the Secrets Manager/integration-test piece are still pending.
 - [x] Ran `test-scripts/6-setup-test-admin.py --prod` against `Nyc311-Prod` — test-admin user + `Nyc311AdminTestCredential-Prod` secret created (`IntegrationTestsProd` is non-blocking/always-exits-0, so it had been silently no-op'ing rather than actually verifying anything until this ran).
 - [x] One-time `admin-create-user` for the real admin (seththeeke@gmail.com), both environments — temporary password, `FORCE_CHANGE_PASSWORD` state, so the new §3 challenge-handling gets exercised on first real login.
 - [x] Verified live in `Nyc311-Test`: real-admin login at `test.boroughsim.com` — temporary password accepted, `NEW_PASSWORD_REQUIRED` correctly triggered the new-password form, real password set successfully.
-- [ ] Verify the same real-admin login flow live in `Nyc311-Prod` (`boroughsim.com`) — temp password issued, not yet confirmed working.
+- [x] Verified live in `Nyc311-Prod`: same real-admin login flow confirmed working at `boroughsim.com`.
 
-**Leg 0 is fully built and deployed to both environments as of 2026-09-10; live verification is confirmed in Test, pending confirmation in Prod.**
+**Leg 0 (admin auth) is complete — built, deployed, and verified live end-to-end in both `Nyc311-Test` and `Nyc311-Prod` as of 2026-09-10.**

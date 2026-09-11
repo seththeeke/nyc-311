@@ -1,8 +1,8 @@
 # Capacity Modeling & Integration — Design & Build Doc
 
 > Legs 1-4 of the capacity-management effort (Leg 0, admin auth, is
-> `9-admin-auth-integration.md`, negotiated and built first). Replaces the
-> hardcoded/mock capacity built in `6-order-scheduling.md` (`MOCK_POOL_CAPACITY_UNITS
+> `9-admin-auth-integration.md` — shipped and verified live 2026-09-10).
+> Replaces the hardcoded/mock capacity built in `6-order-scheduling.md` (`MOCK_POOL_CAPACITY_UNITS
 > = 5`, a fresh random-UUID `OperatorDao.getOperator()` never persisted) with
 > a real, admin-manageable `Operator` fleet, a real cost model, a real
 > `Execute → Resolve` simulation, and on-demand test-data cleanup.
