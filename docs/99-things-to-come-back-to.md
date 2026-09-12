@@ -139,3 +139,9 @@ Sub-item of #9 — redundant with the Synth step's own `npm run build`. See [#28
 See [#30](https://github.com/seththeeke/nyc-311/issues/30).
 
 ---
+
+## Two high-severity npm audit CVEs (js-yaml, brace-expansion) have non-breaking fixes unapplied across backend/cdk/web-app
+
+See [#32](https://github.com/seththeeke/nyc-311/issues/32).
+
+---
