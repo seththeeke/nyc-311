@@ -27,6 +27,16 @@
 #
 # `npm run test:coverage` (unsharded) stays the local-dev default --- this
 # problem has only ever reproduced on CodeBuild, never locally.
+#
+# SHARD_COUNT bumped 3 -> 6 on 2026-09-12: the suite grew from ~30 to 54
+# test files (10-capacity-modeling-and-integration.md Legs 1-2 --- three
+# new NodejsFunction-bundling Lambda test files plus a new table's), which
+# regrew each shard's coverage payload back toward the same fixed 60s
+# ceiling this script exists to dodge -- confirmed via 4 consecutive
+# identical CodeBuild "onTaskUpdate" failures at SHARD_COUNT=3 the same
+# day. Tried 5 first: a local sharded run passed, but the slowest shard
+# still took 51s -- too close to the 60s ceiling to trust on CodeBuild's
+# more variable performance. 6 gives real headroom, not just a bare pass.
 
 set -uo pipefail
 # Deliberately no `-e` — each shard's exit status is captured and reported
@@ -37,7 +47,7 @@ set -uo pipefail
 # the shell's own "exit status 1"); `--reporter=default` restores it
 # alongside blob's merge data.
 
-SHARD_COUNT=3
+SHARD_COUNT=6
 
 # One fork per shard process. The "onTaskUpdate" worker-RPC timeout this
 # whole script exists to dodge is a CodeBuild-only, parallelism-sensitive
