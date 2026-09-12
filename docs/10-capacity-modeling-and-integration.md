@@ -343,7 +343,7 @@ unchanged.
 - [x] `test-scripts/8-capacity-crud-test.py` — on-demand live CRUD verification (add → read → remove → read → 400/404 checks), deliberately **not** added to the pipeline's automatic integration gate (would mutate real capacity rows on every deploy otherwise).
 - [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser (mock mode): add/remove both work end-to-end.
 - [ ] §2.3's all-time-cost warehouse job — not built, future work.
-- [ ] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` + `8-capacity-crud-test.py` — pending push/deploy.
+- [x] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` (seeded fleet to 10, $450/hr) + `8-capacity-crud-test.py` (401/create/read/remove/read/400/404 all passed, net fleet-size change zero) — 2026-09-12.
 
 **Leg 3 — Order execution simulation**: not started.
 
