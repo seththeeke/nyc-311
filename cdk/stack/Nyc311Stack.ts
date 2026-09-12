@@ -49,6 +49,7 @@ import { OperatorsTable } from "../data/OperatorsTable";
 import { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
 import { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
 import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
+import { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
@@ -193,6 +194,11 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       operatorsTable,
       usersTable,
+    });
+    /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
+    const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
+      envName: props.envName,
+      operatorsTable,
     });
     /*
      * Consumed by test-scripts/6-setup-test-admin.py and the integration
@@ -533,6 +539,7 @@ export class Nyc311Stack extends Stack {
       removeCapacityApiLambda,
       getCapacityApiLambda,
       runSchedulingApiLambda,
+      getFleetLocationsApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

@@ -25,6 +25,7 @@ import { Nyc311AddCapacityApiLambda } from "../../lambda/Nyc311AddCapacityApiLam
 import { Nyc311RemoveCapacityApiLambda } from "../../lambda/Nyc311RemoveCapacityApiLambda";
 import { Nyc311GetCapacityApiLambda } from "../../lambda/Nyc311GetCapacityApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../../lambda/Nyc311RunSchedulingApiLambda";
+import { Nyc311GetFleetLocationsApiLambda } from "../../lambda/Nyc311GetFleetLocationsApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -125,6 +126,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     usersTable,
     orderExecutionStateMachine,
   });
+  const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(stack, "Nyc311GetFleetLocationsApiLambda", {
+    envName,
+    operatorsTable,
+  });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -145,6 +150,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     removeCapacityApiLambda,
     getCapacityApiLambda,
     runSchedulingApiLambda,
+    getFleetLocationsApiLambda,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -197,7 +203,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 13);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 14);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -254,6 +260,13 @@ describe("Nyc311Api", () => {
     });
   });
 
+  it("wires GET /fleet/locations to the fleet-locations Lambda, no authorizer — public, unlike /capacity", () => {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /fleet/locations",
+      AuthorizationType: "NONE",
+    });
+  });
+
   it("does not attach the JWT authorizer to any other route", () => {
     const routes = testTemplate.findResources("AWS::ApiGatewayV2::Route");
     const authorizedRouteKeys = Object.values(routes)
@@ -279,7 +292,7 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly thirteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 13);
+  it("declares exactly fourteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 14);
   });
 });

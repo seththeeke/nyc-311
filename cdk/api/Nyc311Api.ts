@@ -13,6 +13,7 @@ import type { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiL
 import type { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
 import type { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
 import type { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
+import type { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
@@ -36,6 +37,8 @@ export interface Nyc311ApiProps {
   getCapacityApiLambda: Nyc311GetCapacityApiLambda;
   /** `10-capacity-modeling-and-integration.md` §5.1 — the admin on-demand scheduling trigger, same authorizer. */
   runSchedulingApiLambda: Nyc311RunSchedulingApiLambda;
+  /** `10-capacity-modeling-and-integration.md` §6.1 — the public home-page map's data source, no authorizer. */
+  getFleetLocationsApiLambda: Nyc311GetFleetLocationsApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -162,6 +165,12 @@ export class Nyc311Api extends HttpApi {
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration("RunSchedulingIntegration", props.runSchedulingApiLambda),
       authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/fleet/locations",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetFleetLocationsIntegration", props.getFleetLocationsApiLambda),
     });
   }
 }

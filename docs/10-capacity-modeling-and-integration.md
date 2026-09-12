@@ -1,6 +1,6 @@
 # Capacity Modeling & Integration — Design & Build Doc
 
-> Legs 1-5 of the capacity-management effort (Leg 0, admin auth, is
+> Legs 1-6 of the capacity-management effort (Leg 0, admin auth, is
 > `9-admin-auth-integration.md` — shipped and verified live 2026-09-10).
 > Replaces the hardcoded/mock capacity built in `6-order-scheduling.md` (`MOCK_POOL_CAPACITY_UNITS
 > = 5`, a fresh random-UUID `OperatorDao.getOperator()` never persisted) with
@@ -43,6 +43,7 @@
 | 3 | [3.8 Pre-scheduling hook — leading `Wait`](#38-pre-scheduling-hook--leading-wait) | **Agreed (2026-09-12)** |
 | 4 | [4.1 Cleanup script scope](#41-cleanup-script-scope) | **Agreed (2026-09-10)** |
 | 5 | [5.1 Admin Scheduling tile](#51-admin-scheduling-tile) | **Agreed (2026-09-12)** |
+| 6 | [6.1 Home-page fleet map + public GPS read path](#61-home-page-fleet-map--public-gps-read-path) | **Agreed (2026-09-12)** |
 
 ---
 
@@ -171,12 +172,8 @@ public Monitoring page):
 | `DELETE /capacity/{operator_id}` | Queues or finalizes removal per §1.1's semantics. Returns the updated `Operator`. |
 | `GET /capacity` | Live stats (available count, active fleet size, current hourly burn rate = sum of active `rate_per_hour`) + the active roster list, via `gsi2-roster` (§1.4). |
 
-**Future, not built now**: a separate **public** read endpoint (e.g.
-surfacing "N operators currently executing" / order-state counts) is
-anticipated for a future home-page map view you mentioned — deliberately
-not designed here since that view doesn't exist yet, but this API surface
-should not preclude adding a lightweight public summary route later
-without reworking `GET /capacity` itself.
+**Built (2026-09-12, Leg 6)**: the public read endpoint anticipated here —
+`GET /fleet/locations` — see §6.1.
 
 ### 2.2 Frontend surface — the Admin page
 
@@ -431,14 +428,50 @@ own `SchedulingRunSummary` is still logged via `logInfo`, same as always
 
 ---
 
+## Leg 6 — Home-page fleet map + public GPS read path
+
+### 6.1 Home-page fleet map + public GPS read path
+
+**Agreed.** "A visual way to verify some of this execution" — the
+home-page now renders a live map of every active Operator's current
+position, color-coded by `current_activity` (green `IDLE`, amber
+`TRANSIT`, blue `WORKING`). Current position only, no path/trail
+rendering — §3.7 already reconstructs a full path by replaying an
+Operator's event history if that's wanted later; this leg is deliberately
+the simpler "where is everyone right now" view.
+
+**The actual missing piece wasn't the GPS pings themselves** (§3.7 already
+built those, riding on `OperatorEvent` payloads) **but a way to read them
+out** — nothing before this leg could answer "where is the fleet" without
+already being behind `AdminRoute`. New:
+
+- `GET /fleet/locations` — **public**, unlike every other capacity route.
+  Returns `{ operators: [{ operator_id, name, current_activity,
+  current_location }] }` for the active roster — a narrower, public-safe
+  projection than `Operator` (no `rate_per_hour`, `removal_requested_at`,
+  timestamps, or `last_event_sequence`). New `backend/models/
+  fleetLocation.ts`, `service/fleet/fleetLocationService.ts` (a separate
+  service from `capacityService` — public read vs. admin CRUD are
+  genuinely different concerns, not just a filtered view of one), and
+  `controller/web-api/getFleetLocationsController.ts` (no
+  `requireAdminUser` call, same as every other public `GET` route).
+- `cdk/lambda/Nyc311GetFleetLocationsApiLambda.ts` — `OperatorsTable`
+  `Query` only, no `UsersTable` grant (nothing to authenticate).
+- `web-app/src/components/FleetMap.tsx` — Leaflet + OpenStreetMap tiles
+  (free, no API key), new `leaflet`/`react-leaflet` dependencies. Rendered
+  on `HomePage.tsx` via `useFleetLocations` (15s poll, matching other
+  live-tile refresh cadences in this codebase).
+
+---
+
 ## Build Checklist
 
-**Legs 1, 2, 3, and 5 built and locally verified 2026-09-12**
+**Legs 1, 2, 3, 5, and 6 built and locally verified 2026-09-12**
 (build/lint/test/coverage green across `backend`/`cdk`/`web-app`, 90%+ per
 file); Leg 4 not yet started. Capacity **is now wired into scheduling**
 (Legs 3.5/3.6) — `orderSchedulingService.ts` claims a real idle `Operator`
 and starts one execution per Order; the old `MockOperatorAssignmentDao`/
-`mockCapacityAvailabilityProvider` stubs are deleted. Legs 3 and 5 are
+`mockCapacityAvailabilityProvider` stubs are deleted. Legs 3, 5, and 6 are
 built and locally verified but **not yet deployed**.
 
 **Leg 1 — Operator entity & capacity model**
@@ -492,6 +525,15 @@ file; visually verified live in the browser, mock mode). Not yet deployed.
 - [x] `cdk/lambda/Nyc311RunSchedulingApiLambda.ts`, `cdk/api/Nyc311Api.ts` route wiring.
 - [x] `web-app/src/services/schedulingService.ts` (real + mock), `hooks/useScheduling.ts`, `components/pages/SchedulingManagementPage.tsx` (routed at `/admin/scheduling`), `SchedulingIcon` added to the shared icon set, second Admin tile.
 - [x] Deliberately no output-statistics display, persisted run history, or `GET` status endpoint (§5.1) — you want to think that through before committing to it.
+- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy.
+
+**Leg 6 — Home-page fleet map + public GPS read path, built and locally verified 2026-09-12.**
+- [x] `backend/models/fleetLocation.ts` — `FleetOperatorLocation`/`FleetLocations`, the public-safe subset of `Operator`.
+- [x] `backend/service/fleet/fleetLocationService.ts`, `controller/web-api/getFleetLocationsController.ts` — `GET /fleet/locations`, public, no `requireAdminUser`.
+- [x] `cdk/lambda/Nyc311GetFleetLocationsApiLambda.ts` — `OperatorsTable` `Query` only.
+- [x] `web-app/src/models/fleetLocation.ts`, `services/fleetLocationService.ts` (real + mock), `test-data/fleetLocations.ts`, `hooks/useFleetLocations.ts`, `components/FleetMap.tsx` (Leaflet + OpenStreetMap, new `leaflet`/`react-leaflet` deps), rendered on `HomePage.tsx`.
+- [x] Current position only — no path/trail rendering yet (§3.7 already supports reconstructing one from event history if wanted later).
+- [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser (mock mode): real map tiles, 7 mock vehicles color-coded by activity, popup on click showing name + activity.
 - [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy.
 
 **Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`.
