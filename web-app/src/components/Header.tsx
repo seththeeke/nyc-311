@@ -10,8 +10,8 @@ import { Link } from "react-router-dom";
  */
 export function Header(): ReactElement {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+    <header className="sticky top-0 z-50 h-14 border-b border-white/10 bg-slate-950/95 backdrop-blur">
+      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
         <Link to="/" className="text-lg font-bold tracking-tight text-white">
           BoroughSim
         </Link>

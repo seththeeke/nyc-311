@@ -1,40 +1,36 @@
 import type { ReactElement } from "react";
-import { Link } from "react-router-dom";
 import { FleetMap } from "../FleetMap";
 import { useFleetLocations } from "../../hooks/useFleetLocations";
 
 /**
- * The public landing page — now also the fleet map
- * (`10-capacity-modeling-and-integration.md` §6.1), a live, read-only
- * view of every active Operator's current GPS position. First visual way
- * to verify scheduling/execution actually moves vehicles around.
+ * The public landing page — the fleet map
+ * (`10-capacity-modeling-and-integration.md` §6.1), full-bleed under the
+ * global header (`Header.tsx`'s `h-14`), Google-Maps-style: no title/nav
+ * of its own, since the header already carries the app name and links.
+ * The map always renders, even before locations resolve or if fetching
+ * them fails — loading/error state overlays on top instead of replacing
+ * it, so a transient fetch failure never blanks the whole view.
  */
 export function HomePage(): ReactElement {
   const { locations, isLoading, error } = useFleetLocations();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-slate-900">BoroughSim</h1>
-      <p className="mt-2 text-slate-600">
-        <Link to="/monitoring" className="text-blue-600 underline">
-          View system monitoring
-        </Link>
-      </p>
+    <main className="relative h-[calc(100vh-3.5rem)] w-full">
+      <FleetMap operators={locations?.operators ?? []} />
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold text-slate-900">Live fleet</h2>
-        {isLoading && <p className="mt-2 text-slate-500">Loading…</p>}
-        {error && (
-          <p role="alert" className="mt-2 text-red-600">
-            {error.message}
-          </p>
-        )}
-        {locations && (
-          <div className="mt-3">
-            <FleetMap operators={locations.operators} />
-          </div>
-        )}
-      </section>
+      {isLoading && (
+        <div className="pointer-events-none absolute top-4 left-4 z-[1000] rounded-full bg-slate-950/90 px-3 py-1.5 text-sm text-slate-300 shadow-lg">
+          Loading fleet…
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="absolute top-4 left-4 z-[1000] rounded-lg bg-red-950/95 px-3 py-1.5 text-sm text-red-200 shadow-lg"
+        >
+          Couldn&apos;t load the fleet: {error.message}
+        </div>
+      )}
     </main>
   );
 }

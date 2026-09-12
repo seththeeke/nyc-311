@@ -25,51 +25,48 @@ function renderHomePage() {
 }
 
 describe("HomePage", () => {
-  it("shows the BoroughSim product name as the heading", () => {
+  it("renders no title or nav of its own — the global Header already carries those", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
 
     renderHomePage();
 
-    expect(screen.getByRole("heading", { name: "BoroughSim" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("links to the monitoring section", () => {
+  it("renders the map immediately, before locations resolve", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
 
     renderHomePage();
 
-    expect(screen.getByRole("link", { name: /view system monitoring/i })).toHaveAttribute("href", "/monitoring");
+    expect(screen.getByTestId("fleet-map")).toHaveTextContent("0 operators");
   });
 
-  it("does not link straight to the data warehouse — that moved to a Monitoring tile", () => {
+  it("overlays a loading indicator on top of the map, not in place of it", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
 
     renderHomePage();
 
-    expect(screen.queryByRole("link", { name: /data warehouse/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Loading fleet…")).toBeInTheDocument();
+    expect(screen.getByTestId("fleet-map")).toBeInTheDocument();
   });
 
-  it("shows a loading state before fleet locations resolve", () => {
-    mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
-
-    renderHomePage();
-
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
-  });
-
-  it("shows an error state when fetching fleet locations fails", () => {
+  it("overlays an error message on top of the map when fetching fails, without hiding the map", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: false, error: new Error("HTTP 500") });
 
     renderHomePage();
 
     expect(screen.getByRole("alert")).toHaveTextContent("HTTP 500");
+    expect(screen.getByTestId("fleet-map")).toBeInTheDocument();
   });
 
-  it("renders the FleetMap once locations resolve", () => {
+  it("passes the resolved operators to the map once locations load", () => {
     mockedUseFleetLocations.mockReturnValue({ locations, isLoading: false, error: null });
 
     renderHomePage();
 
     expect(screen.getByTestId("fleet-map")).toHaveTextContent("1 operators");
+    expect(screen.queryByText("Loading fleet…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

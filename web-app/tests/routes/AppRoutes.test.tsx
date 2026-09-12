@@ -18,9 +18,9 @@ function renderAt(path: string) {
 }
 
 describe("AppRoutes", () => {
-  it("renders HomePage at /", () => {
+  it("renders HomePage (the fleet map) at /", () => {
     renderAt("/");
-    expect(screen.getByRole("heading", { name: "BoroughSim" })).toBeInTheDocument();
+    expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
   it("renders DataPage at /data", () => {
