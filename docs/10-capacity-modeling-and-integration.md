@@ -27,10 +27,10 @@
 |---|---|---|
 | 1 | [1.1 `Operator` schema for v1](#11-operator-schema-for-v1) | **Agreed (2026-09-10)** |
 | 1 | [1.2 Rate assignment](#12-rate-assignment) | **Agreed (2026-09-10)** |
-| 1 | [1.3 Seeding](#13-seeding) | **Agreed (2026-09-10)** |
-| 1 | [1.4 GSIs](#14-gsis) | Proposed — flag if wrong |
-| 1 | [1.5 Real `CapacityAvailabilityProvider` & the deferred atomic claim](#15-real-capacityavailabilityprovider--the-deferred-atomic-claim) | **Agreed (2026-09-10)** |
-| 2 | [2.1 API surface](#21-api-surface) | Proposed — flag if wrong |
+| 1 | [1.3 Seeding](#13-seeding) | **Agreed (2026-09-10) — built and run in `Nyc311-Test`** |
+| 1 | [1.4 GSIs](#14-gsis) | Built as proposed |
+| 1 | [1.5 Real `CapacityAvailabilityProvider` & the deferred atomic claim](#15-real-capacityavailabilityprovider--the-deferred-atomic-claim) | **Agreed (2026-09-10) — deliberately NOT wired into scheduling yet, per explicit instruction** |
+| 2 | [2.1 API surface](#21-api-surface) | Built as proposed |
 | 2 | [2.2 Frontend surface — the Admin page](#22-frontend-surface--the-admin-page) | **Agreed (2026-09-10)** |
 | 2 | [2.3 Cost architecture](#23-cost-architecture) | **Agreed (2026-09-10)** |
 | 3 | [3.1 New `OrderEvent`/`OperatorEvent` types](#31-new-ordereventoperatorevent-types) | Proposed — flag if wrong |
@@ -104,14 +104,14 @@ vehicle added later without a schema change.
 
 ### 1.3 Seeding
 
-**Agreed.** No separate seeding code path. Once Leg 2's `POST /capacity`
-exists, a script (or 10 manual authenticated calls) calls the real API 10
-times against `Nyc311-Test` at the default rate — seeding is just normal
-usage of the real write path, which also proves it works.
+**Agreed, built.** No separate seeding code path — `test-scripts/7-seed-capacity.py`
+signs in as the test-admin and calls the real `POST /capacity` idempotently
+(tops up to a target fleet size, default 10, rather than always adding 10
+more), proving the real write path works in the same step.
 
 ### 1.4 GSIs
 
-**Proposed.**
+**Built as proposed.**
 
 **`gsi1-availability`** — `gsi1pk = "AVAILABLE"` (fixed constant),
 `gsi1sk = start_datetime`. **Sparse**: only set while `status = ACTIVE`,
@@ -155,7 +155,7 @@ below "one run reliably finishes before the next starts."
 
 ### 2.1 API surface
 
-**Proposed.** All three routes sit behind Leg 0's JWT authorizer (admin-only
+**Built as proposed.** All three routes sit behind Leg 0's JWT authorizer (admin-only
 — per §2.2, this whole surface lives under the new Admin page, not the
 public Monitoring page):
 
@@ -174,7 +174,7 @@ without reworking `GET /capacity` itself.
 
 ### 2.2 Frontend surface — the Admin page
 
-**Agreed.** A new **Admin** page (`web-app/components/pages/AdminPage.tsx`,
+**Agreed, built.** A new **Admin** page (`web-app/components/pages/AdminPage.tsx`,
 route `/admin`), gated by Leg 0's `AdminRoute` guard, mirroring
 `MonitoringPage.tsx`'s tile-grid layout exactly. **Capacity is its first
 tile** (`/admin/capacity`, `CapacityManagementPage.tsx`) — everything
@@ -198,8 +198,10 @@ question directly:
 - **Live fleet stats** (available/fleet-size/burn-rate) — a direct
   `gsi2-roster` query against **current projections only**, bounded by
   fleet size (not full event history). At 1000 vehicles this is one
-  sub-second, cheap `Query`. No scale concern.
-- **All-time accumulated cost** — computed by a **new job in the existing
+  sub-second, cheap `Query`. No scale concern. **Built** —
+  `capacityService.getCapacityStatus`.
+- **All-time accumulated cost** — **not built in this pass**, still future
+  work. Computed by a **new job in the existing
   data-warehouse pipeline** (`7-data-warehousing.md`'s job-runner: `Operators`
   gets a DynamoDB Stream → Firehose → S3/Parquet → Athena, same as
   `Orders`/`Requests` already do), not folded live on every page load.
@@ -298,7 +300,7 @@ this leg ships, not silently skipped.
 
 ### 4.1 Cleanup script scope
 
-**Agreed.** `test-scripts/7-reset-test-data.py` (matching the existing
+**Agreed.** `test-scripts/9-reset-test-data.py` (matching the existing
 numbered-script convention), `--profile nyc311`, hardcoded/guarded to
 `Nyc311-Test` only (no `--env` flag that could ever point at Prod — the
 script simply doesn't accept one). Wipes `Requests-Test`, `Orders-Test`,
@@ -311,14 +313,38 @@ run, same as any other mutating AWS call.
 
 ## Build Checklist
 
-*(To be filled in once each leg's implementation begins — see
-`9-admin-auth-integration.md`'s checklist for the shape this will take.)*
+**Legs 1-2 built and locally verified 2026-09-12** (build/lint/test/coverage
+green across `backend`/`cdk`/`web-app`, 90%+ per file); Legs 3-4 not yet
+started. Per explicit instruction, capacity is **not wired into scheduling**
+— `orderSchedulingService.ts` still uses the old `MockOperatorAssignmentDao`
+stub (renamed from `OperatorDao`/`dao/operator/operatorDao.ts`, which that
+name now belongs to for real) and the mock `CapacityAvailabilityProvider`,
+unchanged.
 
-- [ ] Leg 1: `Operators` table, `OperatorDao`/`operatorService`, real
-      `CapacityAvailabilityProvider`, retire the random-UUID stub.
-- [ ] Leg 2: `POST/DELETE/GET /capacity`, `AdminPage`/`CapacityManagementPage`,
-      the new warehouse cost job.
-- [ ] Leg 3: new `OrderEvent`/`OperatorEvent` types (amend `data-model.md`),
-      `Nyc311OrderExecutionStateMachine` + phase-routed Lambda, AppConfig
-      sim-time config.
-- [ ] Leg 4: `test-scripts/7-reset-test-data.py`.
+**Leg 1 — Operator entity & capacity model**
+- [x] `backend/models/operator.ts` — real `Operator`/`OperatorEvent` (replacing the old `{operator_id}`-only stub schema).
+- [x] `backend/dao/operator/operatorDao.ts` — real event-sourced DAO (`addOperator`, `getOperator`, `queueRemoval`, `finalizeRemoval`, `listActiveRoster`).
+- [x] `backend/dao/scheduling/mockOperatorAssignmentDao.ts` — the old scheduling stub, moved here and renamed to resolve the naming collision; `orderSchedulingService.ts` updated to match, behavior unchanged.
+- [x] `backend/models/errors.ts` — added `NotFoundError` (a real code path needed it — removing a nonexistent Operator).
+- [x] `cdk/data/OperatorsTable.ts` — `gsi1-availability` (sparse) + `gsi2-roster`, no stream yet (§2.3's warehouse job is future work).
+- [x] `test-scripts/7-seed-capacity.py`.
+- [ ] §1.5's real `CapacityAvailabilityProvider` swap-in — deliberately deferred.
+
+**Leg 2 — Capacity management API + frontend**
+- [x] `backend/models/capacityRequest.ts`, `capacityStatus.ts`.
+- [x] `backend/service/capacity/capacityService.ts` — `addCapacity`, `removeCapacity`, `getCapacityStatus`.
+- [x] `backend/controller/web-api/{add,remove,get}CapacityController.ts` — all admin-authorized via `requireAdminUser`.
+- [x] `cdk/lambda/Nyc311{Add,Remove,Get}CapacityApiLambda.ts` — least-privilege grants per controller's actual DAO calls.
+- [x] `cdk/api/Nyc311Api.ts` — `POST/DELETE/GET /capacity`, all behind the admin JWT authorizer; CORS widened to allow `POST`/`DELETE`.
+- [x] `web-app/src/models/operator.ts`, `services/capacityService.ts` (real + mock, first mutating mock service in this codebase), `test-data/operators.ts` (10 baked Operators).
+- [x] `web-app/src/hooks/useCapacity.ts`.
+- [x] `web-app/src/components/pages/AdminPage.tsx` — replaced the Leg 0 placeholder with the real tile-grid page (`CapacityIcon` added to the shared icon set).
+- [x] `web-app/src/components/capacity/{CapacityStatsPanel,AddCapacityForm,CapacityRosterTable}.tsx` + `pages/CapacityManagementPage.tsx`, routed at `/admin/capacity`.
+- [x] `test-scripts/8-capacity-crud-test.py` — on-demand live CRUD verification (add → read → remove → read → 400/404 checks), deliberately **not** added to the pipeline's automatic integration gate (would mutate real capacity rows on every deploy otherwise).
+- [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser (mock mode): add/remove both work end-to-end.
+- [ ] §2.3's all-time-cost warehouse job — not built, future work.
+- [ ] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` + `8-capacity-crud-test.py` — pending push/deploy.
+
+**Leg 3 — Order execution simulation**: not started.
+
+**Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`.
