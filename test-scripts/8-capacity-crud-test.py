@@ -108,9 +108,12 @@ def main():
     expect(status == 401, f"GET /capacity with no token returned {status} (expected 401)")
 
     print("Create — POST /capacity...")
-    status, created = call_api("POST", f"{api_url}/capacity", id_token, {"rate_per_hour": 12.34})
+    status, created = call_api(
+        "POST", f"{api_url}/capacity", id_token, {"name": "CRUD Test Vehicle", "rate_per_hour": 12.34}
+    )
     expect(status == 201, f"POST /capacity returned {status} (expected 201)")
     expect(created["status"] == "ACTIVE" and created["current_activity"] == "IDLE", "new Operator is ACTIVE/IDLE")
+    expect(created["name"] == "CRUD Test Vehicle", "name round-tripped")
     expect(created["rate_per_hour"] == 12.34, "rate_per_hour round-tripped")
     operator_id = created["operator_id"]
 

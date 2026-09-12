@@ -19,6 +19,9 @@ export function CapacityRosterTable({ roster, onRemove, removingOperatorId }: Ca
         <thead className="bg-white/[0.04] text-slate-400">
           <tr>
             <th scope="col" className="px-4 py-3 font-medium">
+              Name
+            </th>
+            <th scope="col" className="px-4 py-3 font-medium">
               Operator
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
@@ -38,6 +41,7 @@ export function CapacityRosterTable({ roster, onRemove, removingOperatorId }: Ca
         <tbody className="divide-y divide-white/5">
           {roster.map((operator) => (
             <tr key={operator.operator_id}>
+              <td className="px-4 py-3 text-slate-200">{operator.name}</td>
               <td className="px-4 py-3 font-mono text-xs text-slate-300">{operator.operator_id}</td>
               <td className="px-4 py-3 text-slate-300">
                 {operator.current_activity}

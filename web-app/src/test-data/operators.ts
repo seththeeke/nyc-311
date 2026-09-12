@@ -8,6 +8,7 @@ import type { Operator } from "../models/operator";
  */
 export const MOCK_OPERATORS: Operator[] = Array.from({ length: 10 }, (_, i) => ({
   operator_id: `01MOCKOPERATOR${String(i).padStart(3, "0")}`,
+  name: `Vehicle ${i + 1}`,
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,

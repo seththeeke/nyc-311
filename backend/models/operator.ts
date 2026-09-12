@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GpsLocationSchema } from "./gpsLocation";
 
 /*
  * Mirrors data-model.md#operator, simplified for v1 per
@@ -39,6 +40,8 @@ export type OperatorEvent = z.infer<typeof OperatorEventSchema>;
 
 export const OperatorSchema = z.object({
   operator_id: z.string().min(1),
+  /* Free-text, admin-supplied, not unique — purely for identifying an Operator past its id (§1.1). */
+  name: z.string().min(1),
   status: z.enum(OPERATOR_STATUSES),
   current_activity: z.enum(OPERATOR_ACTIVITIES),
   /*
@@ -54,6 +57,13 @@ export const OperatorSchema = z.object({
   end_datetime: z.string().min(1).nullable(),
   /* Stamped at OPERATOR_ADDED, immutable — historical cost stays stable even if the default rate changes later. */
   rate_per_hour: z.number().positive(),
+  /*
+   * GPS ping, folded from whichever OperatorEvent last carried a
+   * `location` payload (§3.7) — OPERATOR_ADDED, TRANSIT_STARTED,
+   * WORK_STARTED, WORK_COMPLETED. Replaying an Operator's event history
+   * reconstructs its full path; this field is just "where right now."
+   */
+  current_location: GpsLocationSchema.nullable(),
   last_event_sequence: z.number().int().nonnegative(),
 });
 export type Operator = z.infer<typeof OperatorSchema>;

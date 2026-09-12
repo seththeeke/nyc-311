@@ -6,10 +6,11 @@ import type { OrderSchedulingDeps } from "../../../service/scheduling/orderSched
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { RequestDao } from "../../../dao/request/requestDao";
 import type { LocationDao } from "../../../dao/location/locationDao";
-import type { MockOperatorAssignmentDao } from "../../../dao/scheduling/mockOperatorAssignmentDao";
+import type { OperatorDao } from "../../../dao/operator/operatorDao";
 import type { Order } from "../../../models/order";
 import type { Request } from "../../../models/request";
 import type { Location } from "../../../models/location";
+import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const NOW = new Date("2026-08-28T12:00:00.000Z");
@@ -72,7 +73,6 @@ function makeOrderDao(orders: Order[]): OrderDao {
   return {
     listOrdersWaitingForSchedule: vi.fn().mockResolvedValue({ orders, nextCursor: null }),
     scheduleOrder: vi.fn().mockResolvedValue(undefined),
-    recordCaseCreated: vi.fn().mockResolvedValue(undefined),
   } as unknown as OrderDao;
 }
 
@@ -84,10 +84,11 @@ function makeLocationDao(location: Location | null): LocationDao {
   return { getLocation: vi.fn().mockResolvedValue(location) } as unknown as LocationDao;
 }
 
-function makeOperatorDao(operatorId = "01OPERATOR"): MockOperatorAssignmentDao {
+function makeOperatorDao(operatorId: string | null = "01OPERATOR"): OperatorDao {
   return {
-    getOperator: vi.fn().mockResolvedValue({ operator_id: operatorId }),
-  } as unknown as MockOperatorAssignmentDao;
+    findIdleOperator: vi.fn().mockResolvedValue(operatorId ? { operator_id: operatorId } : null),
+    startTransit: vi.fn().mockResolvedValue(undefined),
+  } as unknown as OperatorDao;
 }
 
 function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
@@ -96,10 +97,9 @@ function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
     requestDao: makeRequestDao(makeRequest()),
     locationDao: makeLocationDao(makeLocation()),
     operatorDao: makeOperatorDao(),
-    capacityProvider: { getAvailableUnits: vi.fn().mockResolvedValue(5) },
     transitEstimator: { estimateMinutes: vi.fn().mockResolvedValue(20) },
     processingEstimator: { estimateMinutes: vi.fn().mockResolvedValue(30) },
-    createCaseFn: vi.fn().mockResolvedValue(undefined),
+    executionStarter: { startExecution: vi.fn().mockResolvedValue(undefined) },
     now: () => NOW,
     ...overrides,
   };
@@ -116,7 +116,7 @@ afterEach(() => {
 });
 
 describe("scheduleOrders", () => {
-  it("schedules an Order when capacity is available, computing the window from transit + processing minutes", async () => {
+  it("schedules an Order when an idle Operator is available, computing the window from transit + processing minutes", async () => {
     const deps = baseDeps();
 
     const summary = await scheduleOrders(deps);
@@ -125,9 +125,9 @@ describe("scheduleOrders", () => {
       ordersConsidered: 1,
       ordersScheduled: 1,
       ordersSkippedNoCapacity: 0,
-      ordersCasedUnroutable: 0,
       ordersFailed: 0,
     });
+    expect(deps.operatorDao!.startTransit).toHaveBeenCalledWith("01OPERATOR");
     expect(deps.orderDao!.scheduleOrder).toHaveBeenCalledWith("01ORDER", {
       scheduledStart: "2026-08-28T12:00:00.000Z",
       scheduledEnd: "2026-08-28T12:50:00.000Z",
@@ -135,64 +135,49 @@ describe("scheduleOrders", () => {
     });
   });
 
-  it("creates a Case and skips dispatch when the Request's agency is null", async () => {
-    const deps = baseDeps({ requestDao: makeRequestDao(makeRequest({ agency: null })) });
+  it("starts the execution state machine with the job location, timing, and a now scheduled_start_datetime", async () => {
+    const deps = baseDeps();
 
-    const summary = await scheduleOrders(deps);
+    await scheduleOrders(deps);
 
-    expect(summary.ordersCasedUnroutable).toBe(1);
-    expect(deps.createCaseFn).toHaveBeenCalledWith(
-      expect.objectContaining({ case_type: "WORKFLOW_EXECUTION_FAILURE", order_id: "01ORDER" })
+    expect(deps.executionStarter!.startExecution).toHaveBeenCalledWith({
+      orderId: "01ORDER",
+      operatorId: "01OPERATOR",
+      jobLocation: { lat: 40.75, lng: -73.82 },
+      transitMinutes: 20,
+      processingMinutes: 30,
+      scheduledStartDatetime: "2026-08-28T12:00:00.000Z",
+    });
+  });
+
+  it("falls back to HOME_DEPOT_LOCATION when the Location has no lat/lng", async () => {
+    const deps = baseDeps({ locationDao: makeLocationDao(makeLocation({ latitude: null, longitude: null })) });
+
+    await scheduleOrders(deps);
+
+    expect(deps.executionStarter!.startExecution).toHaveBeenCalledWith(
+      expect.objectContaining({ jobLocation: HOME_DEPOT_LOCATION })
     );
-    expect(deps.orderDao!.recordCaseCreated).toHaveBeenCalledWith("01ORDER", expect.any(String));
-    expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
   });
 
-  it("creates a Case and skips dispatch when the Location's borough is null", async () => {
-    const deps = baseDeps({ locationDao: makeLocationDao(makeLocation({ borough: null })) });
+  it("skips without touching the Operator/Order/execution-starter when no Operator is idle", async () => {
+    const deps = baseDeps({ operatorDao: makeOperatorDao(null) });
 
     const summary = await scheduleOrders(deps);
 
-    expect(summary.ordersCasedUnroutable).toBe(1);
+    expect(summary.ordersSkippedNoCapacity).toBe(1);
+    expect(summary.ordersScheduled).toBe(0);
     expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
+    expect(deps.executionStarter!.startExecution).not.toHaveBeenCalled();
   });
 
-  it("creates a Case when the Request record itself is missing (dangling FK)", async () => {
+  it("throws (isolated as a per-order failure) when the Order's Request/Location can't be resolved", async () => {
     const deps = baseDeps({ requestDao: makeRequestDao(null) });
 
     const summary = await scheduleOrders(deps);
 
-    expect(summary.ordersCasedUnroutable).toBe(1);
-  });
-
-  it("creates a Case when the Location record itself is missing (dangling FK)", async () => {
-    const deps = baseDeps({ locationDao: makeLocationDao(null) });
-
-    const summary = await scheduleOrders(deps);
-
-    expect(summary.ordersCasedUnroutable).toBe(1);
-  });
-
-  it("skips without creating a Case when pool capacity is exhausted", async () => {
-    const deps = baseDeps({ capacityProvider: { getAvailableUnits: vi.fn().mockResolvedValue(0) } });
-
-    const summary = await scheduleOrders(deps);
-
-    expect(summary.ordersSkippedNoCapacity).toBe(1);
+    expect(summary.ordersFailed).toBe(1);
     expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
-    expect(deps.createCaseFn).not.toHaveBeenCalled();
-  });
-
-  it("queries capacity once per pool per run, decrementing the in-memory budget across Orders in the same pool", async () => {
-    const orders = [makeOrder({ order_id: "01ORDER" }), makeOrder({ order_id: "02ORDER" })];
-    const getAvailableUnits = vi.fn().mockResolvedValue(1);
-    const deps = baseDeps({ orderDao: makeOrderDao(orders), capacityProvider: { getAvailableUnits } });
-
-    const summary = await scheduleOrders(deps);
-
-    expect(getAvailableUnits).toHaveBeenCalledTimes(1);
-    expect(summary.ordersScheduled).toBe(1);
-    expect(summary.ordersSkippedNoCapacity).toBe(1);
   });
 
   it("defaults `now` to the current time when not injected, for a real dispatch that actually calls it", async () => {
@@ -232,6 +217,21 @@ describe("scheduleOrders", () => {
     expect(summary.ordersConsidered).toBe(2);
   });
 
+  it("skips every remaining Order once the fleet is exhausted mid-run", async () => {
+    const orders = [makeOrder({ order_id: "01ORDER" }), makeOrder({ order_id: "02ORDER" })];
+    const findIdleOperator = vi
+      .fn()
+      .mockResolvedValueOnce({ operator_id: "01OPERATOR" })
+      .mockResolvedValueOnce(null);
+    const operatorDao = { findIdleOperator, startTransit: vi.fn().mockResolvedValue(undefined) } as unknown as OperatorDao;
+    const deps = baseDeps({ orderDao: makeOrderDao(orders), operatorDao });
+
+    const summary = await scheduleOrders(deps);
+
+    expect(summary.ordersScheduled).toBe(1);
+    expect(summary.ordersSkippedNoCapacity).toBe(1);
+  });
+
   it("pages through listOrdersWaitingForSchedule until the cursor is exhausted", async () => {
     const orderDao = {
       listOrdersWaitingForSchedule: vi
@@ -239,7 +239,6 @@ describe("scheduleOrders", () => {
         .mockResolvedValueOnce({ orders: [makeOrder({ order_id: "01ORDER" })], nextCursor: "cursor-1" })
         .mockResolvedValueOnce({ orders: [makeOrder({ order_id: "02ORDER" })], nextCursor: null }),
       scheduleOrder: vi.fn().mockResolvedValue(undefined),
-      recordCaseCreated: vi.fn().mockResolvedValue(undefined),
     } as unknown as OrderDao;
     const deps = baseDeps({ orderDao });
 
@@ -260,7 +259,6 @@ describe("scheduleOrders", () => {
     const orderDao = {
       listOrdersWaitingForSchedule,
       scheduleOrder: vi.fn().mockResolvedValue(undefined),
-      recordCaseCreated: vi.fn().mockResolvedValue(undefined),
     } as unknown as OrderDao;
     const deps = baseDeps({ orderDao });
 

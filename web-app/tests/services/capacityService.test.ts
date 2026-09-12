@@ -37,8 +37,9 @@ describe("capacityService — mock mode", () => {
     const { capacityService } = await import("../../src/services/capacityService");
     const { MOCK_OPERATORS } = await import("../../src/test-data/operators");
 
-    const added = await capacityService.addCapacity();
+    const added = await capacityService.addCapacity("Truck 12");
 
+    expect(added.name).toBe("Truck 12");
     expect(added.rate_per_hour).toBe(45);
     expect(added.status).toBe("ACTIVE");
     expect(added.current_activity).toBe("IDLE");
@@ -51,7 +52,7 @@ describe("capacityService — mock mode", () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { capacityService } = await import("../../src/services/capacityService");
 
-    const added = await capacityService.addCapacity(99);
+    const added = await capacityService.addCapacity("Truck 12", 99);
 
     expect(added.rate_per_hour).toBe(99);
   });
@@ -134,6 +135,7 @@ describe("capacityService — live mode", () => {
     mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
     const operatorBody = {
       operator_id: "01OPERATOR",
+      name: "Truck 12",
       status: "ACTIVE",
       current_activity: "IDLE",
       removal_requested_at: null,
@@ -146,24 +148,25 @@ describe("capacityService — live mode", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { capacityService } = await import("../../src/services/capacityService");
-    const result = await capacityService.addCapacity(60);
+    const result = await capacityService.addCapacity("Truck 12", 60);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.example.com/capacity",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer id-token-value" }),
-        body: JSON.stringify({ rate_per_hour: 60 }),
+        body: JSON.stringify({ name: "Truck 12", rate_per_hour: 60 }),
       })
     );
     expect(result).toEqual(operatorBody);
   });
 
-  it("addCapacity POSTs an empty body when rate_per_hour is omitted", async () => {
+  it("addCapacity POSTs just the name when rate_per_hour is omitted", async () => {
     vi.stubEnv("VITE_DATA_MODE", "live");
     mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
     const operatorBody = {
       operator_id: "01OPERATOR",
+      name: "Truck 12",
       status: "ACTIVE",
       current_activity: "IDLE",
       removal_requested_at: null,
@@ -176,11 +179,11 @@ describe("capacityService — live mode", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { capacityService } = await import("../../src/services/capacityService");
-    await capacityService.addCapacity();
+    await capacityService.addCapacity("Truck 12");
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ body: JSON.stringify({}) })
+      expect.objectContaining({ body: JSON.stringify({ name: "Truck 12" }) })
     );
   });
 
@@ -191,7 +194,7 @@ describe("capacityService — live mode", () => {
 
     const { capacityService } = await import("../../src/services/capacityService");
 
-    await expect(capacityService.addCapacity()).rejects.toThrow("Failed to add capacity: HTTP 400");
+    await expect(capacityService.addCapacity("Truck 12")).rejects.toThrow("Failed to add capacity: HTTP 400");
   });
 
   it("removeCapacity DELETEs the encoded operator_id path and parses the response", async () => {
@@ -200,6 +203,7 @@ describe("capacityService — live mode", () => {
     mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
     const operatorBody = {
       operator_id: "01 OPERATOR",
+      name: "Truck 12",
       status: "INACTIVE",
       current_activity: "IDLE",
       removal_requested_at: null,

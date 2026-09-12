@@ -16,6 +16,7 @@ const mockedRemoveCapacity = vi.mocked(capacityService.removeCapacity);
 
 const operator: Operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
@@ -69,10 +70,10 @@ describe("useCapacity", () => {
     await waitFor(() => expect(result.current.status).toEqual(status));
 
     await act(async () => {
-      await result.current.addCapacity(60);
+      await result.current.addCapacity("Truck 12", 60);
     });
 
-    expect(mockedAddCapacity).toHaveBeenCalledWith(60);
+    expect(mockedAddCapacity).toHaveBeenCalledWith("Truck 12", 60);
     expect(mockedGetCapacityStatus).toHaveBeenCalledTimes(2);
   });
 
@@ -84,7 +85,7 @@ describe("useCapacity", () => {
     await waitFor(() => expect(result.current.status).toEqual(status));
 
     await act(async () => {
-      await expect(result.current.addCapacity()).rejects.toThrow();
+      await expect(result.current.addCapacity("Truck 12")).rejects.toThrow();
     });
 
     await waitFor(() => expect(result.current.addError?.message).toBe("bad rate"));

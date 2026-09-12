@@ -4,15 +4,12 @@ import { logInfo, logWarn } from "../../logger";
 import { OrderDao } from "../../dao/order/orderDao";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
-import { MockOperatorAssignmentDao } from "../../dao/scheduling/mockOperatorAssignmentDao";
-import { createCase } from "../case/caseService";
+import { OperatorDao } from "../../dao/operator/operatorDao";
 import type { Order } from "../../models/order";
-import {
-  mockCapacityAvailabilityProvider,
-  type CapacityAvailabilityProvider,
-} from "./capacityAvailabilityService";
+import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import { mockTransitTimeEstimator, type TransitTimeEstimator } from "./transitTimeService";
 import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "./processingTimeService";
+import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -32,8 +29,8 @@ function getDefaultRequestDao(): RequestDao {
 function getDefaultLocationDao(): LocationDao {
   return new LocationDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("LOCATIONS_TABLE_NAME"));
 }
-function getDefaultOperatorDao(): MockOperatorAssignmentDao {
-  return new MockOperatorAssignmentDao();
+function getDefaultOperatorDao(): OperatorDao {
+  return new OperatorDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("OPERATORS_TABLE_NAME"));
 }
 
 /*
@@ -45,116 +42,103 @@ const MAX_ORDERS_PER_RUN = 200;
 /* Page size for each gsi1-stage-sla Query call while paging up to MAX_ORDERS_PER_RUN. */
 const QUERY_PAGE_SIZE = 50;
 
-/** WORKFLOW_EXECUTION_FAILURE is the closest existing case_type fit — same placeholder precedent as 5-order-evaluation.md §5. */
-const UNROUTABLE_CASE_REASON = "Cannot derive a capacity pool — missing Request/Location data or agency/borough";
-
 export interface SchedulingRunSummary {
   ordersConsidered: number;
   ordersScheduled: number;
   ordersSkippedNoCapacity: number;
-  ordersCasedUnroutable: number;
   ordersFailed: number;
 }
 
 /**
  * Dependencies for {@link scheduleOrders} — all default to this module's
- * own singletons/mocks. `capacityProvider`/`transitEstimator`/
- * `processingEstimator` are swappable for a future real implementation
- * without this orchestration changing (6-order-scheduling.md §4/§5).
+ * own singletons/mocks. `transitEstimator`/`processingEstimator` are
+ * swappable for a future real implementation without this orchestration
+ * changing (6-order-scheduling.md §5); `executionStarter` likewise for
+ * testing without a real Step Functions call.
  */
 export interface OrderSchedulingDeps {
   orderDao?: OrderDao;
   requestDao?: RequestDao;
   locationDao?: LocationDao;
-  operatorDao?: MockOperatorAssignmentDao;
-  capacityProvider?: CapacityAvailabilityProvider;
+  operatorDao?: OperatorDao;
   transitEstimator?: TransitTimeEstimator;
   processingEstimator?: ProcessingTimeEstimator;
-  createCaseFn?: typeof createCase;
+  executionStarter?: OrderExecutionStarter;
   now?: () => Date;
 }
 
-/** `"AGENCY#BOROUGH"`, ddb-design.md's Shifts `gsi1-pool` shape (e.g. `"DSNY#QUEENS"`). `null` if either half is missing. */
-function derivePool(agency: string | null, borough: string | null): string | null {
-  if (!agency || !borough) return null;
-  return `${agency}#${borough}`;
+/** Falls back to `HOME_DEPOT_LOCATION` when a Location record is missing lat/lng — real 311 geodata is sometimes incomplete (§3.7). */
+function resolveJobLocation(location: { latitude: string | null; longitude: string | null }): GpsLocation {
+  if (!location.latitude || !location.longitude) return HOME_DEPOT_LOCATION;
+  return { lat: Number(location.latitude), lng: Number(location.longitude) };
 }
 
 /**
- * Attempts to dispatch one Order waiting in `SCHEDULE`, per
- * 6-order-scheduling.md §7's a/b/c/d sequence. Mutates `poolBudgets` on a
- * successful dispatch. Never throws for a normal outcome (skip, Case) —
- * only for a genuine DAO failure, which the caller (§7's per-order
- * isolation) catches.
+ * Attempts to dispatch one Order waiting in `SCHEDULE`
+ * (`10-capacity-modeling-and-integration.md` §3.5's flat, global capacity
+ * check — no more agency/borough pools). Never throws for a normal
+ * outcome (scheduled or skipped) — only for a genuine DAO failure, which
+ * the caller (§7's per-order isolation, unchanged from
+ * `6-order-scheduling.md`) catches.
  */
 async function dispatchOneOrder(
   order: Order,
   deps: Required<
     Pick<
       OrderSchedulingDeps,
-      | "orderDao"
-      | "requestDao"
-      | "locationDao"
-      | "operatorDao"
-      | "capacityProvider"
-      | "transitEstimator"
-      | "processingEstimator"
-      | "createCaseFn"
-      | "now"
+      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "executionStarter" | "now"
     >
-  >,
-  poolBudgets: Map<string, number>
-): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY" | "CASED_UNROUTABLE"> {
+  >
+): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY"> {
   logInfo("OrderScheduleAttemptStarted", { orderId: order.order_id });
+
+  const idleOperator = await deps.operatorDao.findIdleOperator();
+  if (!idleOperator) {
+    logInfo("OrderScheduleSkippedNoCapacity", { orderId: order.order_id });
+    return "SKIPPED_NO_CAPACITY";
+  }
 
   const [request, location] = await Promise.all([
     deps.requestDao.getRequestById(order.request_id),
     deps.locationDao.getLocation(order.location_id),
   ]);
-  const pool = request && location ? derivePool(request.agency, location.borough) : null;
-
-  if (!pool || !request || !location) {
-    logWarn("OrderScheduleCaseCreated", { orderId: order.order_id, reason: UNROUTABLE_CASE_REASON });
-    await deps.createCaseFn({
-      case_type: "WORKFLOW_EXECUTION_FAILURE",
-      request_id: order.request_id,
-      order_id: order.order_id,
-      reason: UNROUTABLE_CASE_REASON,
-    });
-    await deps.orderDao.recordCaseCreated(order.order_id, UNROUTABLE_CASE_REASON);
-    return "CASED_UNROUTABLE";
+  if (!request || !location) {
+    throw new Error(`Order ${order.order_id} has no resolvable Request/Location record`);
   }
 
-  let remaining = poolBudgets.get(pool);
-  if (remaining === undefined) {
-    remaining = await deps.capacityProvider.getAvailableUnits(pool);
-    poolBudgets.set(pool, remaining);
-  }
-  if (remaining <= 0) {
-    logInfo("OrderScheduleSkippedNoCapacity", { orderId: order.order_id, pool });
-    return "SKIPPED_NO_CAPACITY";
-  }
-
-  const [transitMinutes, processingMinutes, operator] = await Promise.all([
+  const [transitMinutes, processingMinutes] = await Promise.all([
     deps.transitEstimator.estimateMinutes(order, location),
     deps.processingEstimator.estimateMinutes(order, request),
-    deps.operatorDao.getOperator(),
   ]);
 
   const scheduledStart = deps.now();
   const scheduledEnd = new Date(scheduledStart.getTime() + (transitMinutes + processingMinutes) * 60 * 1000);
 
+  /*
+   * The scheduling job's own claim performs the idle->busy transition
+   * (§3.6) — not deferred to the execution state machine's Dispatch
+   * Task, so a later Order in this same run never sees this Operator as
+   * idle again.
+   */
+  await deps.operatorDao.startTransit(idleOperator.operator_id);
   await deps.orderDao.scheduleOrder(order.order_id, {
     scheduledStart: scheduledStart.toISOString(),
     scheduledEnd: scheduledEnd.toISOString(),
-    operatorId: operator.operator_id,
+    operatorId: idleOperator.operator_id,
   });
-  poolBudgets.set(pool, remaining - 1);
+
+  await deps.executionStarter.startExecution({
+    orderId: order.order_id,
+    operatorId: idleOperator.operator_id,
+    jobLocation: resolveJobLocation(location),
+    transitMinutes,
+    processingMinutes,
+    scheduledStartDatetime: scheduledStart.toISOString(),
+  });
 
   logInfo("OrderScheduled", {
     orderId: order.order_id,
-    pool,
-    operatorId: operator.operator_id,
+    operatorId: idleOperator.operator_id,
     scheduledStart: scheduledStart.toISOString(),
     scheduledEnd: scheduledEnd.toISOString(),
   });
@@ -162,11 +146,12 @@ async function dispatchOneOrder(
 }
 
 /**
- * The order-scheduling job's entry point (6-order-scheduling.md §7) —
- * pages through Orders waiting in `SCHEDULE` (oldest `sla_deadline` first),
- * and for each one, in order, derives its capacity pool, reserves budget
- * against the (mocked) `CapacityAvailabilityProvider`, and either dispatches
- * it or leaves it for next run. One bad Order never aborts the run (§7's
+ * The order-scheduling job's entry point (`6-order-scheduling.md` §7,
+ * amended by `10-capacity-modeling-and-integration.md` §3.5) — pages
+ * through Orders waiting in `SCHEDULE` (oldest `sla_deadline` first), and
+ * for each one, in order, attempts to claim one idle `Operator` from the
+ * real, global fleet; once the fleet is exhausted, every remaining Order
+ * in the run is skipped. One bad Order never aborts the run (§7's
  * per-order error isolation).
  */
 export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<SchedulingRunSummary> {
@@ -175,10 +160,9 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     requestDao: deps.requestDao ?? getDefaultRequestDao(),
     locationDao: deps.locationDao ?? getDefaultLocationDao(),
     operatorDao: deps.operatorDao ?? getDefaultOperatorDao(),
-    capacityProvider: deps.capacityProvider ?? mockCapacityAvailabilityProvider,
     transitEstimator: deps.transitEstimator ?? mockTransitTimeEstimator,
     processingEstimator: deps.processingEstimator ?? mockProcessingTimeEstimator,
-    createCaseFn: deps.createCaseFn ?? createCase,
+    executionStarter: deps.executionStarter ?? stepFunctionsOrderExecutionStarter,
     now: deps.now ?? (() => new Date()),
   };
 
@@ -188,10 +172,8 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     ordersConsidered: 0,
     ordersScheduled: 0,
     ordersSkippedNoCapacity: 0,
-    ordersCasedUnroutable: 0,
     ordersFailed: 0,
   };
-  const poolBudgets = new Map<string, number>();
 
   let cursor: string | null = null;
   do {
@@ -203,10 +185,9 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     for (const order of page.orders) {
       summary.ordersConsidered += 1;
       try {
-        const outcome = await dispatchOneOrder(order, resolvedDeps, poolBudgets);
+        const outcome = await dispatchOneOrder(order, resolvedDeps);
         if (outcome === "SCHEDULED") summary.ordersScheduled += 1;
-        else if (outcome === "SKIPPED_NO_CAPACITY") summary.ordersSkippedNoCapacity += 1;
-        else summary.ordersCasedUnroutable += 1;
+        else summary.ordersSkippedNoCapacity += 1;
       } catch (err) {
         summary.ordersFailed += 1;
         logWarn("OrderScheduleFailed", { orderId: order.order_id, error: err instanceof Error ? err.message : err });

@@ -6,6 +6,7 @@ import type { Operator } from "../../../src/models/operator";
 
 const operator: Operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
@@ -22,9 +23,10 @@ describe("CapacityRosterTable", () => {
     expect(screen.getByText("No active vehicles.")).toBeInTheDocument();
   });
 
-  it("renders one row per Operator with its id, activity, rate, and start date", () => {
+  it("renders one row per Operator with its name, id, activity, rate, and start date", () => {
     render(<CapacityRosterTable roster={[operator]} onRemove={vi.fn()} removingOperatorId={null} />);
 
+    expect(screen.getByText("Truck 12")).toBeInTheDocument();
     expect(screen.getByText("01OPERATOR")).toBeInTheDocument();
     expect(screen.getByText("IDLE")).toBeInTheDocument();
     expect(screen.getByText("$45.00/hr")).toBeInTheDocument();

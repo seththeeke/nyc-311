@@ -8,16 +8,19 @@ import {
 } from "../../../service/capacity/capacityService";
 import { NotFoundError, ValidationError } from "../../../models/errors";
 import type { Operator } from "../../../models/operator";
+import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
 function makeOperator(overrides: Partial<Operator> = {}): Operator {
   return {
     operator_id: "01OPERATOR",
+    name: "Truck 12",
     status: "ACTIVE",
     current_activity: "IDLE",
     removal_requested_at: null,
     start_datetime: "2026-09-12T00:00:00.000Z",
     end_datetime: null,
     rate_per_hour: 45,
+    current_location: HOME_DEPOT_LOCATION,
     last_event_sequence: 0,
     ...overrides,
   };
@@ -34,24 +37,24 @@ afterEach(() => {
 describe("addCapacity", () => {
   it("falls back to the module's own default OperatorDao when deps.operatorDao is omitted", async () => {
     const spy = vi.spyOn(OperatorDao.prototype, "addOperator").mockResolvedValue(makeOperator());
-    await expect(addCapacity(45)).resolves.toMatchObject({ operator_id: "01OPERATOR" });
+    await expect(addCapacity("Truck 12", 45)).resolves.toMatchObject({ operator_id: "01OPERATOR" });
     spy.mockRestore();
   });
 
-  it("uses the given rate_per_hour when provided", async () => {
+  it("uses the given name and rate_per_hour when provided", async () => {
     const addOperator = vi.fn().mockResolvedValue(makeOperator({ rate_per_hour: 60 }));
 
-    await addCapacity(60, { operatorDao: { addOperator } as unknown as OperatorDao });
+    await addCapacity("Truck 12", 60, { operatorDao: { addOperator } as unknown as OperatorDao });
 
-    expect(addOperator).toHaveBeenCalledWith(60);
+    expect(addOperator).toHaveBeenCalledWith("Truck 12", 60);
   });
 
   it("defaults to DEFAULT_OPERATOR_RATE_PER_HOUR when rate_per_hour is omitted", async () => {
     const addOperator = vi.fn().mockResolvedValue(makeOperator());
 
-    await addCapacity(undefined, { operatorDao: { addOperator } as unknown as OperatorDao });
+    await addCapacity("Truck 12", undefined, { operatorDao: { addOperator } as unknown as OperatorDao });
 
-    expect(addOperator).toHaveBeenCalledWith(DEFAULT_OPERATOR_RATE_PER_HOUR);
+    expect(addOperator).toHaveBeenCalledWith("Truck 12", DEFAULT_OPERATOR_RATE_PER_HOUR);
   });
 });
 

@@ -32,13 +32,17 @@ export interface AddCapacityDeps {
 }
 
 /** `POST /capacity` (§2.1) — always a new `operator_id`, never reactivates a retired one. */
-export async function addCapacity(ratePerHour: number | undefined, deps: AddCapacityDeps = {}): Promise<Operator> {
+export async function addCapacity(
+  name: string,
+  ratePerHour: number | undefined,
+  deps: AddCapacityDeps = {}
+): Promise<Operator> {
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
   const rate = ratePerHour ?? DEFAULT_OPERATOR_RATE_PER_HOUR;
 
-  logInfo("AddCapacityStarted", { ratePerHour: rate });
-  const operator = await operatorDao.addOperator(rate);
-  logInfo("AddCapacityCompleted", { operatorId: operator.operator_id, ratePerHour: rate });
+  logInfo("AddCapacityStarted", { name, ratePerHour: rate });
+  const operator = await operatorDao.addOperator(name, rate);
+  logInfo("AddCapacityCompleted", { operatorId: operator.operator_id, name, ratePerHour: rate });
   return operator;
 }
 

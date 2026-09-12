@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { OperatorEventSchema, OperatorSchema } from "../../models/operator";
+import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
 
 const validOperator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
   start_datetime: "2026-09-12T00:00:00.000Z",
   end_datetime: null,
   rate_per_hour: 45,
+  current_location: HOME_DEPOT_LOCATION,
   last_event_sequence: 0,
 };
 
@@ -25,6 +28,11 @@ describe("OperatorSchema", () => {
   it("accepts a queued-for-removal Operator (removal_requested_at set, still ACTIVE)", () => {
     const queued = { ...validOperator, removal_requested_at: "2026-09-12T00:30:00.000Z" };
     expect(OperatorSchema.parse(queued)).toEqual(queued);
+  });
+
+  it("accepts a null current_location", () => {
+    const noLocation = { ...validOperator, current_location: null };
+    expect(OperatorSchema.parse(noLocation)).toEqual(noLocation);
   });
 
   it("rejects an unknown status value", () => {
@@ -44,6 +52,10 @@ describe("OperatorSchema", () => {
     const withoutId: Record<string, unknown> = { ...validOperator };
     delete withoutId.operator_id;
     expect(OperatorSchema.safeParse(withoutId).success).toBe(false);
+  });
+
+  it("rejects an empty-string name", () => {
+    expect(OperatorSchema.safeParse({ ...validOperator, name: "" }).success).toBe(false);
   });
 });
 

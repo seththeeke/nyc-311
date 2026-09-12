@@ -23,6 +23,14 @@ export const ORDER_EVENT_TYPES = [
   "ORDER_ACCEPTED",
   "ORDER_REJECTED",
   "CASE_CREATED",
+  /*
+   * Execution simulation (10-capacity-modeling-and-integration.md §3.1) —
+   * one Step Function Task per transition, each mirroring an
+   * OperatorEvent on the assigned Operator's own stream.
+   */
+  "ORDER_DISPATCHED",
+  "ORDER_ARRIVED",
+  "ORDER_PROCESSING",
   "ORDER_RESOLVED",
   "ORDER_FAILED_TERMINAL",
 ] as const;

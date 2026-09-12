@@ -7,6 +7,8 @@ import { z } from "zod";
  */
 
 export const AddCapacityRequestSchema = z.object({
+  /** Free-text, not unique — the only way to identify this Operator past its id. */
+  name: z.string().min(1),
   /** Omitted -> service defaults to DEFAULT_OPERATOR_RATE_PER_HOUR (§1.2). */
   rate_per_hour: z.number().positive().optional(),
 });

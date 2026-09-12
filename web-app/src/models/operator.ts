@@ -16,6 +16,8 @@ export type OperatorActivity = (typeof OPERATOR_ACTIVITIES)[number];
 
 export const OperatorSchema = z.object({
   operator_id: z.string().min(1),
+  /** Free-text, admin-supplied, not unique — the only way to identify an Operator past its id. */
+  name: z.string().min(1),
   status: z.enum(OPERATOR_STATUSES),
   current_activity: z.enum(OPERATOR_ACTIVITIES),
   removal_requested_at: z.string().min(1).nullable(),

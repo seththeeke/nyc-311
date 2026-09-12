@@ -11,7 +11,7 @@ export interface UseCapacityResult {
   status: CapacityStatus | undefined;
   isLoading: boolean;
   error: Error | null;
-  addCapacity: (ratePerHour?: number) => Promise<Operator>;
+  addCapacity: (name: string, ratePerHour?: number) => Promise<Operator>;
   isAdding: boolean;
   addError: Error | null;
   removeCapacity: (operatorId: string) => Promise<Operator>;
@@ -39,8 +39,8 @@ export function useCapacity(): UseCapacityResult {
     refetchInterval: REFETCH_INTERVAL_MS,
   });
 
-  const addMutation = useMutation<Operator, Error, number | undefined>({
-    mutationFn: (ratePerHour) => capacityService.addCapacity(ratePerHour),
+  const addMutation = useMutation<Operator, Error, { name: string; ratePerHour?: number }>({
+    mutationFn: ({ name, ratePerHour }) => capacityService.addCapacity(name, ratePerHour),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAPACITY_STATUS_QUERY_KEY });
     },
@@ -57,7 +57,7 @@ export function useCapacity(): UseCapacityResult {
     status,
     isLoading,
     error: error ?? null,
-    addCapacity: (ratePerHour) => addMutation.mutateAsync(ratePerHour),
+    addCapacity: (name, ratePerHour) => addMutation.mutateAsync({ name, ratePerHour }),
     isAdding: addMutation.isPending,
     addError: addMutation.error,
     removeCapacity: (operatorId) => removeMutation.mutateAsync(operatorId),

@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { CapacityStatusSchema } from "../../models/capacityStatus";
+import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
 
 const operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
   start_datetime: "2026-09-12T00:00:00.000Z",
   end_datetime: null,
   rate_per_hour: 45,
+  current_location: HOME_DEPOT_LOCATION,
   last_event_sequence: 0,
 };
 

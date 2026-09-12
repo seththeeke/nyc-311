@@ -13,7 +13,7 @@ import { MOCK_OPERATORS } from "../test-data/operators";
  */
 export interface CapacityService {
   getCapacityStatus(): Promise<CapacityStatus>;
-  addCapacity(ratePerHour?: number): Promise<Operator>;
+  addCapacity(name: string, ratePerHour?: number): Promise<Operator>;
   removeCapacity(operatorId: string): Promise<Operator>;
 }
 
@@ -39,11 +39,11 @@ class LiveCapacityService implements CapacityService {
     return CapacityStatusSchema.parse(body);
   }
 
-  async addCapacity(ratePerHour?: number): Promise<Operator> {
+  async addCapacity(name: string, ratePerHour?: number): Promise<Operator> {
     const response = await authorizedFetch("/capacity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ratePerHour !== undefined ? { rate_per_hour: ratePerHour } : {}),
+      body: JSON.stringify(ratePerHour !== undefined ? { name, rate_per_hour: ratePerHour } : { name }),
     });
     if (!response.ok) {
       throw new Error(`Failed to add capacity: HTTP ${response.status}`);
@@ -83,9 +83,10 @@ class MockCapacityService implements CapacityService {
     return { available_count: availableCount, fleet_size: roster.length, hourly_burn_rate: hourlyBurnRate, roster };
   }
 
-  async addCapacity(ratePerHour?: number): Promise<Operator> {
+  async addCapacity(name: string, ratePerHour?: number): Promise<Operator> {
     const operator: Operator = {
       operator_id: `01MOCKOPERATOR${String(mockOperatorCounter).padStart(3, "0")}`,
+      name,
       status: "ACTIVE",
       current_activity: "IDLE",
       removal_requested_at: null,

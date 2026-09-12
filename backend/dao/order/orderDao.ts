@@ -261,6 +261,65 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
     );
   }
 
+  /** The execution simulation's `Dispatch` phase (`10-capacity-modeling-and-integration.md` §3.1/§3.6) — the assigned vehicle begins transit. `current_stage` stays `EXECUTE`. */
+  async recordDispatched(orderId: string): Promise<Order> {
+    return this.appendExecutionEvent(orderId, "ORDER_DISPATCHED");
+  }
+
+  /** The `Arrive` phase — vehicle reached the job location. `current_stage` stays `EXECUTE`. */
+  async recordArrived(orderId: string): Promise<Order> {
+    return this.appendExecutionEvent(orderId, "ORDER_ARRIVED");
+  }
+
+  /** Fired immediately after `recordArrived`, same Lambda call — on-site work begins (§3.1's "processing" is its own visible state). `current_stage` stays `EXECUTE`. */
+  async recordProcessing(orderId: string): Promise<Order> {
+    return this.appendExecutionEvent(orderId, "ORDER_PROCESSING");
+  }
+
+  /** The `Process/Resolve` phase's terminal step — on-site work finished, moving `current_stage` from `EXECUTE` to `RESOLVE`. */
+  async recordResolved(orderId: string): Promise<Order> {
+    const now = new Date().toISOString();
+    return this.appendEvent(
+      orderId,
+      (nextSequence) => ({
+        order_id: orderId,
+        sequence_number: nextSequence,
+        event_type: "ORDER_RESOLVED",
+        stage: "EXECUTE",
+        payload: {},
+        occurred_at: now,
+        actor: "SYSTEM",
+      }),
+      (previous, event) => {
+        const base = this.requirePreviousProjection(orderId, previous);
+        return { ...base, current_stage: "RESOLVE", updated_at: now, last_event_sequence: event.sequence_number };
+      },
+      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+    );
+  }
+
+  /** Shared shape for the `EXECUTE`-stage narrative events that don't change `current_stage` or carry a payload (§3.1's `Dispatch`/`Arrive`/`Process` steps). */
+  private async appendExecutionEvent(orderId: string, eventType: "ORDER_DISPATCHED" | "ORDER_ARRIVED" | "ORDER_PROCESSING"): Promise<Order> {
+    const now = new Date().toISOString();
+    return this.appendEvent(
+      orderId,
+      (nextSequence) => ({
+        order_id: orderId,
+        sequence_number: nextSequence,
+        event_type: eventType,
+        stage: "EXECUTE",
+        payload: {},
+        occurred_at: now,
+        actor: "SYSTEM",
+      }),
+      (previous, event) => {
+        const base = this.requirePreviousProjection(orderId, previous);
+        return { ...base, updated_at: now, last_event_sequence: event.sequence_number };
+      },
+      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+    );
+  }
+
   /**
    * The scheduling job's priority queue (`6-order-scheduling.md` §2): a
    * `Query` on `gsi1-stage-sla` for `gsi1pk = "STAGE#SCHEDULE"`, ascending

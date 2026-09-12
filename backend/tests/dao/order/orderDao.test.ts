@@ -339,6 +339,109 @@ describe("OrderDao.scheduleOrder", () => {
   });
 });
 
+describe("OrderDao.recordDispatched", () => {
+  it("writes an ORDER_DISPATCHED event, stage EXECUTE, current_stage unchanged", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    const order = await orderDao.recordDispatched("01ORDER");
+
+    expect(order.current_stage).toBe("EXECUTE");
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_DISPATCHED", stage: "EXECUTE" });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordDispatched("01ORDER")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.recordArrived", () => {
+  it("writes an ORDER_ARRIVED event, stage EXECUTE, current_stage unchanged", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    const order = await orderDao.recordArrived("01ORDER");
+
+    expect(order.current_stage).toBe("EXECUTE");
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_ARRIVED", stage: "EXECUTE" });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordArrived("01ORDER")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.recordProcessing", () => {
+  it("writes an ORDER_PROCESSING event, stage EXECUTE, current_stage unchanged", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    const order = await orderDao.recordProcessing("01ORDER");
+
+    expect(order.current_stage).toBe("EXECUTE");
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_PROCESSING", stage: "EXECUTE" });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordProcessing("01ORDER")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OrderDao.recordResolved", () => {
+  it("moves current_stage to RESOLVE", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    const order = await orderDao.recordResolved("01ORDER");
+
+    expect(order.current_stage).toBe("RESOLVE");
+  });
+
+  it("writes a single ORDER_RESOLVED event, stage EXECUTE (the stage it resolved from)", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    await orderDao.recordResolved("01ORDER");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_RESOLVED", stage: "EXECUTE" });
+  });
+
+  it("re-stamps gsi1pk under the new stage (RESOLVE)", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+
+    await orderDao.recordResolved("01ORDER");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({
+      gsi1pk: "STAGE#RESOLVE",
+      gsi1sk: "2026-08-29T00:00:00.000Z",
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordResolved("01ORDER")).rejects.toThrow(ValidationError);
+  });
+});
+
 describe("OrderDao.listOrdersWaitingForSchedule", () => {
   it("queries gsi1-stage-sla for STAGE#SCHEDULE, ascending by sla_deadline", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [makeOrderItem({ current_stage: "SCHEDULE" })] });

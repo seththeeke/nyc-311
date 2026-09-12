@@ -27,7 +27,6 @@ describe("scheduleOrdersController", () => {
       ordersConsidered: 3,
       ordersScheduled: 2,
       ordersSkippedNoCapacity: 1,
-      ordersCasedUnroutable: 0,
       ordersFailed: 0,
     };
     mockedScheduleOrders.mockResolvedValue(summary);

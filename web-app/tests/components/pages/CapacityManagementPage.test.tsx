@@ -12,6 +12,7 @@ const mockedUseCapacity = vi.mocked(useCapacity);
 
 const operator: Operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
@@ -102,9 +103,11 @@ describe("CapacityManagementPage", () => {
     });
 
     renderPage();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Add vehicle" }));
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Name"), "Truck 12");
+    await user.click(screen.getByRole("button", { name: "Add vehicle" }));
 
-    await waitFor(() => expect(addCapacity).toHaveBeenCalledWith(undefined));
+    await waitFor(() => expect(addCapacity).toHaveBeenCalledWith("Truck 12", undefined));
   });
 
   it("calls removeCapacity from the roster table and clears the removing state afterward", async () => {

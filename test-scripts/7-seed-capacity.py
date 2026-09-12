@@ -110,11 +110,12 @@ def main():
     print(f"  ...fleet_size={current_fleet_size}, target={args.target}, adding {to_add}")
 
     for i in range(to_add):
-        status, body = call_api("POST", f"{api_url}/capacity", id_token, {})
+        name = f"Vehicle {current_fleet_size + i + 1}"
+        status, body = call_api("POST", f"{api_url}/capacity", id_token, {"name": name})
         if status != 201:
             print(f"FAIL: POST /capacity returned {status}: {body}")
             sys.exit(1)
-        print(f"  ...added {body['operator_id']} (rate ${body['rate_per_hour']}/hr)")
+        print(f"  ...added {body['operator_id']} ({body['name']}, rate ${body['rate_per_hour']}/hr)")
 
     status, body = call_api("GET", f"{api_url}/capacity", id_token)
     print(f"PASS: fleet_size={body['fleet_size']}, hourly_burn_rate=${body['hourly_burn_rate']}")

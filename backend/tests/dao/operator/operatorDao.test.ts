@@ -4,6 +4,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OperatorDao } from "../../../dao/operator/operatorDao";
 import { ValidationError } from "../../../models/errors";
+import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
 const TABLE_NAME = "Operators";
 const ddbMock = mockClient(DynamoDBDocumentClient);
@@ -14,12 +15,14 @@ function makeOperatorItem(overrides: Record<string, unknown> = {}): Record<strin
   return {
     operator_id: "01OPERATOR",
     sk: "#METADATA",
+    name: "Truck 12",
     status: "ACTIVE",
     current_activity: "IDLE",
     removal_requested_at: null,
     start_datetime: "2026-09-12T00:00:00.000Z",
     end_datetime: null,
     rate_per_hour: 45,
+    current_location: HOME_DEPOT_LOCATION,
     last_event_sequence: 0,
     ...overrides,
   };
@@ -38,31 +41,33 @@ afterEach(() => {
 
 describe("OperatorDao.addOperator", () => {
   it("creates an Operator in its first state: ACTIVE, IDLE, no removal requested", async () => {
-    const operator = await operatorDao.addOperator(45);
+    const operator = await operatorDao.addOperator("Truck 12", 45);
 
     expect(operator).toMatchObject({
+      name: "Truck 12",
       status: "ACTIVE",
       current_activity: "IDLE",
       removal_requested_at: null,
       end_datetime: null,
       rate_per_hour: 45,
+      current_location: HOME_DEPOT_LOCATION,
       last_event_sequence: 0,
     });
     expect(operator.operator_id.length).toBeGreaterThan(0);
   });
 
-  it("writes an OPERATOR_ADDED event carrying rate_per_hour", async () => {
-    await operatorDao.addOperator(45);
+  it("writes an OPERATOR_ADDED event carrying name, rate_per_hour, and the home-depot GPS ping", async () => {
+    await operatorDao.addOperator("Truck 12", 45);
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
       event_type: "OPERATOR_ADDED",
-      payload: { rate_per_hour: 45 },
+      payload: { name: "Truck 12", rate_per_hour: 45, location: HOME_DEPOT_LOCATION },
     });
   });
 
   it("stamps gsi1pk/gsi1sk (available) and gsi2pk/gsi2sk (roster) on the projection item", async () => {
-    await operatorDao.addOperator(45);
+    await operatorDao.addOperator("Truck 12", 45);
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
@@ -159,6 +164,143 @@ describe("OperatorDao.finalizeRemoval", () => {
     ddbMock.on(GetCommand).resolves({});
 
     await expect(operatorDao.finalizeRemoval("01OPERATOR")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OperatorDao.findIdleOperator", () => {
+  it("queries gsi1-availability, oldest-first, limit 1", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [makeOperatorItem()] });
+
+    const operator = await operatorDao.findIdleOperator();
+
+    expect(operator).toMatchObject({ operator_id: "01OPERATOR" });
+    const queryInput = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(queryInput).toMatchObject({
+      TableName: TABLE_NAME,
+      IndexName: "gsi1-availability",
+      KeyConditionExpression: "gsi1pk = :pk",
+      ExpressionAttributeValues: { ":pk": "AVAILABLE" },
+      ScanIndexForward: true,
+      Limit: 1,
+    });
+  });
+
+  it("returns null when no Operator is idle", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+
+    await expect(operatorDao.findIdleOperator()).resolves.toBeNull();
+  });
+});
+
+describe("OperatorDao.startTransit", () => {
+  it("sets current_activity to TRANSIT and clears availability", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    const operator = await operatorDao.startTransit("01OPERATOR");
+
+    expect(operator.current_activity).toBe("TRANSIT");
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBeUndefined();
+  });
+
+  it("writes a TRANSIT_STARTED event carrying the Operator's last known GPS position", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    await operatorDao.startTransit("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "TRANSIT_STARTED",
+      payload: { location: HOME_DEPOT_LOCATION },
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.startTransit("01OPERATOR")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OperatorDao.startWork", () => {
+  const jobLocation = { lat: 40.75, lng: -73.98 };
+
+  it("sets current_activity to WORKING and updates current_location to the job site", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "TRANSIT" }) });
+
+    const operator = await operatorDao.startWork("01OPERATOR", jobLocation);
+
+    expect(operator.current_activity).toBe("WORKING");
+    expect(operator.current_location).toEqual(jobLocation);
+  });
+
+  it("writes a WORK_STARTED event carrying the job-site GPS position", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "TRANSIT" }) });
+
+    await operatorDao.startWork("01OPERATOR", jobLocation);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "WORK_STARTED",
+      payload: { location: jobLocation },
+    });
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.startWork("01OPERATOR", jobLocation)).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OperatorDao.completeWork", () => {
+  it("returns to IDLE, back in the availability queue, GPS position unchanged", async () => {
+    const jobLocation = { lat: 40.75, lng: -73.98 };
+    ddbMock
+      .on(GetCommand)
+      .resolves({ Item: makeOperatorItem({ current_activity: "WORKING", current_location: jobLocation }) });
+
+    const operator = await operatorDao.completeWork("01OPERATOR");
+
+    expect(operator.current_activity).toBe("IDLE");
+    expect(operator.current_location).toEqual(jobLocation);
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBe("AVAILABLE");
+  });
+
+  it("writes a WORK_COMPLETED event carrying the Operator's current GPS position", async () => {
+    const jobLocation = { lat: 40.75, lng: -73.98 };
+    ddbMock
+      .on(GetCommand)
+      .resolves({ Item: makeOperatorItem({ current_activity: "WORKING", current_location: jobLocation }) });
+
+    await operatorDao.completeWork("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "WORK_COMPLETED",
+      payload: { location: jobLocation },
+    });
+  });
+
+  it("stays out of the availability queue when a removal is already queued", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOperatorItem({ current_activity: "WORKING", removal_requested_at: "2026-09-12T01:00:00.000Z" }),
+    });
+
+    await operatorDao.completeWork("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBeUndefined();
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.completeWork("01OPERATOR")).rejects.toThrow(ValidationError);
   });
 });
 

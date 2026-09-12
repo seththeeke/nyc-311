@@ -3,6 +3,7 @@ import { CapacityStatusSchema, OperatorSchema } from "../../src/models/operator"
 
 const validOperator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
@@ -27,6 +28,10 @@ describe("OperatorSchema", () => {
 
   it("rejects a non-positive rate_per_hour", () => {
     expect(OperatorSchema.safeParse({ ...validOperator, rate_per_hour: 0 }).success).toBe(false);
+  });
+
+  it("rejects an empty-string name", () => {
+    expect(OperatorSchema.safeParse({ ...validOperator, name: "" }).success).toBe(false);
   });
 });
 

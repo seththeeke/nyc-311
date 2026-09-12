@@ -14,8 +14,9 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
 
 /**
  * `POST /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —
- * admin-authorized. Body's `rate_per_hour` is optional; the service
- * defaults it when omitted.
+ * admin-authorized. Body's `name` is required (not unique — the only way
+ * to identify this Operator past its id); `rate_per_hour` is optional,
+ * the service defaults it when omitted.
  */
 export const addCapacityController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("AddCapacityControllerInvoked", { event });
@@ -43,7 +44,7 @@ export const addCapacityController = async (event: unknown): Promise<APIGatewayP
 
   try {
     await requireAdminUser(parsedEvent.data);
-    const operator = await addCapacity(parsedBody.data.rate_per_hour);
+    const operator = await addCapacity(parsedBody.data.name, parsedBody.data.rate_per_hour);
     logInfo("AddCapacityControllerCompleted", { operatorId: operator.operator_id });
     return jsonResponse(201, operator);
   } catch (err) {

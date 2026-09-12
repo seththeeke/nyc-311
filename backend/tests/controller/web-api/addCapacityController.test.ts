@@ -4,6 +4,7 @@ import { requireAdminUser } from "../../../controller/web-api/requireAdminUser";
 import { addCapacity } from "../../../service/capacity/capacityService";
 import { ValidationError } from "../../../models/errors";
 import type { Operator } from "../../../models/operator";
+import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 import type { User } from "../../../models/user";
 
 vi.mock("../../../controller/web-api/requireAdminUser", () => ({ requireAdminUser: vi.fn() }));
@@ -26,12 +27,14 @@ const admin: User = {
 
 const operator: Operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "ACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
   start_datetime: "2026-09-12T00:00:00.000Z",
   end_datetime: null,
   rate_per_hour: 45,
+  current_location: HOME_DEPOT_LOCATION,
   last_event_sequence: 0,
 };
 
@@ -41,7 +44,7 @@ const validEvent = {
     http: { method: "POST" },
     authorizer: { jwt: { claims: { sub: "abc-123", email: "admin@example.com" } } },
   },
-  body: JSON.stringify({ rate_per_hour: 45 }),
+  body: JSON.stringify({ name: "Truck 12", rate_per_hour: 45 }),
 };
 
 beforeEach(() => {
@@ -64,25 +67,30 @@ describe("addCapacityController", () => {
 
     expect(result.statusCode).toBe(201);
     expect(JSON.parse(result.body as string)).toEqual(operator);
-    expect(mockedAddCapacity).toHaveBeenCalledWith(45);
+    expect(mockedAddCapacity).toHaveBeenCalledWith("Truck 12", 45);
   });
 
   it("passes undefined rate_per_hour through when the body omits it", async () => {
     mockedRequireAdminUser.mockResolvedValue(admin);
     mockedAddCapacity.mockResolvedValue(operator);
 
-    await addCapacityController({ ...validEvent, body: JSON.stringify({}) });
+    await addCapacityController({ ...validEvent, body: JSON.stringify({ name: "Truck 12" }) });
 
-    expect(mockedAddCapacity).toHaveBeenCalledWith(undefined);
+    expect(mockedAddCapacity).toHaveBeenCalledWith("Truck 12", undefined);
   });
 
-  it("treats a missing body the same as an empty object", async () => {
-    mockedRequireAdminUser.mockResolvedValue(admin);
-    mockedAddCapacity.mockResolvedValue(operator);
+  it("returns 400 for a body missing the required name", async () => {
+    const result = await addCapacityController({ ...validEvent, body: JSON.stringify({ rate_per_hour: 45 }) });
 
-    await addCapacityController({ ...validEvent, body: null });
+    expect(result.statusCode).toBe(400);
+    expect(mockedRequireAdminUser).not.toHaveBeenCalled();
+  });
 
-    expect(mockedAddCapacity).toHaveBeenCalledWith(undefined);
+  it("treats a missing body the same as an empty object (fails validation — name is required)", async () => {
+    const result = await addCapacityController({ ...validEvent, body: null });
+
+    expect(result.statusCode).toBe(400);
+    expect(mockedAddCapacity).not.toHaveBeenCalled();
   });
 
   it("returns 400 without calling requireAdminUser for a malformed event", async () => {
@@ -100,7 +108,10 @@ describe("addCapacityController", () => {
   });
 
   it("returns 400 for a body that fails schema validation", async () => {
-    const result = await addCapacityController({ ...validEvent, body: JSON.stringify({ rate_per_hour: -5 }) });
+    const result = await addCapacityController({
+      ...validEvent,
+      body: JSON.stringify({ name: "Truck 12", rate_per_hour: -5 }),
+    });
 
     expect(result.statusCode).toBe(400);
     expect(mockedRequireAdminUser).not.toHaveBeenCalled();

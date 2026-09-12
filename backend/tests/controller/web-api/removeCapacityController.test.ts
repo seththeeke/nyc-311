@@ -4,6 +4,7 @@ import { requireAdminUser } from "../../../controller/web-api/requireAdminUser";
 import { removeCapacity } from "../../../service/capacity/capacityService";
 import { NotFoundError, ValidationError } from "../../../models/errors";
 import type { Operator } from "../../../models/operator";
+import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 import type { User } from "../../../models/user";
 
 vi.mock("../../../controller/web-api/requireAdminUser", () => ({ requireAdminUser: vi.fn() }));
@@ -26,12 +27,14 @@ const admin: User = {
 
 const operator: Operator = {
   operator_id: "01OPERATOR",
+  name: "Truck 12",
   status: "INACTIVE",
   current_activity: "IDLE",
   removal_requested_at: null,
   start_datetime: "2026-09-12T00:00:00.000Z",
   end_datetime: "2026-09-12T01:00:00.000Z",
   rate_per_hour: 45,
+  current_location: HOME_DEPOT_LOCATION,
   last_event_sequence: 1,
 };
 
