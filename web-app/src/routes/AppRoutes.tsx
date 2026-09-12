@@ -12,6 +12,7 @@ import { IntegrationTestReportPage } from "../components/pages/IntegrationTestRe
 import { ReportsPage } from "../components/pages/ReportsPage";
 import { LoginPage } from "../components/pages/LoginPage";
 import { AdminPage } from "../components/pages/AdminPage";
+import { CapacityManagementPage } from "../components/pages/CapacityManagementPage";
 import { PublicRoute } from "./PublicRoute";
 import { AdminRoute } from "./AdminRoute";
 
@@ -111,6 +112,14 @@ export function AppRoutes(): ReactElement {
         element={
           <AdminRoute>
             <AdminPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/capacity"
+        element={
+          <AdminRoute>
+            <CapacityManagementPage />
           </AdminRoute>
         }
       />

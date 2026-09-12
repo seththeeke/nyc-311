@@ -99,3 +99,15 @@ export function DataWarehouseIcon(): ReactElement {
     </svg>
   );
 }
+
+export function CapacityIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M3 16V8a1 1 0 011-1h9v9" />
+      <path d="M13 10h4l3 3v3h-2" />
+      <circle cx="7" cy="17" r="2" />
+      <circle cx="17" cy="17" r="2" />
+      <path d="M9 17h6" />
+    </svg>
+  );
+}

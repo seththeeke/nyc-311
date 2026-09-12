@@ -77,4 +77,9 @@ describe("AppRoutes", () => {
     renderAt("/admin");
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
   });
+
+  it("redirects /admin/capacity to /login when logged out", async () => {
+    renderAt("/admin/capacity");
+    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+  });
 });
