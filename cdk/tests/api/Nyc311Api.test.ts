@@ -1,7 +1,7 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
@@ -126,21 +126,34 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311Api", () => {
+  /*
+   * synthesize() bundles ~12 Lambdas with esbuild — calling it once per
+   * `it()` (14x) made this file the dominant cost of its CI shard (each
+   * call ~2s locally, enough on CodeBuild's slower compute to blow past
+   * Vitest's 60s worker-RPC ceiling). One synth per environment, cached
+   * here, mirrors tests/stack/Nyc311Stack.test.ts's existing pattern.
+   */
+  let testTemplate: Template;
+  let prodTemplate: Template;
+
+  beforeAll(() => {
+    testTemplate = synthesize("TEST");
+    prodTemplate = synthesize("PROD");
+  });
+
   it("is an HTTP API (apigatewayv2), not a REST API, suffixed by environment", () => {
-    synthesize("TEST").hasResourceProperties("AWS::ApiGatewayV2::Api", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       Name: "Nyc311Api-Test",
       ProtocolType: "HTTP",
     });
-    synthesize("PROD").hasResourceProperties("AWS::ApiGatewayV2::Api", {
+    prodTemplate.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       Name: "Nyc311Api-Prod",
       ProtocolType: "HTTP",
     });
   });
 
   it("allows CORS from the custom site domain, the CloudFront default, and local dev", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       CorsConfiguration: Match.objectLike({
         AllowOrigins: [`https://${SITE_DOMAIN}`, `https://${CLOUDFRONT_DOMAIN}`, "http://localhost:5173"],
       }),
@@ -148,86 +161,67 @@ describe("Nyc311Api", () => {
   });
 
   it("maps the API's custom domain as the default domain", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::ApiMapping", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::ApiMapping", {
       DomainName: "api.test.boroughsim.com",
     });
   });
 
   it("wires GET /ingestion/metrics to the metrics Lambda", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 12);
-    template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 12);
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
     });
   });
 
   it("wires GET /orders to the orders Lambda", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /orders",
     });
   });
 
   it("wires GET /order-events to the order-events Lambda", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /order-events",
     });
   });
 
   it("wires GET /lambda-metrics to the Lambda-metrics Lambda", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /lambda-metrics",
     });
   });
 
   it("wires the three GET /data/* warehouse routes", () => {
-    const template = synthesize("TEST");
-
     for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result"]) {
-      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
+      testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }
   });
 
   it("wires GET /reports to the reports Lambda", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /reports",
     });
   });
 
   it("wires GET /admin/whoami to the admin-whoami Lambda, behind the JWT authorizer", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /admin/whoami",
       AuthorizationType: "JWT",
     });
   });
 
   it("wires POST /capacity, DELETE /capacity/{operator_id}, and GET /capacity, all behind the JWT authorizer", () => {
-    const template = synthesize("TEST");
-
     for (const routeKey of ["POST /capacity", "DELETE /capacity/{operator_id}", "GET /capacity"]) {
-      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+      testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
     }
   });
 
   it("does not attach the JWT authorizer to any other route", () => {
-    const template = synthesize("TEST");
-    const routes = template.findResources("AWS::ApiGatewayV2::Route");
+    const routes = testTemplate.findResources("AWS::ApiGatewayV2::Route");
     const authorizedRouteKeys = Object.values(routes)
       .filter((route) => route.Properties?.AuthorizationType === "JWT")
       .map((route) => route.Properties?.RouteKey)
@@ -238,9 +232,7 @@ describe("Nyc311Api", () => {
   });
 
   it("allows POST and DELETE in CORS, alongside GET", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       CorsConfiguration: Match.objectLike({
         AllowMethods: Match.arrayWith(["GET", "POST", "DELETE"]),
       }),
@@ -248,7 +240,6 @@ describe("Nyc311Api", () => {
   });
 
   it("declares exactly twelve routes today", () => {
-    const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 12);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 12);
   });
 });
