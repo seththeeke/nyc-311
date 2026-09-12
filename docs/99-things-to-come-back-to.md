@@ -145,3 +145,11 @@ See [#30](https://github.com/seththeeke/nyc-311/issues/30).
 See [#32](https://github.com/seththeeke/nyc-311/issues/32).
 
 ---
+
+## CDK test suite hits Vitest's hardcoded 60s worker-RPC timeout on CodeBuild ("onTaskUpdate")
+
+Two workarounds landed (shard-count bump, caching a per-test-file synth
+helper) but the underlying flake mechanism is still unaddressed and will
+recur as the suite grows. See [#34](https://github.com/seththeeke/nyc-311/issues/34).
+
+---
