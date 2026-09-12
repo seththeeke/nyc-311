@@ -340,8 +340,9 @@ unchanged.
 - [x] `web-app/src/hooks/useCapacity.ts`.
 - [x] `web-app/src/components/pages/AdminPage.tsx` — replaced the Leg 0 placeholder with the real tile-grid page (`CapacityIcon` added to the shared icon set).
 - [x] `web-app/src/components/capacity/{CapacityStatsPanel,AddCapacityForm,CapacityRosterTable}.tsx` + `pages/CapacityManagementPage.tsx`, routed at `/admin/capacity`.
+- [x] `web-app/src/components/Header.tsx` — global sticky nav (app title, System Monitoring, Admin) wired once in `App.tsx`; Admin links straight to `/admin` and rides `AdminRoute`'s existing login-redirect/return-to-destination logic.
 - [x] `test-scripts/8-capacity-crud-test.py` — on-demand live CRUD verification (add → read → remove → read → 400/404 checks), deliberately **not** added to the pipeline's automatic integration gate (would mutate real capacity rows on every deploy otherwise).
-- [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser (mock mode): add/remove both work end-to-end.
+- [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser: add/remove both work end-to-end in mock mode, and again live against `Nyc311-Test` (web-app's `.env.local` pointed at the Test API + User Pool) through the real Admin UI via the new header nav.
 - [ ] §2.3's all-time-cost warehouse job — not built, future work.
 - [x] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` (seeded fleet to 10, $450/hr) + `8-capacity-crud-test.py` (401/create/read/remove/read/400/404 all passed, net fleet-size change zero) — 2026-09-12.
 
