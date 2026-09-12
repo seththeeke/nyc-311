@@ -45,6 +45,10 @@ import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
 import { Nyc311AdminAuth } from "../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
+import { OperatorsTable } from "../data/OperatorsTable";
+import { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
+import { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
+import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
 
 /* Enum-like discriminator, ALL_CAPS per CLAUDE.md §6. */
 export type Nyc311Environment = "TEST" | "PROD";
@@ -167,6 +171,24 @@ export class Nyc311Stack extends Stack {
     const adminAuth = new Nyc311AdminAuth(this, "Nyc311AdminAuth", { envName: props.envName });
     const adminWhoamiApiLambda = new Nyc311AdminWhoamiApiLambda(this, "Nyc311AdminWhoamiApiLambda", {
       envName: props.envName,
+      usersTable,
+    });
+
+    /* 10-capacity-modeling-and-integration.md — Legs 1-2: the real Operator fleet + admin CRUD, not yet wired into scheduling. */
+    const operatorsTable = new OperatorsTable(this, "OperatorsTable", { envName: props.envName });
+    const addCapacityApiLambda = new Nyc311AddCapacityApiLambda(this, "Nyc311AddCapacityApiLambda", {
+      envName: props.envName,
+      operatorsTable,
+      usersTable,
+    });
+    const removeCapacityApiLambda = new Nyc311RemoveCapacityApiLambda(this, "Nyc311RemoveCapacityApiLambda", {
+      envName: props.envName,
+      operatorsTable,
+      usersTable,
+    });
+    const getCapacityApiLambda = new Nyc311GetCapacityApiLambda(this, "Nyc311GetCapacityApiLambda", {
+      envName: props.envName,
+      operatorsTable,
       usersTable,
     });
     /*
@@ -466,6 +488,9 @@ export class Nyc311Stack extends Stack {
       jobResultApiLambda,
       reportsApiLambda,
       adminWhoamiApiLambda,
+      addCapacityApiLambda,
+      removeCapacityApiLambda,
+      getCapacityApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

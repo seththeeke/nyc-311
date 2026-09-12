@@ -9,6 +9,9 @@ import type { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import type { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import type { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
+import type { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
+import type { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
+import type { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
@@ -24,8 +27,12 @@ export interface Nyc311ApiProps {
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
   reportsApiLambda: Nyc311ReportsApiLambda;
-  /** `9-admin-auth-integration.md` §8 — the one route behind the admin JWT authorizer today. */
+  /** `9-admin-auth-integration.md` §8 — the first route behind the admin JWT authorizer. */
   adminWhoamiApiLambda: Nyc311AdminWhoamiApiLambda;
+  /** `10-capacity-modeling-and-integration.md` §2.1 — admin-only capacity CRUD, same authorizer. */
+  addCapacityApiLambda: Nyc311AddCapacityApiLambda;
+  removeCapacityApiLambda: Nyc311RemoveCapacityApiLambda;
+  getCapacityApiLambda: Nyc311GetCapacityApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -48,13 +55,13 @@ const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
 /**
  * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — an HTTP
- * API, cheaper than REST and enough for this mostly-GET surface. Serves
- * both its custom domain and `execute-api`.
+ * API, cheaper than REST. Serves both its custom domain and `execute-api`.
  *
- * `/admin/whoami` is the one admin-authorized route
- * (`9-admin-auth-integration.md` §4/§8) — its JWT authorizer is attached
- * per-route, never as the API's default, so every other route stays
- * public/unauthenticated exactly as it is today.
+ * `/admin/whoami` and `/capacity` are admin-authorized
+ * (`9-admin-auth-integration.md` §4/§8,
+ * `10-capacity-modeling-and-integration.md` §2.1) — the JWT authorizer
+ * attaches per-route, never as the API's default, so every other route
+ * stays public/unauthenticated.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -64,7 +71,7 @@ export class Nyc311Api extends HttpApi {
       apiName: `Nyc311Api-${suffix}`,
       corsPreflight: {
         allowOrigins: [...props.webAppDomainNames.map((d) => `https://${d}`), LOCAL_DEV_ORIGIN],
-        allowMethods: [CorsHttpMethod.GET],
+        allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.DELETE],
         allowHeaders: ["Content-Type", "Authorization"],
         maxAge: Duration.days(1),
       },
@@ -123,6 +130,27 @@ export class Nyc311Api extends HttpApi {
       path: "/admin/whoami",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetAdminWhoamiIntegration", props.adminWhoamiApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/capacity",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration("AddCapacityIntegration", props.addCapacityApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/capacity/{operator_id}",
+      methods: [HttpMethod.DELETE],
+      integration: new HttpLambdaIntegration("RemoveCapacityIntegration", props.removeCapacityApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/capacity",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetCapacityIntegration", props.getCapacityApiLambda),
       authorizer: props.adminAuthorizer,
     });
   }

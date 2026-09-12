@@ -1,5 +1,5 @@
 import { App, Stack } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
@@ -18,6 +18,10 @@ import { Nyc311ReportsApiLambda } from "../../warehouse/Nyc311ReportsApiLambda";
 import { UsersTable } from "../../data/UsersTable";
 import { Nyc311AdminAuth } from "../../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../../lambda/Nyc311AdminWhoamiApiLambda";
+import { OperatorsTable } from "../../data/OperatorsTable";
+import { Nyc311AddCapacityApiLambda } from "../../lambda/Nyc311AddCapacityApiLambda";
+import { Nyc311RemoveCapacityApiLambda } from "../../lambda/Nyc311RemoveCapacityApiLambda";
+import { Nyc311GetCapacityApiLambda } from "../../lambda/Nyc311GetCapacityApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -79,6 +83,22 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     usersTable,
   });
+  const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
+  const addCapacityApiLambda = new Nyc311AddCapacityApiLambda(stack, "Nyc311AddCapacityApiLambda", {
+    envName,
+    operatorsTable,
+    usersTable,
+  });
+  const removeCapacityApiLambda = new Nyc311RemoveCapacityApiLambda(stack, "Nyc311RemoveCapacityApiLambda", {
+    envName,
+    operatorsTable,
+    usersTable,
+  });
+  const getCapacityApiLambda = new Nyc311GetCapacityApiLambda(stack, "Nyc311GetCapacityApiLambda", {
+    envName,
+    operatorsTable,
+    usersTable,
+  });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -95,6 +115,9 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobResultApiLambda,
     reportsApiLambda,
     adminWhoamiApiLambda,
+    addCapacityApiLambda,
+    removeCapacityApiLambda,
+    getCapacityApiLambda,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -114,14 +137,13 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("allows CORS from the custom site domain, the CloudFront default, and local dev, GET only", () => {
+  it("allows CORS from the custom site domain, the CloudFront default, and local dev", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
-      CorsConfiguration: {
+      CorsConfiguration: Match.objectLike({
         AllowOrigins: [`https://${SITE_DOMAIN}`, `https://${CLOUDFRONT_DOMAIN}`, "http://localhost:5173"],
-        AllowMethods: ["GET"],
-      },
+      }),
     });
   });
 
@@ -139,7 +161,7 @@ describe("Nyc311Api", () => {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 9);
+    template.resourceCountIs("AWS::ApiGatewayV2::Integration", 12);
     template.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -195,17 +217,38 @@ describe("Nyc311Api", () => {
     });
   });
 
+  it("wires POST /capacity, DELETE /capacity/{operator_id}, and GET /capacity, all behind the JWT authorizer", () => {
+    const template = synthesize("TEST");
+
+    for (const routeKey of ["POST /capacity", "DELETE /capacity/{operator_id}", "GET /capacity"]) {
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+    }
+  });
+
   it("does not attach the JWT authorizer to any other route", () => {
     const template = synthesize("TEST");
     const routes = template.findResources("AWS::ApiGatewayV2::Route");
     const authorizedRouteKeys = Object.values(routes)
       .filter((route) => route.Properties?.AuthorizationType === "JWT")
-      .map((route) => route.Properties?.RouteKey);
-    expect(authorizedRouteKeys).toEqual(["GET /admin/whoami"]);
+      .map((route) => route.Properties?.RouteKey)
+      .sort();
+    expect(authorizedRouteKeys).toEqual(
+      ["GET /admin/whoami", "GET /capacity", "POST /capacity", "DELETE /capacity/{operator_id}"].sort()
+    );
   });
 
-  it("declares exactly nine routes today", () => {
+  it("allows POST and DELETE in CORS, alongside GET", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::ApiGatewayV2::Route", 9);
+
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+      CorsConfiguration: Match.objectLike({
+        AllowMethods: Match.arrayWith(["GET", "POST", "DELETE"]),
+      }),
+    });
+  });
+
+  it("declares exactly twelve routes today", () => {
+    const template = synthesize("TEST");
+    template.resourceCountIs("AWS::ApiGatewayV2::Route", 12);
   });
 });
