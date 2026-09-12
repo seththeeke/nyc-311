@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
-import { CapacityIcon } from "../monitoring/MonitoringTileIcons";
+import { CapacityIcon, SchedulingIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
 
 interface AdminTileConfig {
@@ -18,6 +18,13 @@ const ADMIN_TILES: AdminTileConfig[] = [
     to: "/admin/capacity",
     accent: "emerald",
     icon: <CapacityIcon />,
+  },
+  {
+    title: "Scheduling",
+    description: "Kick off an on-demand scheduling run — dispatches queued Orders against the idle fleet.",
+    to: "/admin/scheduling",
+    accent: "cyan",
+    icon: <SchedulingIcon />,
   },
 ];
 

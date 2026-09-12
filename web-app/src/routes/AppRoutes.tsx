@@ -13,6 +13,7 @@ import { ReportsPage } from "../components/pages/ReportsPage";
 import { LoginPage } from "../components/pages/LoginPage";
 import { AdminPage } from "../components/pages/AdminPage";
 import { CapacityManagementPage } from "../components/pages/CapacityManagementPage";
+import { SchedulingManagementPage } from "../components/pages/SchedulingManagementPage";
 import { PublicRoute } from "./PublicRoute";
 import { AdminRoute } from "./AdminRoute";
 
@@ -120,6 +121,14 @@ export function AppRoutes(): ReactElement {
         element={
           <AdminRoute>
             <CapacityManagementPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/scheduling"
+        element={
+          <AdminRoute>
+            <SchedulingManagementPage />
           </AdminRoute>
         }
       />

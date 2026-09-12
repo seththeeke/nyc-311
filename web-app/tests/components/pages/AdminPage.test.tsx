@@ -50,6 +50,25 @@ describe("AdminPage", () => {
     expect(link).toHaveAttribute("href", "/admin/capacity");
   });
 
+  it("renders the Scheduling tile, linking to /admin/scheduling", () => {
+    mockedUseAuth.mockReturnValue({
+      user,
+      isLoading: false,
+      signIn: vi.fn(),
+      signInError: null,
+      isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
+      signOut: vi.fn(),
+    });
+
+    renderAdminPage();
+
+    const link = screen.getByRole("link", { name: /Scheduling/ });
+    expect(link).toHaveAttribute("href", "/admin/scheduling");
+  });
+
   it("shows the signed-in admin's email", () => {
     mockedUseAuth.mockReturnValue({
       user,

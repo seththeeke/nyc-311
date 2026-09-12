@@ -111,3 +111,12 @@ export function CapacityIcon(): ReactElement {
     </svg>
   );
 }
+
+export function SchedulingIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  );
+}
