@@ -23,6 +23,7 @@ export default defineConfig({
       LOCATIONS_TABLE_NAME: "Locations",
       ORDERS_TABLE_NAME: "Orders",
       USERS_TABLE_NAME: "Users",
+      OPERATORS_TABLE_NAME: "Operators",
       PIPELINE_NAME: "Nyc311Pipeline",
     },
     coverage: {

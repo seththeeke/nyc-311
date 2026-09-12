@@ -1,20 +1,193 @@
-import { describe, expect, it } from "vitest";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { mockClient } from "aws-sdk-client-mock";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OperatorDao } from "../../../dao/operator/operatorDao";
+import { ValidationError } from "../../../models/errors";
 
-describe("OperatorDao.getOperator", () => {
-  it("returns an Operator with a non-empty operator_id", async () => {
-    const operator = await new OperatorDao().getOperator();
+const TABLE_NAME = "Operators";
+const ddbMock = mockClient(DynamoDBDocumentClient);
+const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const operatorDao = new OperatorDao(client, TABLE_NAME);
 
-    expect(typeof operator.operator_id).toBe("string");
+function makeOperatorItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    operator_id: "01OPERATOR",
+    sk: "#METADATA",
+    status: "ACTIVE",
+    current_activity: "IDLE",
+    removal_requested_at: null,
+    start_datetime: "2026-09-12T00:00:00.000Z",
+    end_datetime: null,
+    rate_per_hour: 45,
+    last_event_sequence: 0,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  ddbMock.reset();
+  ddbMock.on(GetCommand).resolves({});
+  ddbMock.on(TransactWriteCommand).resolves({});
+  vi.spyOn(console, "log").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("OperatorDao.addOperator", () => {
+  it("creates an Operator in its first state: ACTIVE, IDLE, no removal requested", async () => {
+    const operator = await operatorDao.addOperator(45);
+
+    expect(operator).toMatchObject({
+      status: "ACTIVE",
+      current_activity: "IDLE",
+      removal_requested_at: null,
+      end_datetime: null,
+      rate_per_hour: 45,
+      last_event_sequence: 0,
+    });
     expect(operator.operator_id.length).toBeGreaterThan(0);
   });
 
-  it("returns a fresh operator_id on every call — fully stateless, never persisted", async () => {
-    const dao = new OperatorDao();
+  it("writes an OPERATOR_ADDED event carrying rate_per_hour", async () => {
+    await operatorDao.addOperator(45);
 
-    const first = await dao.getOperator();
-    const second = await dao.getOperator();
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "OPERATOR_ADDED",
+      payload: { rate_per_hour: 45 },
+    });
+  });
 
-    expect(first.operator_id).not.toBe(second.operator_id);
+  it("stamps gsi1pk/gsi1sk (available) and gsi2pk/gsi2sk (roster) on the projection item", async () => {
+    await operatorDao.addOperator(45);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBe("AVAILABLE");
+    expect(projectionItem.gsi1sk).toBe(projectionItem.start_datetime);
+    expect(projectionItem.gsi2pk).toBe("OPERATOR");
+    expect(projectionItem.gsi2sk).toBe(`ACTIVE#${projectionItem.start_datetime}`);
+  });
+});
+
+describe("OperatorDao.getOperator", () => {
+  it("returns the validated Operator when found", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    await expect(operatorDao.getOperator("01OPERATOR")).resolves.toMatchObject({ operator_id: "01OPERATOR" });
+  });
+
+  it("returns null when no projection exists", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.getOperator("01OPERATOR")).resolves.toBeNull();
+  });
+});
+
+describe("OperatorDao.queueRemoval", () => {
+  it("sets removal_requested_at, leaving current_activity untouched", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "WORKING" }) });
+
+    const operator = await operatorDao.queueRemoval("01OPERATOR");
+
+    expect(operator.removal_requested_at).not.toBeNull();
+    expect(operator.current_activity).toBe("WORKING");
+    expect(operator.status).toBe("ACTIVE");
+  });
+
+  it("writes an OPERATOR_REMOVAL_REQUESTED event", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "WORKING" }) });
+
+    await operatorDao.queueRemoval("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "OPERATOR_REMOVAL_REQUESTED" });
+  });
+
+  it("clears gsi1pk/gsi1sk (no longer available) but keeps gsi2 roster keys", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "WORKING" }) });
+
+    await operatorDao.queueRemoval("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBeUndefined();
+    expect(projectionItem.gsi2pk).toBe("OPERATOR");
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.queueRemoval("01OPERATOR")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OperatorDao.finalizeRemoval", () => {
+  it("sets status to INACTIVE and stamps end_datetime", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    const operator = await operatorDao.finalizeRemoval("01OPERATOR");
+
+    expect(operator.status).toBe("INACTIVE");
+    expect(operator.end_datetime).not.toBeNull();
+  });
+
+  it("writes an OPERATOR_REMOVED event", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    await operatorDao.finalizeRemoval("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "OPERATOR_REMOVED" });
+  });
+
+  it("clears gsi1pk (never available again) and re-stamps gsi2sk under INACTIVE", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+
+    await operatorDao.finalizeRemoval("01OPERATOR");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projectionItem = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projectionItem.gsi1pk).toBeUndefined();
+    expect(projectionItem.gsi2sk).toBe(`INACTIVE#${projectionItem.start_datetime}`);
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.finalizeRemoval("01OPERATOR")).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("OperatorDao.listActiveRoster", () => {
+  it("queries gsi2-roster for the ACTIVE# prefix and returns validated Operators", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [makeOperatorItem()] });
+
+    const roster = await operatorDao.listActiveRoster();
+
+    expect(roster).toHaveLength(1);
+    expect(roster[0]).toMatchObject({ operator_id: "01OPERATOR", status: "ACTIVE" });
+    const queryInput = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(queryInput).toMatchObject({
+      TableName: TABLE_NAME,
+      IndexName: "gsi2-roster",
+      KeyConditionExpression: "gsi2pk = :pk AND begins_with(gsi2sk, :statusPrefix)",
+      ExpressionAttributeValues: { ":pk": "OPERATOR", ":statusPrefix": "ACTIVE#" },
+    });
+  });
+
+  it("returns an empty array when no active Operators exist", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+
+    await expect(operatorDao.listActiveRoster()).resolves.toEqual([]);
+  });
+
+  it("throws ValidationError when a roster item fails schema validation", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [{ operator_id: "01OPERATOR" }] });
+
+    await expect(operatorDao.listActiveRoster()).rejects.toThrow(ValidationError);
   });
 });

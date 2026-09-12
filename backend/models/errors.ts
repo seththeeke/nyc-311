@@ -33,6 +33,18 @@ export class ValidationError extends Error {
 }
 
 /**
+ * The caller referenced an entity that doesn't exist (e.g. `DELETE
+ * /capacity/{operator_id}` for an `operator_id` with no `Operator` row).
+ * API Gateway controllers should map this to a `404`.
+ */
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
+/**
  * A real failure not worth retrying as-is (e.g. a
  * `ConditionalCheckFailedException`). A Step Functions `Catch` on this
  * should go straight to Case-creation, not retry; API Gateway controllers

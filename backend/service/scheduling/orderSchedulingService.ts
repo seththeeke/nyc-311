@@ -4,7 +4,7 @@ import { logInfo, logWarn } from "../../logger";
 import { OrderDao } from "../../dao/order/orderDao";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
-import { OperatorDao } from "../../dao/operator/operatorDao";
+import { MockOperatorAssignmentDao } from "../../dao/scheduling/mockOperatorAssignmentDao";
 import { createCase } from "../case/caseService";
 import type { Order } from "../../models/order";
 import {
@@ -32,8 +32,8 @@ function getDefaultRequestDao(): RequestDao {
 function getDefaultLocationDao(): LocationDao {
   return new LocationDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("LOCATIONS_TABLE_NAME"));
 }
-function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao();
+function getDefaultOperatorDao(): MockOperatorAssignmentDao {
+  return new MockOperatorAssignmentDao();
 }
 
 /*
@@ -66,7 +66,7 @@ export interface OrderSchedulingDeps {
   orderDao?: OrderDao;
   requestDao?: RequestDao;
   locationDao?: LocationDao;
-  operatorDao?: OperatorDao;
+  operatorDao?: MockOperatorAssignmentDao;
   capacityProvider?: CapacityAvailabilityProvider;
   transitEstimator?: TransitTimeEstimator;
   processingEstimator?: ProcessingTimeEstimator;

@@ -6,7 +6,7 @@ import type { OrderSchedulingDeps } from "../../../service/scheduling/orderSched
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { RequestDao } from "../../../dao/request/requestDao";
 import type { LocationDao } from "../../../dao/location/locationDao";
-import type { OperatorDao } from "../../../dao/operator/operatorDao";
+import type { MockOperatorAssignmentDao } from "../../../dao/scheduling/mockOperatorAssignmentDao";
 import type { Order } from "../../../models/order";
 import type { Request } from "../../../models/request";
 import type { Location } from "../../../models/location";
@@ -84,8 +84,10 @@ function makeLocationDao(location: Location | null): LocationDao {
   return { getLocation: vi.fn().mockResolvedValue(location) } as unknown as LocationDao;
 }
 
-function makeOperatorDao(operatorId = "01OPERATOR"): OperatorDao {
-  return { getOperator: vi.fn().mockResolvedValue({ operator_id: operatorId }) } as unknown as OperatorDao;
+function makeOperatorDao(operatorId = "01OPERATOR"): MockOperatorAssignmentDao {
+  return {
+    getOperator: vi.fn().mockResolvedValue({ operator_id: operatorId }),
+  } as unknown as MockOperatorAssignmentDao;
 }
 
 function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
