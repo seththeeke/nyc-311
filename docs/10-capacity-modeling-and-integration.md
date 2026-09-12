@@ -1,6 +1,6 @@
 # Capacity Modeling & Integration — Design & Build Doc
 
-> Legs 1-4 of the capacity-management effort (Leg 0, admin auth, is
+> Legs 1-5 of the capacity-management effort (Leg 0, admin auth, is
 > `9-admin-auth-integration.md` — shipped and verified live 2026-09-10).
 > Replaces the hardcoded/mock capacity built in `6-order-scheduling.md` (`MOCK_POOL_CAPACITY_UNITS
 > = 5`, a fresh random-UUID `OperatorDao.getOperator()` never persisted) with
@@ -37,7 +37,12 @@
 | 3 | [3.2 Step Function shape](#32-step-function-shape) | **Agreed (2026-09-10)** |
 | 3 | [3.3 Sim-time config — AppConfig](#33-sim-time-config--appconfig) | **Agreed (2026-09-10)** |
 | 3 | [3.4 Failure injection at `EXECUTE`](#34-failure-injection-at-execute) | **Agreed (2026-09-10), deferred** |
+| 3 | [3.5 Dropping capacity pools from scheduling](#35-dropping-capacity-pools-from-scheduling) | **Agreed (2026-09-12)** |
+| 3 | [3.6 Resolving the idle→busy claim timing](#36-resolving-the-idlebusy-claim-timing) | **Agreed (2026-09-12)** |
+| 3 | [3.7 GPS pings on the `OperatorEvent` stream](#37-gps-pings-on-the-operatorevent-stream) | **Agreed (2026-09-12)** |
+| 3 | [3.8 Pre-scheduling hook — leading `Wait`](#38-pre-scheduling-hook--leading-wait) | **Agreed (2026-09-12)** |
 | 4 | [4.1 Cleanup script scope](#41-cleanup-script-scope) | **Agreed (2026-09-10)** |
+| 5 | [5.1 Admin Scheduling tile](#51-admin-scheduling-tile) | **Agreed (2026-09-12)** |
 
 ---
 
@@ -55,6 +60,7 @@ carried now as unused placeholders).
 | Field | Notes |
 |---|---|
 | `operator_id` | Identity (ULID). |
+| `name` | Free-text, admin-supplied at `OPERATOR_ADDED`, **not unique** — the only way to identify an Operator past its id. Added 2026-09-12. |
 | `status` | `ACTIVE` \| `INACTIVE` — stored, driven by events (not purely derived), so GSI2 (§1.4) can filter on it directly. |
 | `current_activity` | `IDLE` \| `TRANSIT` \| `WORKING`. No `OFF_SHIFT` — no shift concept in v1. Starts `IDLE`. |
 | `removal_requested_at` | Nullable. Set when an admin removes a *busy* vehicle (§1.5-adjacent "queued removal" semantics, already agreed in conversation) — `current_activity` stays whatever it was; the vehicle simply isn't reassigned again and gets finalized (→ `INACTIVE`, `end_datetime` stamped) the moment its current execution resolves. Removing an already-`IDLE` vehicle finalizes immediately instead of setting this field. |
@@ -68,7 +74,7 @@ carried now as unused placeholders).
 
 | `event_type` | Meaning |
 |---|---|
-| `OPERATOR_ADDED` | Fleet entry. Payload: `rate_per_hour`. |
+| `OPERATOR_ADDED` | Fleet entry. Payload: `name`, `rate_per_hour`. |
 | `OPERATOR_REMOVAL_REQUESTED` | Admin requested removal while busy — sets `removal_requested_at`, no other state change. |
 | `OPERATOR_REMOVED` | Finalizes retirement — sets `status: INACTIVE`, `end_datetime`. Fired either immediately (removal requested while idle) or by the execution flow's resolve step (removal was queued while busy). |
 | `TRANSIT_STARTED` | Payload: `order_id`. Sets `current_activity: TRANSIT`. |
@@ -161,7 +167,7 @@ public Monitoring page):
 
 | Route | Behavior |
 |---|---|
-| `POST /capacity` | Body: `{ rate_per_hour?: number }`. Emits `OPERATOR_ADDED`. Returns the new `Operator`. |
+| `POST /capacity` | Body: `{ name: string, rate_per_hour?: number }`. Emits `OPERATOR_ADDED`. Returns the new `Operator`. |
 | `DELETE /capacity/{operator_id}` | Queues or finalizes removal per §1.1's semantics. Returns the updated `Operator`. |
 | `GET /capacity` | Live stats (available count, active fleet size, current hourly burn rate = sum of active `rate_per_hour`) + the active roster list, via `gsi2-roster` (§1.4). |
 
@@ -294,6 +300,100 @@ created? vehicle force-returned to the pool?) is real design work on its
 own — logged as a named follow-up in `99-things-to-come-back-to.md` once
 this leg ships, not silently skipped.
 
+### 3.5 Dropping capacity pools from scheduling
+
+**Agreed.** `orderSchedulingService.ts` (`6-order-scheduling.md` §7) still
+gates dispatch on an `(agency, borough)` pool derived from
+`Request.agency`/`Location.borough`, with a per-pool unit budget from
+`CapacityAvailabilityProvider` — but the real `Operator` (Leg 1) has no
+pool/agency/borough field at all; it's one flat, global fleet. Per
+explicit instruction: **drop pools from scheduling entirely**, superseding
+`6-order-scheduling.md` §7's pool-budget design (not `capacity-model.md`
+itself, which remains the eventual real design if pools ever come back).
+
+- `dispatchOneOrder`'s `derivePool`/`poolBudgets` and the
+  "missing agency/borough → unroutable Case" branch are **removed**. A
+  missing/invalid Location no longer creates a Case on the scheduling
+  path — Location resolution failures are Leg 3-ingestion's problem
+  (`3-order-ingestion.md`), not scheduling's.
+- Capacity becomes one global check per Order: is there an idle
+  `Operator` at all? First Order in the queue (oldest `sla_deadline`
+  first, unchanged) that finds one gets it; once the fleet is exhausted,
+  every remaining Order in the run is `SKIPPED_NO_CAPACITY` (no per-pool
+  bookkeeping needed — one counter, not a `Map`).
+- `mockCapacityAvailabilityProvider`/`MOCK_POOL_CAPACITY_UNITS` and
+  `MockOperatorAssignmentDao` are deleted — replaced by real
+  `OperatorDao` methods (§3.6).
+
+### 3.6 Resolving the idle→busy claim timing
+
+**Agreed.** §1.5 and §3.1/§3.2 (both agreed 2026-09-10) have a latent
+tension, surfaced only now during implementation: §1.5 says the
+scheduling job itself performs the idle→busy transition at assignment
+time ("the only writer of idle→busy transitions is this job itself, so a
+plain `UpdateItem` is safe") — a correctness point, avoiding a
+double-claim race across Orders in the *same* scheduling run, since the
+job's own loop is single-threaded but an operator claimed for Order A
+must be unavailable by the time Order B (later in the same batch) queries
+for an idle operator. §3.1/§3.2 instead assign `TRANSIT_STARTED` to the
+state machine's `Dispatch` Lambda Task, which runs moments *later*
+(asynchronously, after `StartExecution`) — too late to prevent that race.
+
+**Resolution**: the scheduling job's claim step *is* the `TRANSIT_STARTED`
+transition. `orderSchedulingService.dispatchOneOrder` calls a new
+`OperatorDao.startTransit(operatorId)` (Query `gsi1-availability` for the
+oldest idle Operator, then append `TRANSIT_STARTED`, clearing
+`gsi1pk`/`gsi1sk` and setting `current_activity: TRANSIT` — same shape as
+the existing `queueRemoval`/`finalizeRemoval` methods) synchronously,
+*before* calling `orderDao.scheduleOrder` and starting the execution. The
+`Dispatch` Lambda Task (§3.2) now fires **`ORDER_DISPATCHED` only** — the
+Operator side already happened. This is a small correction to §3.1's
+"each Task fires the matching pair" framing, not a reopening of it: the
+pair still fires within the same synchronous scheduling-job call (Order
+event via `orderDao.scheduleOrder`, Operator event via
+`OperatorDao.startTransit`), just both on the scheduling-job side of the
+line instead of split across the job and the state machine.
+
+### 3.7 GPS pings on the `OperatorEvent` stream
+
+**Agreed.** Pings piggyback on the existing `OperatorEvent` payloads
+(no new table/entity) — each lifecycle event that represents a real
+position carries a `location: { lat: number, lng: number }` field:
+
+| Event | `location` |
+|---|---|
+| `OPERATOR_ADDED` | `HOME_DEPOT` (a fixed mock lat/lng constant, same "stub proves the shape" precedent as `MOCK_TRANSIT_MINUTES` et al. — a real depot/address entity is future work, not this leg). |
+| `TRANSIT_STARTED` | Wherever the Operator's last recorded position was (`HOME_DEPOT` for a first dispatch, otherwise their previous job's site — see below). |
+| `WORK_STARTED` | The assigned Order's `Location.latitude`/`longitude`, falling back to `HOME_DEPOT` if either is null (real 311 records are sometimes geodata-incomplete — same lenient precedent as `1-data-ingestion.md` §4). |
+| `WORK_COMPLETED` | Same as `WORK_STARTED` — no return-to-depot leg is modeled. An Operator's GPS position sits at their last job site until their *next* `TRANSIT_STARTED`, whenever that is. This is deliberately simpler than snapping back to `HOME_DEPOT` on completion: a truck can't teleport, and fabricating a return trip with no corresponding transit/Wait would be a fake ping, not a real one. `TransitTimeEstimator` stays a flat constant either way (§3.1 of `capacity-model.md`'s "from depot" v1 model was never actually built — the real mock is unconditional), so this doesn't create an inconsistency with anything that exists today. |
+
+`Operator`'s projection gets a new field, `current_location: { lat, lng }
+| null` (`null` only pre-`OPERATOR_ADDED`, which never surfaces since the
+projection doesn't exist yet either) — folded the same way every other
+projection field is: each event handler that carries a `location` payload
+sets it. This is what makes "tie pings together into a full path" cheap
+today (replay one Operator's event history, already the source of truth)
+and gives the eventual home-page map a live "where is this Operator right
+now" read with no extra query.
+
+**Explicitly out of scope for this leg** (per your own framing): pings
+"every interval, based on actual movement" during the `Wait` states —
+that needs the mock execution model to actually simulate interpolated
+motion, which doesn't exist yet. Logged in `99-things-to-come-back-to.md`
+once this leg ships.
+
+### 3.8 Pre-scheduling hook — leading `Wait`
+
+**Agreed.** Every execution still starts immediately today (an Operator
+is only ever claimed when already idle) — but the state machine (§3.2)
+gains a **leading `Wait` state**, `Wait(until: scheduled_start_datetime)`,
+before `Dispatch`. `scheduled_start_datetime` is a field on the
+`StartExecution` input, always `now` for this leg (matching the existing
+`scheduledStart = deps.now()` in `dispatchOneOrder`). A future
+pre-scheduling flow is then purely "pass a later timestamp" — no
+state-machine redesign, no new deploy. `Wait` resolves effectively
+instantly at `now`, so this is a zero-behavior-change addition today.
+
 ---
 
 ## Leg 4 — Test DB cleanup script
@@ -311,15 +411,35 @@ run, same as any other mutating AWS call.
 
 ---
 
+## Leg 5 — Admin Scheduling tile
+
+### 5.1 Admin Scheduling tile
+
+**Agreed.** A second Admin tile (alongside Capacity), `/admin/scheduling`
+— an on-demand trigger for `scheduleOrders` ("kick off scheduling on
+demand for testing purposes"), since it otherwise only runs on its
+existing `rate(1 hour)` EventBridge Schedule. New admin-authorized route,
+`POST /scheduling/run`, calling the same `scheduleOrders` service function
+the scheduled Lambda already calls (one service, two controllers/trigger
+types, per `CLAUDE.md` §5.2) — a button, a loading state, and a bare
+success/failure result. Output statistics/a dashboard-style stats display
+is **explicitly deferred** — you want to think through what that should
+show before committing to it, so this leg does not build a stats panel,
+persisted run history, or a `GET` status endpoint. (The scheduled job's
+own `SchedulingRunSummary` is still logged via `logInfo`, same as always
+— just not surfaced in the UI yet.)
+
+---
+
 ## Build Checklist
 
-**Legs 1-2 built and locally verified 2026-09-12** (build/lint/test/coverage
-green across `backend`/`cdk`/`web-app`, 90%+ per file); Legs 3-4 not yet
-started. Per explicit instruction, capacity is **not wired into scheduling**
-— `orderSchedulingService.ts` still uses the old `MockOperatorAssignmentDao`
-stub (renamed from `OperatorDao`/`dao/operator/operatorDao.ts`, which that
-name now belongs to for real) and the mock `CapacityAvailabilityProvider`,
-unchanged.
+**Legs 1, 2, 3, and 5 built and locally verified 2026-09-12**
+(build/lint/test/coverage green across `backend`/`cdk`/`web-app`, 90%+ per
+file); Leg 4 not yet started. Capacity **is now wired into scheduling**
+(Legs 3.5/3.6) — `orderSchedulingService.ts` claims a real idle `Operator`
+and starts one execution per Order; the old `MockOperatorAssignmentDao`/
+`mockCapacityAvailabilityProvider` stubs are deleted. Legs 3 and 5 are
+built and locally verified but **not yet deployed**.
 
 **Leg 1 — Operator entity & capacity model**
 - [x] `backend/models/operator.ts` — real `Operator`/`OperatorEvent` (replacing the old `{operator_id}`-only stub schema).
@@ -345,7 +465,33 @@ unchanged.
 - [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser: add/remove both work end-to-end in mock mode, and again live against `Nyc311-Test` (web-app's `.env.local` pointed at the Test API + User Pool) through the real Admin UI via the new header nav.
 - [ ] §2.3's all-time-cost warehouse job — not built, future work.
 - [x] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` (seeded fleet to 10, $450/hr) + `8-capacity-crud-test.py` (401/create/read/remove/read/400/404 all passed, net fleet-size change zero) — 2026-09-12.
+- [x] `name` added to `Operator`/`AddCapacityRequest` (required, free-text, not unique) — 2026-09-12, per explicit instruction to identify a vehicle past its id. Full stack: `backend/models/operator.ts`, `capacityRequest.ts`, `dao/operator/operatorDao.ts` (`addOperator(name, ratePerHour)`, stamped into the `OPERATOR_ADDED` payload), `service/capacity/capacityService.ts`, `addCapacityController.ts`; `web-app/src/models/operator.ts`, `services/capacityService.ts` (live + mock), `hooks/useCapacity.ts`, `components/capacity/{AddCapacityForm,CapacityRosterTable}.tsx`, `test-data/operators.ts`; `test-scripts/{7-seed-capacity,8-capacity-crud-test}.py`. **Breaking for existing data**: `name` is required on the `Operator` projection, and `OperatorDao.listActiveRoster`/`getOperator` parse strictly — any Operator row written before this change (the 10 seeded into `Nyc311-Test` earlier today) has no `name` and will fail validation once this deploys. Before/at deploy, clear `Nyc311-Test`'s `Operators` table (or re-run `7-seed-capacity.py` after a manual wipe) — there's no live Prod data yet, so Prod is unaffected.
 
-**Leg 3 — Order execution simulation**: not started.
+**Leg 3 — Order execution simulation, built and locally verified 2026-09-12**
+(build/lint/test/coverage green across `backend`/`cdk`/`web-app`, 90%+ per
+file; visually verified live in the browser, mock mode). Not yet deployed.
+
+- [x] `backend/models/order.ts` — `ORDER_DISPATCHED`/`ORDER_ARRIVED`/`ORDER_PROCESSING` added to `ORDER_EVENT_TYPES` (§3.1; `ORDER_RESOLVED` already existed).
+- [x] `backend/models/gpsLocation.ts` — `GpsLocationSchema` + `HOME_DEPOT_LOCATION` mock constant (§3.7).
+- [x] `backend/models/operator.ts` — `current_location: GpsLocation | null` added to the projection, folded from whichever `OperatorEvent` last carried one.
+- [x] `backend/dao/operator/operatorDao.ts` — `findIdleOperator`, `startTransit`, `startWork`, `completeWork` (real event-sourced transitions, GPS pings per §3.7); `addOperator` now stamps `HOME_DEPOT_LOCATION` at creation.
+- [x] `backend/dao/order/orderDao.ts` — `recordDispatched`, `recordArrived`, `recordProcessing`, `recordResolved`.
+- [x] `backend/service/scheduling/orderSchedulingService.ts` — rewritten per §3.5/§3.6: pools/`CapacityAvailabilityProvider`/`MockOperatorAssignmentDao` deleted; claims a real idle Operator (`startTransit`, the idle→busy transition) before scheduling the Order and starting one execution per Order.
+- [x] `backend/service/scheduling/orderExecutionStarter.ts` — `StartExecutionCommand` wrapper (new `@aws-sdk/client-sfn` dependency).
+- [x] `backend/service/execution/orderExecutionService.ts` — `dispatchOrder`/`arriveAtJob`/`resolveOrder`; `getSimulationTimeScale()` reads a plain `SIMULATION_TIME_SCALE` env var (§3.3 amendment below).
+- [x] `backend/models/orderExecutionTask.ts`, `backend/controller/order-processing/orderExecutionController.ts` — the phase-routed (`DISPATCH`/`ARRIVE`/`RESOLVE`) Step Functions entry point (§3.2).
+- [x] `cdk/lambda/Nyc311OrderExecutionLambda.ts`, `cdk/step-function/Nyc311OrderExecutionStateMachine.ts` — `Wait(scheduled_start_datetime) -> Dispatch -> Wait(transit) -> Arrive -> Wait(processing) -> Resolve` (§3.2/§3.8).
+- [x] `cdk/lambda/Nyc311OrderSchedulingLambda.ts` — Operators grants + `ORDER_EXECUTION_STATE_MACHINE_ARN`/`states:StartExecution`; Cases grant removed (pool-derived unroutable path gone).
+- [x] §3.5 Dropping capacity pools from scheduling, §3.6 Resolving the idle→busy claim timing, §3.7 GPS pings, §3.8 Pre-scheduling hook — all designed and built this pass (see those sections above).
+- [~] §3.3 Sim-time config — **amended**: a plain per-environment `SIMULATION_TIME_SCALE` env var (100 for Test, 1 for Prod), not AWS AppConfig as originally sketched. Nothing yet needs to change the scale without a redeploy; swapping to AppConfig later is a drop-in change behind `getSimulationTimeScale()`, not a state-machine redesign — logged as a possible future refinement, not a gap.
+- [ ] §3.4 Failure injection at `EXECUTE` — deliberately deferred, as agreed.
+- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy. **Same breaking-data-shape gotcha as `name` earlier**: `current_location` is a new required `Operator` projection field, and `OperatorDao.listActiveRoster`/`getOperator`/`findIdleOperator` all parse strictly — whatever's currently seeded into `Nyc311-Test` (added after the `name` fix, but before this leg) has no `current_location` and will fail validation once this deploys. Clear/re-seed `Operators-Test` before or immediately after this deploy.
+
+**Leg 5 — Admin Scheduling tile, built and locally verified 2026-09-12.**
+- [x] `backend/controller/web-api/runSchedulingController.ts` — `POST /scheduling/run`, admin-authorized, calls the same `scheduleOrders` the hourly schedule already runs.
+- [x] `cdk/lambda/Nyc311RunSchedulingApiLambda.ts`, `cdk/api/Nyc311Api.ts` route wiring.
+- [x] `web-app/src/services/schedulingService.ts` (real + mock), `hooks/useScheduling.ts`, `components/pages/SchedulingManagementPage.tsx` (routed at `/admin/scheduling`), `SchedulingIcon` added to the shared icon set, second Admin tile.
+- [x] Deliberately no output-statistics display, persisted run history, or `GET` status endpoint (§5.1) — you want to think that through before committing to it.
+- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy.
 
 **Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`.

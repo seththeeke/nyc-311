@@ -1,8 +1,10 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { beforeAll, describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
+import { LocationsTable } from "../../data/LocationsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
 import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
@@ -22,6 +24,7 @@ import { OperatorsTable } from "../../data/OperatorsTable";
 import { Nyc311AddCapacityApiLambda } from "../../lambda/Nyc311AddCapacityApiLambda";
 import { Nyc311RemoveCapacityApiLambda } from "../../lambda/Nyc311RemoveCapacityApiLambda";
 import { Nyc311GetCapacityApiLambda } from "../../lambda/Nyc311GetCapacityApiLambda";
+import { Nyc311RunSchedulingApiLambda } from "../../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -99,6 +102,29 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     operatorsTable,
     usersTable,
   });
+  const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
+  /*
+   * Referenced by ARN, not the real construct — the real state machine
+   * pulls in Nyc311OrderExecutionLambda, and this file already bundles
+   * ~12 Lambdas with esbuild once per environment (see the CI-cost note
+   * on the describe block below); a fake ARN keeps that count from
+   * growing further for a route-wiring test that has no reason to care
+   * what's on the other end of it.
+   */
+  const orderExecutionStateMachine = sfn.StateMachine.fromStateMachineArn(
+    stack,
+    "FakeOrderExecutionStateMachine",
+    "arn:aws:states:us-east-1:123456789012:stateMachine:Fake"
+  );
+  const runSchedulingApiLambda = new Nyc311RunSchedulingApiLambda(stack, "Nyc311RunSchedulingApiLambda", {
+    envName,
+    ordersTable,
+    requestsTable,
+    locationsTable,
+    operatorsTable,
+    usersTable,
+    orderExecutionStateMachine,
+  });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -118,6 +144,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     addCapacityApiLambda,
     removeCapacityApiLambda,
     getCapacityApiLambda,
+    runSchedulingApiLambda,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -170,7 +197,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 12);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 13);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -220,6 +247,13 @@ describe("Nyc311Api", () => {
     }
   });
 
+  it("wires POST /scheduling/run to the run-scheduling Lambda, behind the JWT authorizer", () => {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "POST /scheduling/run",
+      AuthorizationType: "JWT",
+    });
+  });
+
   it("does not attach the JWT authorizer to any other route", () => {
     const routes = testTemplate.findResources("AWS::ApiGatewayV2::Route");
     const authorizedRouteKeys = Object.values(routes)
@@ -227,7 +261,13 @@ describe("Nyc311Api", () => {
       .map((route) => route.Properties?.RouteKey)
       .sort();
     expect(authorizedRouteKeys).toEqual(
-      ["GET /admin/whoami", "GET /capacity", "POST /capacity", "DELETE /capacity/{operator_id}"].sort()
+      [
+        "GET /admin/whoami",
+        "GET /capacity",
+        "POST /capacity",
+        "DELETE /capacity/{operator_id}",
+        "POST /scheduling/run",
+      ].sort()
     );
   });
 
@@ -239,7 +279,7 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly twelve routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 12);
+  it("declares exactly thirteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 13);
   });
 });

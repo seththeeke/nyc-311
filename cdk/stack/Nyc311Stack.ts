@@ -49,6 +49,9 @@ import { OperatorsTable } from "../data/OperatorsTable";
 import { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
 import { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
 import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
+import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
+import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
+import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
 
 /* Enum-like discriminator, ALL_CAPS per CLAUDE.md §6. */
 export type Nyc311Environment = "TEST" | "PROD";
@@ -411,20 +414,58 @@ export class Nyc311Stack extends Stack {
     });
 
     /*
+     * 10-capacity-modeling-and-integration.md §3.2/§3.3 — the mock
+     * execution simulation's state machine. `SIMULATION_TIME_SCALE`: 100x
+     * compressed in Test (a 20-minute transit estimate becomes a 12-second
+     * Wait), real time in Prod. A plain per-environment branch here, not
+     * AWS AppConfig as originally sketched — see orderExecutionService.ts's
+     * getSimulationTimeScale() doc comment for why.
+     */
+    const simulationTimeScale = props.envName === "TEST" ? 100 : 1;
+    const orderExecutionLambda = new Nyc311OrderExecutionLambda(this, "Nyc311OrderExecutionLambda", {
+      envName: props.envName,
+      ordersTable,
+      operatorsTable,
+      simulationTimeScale,
+    });
+    const orderExecutionStateMachine = new Nyc311OrderExecutionStateMachine(this, "Nyc311OrderExecutionStateMachine", {
+      envName: props.envName,
+      executionLambda: orderExecutionLambda,
+    });
+    new CfnOutput(this, "Nyc311OrderExecutionStateMachineArn", {
+      value: orderExecutionStateMachine.stateMachine.stateMachineArn,
+    });
+
+    /*
      * 6-order-scheduling.md — the job-based, prioritized dispatch of Orders
-     * waiting in SCHEDULE against mock capacity. Runs hourly.
+     * waiting in SCHEDULE, amended by 10-capacity-modeling-and-integration.md
+     * §3.5/§3.6 to claim a real idle Operator (no more agency/borough
+     * pools) and start one execution per scheduled Order. Runs hourly.
      */
     const orderSchedulingLambda = new Nyc311OrderSchedulingLambda(this, "Nyc311OrderSchedulingLambda", {
       envName: props.envName,
       ordersTable,
       requestsTable,
       locationsTable,
+      operatorsTable,
+      orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
     });
 
     new Nyc311OrderSchedulingSchedule(this, "Nyc311OrderSchedulingSchedule", {
       envName: props.envName,
       orderSchedulingLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    /* 10-capacity-modeling-and-integration.md §5.1 — admin on-demand scheduling trigger, for testing purposes. */
+    const runSchedulingApiLambda = new Nyc311RunSchedulingApiLambda(this, "Nyc311RunSchedulingApiLambda", {
+      envName: props.envName,
+      ordersTable,
+      requestsTable,
+      locationsTable,
+      operatorsTable,
+      usersTable,
+      orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
     });
 
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", {
@@ -491,6 +532,7 @@ export class Nyc311Stack extends Stack {
       addCapacityApiLambda,
       removeCapacityApiLambda,
       getCapacityApiLambda,
+      runSchedulingApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

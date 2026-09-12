@@ -6,70 +6,52 @@ import { OrdersTable } from "../../data/OrdersTable";
 import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
-import { Nyc311OrderSchedulingLambda } from "../../lambda/Nyc311OrderSchedulingLambda";
+import { UsersTable } from "../../data/UsersTable";
+import { Nyc311RunSchedulingApiLambda } from "../../lambda/Nyc311RunSchedulingApiLambda";
 
 const FAKE_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:123456789012:stateMachine:Fake";
 
-function synthesize(envName: "TEST" | "PROD"): Template {
+function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
   const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
+  const usersTable = new UsersTable(stack, "UsersTable", { envName });
   const orderExecutionStateMachine = sfn.StateMachine.fromStateMachineArn(
     stack,
     "FakeStateMachine",
     FAKE_STATE_MACHINE_ARN
   );
-  new Nyc311OrderSchedulingLambda(stack, "Nyc311OrderSchedulingLambda", {
+  new Nyc311RunSchedulingApiLambda(stack, "Nyc311RunSchedulingApiLambda", {
     envName,
     ordersTable,
     requestsTable,
     locationsTable,
     operatorsTable,
+    usersTable,
     orderExecutionStateMachine,
   });
   return Template.fromStack(stack);
 }
 
-describe("Nyc311OrderSchedulingLambda", () => {
-  it("bundles backend/controller/order-processing/scheduleOrdersController's exported handler on Node 22", () => {
+describe("Nyc311RunSchedulingApiLambda", () => {
+  it("bundles backend/controller/web-api/runSchedulingController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "index.scheduleOrdersController",
+      Handler: "index.runSchedulingController",
       Runtime: "nodejs22.x",
     });
   });
 
-  it("suffixes the function name and log group by environment, distinguishing Test from Prod", () => {
-    synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderScheduling-Test" });
-    synthesize("TEST").hasResourceProperties("AWS::Logs::LogGroup", {
-      LogGroupName: "/aws/lambda/Nyc311OrderScheduling-Test",
-    });
-
-    synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderScheduling-Prod" });
+  it("suffixes the function name by environment, distinguishing Test from Prod", () => {
+    synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RunSchedulingApi-Test" });
+    synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311RunSchedulingApi-Prod" });
   });
 
-  it("does not pin reserved concurrency — the account's unraised concurrency quota (10) rejects any reservation", () => {
-    const template = synthesize("TEST");
-
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      ReservedConcurrentExecutions: Match.absent(),
-    });
-  });
-
-  it("sets the log group to DESTROY so a failed first deploy's rollback doesn't orphan it (blocks the next changeset's preflight)", () => {
-    const template = synthesize("TEST");
-
-    template.hasResource("AWS::Logs::LogGroup", {
-      DeletionPolicy: "Delete",
-      UpdateReplacePolicy: "Delete",
-    });
-  });
-
-  it("passes the Orders/Requests/Locations/Operators table names and the execution state machine ARN as env vars", () => {
+  it("passes every table name and the execution state machine ARN as env vars", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {
@@ -79,13 +61,14 @@ describe("Nyc311OrderSchedulingLambda", () => {
           REQUESTS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^RequestsTable") },
           LOCATIONS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^LocationsTable") },
           OPERATORS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^OperatorsTable") },
+          USERS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^UsersTable") },
           ORDER_EXECUTION_STATE_MACHINE_ARN: FAKE_STATE_MACHINE_ARN,
         },
       },
     });
   });
 
-  it("grants GetItem/PutItem/Query on Orders and Operators, GetItem on Requests/Locations, and states:StartExecution on the execution state machine", () => {
+  it("grants GetItem/PutItem/Query on Orders/Operators/Users, GetItem on Requests/Locations, and states:StartExecution", () => {
     const template = synthesize("TEST");
 
     const policies = template.findResources("AWS::IAM::Policy");

@@ -1,9 +1,11 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { describe, it } from "vitest";
 import { OrdersTable } from "../../data/OrdersTable";
 import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
+import { OperatorsTable } from "../../data/OperatorsTable";
 import { Nyc311OrderSchedulingLambda } from "../../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../../lambda/Nyc311OrderSchedulingSchedule";
 
@@ -13,11 +15,19 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
+  const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
+  const orderExecutionStateMachine = sfn.StateMachine.fromStateMachineArn(
+    stack,
+    "FakeStateMachine",
+    "arn:aws:states:us-east-1:123456789012:stateMachine:Fake"
+  );
   const orderSchedulingLambda = new Nyc311OrderSchedulingLambda(stack, "Nyc311OrderSchedulingLambda", {
     envName,
     ordersTable,
     requestsTable,
     locationsTable,
+    operatorsTable,
+    orderExecutionStateMachine,
   });
   new Nyc311OrderSchedulingSchedule(stack, "Nyc311OrderSchedulingSchedule", {
     envName,

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -9,58 +9,46 @@ import type { OrdersTable } from "../data/OrdersTable";
 import type { RequestsTable } from "../data/RequestsTable";
 import type { LocationsTable } from "../data/LocationsTable";
 import type { OperatorsTable } from "../data/OperatorsTable";
+import type { UsersTable } from "../data/UsersTable";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
-export interface Nyc311OrderSchedulingLambdaProps {
+export interface Nyc311RunSchedulingApiLambdaProps {
   envName: Nyc311Environment;
   ordersTable: OrdersTable;
   requestsTable: RequestsTable;
   locationsTable: LocationsTable;
   operatorsTable: OperatorsTable;
-  /** `Nyc311OrderExecutionStateMachine` — one execution started per scheduled Order (§3.2). */
+  usersTable: UsersTable;
   orderExecutionStateMachine: IStateMachine;
 }
 
 /**
- * The order-scheduling job Lambda — entry point is
- * `scheduleOrdersController.ts` (`6-order-scheduling.md`, amended by
- * `10-capacity-modeling-and-integration.md` §3.5/§3.6, which dropped the
- * old pool/budget grants). Least-privilege: Orders read/write, Requests/
- * Locations read-only (the timing estimators), Operators read/write/
- * query (the real idle-operator claim), and `states:StartExecution` on
- * the execution state machine.
+ * Backs the admin-authorized `POST /scheduling/run` route
+ * (`10-capacity-modeling-and-integration.md` §5.1) — an on-demand trigger
+ * for testing purposes, calling the exact same `scheduleOrders` service
+ * function the `rate(1 hour)` `Nyc311OrderSchedulingLambda` already runs.
+ * Entry: `backend/controller/web-api/runSchedulingController.ts`. Same
+ * grants as that scheduled Lambda, plus `UsersTable` for `requireAdminUser`.
  */
-export class Nyc311OrderSchedulingLambda extends NodejsFunction {
-  constructor(scope: Construct, id: string, props: Nyc311OrderSchedulingLambdaProps) {
-    const functionName = `Nyc311OrderScheduling-${ENV_NAME_SUFFIX[props.envName]}`;
+export class Nyc311RunSchedulingApiLambda extends NodejsFunction {
+  constructor(scope: Construct, id: string, props: Nyc311RunSchedulingApiLambdaProps) {
+    const functionName = `Nyc311RunSchedulingApi-${ENV_NAME_SUFFIX[props.envName]}`;
 
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
+      logGroupName: `/aws/lambda/${functionName}`,
       retention: logs.RetentionDays.ONE_MONTH,
-      /*
-       * DESTROY, not the LogGroup default of RETAIN — if a deploy that
-       * first creates this Lambda fails and rolls back, a RETAINed log
-       * group is orphaned in the account, and the next deploy's changeset
-       * then fails preflight (ResourceExistenceCheck) trying to recreate a
-       * name that already exists. DESTROY lets the rollback clean it up.
-       */
-      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     const backendRoot = path.join(__dirname, "..", "..", "backend");
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "order-processing", "scheduleOrdersController.ts"),
-      handler: "scheduleOrdersController",
+      entry: path.join(backendRoot, "controller", "web-api", "runSchedulingController.ts"),
+      handler: "runSchedulingController",
       runtime: Runtime.NODEJS_22_X,
       timeout: Duration.minutes(5),
       memorySize: 256,
       logGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — see Nyc311PollerLambda for the same note.
-       */
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
@@ -68,6 +56,7 @@ export class Nyc311OrderSchedulingLambda extends NodejsFunction {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
         OPERATORS_TABLE_NAME: props.operatorsTable.tableName,
+        USERS_TABLE_NAME: props.usersTable.tableName,
         ORDER_EXECUTION_STATE_MACHINE_ARN: props.orderExecutionStateMachine.stateMachineArn,
       },
     });
@@ -76,6 +65,7 @@ export class Nyc311OrderSchedulingLambda extends NodejsFunction {
     props.requestsTable.grant(this, "dynamodb:GetItem");
     props.locationsTable.grant(this, "dynamodb:GetItem");
     props.operatorsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
+    props.usersTable.grant(this, "dynamodb:Query", "dynamodb:PutItem");
     props.orderExecutionStateMachine.grantStartExecution(this);
   }
 }

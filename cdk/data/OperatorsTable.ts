@@ -29,10 +29,10 @@ export class OperatorsTable extends TableV2 {
         {
           indexName: "gsi1-availability",
           /*
-           * Intended access pattern: the real CapacityAvailabilityProvider
-           * (Leg 1.5, not yet wired in) — Query gsi1pk = "AVAILABLE",
-           * oldest-idle-first. Sparse — only set while ACTIVE + IDLE +
-           * no removal requested.
+           * The real capacity claim (10-capacity-modeling-and-integration.md
+           * §3.5/§3.6) — OperatorDao.findIdleOperator Queries
+           * gsi1pk = "AVAILABLE", oldest-idle-first. Sparse — only set
+           * while ACTIVE + IDLE + no removal requested.
            */
           partitionKey: { name: "gsi1pk", type: AttributeType.STRING },
           sortKey: { name: "gsi1sk", type: AttributeType.STRING },
