@@ -17,7 +17,7 @@
     "deploy:pipeline": "cdk deploy --profile nyc311 --app \"npx ts-node --prefer-ts-exts bin/pipeline.ts\""
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.264.0",
+    "aws-cdk-lib": "^2.269.0",
     "constructs": "^10.8.1"
   },
   "devDependencies": {

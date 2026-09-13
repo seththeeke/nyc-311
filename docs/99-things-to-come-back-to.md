@@ -175,6 +175,13 @@ See [#37](https://github.com/seththeeke/nyc-311/issues/37).
 
 ---
 
+## cdk/: high-severity brace-expansion DoS advisory bypasses prior CVE-2026-14257 mitigation, non-breaking fix unapplied
+
+A regression of the vulnerability class fixed in #32 — a new advisory
+covers a bypass of that earlier mitigation. See [#38](https://github.com/seththeeke/nyc-311/issues/38).
+
+---
+
 ## order_snapshots "latest row per order_id" dedup keys on the wrong column (warehouse_ingested_at, not last_event_sequence)
 
 Surfaced while triaging a suspected Street-Condition filter violation
