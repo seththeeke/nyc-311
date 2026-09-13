@@ -6,11 +6,14 @@
 > Appendix A.10). Leg 4 (on-demand rebuild) shipped + verified 2026-09-09; Leg 5
 > (observability) runs on OOTB metrics for now with the alarm suite
 > deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25).
-> **Leg 6 (`Operators` joins the pipeline) and Leg 7 (admin-only ad-hoc SQL
-> console) built 2026-09-13 — code complete, all packages'
-> build/lint/test/coverage green, Leg 7 also manually verified in the
-> browser (mock mode). Not yet deployed/verified live** — see the
-> [Build Checklist](#build-checklist).
+> **Leg 6 (`Operators` joins the pipeline) built 2026-09-13, deploy
+> in progress. Leg 7 (admin ad-hoc SQL console) built and manually
+> verified in the browser (mock mode). Leg 8 (self-service job
+> authoring — DDB+S3 job definitions, per-job EventBridge Scheduler
+> schedules, replacing checked-in `.sql` files + one shared static
+> schedule) built 2026-09-13 (backend, CDK, and frontend all
+> implemented and fully tested; not yet deployed or live-verified)** —
+> see the [Build Checklist](#build-checklist).
 > Written **declaratively** — this doc describes the current design, not
 > the negotiation that produced it. Tradeoffs, rejected alternatives, and
 > the reasoning behind each call live in the
@@ -123,15 +126,24 @@ redesign. This unblocks `10-capacity-modeling-and-integration.md` §2.3's
 **Leg 7 (2026-09-13) adds an admin-only ad-hoc SQL console** — a
 `POST /admin/warehouse/query` route and an Admin-page tile, letting the
 single admin user run a one-off `SELECT` against the warehouse and see the
-result rendered as a table, no `.sql` file or deploy required. This is the
-narrow, admin-only slice of the "user-authored SQL jobs / ad-hoc query
-API" Open Item — not the general, multi-user, job-authoring version (still
-deferred, see [Open Items](#open-items)).
+result rendered as a table, no `.sql` file or deploy required.
+
+**Leg 8 (2026-09-13) replaces checked-in `.sql` files with self-service
+job authoring** — a job is now a DynamoDB definition (name, cron
+cadence) pointing at its SQL in S3, with its own EventBridge Scheduler
+schedule created/deleted at runtime through `/admin/warehouse`'s Jobs
+tab (§12b) — no `.sql` file, no deploy, to register or retire a job.
+Together, Legs 7 and 8 substantially close the "user-authored SQL jobs /
+ad-hoc query API" Open Item — general multi-tenant auth and
+saved-but-not-scheduled query history remain the only pieces still
+deferred (see [Open Items](#open-items)).
 
 **Explicitly out of scope** (see [Open Items](#open-items)):
-`business-insights.md` §2's other aggregations, `Cases`/`Shifts` (not
-built yet), any write action on `/data`, and general (non-admin,
-job-authoring) ad-hoc SQL.
+`business-insights.md` §2's other aggregations (though authoring one is
+now a Jobs-tab action, not a code change), `Cases`/`Shifts` (not built
+yet), any write action on `/data` itself, and a real multi-user auth
+model beyond the single admin `9-admin-auth-integration.md` already
+established.
 
 ---
 
@@ -315,13 +327,29 @@ versioned and reviewed alongside the Firehose that writes to it.
 
 ## 8. Jobs & the Job Runner
 
-**A job is `{ name, SQL }`** — a `.sql` file under `cdk/warehouse/sql/`.
-The runner is generic: it does not know or care what any job's query
-returns. It runs the SQL, stores the resultset verbatim, and appends it to
-that job's history table. Presentation-specific shaping (which columns to
-chart, how to render) lives entirely in the consumer, never here.
+> **Revised 2026-09-13 (Leg 8).** Jobs moved from checked-in `.sql` files
+> + one shared static daily schedule to self-service records an admin
+> creates through the app: a DynamoDB definition (name, cron cadence, a
+> pointer to its SQL in S3) plus its own EventBridge Scheduler schedule,
+> created/deleted at runtime rather than declared in CDK. The original
+> design hit a real ceiling at just 4 registered jobs (Lambda's
+> environment-variables payload limit — see Appendix A.11) and
+> self-service authoring was wanted anyway, substantially closing the
+> Open Items' "user-authored SQL jobs" item alongside Leg 7's console.
+
+**A job is `{ name, cadence, sql }`.** The runner is still generic — it
+does not know or care what any job's query returns. It resolves one
+job's definition, runs the SQL, stores the resultset verbatim, and
+appends it to that job's history table. Presentation-specific shaping
+(which columns to chart, how to render) still lives entirely in the
+consumer, never here.
 
 ### The registered jobs
+
+These four shipped as checked-in `.sql` files originally (Legs 3.5/6);
+Leg 8 backfilled them into the table+S3 model below and deleted the
+files (see "Migration off `.sql` files" further down) — same SQL, same
+names, same cadence, mechanism change only.
 
 - **`order_volume_by_stage_7d`** — created-date × current-stage
   `COUNT(*)` over the trailing 7 days (`created_at >= current_date -
@@ -352,54 +380,141 @@ chart, how to render) lives entirely in the consumer, never here.
   per-job view), linked from the Capacity page rather than embedded there
   (§2.3's own "linked from (or embedded as a stat on)" language).
 
-Every registered job runs daily; adding one is adding a `.sql` file.
+Adding a job is now a `POST /admin/warehouse/jobs` call through the
+Admin SQL Query page (§12b) — no `.sql` file, no deploy.
 
-### The runner: `Nyc311WarehouseJobRunner` (one Lambda, EventBridge `rate(1 day)`)
+### Job definitions — a second item type in `WarehouseJobRuns`
 
-Not Step Functions (Appendix A.10): the queries scan kilobytes and return
-in seconds — orchestration buys nothing, and a per-job SFN machine fights
-the "add a job = add a `.sql` file" goal. One Lambda, `controller/analytics/
-runWarehouseJobController.ts`, zod-parsed trigger, per `CLAUDE.md` §5.2.
+No new table — `10-capacity-modeling-and-integration.md`'s own framing
+("a DDB entry in the existing table... the right partition key
+strategy") is exactly the move here: a job *definition* is a second item
+shape in the existing `WarehouseJobRuns-<env>` table (§9), discriminated
+from a *run* row by `record_type` and by its `job_run_id`'s shape —
+matching the same prefix-discrimination pattern `Orders`/`Operators`
+already use (`#METADATA`/`EVENT#<n>`) for a different entity in one
+table.
 
-Per invocation:
+| Field | Definition row | Run row (§9, unchanged shape) |
+|---|---|---|
+| `job_run_id` (PK) | `` `DEF#<name>` `` — deterministic, not a ULID | a ULID |
+| `record_type` | `"DEFINITION"` | `"RUN"` (new field; absent on pre-Leg-8 rows, treated as `"RUN"`) |
+| `job_name` | the job's name (also the PK's suffix) | the job's name |
+| `sql_s3_key` | `job-definitions/<name>.sql` in the warehouse bucket | — |
+| `cadence_cron` | EventBridge Scheduler `cron(...)` expression | — |
+| `schedule_name` | the schedule's physical name (needed to delete it) | — |
+| `created_at` / `created_by` | timestamp / admin `user_id` | — |
+| `gsi1pk` | `"JOB#DEFINITIONS"` — its own GSI1 partition, separate from runs' `"JOB#RUNS"` | `"JOB#RUNS"` (unchanged) |
+| `gsi1sk` | `created_at` | `started_at` (unchanged) |
+| `gsi2pk`/`gsi2sk` | absent (sparse — nothing sweeps a definition by status) | `status`/`started_at` (unchanged) |
 
-1. **Retry sweep** (§9) — re-run any job whose most recent run `FAILED`
-   with `retry_count < MAX_JOB_RETRIES`, as a `RETRY` run.
-2. **For each registered job**, isolated in its own try/catch so one
-   failure never blocks the rest:
-   a. Write a `RUNNING` `WarehouseJobRuns` row.
-   b. `StartQueryExecution` / poll `GetQueryExecution` against the one
-      workgroup; capture `Statistics` (`DataScannedInBytes`,
-      `EngineExecutionTimeInMillis`, `QueryQueueTimeInMillis`) for §9.
-   c. `GetQueryResults` → build the **self-describing resultset envelope**
-      (§11) and `s3:PutObject` it to
-      `job-results/job_name=<job>/run_date=<date>/result.json`, immutable.
-      Athena hands every value back as a string, so envelope `rows` are
-      string-valued; `columns[].type` carries the Athena type so any
-      consumer can cast. A same-day retry overwrites that `run_date`
-      partition's `result.json` (the later run wins — a retry corrects).
-   d. Update the `WarehouseJobRuns` row to `SUCCEEDED`/`FAILED` with the
-      stats, `result_location`, and `row_count`. This tracking write is
-      its own try/catch — it never changes the outcome it describes.
+`name` stays the one stable identity end to end, unchanged from before
+Leg 8 — it keys the S3 SQL file, the DDB definition, the EventBridge
+schedule's physical name, every `WarehouseJobRuns.job_name` it produces,
+and the `job-results/job_name=<job>/...` S3 prefix + Glue partition
+(§11). Chosen once at creation (`^[a-z0-9_]+$`, the same
+`WarehouseJobSchema` regex as before), enforced unique via a conditional
+`PutItem`; a name can't be renamed — changing one means delete + recreate.
 
-That single `result.json` per run is *also* the history record: one Glue
-table (`job_results`, §11) sits over the whole `job-results/` prefix with
-partition projection on `(job_name, run_date)`, so "trend of trends" is a
-plain Athena query with no second write, no CTAS, no `glue:CreateTable`.
+### SQL storage: S3, not DynamoDB, not the repo
 
-The `.sql` files are read at synth (`fs.readFileSync`) and passed to the
-Lambda as one `WAREHOUSE_JOBS` env var (a JSON `[{name, sql}]` manifest
-built from the `sql/` directory) — no runtime S3/asset fetch.
+`s3://nyc311-warehouse-<env>/job-definitions/<name>.sql` — plain text,
+no JSON envelope, so there's no parsing format to get wrong. Read once
+per invocation by the runner; no synth-time manifest, no caching.
+
+### Per-job EventBridge Scheduler schedules
+
+One EventBridge Scheduler `Schedule` per job — the old shared daily
+`Schedule` construct is gone — created/deleted **at runtime** by the
+job-management API (§12b), not declared in CDK, since job identities
+don't exist at synth time anymore:
+
+- **Group:** `Nyc311WarehouseJobs-<Env>`, one CDK-declared
+  `scheduler.CfnScheduleGroup` holding every dynamically-created job
+  schedule — keeps `ListSchedules`/IAM resource patterns scoped to this
+  feature.
+- **Invocation role:** one CDK-declared IAM role
+  (`Nyc311WarehouseJobScheduleRole-<Env>`), trusted by
+  `scheduler.amazonaws.com`, granted `lambda:InvokeFunction` on
+  `Nyc311WarehouseJobRunner-<Env>` only. Every dynamically-created
+  schedule references this one role ARN, so the job-management API's own
+  role needs `iam:PassRole` scoped to just this ARN — never a broad
+  `iam:PassRole` on `*`.
+- **Dead-letter queue:** a fresh `Nyc311WarehouseJobDlq-<Env>` queue
+  under the new `Nyc311WarehouseJobScheduleGroup` construct — same name
+  and purpose as the one the old single schedule used, but a genuinely
+  new CloudFormation logical resource (deliberately not preserving the
+  literal old one: reusing an exact queue name across a delete-and-create
+  in the same changeset risks a transient `AlreadyExists` conflict for
+  no real benefit, since the old queue never carried any state worth
+  keeping). Referenced by every dynamically-created schedule's target.
+- **Target input:** `{"job_name": "<name>"}` — the runner's whole
+  trigger contract now, replacing the old empty-object trigger.
+- **Physical schedule name:** `Nyc311WarehouseJob-<name>-<Env>`.
+- **Created/deleted by:** `@aws-sdk/client-scheduler`'s
+  `CreateScheduleCommand`/`DeleteScheduleCommand`, called from
+  `service/analytics/warehouseJobDefinitionService.ts` — a runtime SDK
+  call, not a CDK construct.
+
+### The runner: `Nyc311WarehouseJobRunner` (one Lambda, per-job schedules)
+
+Still not Step Functions (Appendix A.10) — one query, seconds, no
+orchestration value. Still one Lambda, `controller/analytics/
+runWarehouseJobController.ts`, zod-parsed trigger (now `{job_name:
+string}`, not empty) per `CLAUDE.md` §5.2.
+
+Per invocation, now scoped to the one `job_name` its schedule fired with:
+
+1. **Look up the definition** — `GetItem` `job_run_id = DEF#<job_name>`.
+   Missing (deleted between the schedule firing and the Lambda starting
+   — a narrow, accepted race) throws, logged; no `WarehouseJobRuns` row
+   is written since there's no run to record yet.
+2. **Fetch its SQL** — `s3:GetObject` on `sql_s3_key`.
+3. **Retry decision** (§9, now per-job, not a cross-job sweep) — if
+   *this* job's latest run `FAILED` with `retry_count < MAX_JOB_RETRIES`,
+   this run is a `RETRY`; otherwise `SCHEDULED`. A job's own next fire is
+   its retry opportunity now — there's no more "check every other job
+   too" sweep, since every job already gets reconsidered on its own
+   cadence, whatever that is.
+4. Write a `RUNNING` `WarehouseJobRuns` row → `StartQueryExecution` /
+   poll `GetQueryExecution` (capturing `Statistics` for §9) →
+   `GetQueryResults` → build the resultset envelope (§11) and
+   `s3:PutObject` it to
+   `job-results/job_name=<job>/run_date=<date>/result.json` → update the
+   row to `SUCCEEDED`/`FAILED`. **Unchanged from before Leg 8** — the
+   only thing that changed is how the runner gets to "the SQL to run,"
+   not what it does with it.
+
+That single `result.json` per run is still *also* the history record:
+one Glue table (`job_results`, §11) sits over the whole `job-results/`
+prefix with partition projection on `(job_name, run_date)`, so "trend of
+trends" is still a plain Athena query, no second write, no CTAS.
+
+### Migration off `.sql` files (Leg 8, one-time)
+
+`cdk/warehouse/sql/*.sql` — the 4 files that shipped through Legs
+3.5/6 — were backfilled into this model and deleted from the repo.
+`test-scripts/9-backfill-warehouse-jobs.py` (SQL text embedded in the
+script itself, since the source files were about to be deleted) called
+the new `POST /admin/warehouse/jobs` once per job against `Nyc311-Test`
+(`--prod` for `Nyc311-Prod`), `cron(0 9 * * ? *)` for all four (daily at
+09:00 UTC, matching the old `rate(1 day)` schedule's approximate fire
+time) — then `readJobManifest()`/the `WAREHOUSE_JOBS` env var plumbing
+and the `.sql` files themselves were deleted in the same change. Same
+SQL text, same job names, same cadence — a mechanism change, not a
+content change.
 
 ---
 
 ## 9. Job Run Tracking & Automatic Retry
 
 **Table: `WarehouseJobRuns-<env>`** (plain `Dao<T>`, not event-sourced).
+This section covers *run* rows only — §8 documents the *definition* item
+type this same table also holds as of Leg 8.
 
 | Field | Notes |
 |---|---|
-| `job_run_id` | PK. ULID. |
+| `job_run_id` | PK. ULID for a run row; `` `DEF#<name>` `` is a *definition* row instead (§8) — `record_type` is what actually discriminates the two, this field's shape is a convenience, not the source of truth. |
+| `record_type` | `"RUN"` (Leg 8) — absent on any row written before 2026-09-13, which every read path still treats as a run (nothing about the run shape changed). |
 | `job_name` | e.g. `"order_volume_by_stage_7d"`, or `"REBUILD_ORDERS"`/`"REBUILD_REQUESTS"`/`"REBUILD_LOCATIONS"` for §10's on-demand rebuilds (keyed on the *source table*, not the warehouse table) — same table, one more `job_name` value. |
 | `status` | `RUNNING` \| `SUCCEEDED` \| `FAILED`. |
 | `trigger` | `SCHEDULED` \| `RETRY` \| `MANUAL` (the on-demand rebuild path, §10). |
@@ -415,26 +530,32 @@ built from the `sql/` directory) — no runtime S3/asset fetch.
 | `query_queue_time_ms` | Nullable — Athena's `Statistics.QueryQueueTimeInMillis`. |
 
 **GSIs:**
-- `gsi1-recent-runs` — `gsi1pk = "JOB#RUNS"` (fixed constant), `gsi1sk =
-  started_at`. Backs `/data`'s most-recent-first view.
-- `gsi2-status` — `gsi2pk = status`, `gsi2sk = started_at`. Backs the
-  retry sweep: `Query gsi2pk = "FAILED"`.
+- `gsi1-recent-runs` — `gsi1pk = "JOB#RUNS"` (fixed constant, run rows
+  only — definition rows sit in the separate `"JOB#DEFINITIONS"`
+  partition of this same index, §8), `gsi1sk = started_at`. Backs
+  `/data`'s most-recent-first view.
+- `gsi2-status` — `gsi2pk = status`, `gsi2sk = started_at`. Sparse —
+  only run rows carry a `status`, so definition rows never appear here.
 
 **Write path:** a `RUNNING` row at start, updated to `SUCCEEDED`/`FAILED`
 at completion — every run recorded regardless of outcome. The tracking
 write itself is wrapped in its own try/catch that only logs on failure,
 never allowed to change the real outcome it's describing.
 
-**Automatic retry:** at the start of each scheduled invocation, before
-running the day's jobs, the runner checks — per registered job — whether
-that job's most recent run `FAILED` with `retry_count < MAX_JOB_RETRIES`
-(**3**), and if so re-runs it first as a `RETRY` row carrying
-`previous.retry_count + 1`. (The `gsi2-status` `Query gsi2pk = "FAILED"`
-is the general form; with a handful of registered jobs, "latest run per
-job" via `gsi1-recent-runs` is what the code actually does.) Once
-`MAX_JOB_RETRIES` is exhausted, a run stops being retried automatically
-and shows as permanently failed on `/data` — no automatic Case creation.
-Same Lambda/schedule as §8, not a second cron.
+**Automatic retry — revised 2026-09-13 (Leg 8), now per-job, not a
+cross-job sweep.** Before Leg 8, one shared daily invocation swept every
+registered job looking for a `FAILED` prior run to retry, since one
+invocation covered every job anyway. Now each job has its own schedule,
+so each invocation just checks *itself*: at the start of a run, if that
+job's most recent run `FAILED` with `retry_count < MAX_JOB_RETRIES`
+(**3**), this run is a `RETRY` carrying `previous.retry_count + 1`;
+otherwise it's `SCHEDULED`. A job's own next cadence fire **is** its
+retry opportunity — a job on a sparse cadence (say, weekly) could take
+up to 3 cycles to exhaust retries and stop auto-retrying, which is an
+accepted, natural consequence of per-job cadence, not something worked
+around. Once `MAX_JOB_RETRIES` is exhausted, a job stops being retried
+automatically and shows as permanently failed on `/data` — no automatic
+Case creation, unchanged from before.
 
 ---
 
@@ -822,13 +943,152 @@ every other service — mock mode runs a few canned queries against
 (a mutation, not a poll — same shape as `useScheduling`),
 `components/query/SqlQueryConsole.tsx` (a `<textarea>`, a Run button, and
 a result area) + `components/query/QueryResultTable.tsx`,
-`components/pages/AdminQueryPage.tsx` at `/admin/query`, a `SqlConsoleIcon`
-on the Admin tile grid, fixtures, full mirrored tests.
+`components/pages/AdminQueryPage.tsx`, a `SqlConsoleIcon` on the Admin
+tile grid, fixtures, full mirrored tests. **Route moved 2026-09-13 (Leg
+8):** `/admin/query` → `/admin/warehouse` once the page grew a Schema
+tab and job authoring (§12b) — "Query" no longer describes everything
+it does.
 
-**Deliberately not built:** query history/saved queries (no persistence
-at all — every run is stateless), `EXPLAIN`-only cost preview before
-running, and CSV/JSON export of results — all reasonable follow-ups, none
-blocking a working console.
+**Deliberately not built:** an `EXPLAIN`-only cost preview before
+running, and CSV/JSON export of results — reasonable follow-ups, neither
+blocking a working console. ~~Query history/saved queries~~ — Leg 8
+below is exactly that, generalized into full job authoring rather than
+a lighter-weight "save this one query" feature.
+
+---
+
+## 12b. Admin job authoring (Leg 8, 2026-09-13)
+
+The Admin SQL console (§12a) grew into the one place to both run an
+ad-hoc query and, if it's worth keeping, turn it into a real scheduled
+job — no `.sql` file, no deploy. Same admin-only tier as everything else
+under `/admin`.
+
+### Layout — `/admin/warehouse`, three tabs
+
+A tab strip (`role="tablist"`, same AWS-console visual convention
+`/data` already established, §12) over one panel:
+
+- **Schema** — the exact `WarehouseSchemaView` component `/data` already
+  renders (§12), reused as-is here so an admin building a query doesn't
+  need a second tab open on the public page to remember a column name.
+- **Query** — §12a's console, unchanged, plus one new control: **Save as
+  job**, enabled once a query has run successfully at least once. Opens
+  a small form (name, cadence — the cron builder below) pre-filled with
+  the query text already in the textarea, then calls `POST
+  /admin/warehouse/jobs`.
+- **Jobs** — the job-management surface: a list of job definitions (name,
+  cadence in both raw-cron and human-readable form, created-by/at), a
+  **New job** button (the same create form as "Save as job," empty),
+  **Delete** per row (confirms, then calls `DELETE
+  /admin/warehouse/jobs/{name}`), and, per job, its run history —
+  reusing `JobRunHistoryTable`/`JobRunFilters` from `/data`'s existing
+  Jobs tab (§12), scoped to that one `job_name` rather than showing every
+  job's runs at once.
+
+### The cron builder
+
+A human-friendly front end over the one thing the backend actually
+stores: an EventBridge Scheduler `cron(...)` string. Presets translate
+directly to a cron expression — daily at a chosen `HH:MM`, hourly,
+weekly on a chosen day at `HH:MM` — plus a raw-cron text field as an
+escape hatch for anything the presets don't cover, with the resulting
+`cron(...)` string shown live so the mapping is never a black box.
+Validation is honest about where it lives: the builder can't fully
+validate a hand-typed cron string client-side, so a malformed one is
+caught server-side by EventBridge Scheduler's own `CreateSchedule` call
+rejecting it — surfaced back to the form as a plain error, not silently
+swallowed.
+
+### The routes — request/response contracts
+
+All under `/admin/warehouse/jobs`, admin-authorized, distinct from the
+public, read-only `/data/*` (run history there stays public; job
+*definitions* — names, cadences, and by extension what business logic
+they encode — do not).
+
+`POST /admin/warehouse/jobs` — body `{ name, cadence_cron, sql }`:
+
+```jsonc
+// Request
+{
+  "name": "order_volume_by_zip",
+  "cadence_cron": "cron(0 9 * * ? *)",
+  "sql": "SELECT ..."
+}
+// Response (201) — the created definition
+{
+  "job_name": "order_volume_by_zip",
+  "cadence_cron": "cron(0 9 * * ? *)",
+  "created_at": "2026-09-13T19:04:11.000Z",
+  "created_by": "01ADMIN..."
+}
+```
+
+Validates `name` against the same `^[a-z0-9_]+$` `WarehouseJobSchema`
+regex as before, uniqueness via a conditional `PutItem`
+(`attribute_not_exists`) — `409` on a name collision. Write order:
+`s3:PutObject` the SQL first (an orphaned S3 object if a later step
+fails is harmless), then the conditional DDB `PutItem` (the definitive
+"this job exists" record), then `scheduler:CreateSchedule` last. If
+`CreateSchedule` fails after the DDB write succeeds, the response is a
+`502` naming the job as created-but-unscheduled — no automatic rollback
+of the S3/DDB writes; the admin re-deletes and re-creates. Not a full
+saga; accepted as a narrow, visible failure mode rather than
+over-engineering an MVP self-service feature.
+
+`DELETE /admin/warehouse/jobs/{name}` — `scheduler:DeleteSchedule`
+(tolerates already-gone), `s3:DeleteObject` the SQL file, then the DDB
+definition row. Every past `WarehouseJobRuns` row and `job-results/`
+resultset for that job is left untouched (§8's "keep history" design
+call) — `GET /data/jobs` and `/data`'s Jobs tab still show a deleted
+job's history, `job_name` orphaned but not confusing (a `REBUILD_*`
+job_name already works the same way with no live "job" behind it).
+
+`GET /admin/warehouse/jobs` — every definition, `Query gsi1pk =
+"JOB#DEFINITIONS"` (§8), most-recently-created first.
+
+### IAM (§15's pattern, extended)
+
+**Three separate Lambdas, one per route** — matching §2.1's Capacity
+CRUD precedent (`Nyc311{Add,Remove,Get}CapacityApiLambda`), not one
+bundled admin Lambda, so `GET` genuinely can't write anything:
+
+- `Nyc311CreateWarehouseJobApiLambda` — the only Lambda in this doc with
+  write access to a job's identity: `dynamodb:PutItem` on
+  `WarehouseJobRuns`; `s3:PutObject` scoped to `job-definitions/*` only;
+  `scheduler:CreateSchedule` scoped to the `Nyc311WarehouseJobs-<Env>`
+  group; `iam:PassRole` scoped to **only**
+  `Nyc311WarehouseJobScheduleRole-<Env>`'s one ARN — the narrowest a
+  `PassRole` grant can be, since an unscoped one is a
+  privilege-escalation path (this role can only ever invoke the one
+  runner Lambda, so passing it grants nothing beyond what this feature
+  already needs).
+- `Nyc311DeleteWarehouseJobApiLambda` — `dynamodb:GetItem`/`DeleteItem`
+  on `WarehouseJobRuns`; `s3:DeleteObject` scoped to `job-definitions/*`;
+  `scheduler:DeleteSchedule` scoped to the schedule group. **No**
+  `iam:PassRole` at all — deleting a schedule never needs it.
+- `Nyc311ListWarehouseJobsApiLambda` — `dynamodb:Query` on
+  `WarehouseJobRuns` only. No S3, no Scheduler, no `PassRole` — this
+  route is genuinely read-only at the IAM layer, not just by convention.
+
+All three also get `dynamodb:Query`/`GetItem` on `UsersTable`
+(`requireAdminUser`). Asserted in CDK tests: none of the three has
+`dynamodb:*`/`s3:*` access to any other table or prefix, `Delete`/`List`
+have no `iam:PassRole` at all, and `Create`'s `PassRole` names exactly
+one resource, never a wildcard.
+
+### Frontend
+
+`web-app/src/`: `models/{warehouseJobDefinition,cronSchedule}.ts`,
+`services/warehouseJobDefinitionService.ts` (mock + live),
+`hooks/{useWarehouseJobDefinitions,useCreateWarehouseJob,useDeleteWarehouseJob}.ts`,
+`components/query/CronScheduleBuilder.tsx`,
+`components/warehouseJobs/{JobDefinitionList,JobDefinitionForm}.tsx`
+(reusing `JobRunHistoryTable`/`JobRunFilters` from `components/data/`
+for the per-job history view), `components/pages/AdminWarehousePage.tsx`
+at `/admin/warehouse` (replacing `AdminQueryPage.tsx`), a tab strip
+matching `DataViewTabs`'s pattern, fixtures, full mirrored tests.
 
 ---
 
@@ -845,15 +1105,13 @@ cdk/
     Nyc311WarehouseCatalog.ts         # glue.CfnDatabase + glue.CfnTable ×7 (6 sources + job_results) + partition projection
     Nyc311AnalyticsWorkgroup.ts       # athena.CfnWorkGroup — the scheduled job runner's
     Nyc311AdHocQueryWorkgroup.ts      # athena.CfnWorkGroup — the admin console's, dedicated (§12a, Leg 7)
-    Nyc311WarehouseJobRunnerLambda.ts # generic runner Lambda (§8/§9)
-    Nyc311WarehouseJobSchedule.ts     # daily EventBridge Scheduler + DLQ + failure alarm
+    Nyc311WarehouseJobRunnerLambda.ts # generic runner Lambda (§8/§9) — per-job schedule input as of Leg 8
+    Nyc311WarehouseJobScheduleGroup.ts # scheduler.CfnScheduleGroup + the shared invocation IAM role (§8, Leg 8)
     Nyc311Warehouse{Schema,Jobs}ApiLambda.ts, Nyc311JobResultApiLambda.ts   # three /data read routes (§12)
     Nyc311ReportsApiLambda.ts         # GET /reports — the centralized reporting surface (§12)
     Nyc311WarehouseRebuildLambda.ts   # the rebuild worker Lambda (§10, Leg 4)
     Nyc311AdHocQueryApiLambda.ts      # POST /admin/warehouse/query (§12a, Leg 7)
-    sql/
-      order_volume_by_stage_7d.sql, order_volume_by_stage_8w.sql, order_volume_by_borough.sql,
-      operator_fleet_cost_to_date.sql   # Leg 6
+    Nyc311{Create,Delete,List}WarehouseJobApiLambda.ts   # POST/DELETE/GET /admin/warehouse/jobs (§12b, Leg 8) — one Lambda per route, like Capacity CRUD
 cdk/step-function/
   Nyc311WarehouseRebuildStateMachine.ts   # on-demand rebuild Step Functions (§10, Leg 4)
 cdk/lambda/
@@ -861,16 +1119,29 @@ cdk/lambda/
   Nyc311Operator{Events,Projections}Topic.ts, Nyc311OperatorsStreamFanOutLambda.ts   # §4, Leg 6, 2026-09-13
 ```
 
-`backend/`: `models/{warehouseJobRun,jobResult,warehouseJob,warehouseJobTrigger,locationStreamEvent,operatorStreamEvent,report,warehouseRebuild,adHocQueryRequest,adHocQueryResult}.ts`,
-`dao/analytics/warehouseJobRunsDao.ts`, `service/analytics/{warehouseJobRunnerService,
-warehouseJobRunsService,warehouseSchemaService,jobResultService,reportsService,warehouseRebuildService,warehouseRecordTransformService,adHocQueryService}.ts`,
+**Removed in Leg 8 (2026-09-13):** `cdk/warehouse/sql/*.sql` (all four
+files — backfilled into DDB+S3, §8's Migration note),
+`Nyc311WarehouseJobSchedule.ts` (the single shared daily `Schedule` +
+its own failure alarm/topic — replaced by
+`Nyc311WarehouseJobScheduleGroup.ts` + per-job dynamic schedules;
+the DLQ it declared is **kept**, now referenced by every dynamic
+schedule instead of the one static one), and the `readJobManifest()`/
+`WAREHOUSE_JOBS` env var plumbing inside
+`Nyc311WarehouseJobRunnerLambda.ts`.
+
+`backend/`: `models/{warehouseJobRun,jobResult,warehouseJob,warehouseJobTrigger,locationStreamEvent,operatorStreamEvent,report,warehouseRebuild,adHocQueryRequest,adHocQueryResult,warehouseJobDefinition}.ts`,
+`dao/analytics/warehouseJobRunsDao.ts` (Leg 8 adds the definition-row
+methods), `service/analytics/{warehouseJobRunnerService,
+warehouseJobRunsService,warehouseSchemaService,jobResultService,reportsService,warehouseRebuildService,warehouseRecordTransformService,adHocQueryService,warehouseJobDefinitionService}.ts`,
 `service/ingestion/{locationEventService,operatorEventService}.ts`,
 `controller/analytics/runWarehouseJobController.ts`,
 `controller/ingestion/{fanOutLocationEventsController,fanOutOperatorEventsController}.ts`,
 `controller/data-archival/warehouseRebuildController.ts`,
 `controller/web-api/get{WarehouseSchema,WarehouseJobRuns,JobResult,Reports}Controller.ts`,
-`controller/web-api/runAdHocQueryController.ts` (Leg 7).
-Rebuild adds the `@aws-sdk/client-firehose` dependency.
+`controller/web-api/runAdHocQueryController.ts` (Leg 7),
+`controller/web-api/{createWarehouseJobController,deleteWarehouseJobController,listWarehouseJobsController}.ts`
+(Leg 8). Rebuild adds `@aws-sdk/client-firehose`; Leg 8 adds
+`@aws-sdk/client-scheduler`.
 The 2026-09-07 rework deleted `dao/analytics/analyticsRollupsDao.ts`,
 `models/analyticsRollup.ts`, `service/analytics/analyticsRollupsService.ts`,
 `controller/web-api/getRollupsController.ts`, and the rollup-fold logic in
@@ -940,11 +1211,15 @@ construct default:
   `GetQueryExecution`/`GetQueryResults`/`StopQueryExecution` scoped to the
   one workgroup; `glue:GetDatabase`/`GetTable`/`GetPartitions` on the one
   database (read-only — the `job_results` table is CDK-declared, the
-  runner never touches the catalog); `s3:GetObject` on `data/*`,
-  `s3:PutObject`/`GetObject` on `job-results/*`, `s3:PutObject`/
-  `GetObject`/`DeleteObject` on `athena-results/*`;
-  `dynamodb:GetItem`/`PutItem`/`Query` on `WarehouseJobRuns`. No
-  `AnalyticsRollups` — it no longer exists; no Glue writes.
+  runner never touches the catalog); `s3:GetObject` on `data/*` and
+  (Leg 8) `job-definitions/*` — the runner reads a job's SQL from S3
+  now, it doesn't ship in an env var — `s3:PutObject`/`GetObject` on
+  `job-results/*`, `s3:PutObject`/`GetObject`/`DeleteObject` on
+  `athena-results/*`; `dynamodb:GetItem`/`PutItem`/`Query` on
+  `WarehouseJobRuns` (`GetItem` now also resolves a `DEF#<name>` row,
+  §8 — **no** `DeleteItem`, the runner only ever reads a definition, it
+  never manages one). No `AnalyticsRollups` — it no longer exists; no
+  Glue writes.
 - **Rebuild state machine role** (§10, as built): `dynamodb:ExportTableToPointInTime`
   on each source table + `dynamodb:DescribeExport` on `<table>/export/*`;
   `s3:PutObject`/`AbortMultipartUpload` on `export-staging/*` +
@@ -982,6 +1257,24 @@ construct default:
   `Update*`/`Delete*`** — asserted absent in a CDK test, the same
   "asserted, not just written" pattern as every other `/data`-adjacent
   Lambda in this section.
+- **`Nyc311{Create,Delete,List}WarehouseJobApiLambda`** (§12b, Leg 8) —
+  three separate Lambdas, one per route, per §12b's own IAM section
+  above: `Create` is the one Lambda in this whole doc that manages
+  another Lambda's schedules, so its narrowly-scoped `iam:PassRole`
+  (exactly `Nyc311WarehouseJobScheduleRole-<Env>`'s ARN, never a
+  wildcard) is the thing to get right — an unscoped `PassRole` would let
+  it hand a caller-chosen role to a caller-chosen schedule target.
+  `Delete` gets no `PassRole` at all. `List` gets no `s3:*`/`scheduler:*`
+  at all — it's read-only at the IAM layer, not just by convention. None
+  of the three gets `athena:*`, `glue:*`, or access to
+  `data/*`/`job-results/*`/`athena-results/*` — asserted absent in CDK
+  tests.
+- **`Nyc311WarehouseJobScheduleRole-<Env>`** (§8, Leg 8) — not a Lambda,
+  the shared role every dynamically-created per-job `Schedule` assumes:
+  trusted by `scheduler.amazonaws.com` only, granted `lambda:InvokeFunction`
+  on `Nyc311WarehouseJobRunner-<Env>` **only** — it can invoke exactly
+  one function and nothing else, so even a maximally-abused schedule
+  created through the API above can't be pointed at any other resource.
 
 ---
 
@@ -996,12 +1289,16 @@ construct default:
 | SNS (3 topics) | Free tier covers this outright. |
 | `WarehouseJobRuns` (DynamoDB, on-demand) | Cents/month at most. |
 | S3 `job-results/` (one small JSON + a Parquet partition per job per day) | Rounding error. |
-| Lambda (daily runner + the three read routes) | Free tier covers it. |
+| Lambda (job runner + the read routes) | Free tier covers it. |
 | Step Functions (occasional rebuilds only, §10) | Rounding error. |
+| EventBridge Scheduler (Leg 8 — one schedule per job, each firing on its own cadence) | Free tier is 14M invocations/month; this project is nowhere close. Free in practice regardless of how many jobs get self-service-created. |
 
 **No new recurring infrastructure cost** — widening the two existing
 fan-out Lambdas (§4) rather than adding a Kinesis Data Stream (Appendix
-A.2) is the entire reason.
+A.2) is the entire reason. Leg 8's per-job EventBridge Scheduler
+schedules are the one addition to this list, and their free-tier
+headroom is large enough that self-service job creation doesn't
+introduce a cost concern worth tracking.
 
 ---
 
@@ -1064,17 +1361,21 @@ Same four-tier model (`testing-framework.md`):
 | Job result store (S3) | `s3://nyc311-warehouse-<test\|prod>/job-results/job_name=<job>/run_date=<date>/result.json` |
 | Job history table (Glue/Athena) | `nyc311_warehouse_<test\|prod>.job_results` (one table, `rows array<map<string,string>>`, over the whole `job-results/` prefix) |
 | Rebuild state machine / worker Lambda | `Nyc311WarehouseRebuild-<Test\|Prod>`, `Nyc311WarehouseRebuildWorker-<Test\|Prod>` (Leg 4); ARN in the `Nyc311WarehouseRebuildStateMachineArn` stack output; export staging under `s3://…/export-staging/<source>/`. **Not extended to `Operators` in Leg 6** — the rebuild covers `orders`/`requests`/`locations` only; adding `operators` is future work (§10/Open Items), not a blocker to live capture + the job. |
-| Job runner Lambda / schedule | `Nyc311WarehouseJobRunner-<Test\|Prod>`, `Nyc311WarehouseJobSchedule-<Test\|Prod>` |
+| Job runner Lambda | `Nyc311WarehouseJobRunner-<Test\|Prod>` — per-job `Schedule`s trigger it now, no single named schedule (Leg 8) |
+| Job schedule group / invocation role | `Nyc311WarehouseJobs-<Test\|Prod>` (`scheduler.CfnScheduleGroup`); `Nyc311WarehouseJobScheduleRole-<Test\|Prod>` (Leg 8, §8) |
+| Per-job schedule | `Nyc311WarehouseJob-<name>-<Test\|Prod>`, one per job definition, created/deleted at runtime (Leg 8, §8) |
 | Reports API Lambda | `Nyc311ReportsApi-<Test\|Prod>` |
 | Ad-hoc query API Lambda | `Nyc311AdHocQueryApi-<Test\|Prod>` (Leg 7, §12a) |
-| SQL assets | `cdk/warehouse/sql/order_volume_by_stage_7d.sql`, `order_volume_by_stage_8w.sql`, `order_volume_by_borough.sql`, `operator_fleet_cost_to_date.sql` (Leg 6) |
+| Admin job-management API Lambda | `Nyc311AdminWarehouseJobsApi-<Test\|Prod>` (Leg 8, §12b) |
+| Job SQL storage (S3) | `s3://nyc311-warehouse-<test\|prod>/job-definitions/<name>.sql` (Leg 8, §8) — replaces the checked-in `cdk/warehouse/sql/*.sql` files, deleted in the same change |
 | `/data` routes | `GET /data/schema`, `GET /data/jobs`, `GET /data/jobs/{name}/result` |
 | `/reports` route | `GET /reports` (§12) |
 | Ad-hoc query route | `POST /admin/warehouse/query`, admin-authorized (§12a, Leg 7) |
+| Admin job-management routes | `POST`/`GET`/`DELETE /admin/warehouse/jobs[/{name}]`, admin-authorized (§12b, Leg 8) |
 | `/data` frontend | `web-app/src/models/{warehouseSchema,warehouseJobRun,jobResult}.ts`, `services/warehouseDataService.ts`, `hooks/{useWarehouseSchema,useWarehouseJobRuns,useJobResult}.ts`, `components/data/*`, `components/pages/DataPage.tsx`, route `/data` (§12) |
 | `/reports` frontend | `web-app/src/models/report.ts`, `services/reportsService.ts`, `hooks/useReports.ts`, `components/reports/ReportTrendTable.tsx`, `components/pages/ReportsPage.tsx`, route `/reports` (§12) |
-| Admin SQL console frontend | `web-app/src/models/adHocQueryResult.ts`, `services/warehouseQueryService.ts`, `hooks/useWarehouseQuery.ts`, `components/query/*`, `components/pages/AdminQueryPage.tsx`, route `/admin/query` (§12a, Leg 7) |
-| Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` (Leg 4) |
+| Admin Data Warehouse frontend | `web-app/src/models/{adHocQueryResult,warehouseJobDefinition,cronSchedule}.ts`, `services/{warehouseQueryService,warehouseJobDefinitionService}.ts`, `hooks/{useWarehouseQuery,useWarehouseJobDefinitions,useCreateWarehouseJob,useDeleteWarehouseJob}.ts`, `components/{query,warehouseJobs}/*`, `components/pages/AdminWarehousePage.tsx`, route `/admin/warehouse` (§12a/§12b, Legs 7/8 — supersedes the Leg 7 `/admin/query` route/page name) |
+| Integration scripts | `test-scripts/4-warehouse-test.py`, `test-scripts/5-warehouse-rebuild.py` (Leg 4), `test-scripts/9-backfill-warehouse-jobs.py` (Leg 8, one-time) |
 
 ---
 
@@ -1084,12 +1385,14 @@ Legs 1–3 shipped 2026-09-06; Leg 3.5 (reporting-substrate rework) +
 Monitoring tile 2026-09-07; Locations + Reports 2026-09-07 (verified
 2026-09-08); Leg 4 (on-demand rebuild) shipped 2026-09-08, verified
 2026-09-09. Leg 5's alarm suite is deferred to
-[#25](https://github.com/seththeeke/nyc-311/issues/25); new `.sql` jobs
-land as the domain grows (biz-intel-agent,
-[#24](https://github.com/seththeeke/nyc-311/issues/24)). **Leg 6
-(`Operators` joins the pipeline, §2.3's cost job) and Leg 7 (admin ad-hoc
-SQL console, §12a) built 2026-09-13 — not yet deployed** — see their
-sections below.
+[#25](https://github.com/seththeeke/nyc-311/issues/25). **Leg 6
+(`Operators` joins the pipeline, §2.3's cost job), Leg 7 (admin ad-hoc
+SQL console, §12a), and Leg 8 (self-service job authoring — jobs are no
+longer `.sql` files, §12b/Appendix A.11) all landed 2026-09-13** — see
+their sections below. Jobs no longer "land as the domain grows" via a
+checked-in file (biz-intel-agent, [#24](https://github.com/seththeeke/nyc-311/issues/24),
+now owns *authoring good jobs*, not the mechanics of registering one —
+Leg 8 already solved the mechanics).
 Tracked as legs, roughly in dependency order.
 
 ### Frontend — `/data` page
@@ -1378,6 +1681,10 @@ warehouse on its first real run — hence the chunked redesign.)
       `SqlConsoleIcon` + a new "SQL Query" Admin tile, `test-data/
       adHocQueryResult.ts` (one canned resultset — mock mode has no real
       Athena to differentiate queries against), full mirrored tests.
+      **Superseded by Leg 8** — `AdminQueryPage`/`/admin/query` become
+      `AdminWarehousePage`/`/admin/warehouse` once the page grows a
+      Schema tab and job authoring; `SqlQueryConsole` itself is unchanged,
+      just relocated into that page's Query tab.
 - [x] CDK test asserting the ad-hoc Lambda's IAM carries no
       `dynamodb:Put*`/`Update*`/`Delete*`, `glue:CreateTable`/
       `UpdateTable`/`DeleteTable`, or access to the job runner's own
@@ -1393,6 +1700,81 @@ warehouse on its first real run — hence the chunked redesign.)
       Athena** — pending push + deploy; live verification is a real
       `SELECT` returning real warehouse rows, a non-`SELECT` rejected at
       `400`, and (harder to trigger deliberately) the 20 s timeout path.
+
+### Leg 8 — self-service job authoring (§8/§9/§12b, Appendix A.11) — **built 2026-09-13, not yet deployed**
+
+Triggered by a real production incident, not a nice-to-have: Leg 6
+adding a 4th job pushed the old `WAREHOUSE_JOBS` env-var manifest past
+Lambda's environment-variables payload limit, failing `Nyc311-Test`'s
+CloudFormation update outright (`UpdateFunctionConfiguration ... 413`).
+Fixing the root cause (move job SQL off env vars) and building
+self-service authoring (already wanted, Open Items) turned out to be
+the same change.
+
+- [x] `backend/models/warehouseJobDefinition.ts` (`record_type`
+      discriminator added to `warehouseJobRun.ts` too), `dao/analytics/
+      warehouseJobRunsDao.ts` (definition-row `put`/`get`/`delete`/`list`
+      methods, `gsi1pk = "JOB#DEFINITIONS"`).
+- [x] `service/analytics/warehouseJobDefinitionService.ts` — job
+      create/delete (S3 `PutObject`/`DDB` conditional `PutItem`/
+      `scheduler:CreateSchedule`, in that order; delete reverses it,
+      keeping run history) using the new `@aws-sdk/client-scheduler`
+      dependency.
+- [x] `controller/web-api/{createWarehouseJobController,
+      deleteWarehouseJobController,listWarehouseJobsController}.ts` —
+      admin-authorized, `POST`/`DELETE`/`GET /admin/warehouse/jobs[/{name}]`.
+- [x] `service/analytics/warehouseJobRunnerService.ts` rewritten: the
+      cross-job retry sweep + `for (const job of jobs)` loop is gone,
+      replaced by one job's lookup (DDB `GetItem` + S3 `GetObject`) +
+      its own retry decision. `controller/analytics/
+      runWarehouseJobController.ts`'s trigger schema becomes `{job_name:
+      string}` (was empty).
+- [x] `cdk/warehouse/Nyc311WarehouseJobScheduleGroup.ts` — the
+      `scheduler.CfnScheduleGroup` + the shared invocation IAM role,
+      replacing the deleted `Nyc311WarehouseJobSchedule.ts` (its DLQ is
+      kept and re-referenced, its per-schedule failure alarm is not —
+      see below).
+- [x] `cdk/warehouse/Nyc311{Create,Delete,List}WarehouseJobApiLambda.ts`
+      — three separate Lambdas per §12b/§15 (matching Capacity's
+      per-route CRUD precedent), each with least-privilege IAM; only
+      `Create` gets `iam:PassRole`, narrowly scoped to one ARN.
+- [x] CDK tests assert `Create`'s `PassRole` resource is exactly one ARN
+      (never `*`/a wildcard), and that `Delete`/`List` have no
+      `iam:PassRole` grant at all.
+- [x] Frontend: `models/{warehouseJobDefinition,cronSchedule}.ts`,
+      `services/warehouseJobDefinitionService.ts` (mock + live),
+      `hooks/{useWarehouseJobDefinitions,useCreateWarehouseJob,
+      useDeleteWarehouseJob}.ts`, `components/query/CronScheduleBuilder.tsx`,
+      `components/warehouseJobs/{JobDefinitionList,JobDefinitionForm}.tsx`,
+      `components/pages/AdminWarehousePage.tsx` at `/admin/warehouse`
+      (replaces `AdminQueryPage.tsx`/`/admin/query`) with a 3-tab strip
+      (Schema reused from `/data`, Query from Leg 7, Jobs new), fixtures,
+      full mirrored tests. Built and verified 2026-09-13 (web-app build/
+      lint/`test:coverage` all green, 667 tests).
+- [x] `test-scripts/9-backfill-warehouse-jobs.py` — one-time, SQL text
+      embedded in the script — creates all four pre-Leg-8 jobs
+      (`order_volume_by_stage_7d`, `order_volume_by_stage_8w`,
+      `order_volume_by_borough`, `operator_fleet_cost_to_date`) via the
+      new `POST /admin/warehouse/jobs`, `cron(0 9 * * ? *)` for all four.
+      Written 2026-09-13; **running it is still pending** — happens
+      against `Nyc311-Test` then `--prod` for `Nyc311-Prod`, after this
+      leg's own deploy (the API it calls has to exist first).
+- [x] `cdk/warehouse/sql/*.sql` and `readJobManifest()`/`WAREHOUSE_JOBS`
+      deleted, in the same change that adds the above (not a separate
+      follow-up — the runner's trigger contract change makes the two
+      inseparable).
+- [x] Not extended to alarms-per-job: the pre-existing Lambda-level
+      `Errors` alarm (§14, unchanged) still covers every job's failures
+      in aggregate; no per-schedule alarm is created dynamically. A
+      stuck single job is visible on `/data`'s Jobs tab
+      ("retries exhausted"), same as before Leg 8.
+- [ ] Verify live in `Nyc311-Test`: create a job through `/admin/warehouse`
+      end to end (schema tab informs the query, save-as-job, see it in
+      the Jobs tab, see its schedule actually fire and produce a run);
+      delete a job and confirm its schedule stops firing but its history
+      stays visible; run the backfill script and confirm all four
+      original jobs keep producing the same resultsets on the same
+      cadence as before.
 
 ### Doc
 
@@ -1411,21 +1793,24 @@ warehouse on its first real run — hence the chunked redesign.)
   centralized reporting layer grows from. The `job_results` history table
   (§11) still makes deeper "trend of trends" ad-hoc Athena-queryable.
 - **biz-intel-agent** ([#24](https://github.com/seththeeke/nyc-311/issues/24))
-  — an agent that owns job authoring (new `.sql` on business request or
-  autonomously), their surfacing, retirement, and Athena/Glue efficiency;
-  replaces standing BI work. Deferred until `Cases`/`Shifts` land and
-  `/reports` is established.
-- **User-authored SQL jobs / general ad-hoc query API.** ✅ **Narrowly
-  built 2026-09-13 (Leg 7, §12a)** for the single-admin case: `POST
-  /admin/warehouse/query` + an Admin-page console, gated by the existing
-  JWT authorizer, a read-only statement-prefix check, and a dedicated
-  workgroup with its own `bytesScannedCutoffPerQuery` (the piece flagged
-  missing here is now built). **Still open:** the general, multi-user,
-  job-*authoring* version this bullet originally meant — `{ name, SQL }`
-  job CRUD through the app (not just running one query and discarding the
-  result), a real per-user auth model (today there's exactly one admin),
-  and query history/persistence. Jobs still stay checked-in `.sql` files
-  until that lands.
+  — an agent that owns *authoring good jobs* (which aggregations matter,
+  what a job's SQL should compute) and Athena/Glue efficiency work,
+  replacing standing BI work. Leg 8 already solved the *mechanics* of
+  registering a job (no more "an agent would need repo write access to
+  add a `.sql` file") — this item is now scoped to judgment/authorship,
+  not plumbing. Still deferred until `Cases`/`Shifts` land and `/reports`
+  is more established.
+- **User-authored SQL jobs / self-service job authoring.** ✅ **Built
+  2026-09-13 (Legs 7 + 8, §12a/§12b).** `POST /admin/warehouse/query`
+  (Leg 7) for one-off queries; `POST`/`GET`/`DELETE
+  /admin/warehouse/jobs[/{name}]` (Leg 8) for turning one into a real
+  scheduled job — DDB definition + S3-stored SQL + its own EventBridge
+  Scheduler cron schedule, no `.sql` file or deploy. **Still open:** a
+  real multi-user/multi-tenant auth model (today there's exactly one
+  admin, matching `9-admin-auth-integration.md`'s single-admin design
+  throughout this whole app, not something Leg 8 was ever meant to
+  change) and query history/saved-but-not-scheduled queries (Leg 8 only
+  persists a query once it becomes a real job).
 - **`/data` write actions.** No "retry"/"rebuild" button, no `POST`
   routes. **Deferred indefinitely** — would need real role-gated auth
   (`2-pipeline-monitoring.md` §11's unbuilt `AuthenticatedRoute`). §10's
@@ -1441,9 +1826,12 @@ warehouse on its first real run — hence the chunked redesign.)
   Adding a fourth serial source is the same shape as the existing three
   — not a redesign, just not done yet.
 - **Every other `business-insights.md` §2 aggregation** (cost model, Case
-  MTTR, SLA-breach rate) — designed-not-built; each is another `.sql`
-  file. On hold until more of the domain exists; then biz-intel-agent
-  ([#24](https://github.com/seththeeke/nyc-311/issues/24)) owns them.
+  MTTR, SLA-breach rate) — designed-not-built; each is now a
+  self-service job through `/admin/warehouse` (Leg 8), not a `.sql` file
+  + deploy. On hold until more of the domain exists (`Cases` in
+  particular); then biz-intel-agent
+  ([#24](https://github.com/seththeeke/nyc-311/issues/24)) owns
+  authoring them.
 - **Compaction / small-file consolidation** — **deferred indefinitely**;
   folded into biz-intel-agent's efficiency scope (#24). §9's captured
   `data_scanned_bytes` / `engine_execution_time_ms` per run are the
@@ -1668,3 +2056,63 @@ ever dropped; the `map<string,string>` table + optional views gets 90%
 of the value with read-only grants and one write; (d) a per-job Step
 Functions machine — orchestration for a KB-scale query, and it fights
 "a job is just a `.sql` file."
+
+### A.11 — Why job definitions moved off checked-in `.sql` files + a Lambda env var (Leg 8, 2026-09-13)
+
+The trigger was a real deploy failure, not a hypothetical: adding
+`operator_fleet_cost_to_date.sql` as the 4th registered job pushed the
+`WAREHOUSE_JOBS` env var (every job's name + full SQL text,
+JSON-encoded, injected into `Nyc311WarehouseJobRunnerLambda` at synth)
+to ~4.6KB, and `cdk deploy`'s `UpdateFunctionConfiguration` call for
+that Lambda failed outright — `Request must be smaller than 5120 bytes`.
+Lambda's environment-variables payload has a hard ceiling; there was no
+"deploy anyway, degrade gracefully" path once crossed.
+
+This wasn't really a size-tuning problem, though — trimming SQL comments
+would have bought maybe one more job before recurring. The doc's own
+stated design ("adding a job is adding a `.sql` file," `business-insights.md`'s
+full aggregation list, biz-intel-agent (#24) eventually authoring jobs
+autonomously) always assumed the job count would keep growing, and an
+env-var manifest was never going to scale with it. Separately, Leg 7's
+ad-hoc console had already opened the door to "run a query through the
+app" — turning a good one into a real scheduled job was the obvious next
+ask, and had already been flagged as the still-open half of the
+"user-authored SQL jobs" Open Item. Both problems point at the same fix.
+
+**Chosen:** a job definition is a DynamoDB record (reusing
+`WarehouseJobRuns` — no new table) pointing at its SQL in S3
+(`job-definitions/<name>.sql`, plain text, no parsing format to get
+wrong), with its own EventBridge Scheduler `cron(...)` schedule created
+at runtime when the definition is created — not declared in CDK, since
+job identities no longer exist at synth time. The runner Lambda is
+unchanged in what it *does* (StartQueryExecution → poll → GetQueryResults
+→ S3 resultset → `WarehouseJobRuns` update, §8); only how it gets to
+"the SQL to run" changed. This removes the size ceiling entirely (an S3
+object has no meaningful size limit for a SQL query), and turns "add a
+job" from "edit the repo, redeploy the whole pipeline" into "one API
+call the Admin UI already needed to make."
+
+**Rejected:**
+- **A dedicated `WarehouseJobs` table**, definitions separate from
+  `WarehouseJobRuns`. Cleaner single-responsibility per table, but the
+  chosen partition-key/GSI design (§8) gets the same separation *within*
+  one table for free — a `record_type` discriminator and a distinct
+  `gsi1pk` value, the same trick `Orders`/`Operators` already use for a
+  different entity. No new table, one less piece of infrastructure.
+- **Storing SQL text directly in the DDB item** instead of S3. Works for
+  today's few-hundred-byte queries, but reintroduces exactly the kind of
+  size ceiling this leg exists to remove (DynamoDB items cap at 400KB —
+  much roomier than Lambda's env-var limit, but still a ceiling, and one
+  a sufficiently large generated query could hit). S3 has no comparable
+  limit worth worrying about, and storing plain `.sql` text (not a JSON
+  field) sidesteps any escaping/parsing question entirely.
+- **A per-job Lambda or Step Functions machine**, so each job's schedule
+  could carry more job-specific configuration. Same rejection as A.10(d)
+  — orchestration for a KB-scale query buys nothing, and it would mean
+  reintroducing per-job infrastructure right after Leg 3.5 deliberately
+  moved away from per-consumer special-casing.
+- **A shared cron/rate hybrid model** (some jobs on `rate()`, some on
+  `cron()`). `cron()` alone is a strict superset of what `rate()`
+  expresses, and one expression type keeps the schedule-builder UI and
+  the backend validation simpler for a negligible loss of concision on
+  the "every N hours" case.

@@ -4,6 +4,11 @@ import { QueryResultTable } from "./QueryResultTable";
 
 const SQL_TEXTAREA_ID = "ad-hoc-sql-query";
 
+export interface SqlQueryConsoleProps {
+  /** When provided, shows a "Save as job" control once a query has run successfully at least once (§12b, Leg 8). */
+  onSaveAsJob?: (sql: string) => void;
+}
+
 /**
  * The admin ad-hoc SQL console (`7-data-warehousing.md` §12a, Leg 7) — a
  * SQL textarea, a Run button, and a result area. No history/persistence:
@@ -11,7 +16,7 @@ const SQL_TEXTAREA_ID = "ad-hoc-sql-query";
  * showing (CLAUDE.md §5.1's 200-line component cap keeps this to input +
  * result, `QueryResultTable` owns rendering the resultset itself).
  */
-export function SqlQueryConsole(): ReactElement {
+export function SqlQueryConsole({ onSaveAsJob }: SqlQueryConsoleProps): ReactElement {
   const [sql, setSql] = useState("");
   const { runQuery, result, isRunning, error } = useWarehouseQuery();
 
@@ -58,11 +63,22 @@ export function SqlQueryConsole(): ReactElement {
 
       {result && !error && (
         <div className="space-y-2 rounded-2xl bg-white p-4">
-          <p className="text-xs text-slate-500">
-            {result.row_count} row{result.row_count === 1 ? "" : "s"}
-            {result.truncated && " (truncated at 500 — narrow the query to see more)"}
-            {result.engine_execution_time_ms !== null && ` · ${result.engine_execution_time_ms}ms`}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              {result.row_count} row{result.row_count === 1 ? "" : "s"}
+              {result.truncated && " (truncated at 500 — narrow the query to see more)"}
+              {result.engine_execution_time_ms !== null && ` · ${result.engine_execution_time_ms}ms`}
+            </p>
+            {onSaveAsJob && (
+              <button
+                type="button"
+                onClick={() => onSaveAsJob(sql)}
+                className="rounded bg-cyan-600 px-3 py-1 text-sm text-white"
+              >
+                Save as job
+              </button>
+            )}
+          </div>
           <QueryResultTable result={result} />
         </div>
       )}

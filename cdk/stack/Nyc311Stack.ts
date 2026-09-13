@@ -33,13 +33,16 @@ import { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
 import { Nyc311WarehouseJobRunnerLambda } from "../warehouse/Nyc311WarehouseJobRunnerLambda";
 import { Nyc311WarehouseRebuildLambda } from "../warehouse/Nyc311WarehouseRebuildLambda";
 import { Nyc311WarehouseRebuildStateMachine } from "../step-function/Nyc311WarehouseRebuildStateMachine";
-import { Nyc311WarehouseJobSchedule } from "../warehouse/Nyc311WarehouseJobSchedule";
+import { Nyc311WarehouseJobScheduleGroup } from "../warehouse/Nyc311WarehouseJobScheduleGroup";
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
+import { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
+import { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
+import { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
@@ -411,10 +414,43 @@ export class Nyc311Stack extends Stack {
       analyticsWorkgroup,
     });
 
-    new Nyc311WarehouseJobSchedule(this, "Nyc311WarehouseJobSchedule", {
+    /*
+     * 7-data-warehousing.md §8/§12b (Leg 8) — self-service job authoring:
+     * a schedule group + shared invocation role every dynamically-created
+     * per-job schedule references, plus the admin job-management routes
+     * (one Lambda per route, matching Capacity's CRUD precedent).
+     */
+    const warehouseJobScheduleGroup = new Nyc311WarehouseJobScheduleGroup(this, "Nyc311WarehouseJobScheduleGroup", {
       envName: props.envName,
       jobRunnerLambda: warehouseJobRunnerLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+    });
+
+    const createWarehouseJobApiLambda = new Nyc311CreateWarehouseJobApiLambda(this, "Nyc311CreateWarehouseJobApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      usersTable,
+      warehouseBucket,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
+    });
+
+    const deleteWarehouseJobApiLambda = new Nyc311DeleteWarehouseJobApiLambda(this, "Nyc311DeleteWarehouseJobApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      usersTable,
+      warehouseBucket,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
+    });
+
+    const listWarehouseJobsApiLambda = new Nyc311ListWarehouseJobsApiLambda(this, "Nyc311ListWarehouseJobsApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      usersTable,
+      warehouseBucket,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
     /*
@@ -612,6 +648,9 @@ export class Nyc311Stack extends Stack {
       runSchedulingApiLambda,
       getFleetLocationsApiLambda,
       adHocQueryApiLambda,
+      createWarehouseJobApiLambda,
+      deleteWarehouseJobApiLambda,
+      listWarehouseJobsApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

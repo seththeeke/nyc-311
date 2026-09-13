@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Context } from "aws-lambda";
-import { runWarehouseJobs } from "../../../service/analytics/warehouseJobRunnerService";
+import { runWarehouseJob } from "../../../service/analytics/warehouseJobRunnerService";
 import { runWarehouseJobController } from "../../../controller/analytics/runWarehouseJobController";
 import { ValidationError } from "../../../models/errors";
 import type { WarehouseJobRun } from "../../../models/warehouseJobRun";
 
-vi.mock("../../../service/analytics/warehouseJobRunnerService", () => ({ runWarehouseJobs: vi.fn() }));
-const mocked = vi.mocked(runWarehouseJobs);
+vi.mock("../../../service/analytics/warehouseJobRunnerService", () => ({ runWarehouseJob: vi.fn() }));
+const mocked = vi.mocked(runWarehouseJob);
 
 const ctx = { awsRequestId: "req-1" } as Context;
 
@@ -41,23 +41,24 @@ afterEach(() => {
 });
 
 describe("runWarehouseJobController", () => {
-  it("validates the (empty) trigger and returns every run", async () => {
-    const runs = [run({ job_name: "job_a" }), run({ job_name: "job_b", status: "FAILED" })];
-    mocked.mockResolvedValue(runs);
+  it("validates the {job_name} trigger and returns the run", async () => {
+    const result = run({ job_name: "order_volume_by_borough" });
+    mocked.mockResolvedValue(result);
 
-    const result = await runWarehouseJobController({}, ctx);
+    const response = await runWarehouseJobController({ job_name: "order_volume_by_borough" }, ctx);
 
-    expect(mocked).toHaveBeenCalledOnce();
-    expect(result).toEqual(runs);
+    expect(mocked).toHaveBeenCalledWith("order_volume_by_borough");
+    expect(response).toEqual(result);
   });
 
-  it("throws ValidationError for a non-object trigger, without running anything", async () => {
+  it("throws ValidationError for a trigger missing job_name, without running anything", async () => {
+    await expect(runWarehouseJobController({}, ctx)).rejects.toBeInstanceOf(ValidationError);
     await expect(runWarehouseJobController("nope", ctx)).rejects.toBeInstanceOf(ValidationError);
     expect(mocked).not.toHaveBeenCalled();
   });
 
   it("lets a runner-level failure propagate (the schedule's DLQ + error alarm catch it)", async () => {
-    mocked.mockRejectedValue(new Error("WAREHOUSE_JOBS manifest invalid"));
-    await expect(runWarehouseJobController({}, ctx)).rejects.toThrow("manifest invalid");
+    mocked.mockRejectedValue(new Error("No job named \"ghost_job\""));
+    await expect(runWarehouseJobController({ job_name: "ghost_job" }, ctx)).rejects.toThrow("No job named");
   });
 });

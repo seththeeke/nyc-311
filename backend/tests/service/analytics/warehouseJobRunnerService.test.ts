@@ -4,13 +4,15 @@ import {
   GetQueryExecutionCommand,
   GetQueryResultsCommand,
 } from "@aws-sdk/client-athena";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runWarehouseJobs } from "../../../service/analytics/warehouseJobRunnerService";
+import { runWarehouseJob } from "../../../service/analytics/warehouseJobRunnerService";
+import { NotFoundError } from "../../../models/errors";
 import type { WarehouseJobRunsDao } from "../../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRun } from "../../../models/warehouseJobRun";
+import type { WarehouseJobDefinition } from "../../../models/warehouseJobDefinition";
 
 const athenaMock = mockClient(AthenaClient);
 const athenaClient = new AthenaClient({});
@@ -18,9 +20,11 @@ const s3Mock = mockClient(S3Client);
 const s3Client = new S3Client({});
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
+const JOB_NAME = "order_volume_by_stage_7d";
+const JOB_SQL = "SELECT created_date, stage, count(*) FROM order_snapshots";
+
 const RUNNER_ENV = {
   WAREHOUSE_JOB_RUNS_TABLE_NAME: "WarehouseJobRuns-Test",
-  WAREHOUSE_JOBS: JSON.stringify([{ name: "order_volume_by_stage_7d", sql: "SELECT 1" }]),
   JOB_RESULTS_BUCKET: "nyc311-warehouse-test",
   WAREHOUSE_DATABASE_NAME: "nyc311_warehouse_test",
   ATHENA_WORKGROUP: "Nyc311Analytics-Test",
@@ -43,19 +47,32 @@ function withRunnerEnv(overrides: Partial<Record<keyof typeof RUNNER_ENV, string
 }
 
 const NOW = () => new Date("2026-09-07T09:00:00.000Z");
-const JOBS = [{ name: "order_volume_by_stage_7d", sql: "SELECT created_date, stage, count(*) FROM order_snapshots" }];
 
-function fakeJobRunsDao(latestByJob: Record<string, WarehouseJobRun | null> = {}): {
+function definition(overrides: Partial<WarehouseJobDefinition> = {}): WarehouseJobDefinition {
+  return {
+    job_run_id: `DEF#${JOB_NAME}`,
+    record_type: "DEFINITION",
+    job_name: JOB_NAME,
+    sql_s3_key: `job-definitions/${JOB_NAME}.sql`,
+    cadence_cron: "cron(0 9 * * ? *)",
+    schedule_name: `Nyc311WarehouseJob-${JOB_NAME}-Test`,
+    created_at: "2026-09-01T00:00:00.000Z",
+    created_by: "01ADMIN",
+    ...overrides,
+  };
+}
+
+function fakeJobRunsDao(latest: WarehouseJobRun | null = null, def: WarehouseJobDefinition | null = definition()): {
   dao: WarehouseJobRunsDao;
   puts: WarehouseJobRun[];
 } {
   const puts: WarehouseJobRun[] = [];
   const dao = {
-    getLatestRunForJob: vi.fn().mockImplementation(async (jobName: string) => latestByJob[jobName] ?? null),
+    getLatestRunForJob: vi.fn().mockResolvedValue(latest),
+    getDefinition: vi.fn().mockResolvedValue(def),
     putJobRun: vi.fn().mockImplementation(async (r: WarehouseJobRun) => {
       puts.push(r);
     }),
-    listRecentJobRuns: vi.fn(),
   } as unknown as WarehouseJobRunsDao;
   return { dao, puts };
 }
@@ -63,7 +80,7 @@ function fakeJobRunsDao(latestByJob: Record<string, WarehouseJobRun | null> = {}
 function completedRun(overrides: Partial<WarehouseJobRun>): WarehouseJobRun {
   return {
     job_run_id: "01OLD",
-    job_name: "order_volume_by_stage_7d",
+    job_name: JOB_NAME,
     status: "SUCCEEDED",
     trigger: "SCHEDULED",
     started_at: "2026-09-06T09:00:00.000Z",
@@ -86,6 +103,7 @@ beforeEach(() => {
   s3Mock.reset();
   ddbMock.reset();
   s3Mock.on(PutObjectCommand).resolves({});
+  s3Mock.on(GetObjectCommand).resolves({ Body: { transformToString: async () => JOB_SQL } } as never);
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -141,7 +159,6 @@ function mockAthenaSuccess({
 const baseDeps = {
   athenaClient,
   s3Client,
-  jobs: JOBS,
   resultsBucket: "nyc311-warehouse-test",
   database: "nyc311_warehouse_test",
   workgroup: "Nyc311Analytics-Test",
@@ -154,7 +171,7 @@ function lastPutBody(): Record<string, unknown> {
   return JSON.parse(call!.args[0].input.Body as string) as Record<string, unknown>;
 }
 
-describe("runWarehouseJobs", () => {
+describe("runWarehouseJob", () => {
   it("first-ever run: RUNNING then SUCCEEDED with stats, writes the resultset envelope to S3, records result_location/row_count", async () => {
     const jobRuns = fakeJobRunsDao();
     mockAthenaSuccess({
@@ -164,9 +181,9 @@ describe("runWarehouseJobs", () => {
       ],
     });
 
-    const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs).toHaveLength(1);
+    expect(run.status).toBe("SUCCEEDED");
     expect(jobRuns.puts[0]).toMatchObject({ status: "RUNNING", trigger: "SCHEDULED", retry_count: 0 });
     expect(jobRuns.puts[1]).toMatchObject({
       status: "SUCCEEDED",
@@ -175,17 +192,16 @@ describe("runWarehouseJobs", () => {
       engine_execution_time_ms: 1500,
       query_queue_time_ms: 30,
       row_count: 2,
-      result_location:
-        "s3://nyc311-warehouse-test/job-results/job_name=order_volume_by_stage_7d/run_date=2026-09-07/result.json",
+      result_location: `s3://nyc311-warehouse-test/job-results/job_name=${JOB_NAME}/run_date=2026-09-07/result.json`,
     });
 
     const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
     expect(put.Bucket).toBe("nyc311-warehouse-test");
-    expect(put.Key).toBe("job-results/job_name=order_volume_by_stage_7d/run_date=2026-09-07/result.json");
+    expect(put.Key).toBe(`job-results/job_name=${JOB_NAME}/run_date=2026-09-07/result.json`);
     expect(put.ContentType).toBe("application/json");
 
     expect(lastPutBody()).toEqual({
-      job_name: "order_volume_by_stage_7d",
+      job_name: JOB_NAME,
       job_run_id: expect.any(String),
       run_date: "2026-09-07",
       computed_at: "2026-09-07T09:00:00.000Z",
@@ -199,15 +215,26 @@ describe("runWarehouseJobs", () => {
         { created_date: "2026-09-01", stage: "INGEST", order_count: "4918" },
       ],
     });
+
+    const get = s3Mock.commandCalls(GetObjectCommand)[0].args[0].input;
+    expect(get.Bucket).toBe("nyc311-warehouse-test");
+    expect(get.Key).toBe(`job-definitions/${JOB_NAME}.sql`);
+  });
+
+  it("throws NotFoundError when the job's definition doesn't exist, without writing any run row", async () => {
+    const jobRuns = fakeJobRunsDao(null, null);
+
+    await expect(runWarehouseJob("ghost_job", { ...baseDeps, jobRunsDao: jobRuns.dao })).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+    expect(jobRuns.puts).toHaveLength(0);
   });
 
   it("treats a job as a RETRY when its last run FAILED and retries aren't exhausted", async () => {
-    const jobRuns = fakeJobRunsDao({
-      order_volume_by_stage_7d: completedRun({ job_run_id: "01OLD", status: "FAILED", retry_count: 1 }),
-    });
+    const jobRuns = fakeJobRunsDao(completedRun({ job_run_id: "01OLD", status: "FAILED", retry_count: 1 }));
     mockAthenaSuccess();
 
-    await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
     expect(jobRuns.puts[0]).toMatchObject({
       status: "RUNNING",
@@ -218,58 +245,35 @@ describe("runWarehouseJobs", () => {
   });
 
   it("does NOT retry once MAX_JOB_RETRIES is hit — a fresh SCHEDULED run", async () => {
-    const jobRuns = fakeJobRunsDao({
-      order_volume_by_stage_7d: completedRun({ status: "FAILED", retry_count: 3 }),
-    });
+    const jobRuns = fakeJobRunsDao(completedRun({ status: "FAILED", retry_count: 3 }));
     mockAthenaSuccess();
 
-    await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
     expect(jobRuns.puts[0]).toMatchObject({ trigger: "SCHEDULED", retry_count: 0 });
   });
 
   it("a SUCCEEDED last run means a fresh SCHEDULED run", async () => {
-    const jobRuns = fakeJobRunsDao({ order_volume_by_stage_7d: completedRun({ status: "SUCCEEDED" }) });
+    const jobRuns = fakeJobRunsDao(completedRun({ status: "SUCCEEDED" }));
     mockAthenaSuccess();
 
-    await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
     expect(jobRuns.puts[0]).toMatchObject({ trigger: "SCHEDULED", retry_count: 0 });
   });
 
-  it("isolates a per-job failure — a failing job is recorded FAILED, the rest still run, and the runner does not throw", async () => {
+  it("a job's own SQL failure is recorded FAILED and does not throw", async () => {
     const jobRuns = fakeJobRunsDao();
-    /* job A's Athena query fails; job B (a second manifest entry) succeeds. */
     athenaMock.on(StartQueryExecutionCommand).resolves({ QueryExecutionId: "q-a" });
     athenaMock
       .on(GetQueryExecutionCommand)
-      .resolvesOnce({ QueryExecution: { Status: { State: "FAILED", StateChangeReason: "SYNTAX_ERROR: bad column" } } })
-      .resolves({
-        QueryExecution: {
-          Status: { State: "SUCCEEDED" },
-          Statistics: { DataScannedInBytes: 1, EngineExecutionTimeInMillis: 1, QueryQueueTimeInMillis: 1 },
-        },
-      });
-    athenaMock.on(GetQueryResultsCommand).resolves({
-      ResultSet: {
-        ResultSetMetadata: { ColumnInfo: [{ Name: "n", Type: "bigint" }] },
-        Rows: [{ Data: [{ VarCharValue: "n" }] }, { Data: [{ VarCharValue: "3" }] }],
-      },
-    });
+      .resolves({ QueryExecution: { Status: { State: "FAILED", StateChangeReason: "SYNTAX_ERROR: bad column" } } });
 
-    const runs = await runWarehouseJobs({
-      ...baseDeps,
-      jobRunsDao: jobRuns.dao,
-      jobs: [
-        { name: "job_a", sql: "SELECT bad" },
-        { name: "job_b", sql: "SELECT 1" },
-      ],
-    });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs.map((r) => `${r.job_name}:${r.status}`)).toEqual(["job_a:FAILED", "job_b:SUCCEEDED"]);
-    const jobAFinal = jobRuns.puts.find((p) => p.job_name === "job_a" && p.status === "FAILED");
-    expect(jobAFinal?.error_message).toContain("SYNTAX_ERROR");
-    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(1); /* only job_b wrote a result */
+    expect(run.status).toBe("FAILED");
+    expect(run.error_message).toContain("SYNTAX_ERROR");
+    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
 
   it("Athena CANCELLED with no reason → job recorded FAILED with 'unknown'", async () => {
@@ -277,10 +281,10 @@ describe("runWarehouseJobs", () => {
     athenaMock.on(StartQueryExecutionCommand).resolves({ QueryExecutionId: "q-c" });
     athenaMock.on(GetQueryExecutionCommand).resolves({ QueryExecution: { Status: { State: "CANCELLED" } } });
 
-    const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs[0].status).toBe("FAILED");
-    expect(runs[0].error_message).toBe("Athena query CANCELLED: unknown");
+    expect(run.status).toBe("FAILED");
+    expect(run.error_message).toBe("Athena query CANCELLED: unknown");
   });
 
   it("tolerates a missing QueryExecutionId, absent Statistics and an empty ResultSet", async () => {
@@ -289,9 +293,9 @@ describe("runWarehouseJobs", () => {
     athenaMock.on(GetQueryExecutionCommand).resolves({ QueryExecution: { Status: { State: "SUCCEEDED" } } });
     athenaMock.on(GetQueryResultsCommand).resolves({});
 
-    const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs[0]).toMatchObject({
+    expect(run).toMatchObject({
       status: "SUCCEEDED",
       execution_ref: "",
       row_count: 0,
@@ -322,9 +326,9 @@ describe("runWarehouseJobs", () => {
       },
     });
 
-    const runs = await runWarehouseJobs({ ...baseDeps, sleep, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, sleep, jobRunsDao: jobRuns.dao });
 
-    expect(runs[0].status).toBe("SUCCEEDED");
+    expect(run.status).toBe("SUCCEEDED");
     expect(sleep).toHaveBeenCalledWith(2_000);
     expect(athenaMock.commandCalls(GetQueryExecutionCommand).length).toBeGreaterThanOrEqual(2);
     expect(lastPutBody().rows).toEqual([
@@ -343,7 +347,7 @@ describe("runWarehouseJobs", () => {
       },
     } as never);
 
-    await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
     expect(lastPutBody().columns).toEqual([{ name: "", type: "" }]);
   });
@@ -353,11 +357,15 @@ describe("runWarehouseJobs", () => {
     mockAthenaSuccess();
     /* aws-sdk-client-mock's `.rejects(string)` wraps it in a real Error, which wouldn't exercise the
      * `err instanceof Error ? ... : String(err)` non-Error arm — spy directly to reject with a bare string. */
-    vi.spyOn(s3Client, "send").mockRejectedValueOnce("raw string blow-up");
+    const sendSpy = vi.spyOn(s3Client, "send").mockImplementation(async (command) => {
+      if (command instanceof PutObjectCommand) throw "raw string blow-up";
+      return { Body: { transformToString: async () => JOB_SQL } } as never;
+    });
 
-    const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs[0]).toMatchObject({ status: "FAILED", error_message: "raw string blow-up" });
+    expect(run).toMatchObject({ status: "FAILED", error_message: "raw string blow-up" });
+    sendSpy.mockRestore();
   });
 
   it("times out and records the run FAILED if the query never leaves RUNNING", async () => {
@@ -365,23 +373,23 @@ describe("runWarehouseJobs", () => {
     athenaMock.on(StartQueryExecutionCommand).resolves({ QueryExecutionId: "q-hang" });
     athenaMock.on(GetQueryExecutionCommand).resolves({ QueryExecution: { Status: { State: "RUNNING" } } });
 
-    const runs = await runWarehouseJobs({ ...baseDeps, jobRunsDao: jobRuns.dao });
+    const run = await runWarehouseJob(JOB_NAME, { ...baseDeps, jobRunsDao: jobRuns.dao });
 
-    expect(runs[0]).toMatchObject({ status: "FAILED", error_message: expect.stringContaining("timed out") });
+    expect(run).toMatchObject({ status: "FAILED", error_message: expect.stringContaining("timed out") });
   });
 
-  it("resolves every dependency (clients, manifest, clock, sleep) from the environment when deps is empty", async () => {
+  it("resolves every dependency (clients, table name, clock, sleep) from the environment when deps is empty", async () => {
     const restore = withRunnerEnv();
     try {
+      ddbMock.on(GetCommand).resolves({ Item: definition() });
       ddbMock.on(QueryCommand).resolves({ Items: [] });
       ddbMock.on(PutCommand).resolves({});
       mockAthenaSuccess();
 
-      const runs = await runWarehouseJobs();
+      const run = await runWarehouseJob(JOB_NAME);
 
-      expect(runs).toHaveLength(1);
-      expect(runs[0].status).toBe("SUCCEEDED");
-      expect(runs[0].job_name).toBe("order_volume_by_stage_7d");
+      expect(run.status).toBe("SUCCEEDED");
+      expect(run.job_name).toBe(JOB_NAME);
       expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(1);
     } finally {
       restore();
@@ -391,18 +399,9 @@ describe("runWarehouseJobs", () => {
   it("throws a clear error when a required env var is missing and nothing is injected", async () => {
     const restore = withRunnerEnv({ WAREHOUSE_DATABASE_NAME: undefined });
     try {
-      await expect(runWarehouseJobs({ athenaClient, s3Client, now: NOW })).rejects.toThrow(
+      await expect(runWarehouseJob(JOB_NAME, { athenaClient, s3Client, now: NOW })).rejects.toThrow(
         "Missing required environment variable: WAREHOUSE_DATABASE_NAME"
       );
-    } finally {
-      restore();
-    }
-  });
-
-  it("throws when WAREHOUSE_JOBS is not a valid manifest", async () => {
-    const restore = withRunnerEnv({ WAREHOUSE_JOBS: JSON.stringify([{ name: "Bad-Name", sql: "SELECT 1" }]) });
-    try {
-      await expect(runWarehouseJobs({ athenaClient, s3Client, now: NOW })).rejects.toThrow();
     } finally {
       restore();
     }

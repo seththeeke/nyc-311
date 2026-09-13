@@ -23,6 +23,8 @@ export const JOB_RUNS_GSI1_PK = "JOB#RUNS";
 
 export const WarehouseJobRunSchema = z.object({
   job_run_id: z.string().min(1),
+  /** Leg 8 — discriminates a run row from a `WarehouseJobDefinition` row sharing this table. Optional/absent means "RUN" — every pre-Leg-8 row, and read paths never depend on it being set. */
+  record_type: z.literal("RUN").optional(),
   job_name: z.string().min(1),
   status: z.enum(WAREHOUSE_JOB_RUN_STATUSES),
   trigger: z.enum(WAREHOUSE_JOB_RUN_TRIGGERS),

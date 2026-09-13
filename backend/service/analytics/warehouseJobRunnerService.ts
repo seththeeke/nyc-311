@@ -8,12 +8,13 @@ import {
   GetQueryExecutionCommand,
   GetQueryResultsCommand,
 } from "@aws-sdk/client-athena";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import { NotFoundError } from "../../models/errors";
 import { MAX_JOB_RETRIES, type WarehouseJobRun, type WarehouseJobRunTrigger } from "../../models/warehouseJobRun";
 import type { JobResult, JobResultColumn } from "../../models/jobResult";
-import { WarehouseJobManifestSchema, type WarehouseJob } from "../../models/warehouseJob";
+import type { WarehouseJob } from "../../models/warehouseJob";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -28,7 +29,6 @@ export interface WarehouseJobRunnerDeps {
   jobRunsDao?: WarehouseJobRunsDao;
   athenaClient?: AthenaClient;
   s3Client?: S3Client;
-  jobs?: WarehouseJob[];
   resultsBucket?: string;
   database?: string;
   workgroup?: string;
@@ -40,7 +40,6 @@ interface ResolvedDeps {
   jobRunsDao: WarehouseJobRunsDao;
   athenaClient: AthenaClient;
   s3Client: S3Client;
-  jobs: WarehouseJob[];
   resultsBucket: string;
   database: string;
   workgroup: string;
@@ -54,13 +53,34 @@ function resolve(deps: WarehouseJobRunnerDeps): ResolvedDeps {
     jobRunsDao: deps.jobRunsDao ?? new WarehouseJobRunsDao(ddb, requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
     athenaClient: deps.athenaClient ?? new AthenaClient({}),
     s3Client: deps.s3Client ?? new S3Client({}),
-    jobs: deps.jobs ?? WarehouseJobManifestSchema.parse(JSON.parse(requireEnv("WAREHOUSE_JOBS"))),
     resultsBucket: deps.resultsBucket ?? requireEnv("JOB_RESULTS_BUCKET"),
     database: deps.database ?? requireEnv("WAREHOUSE_DATABASE_NAME"),
     workgroup: deps.workgroup ?? requireEnv("ATHENA_WORKGROUP"),
     now: deps.now ?? (() => new Date()),
     sleep: deps.sleep ?? delayMs,
   };
+}
+
+/**
+ * Resolves one job's `{name, sql}` for a run (`7-data-warehousing.md`
+ * §8, Leg 8) — a DDB definition lookup (`job_run_id = DEF#<name>`) plus
+ * an S3 fetch of its SQL text, replacing the pre-Leg-8 static
+ * `WAREHOUSE_JOBS` manifest.
+ *
+ * @throws {@link NotFoundError} if the definition is gone (deleted
+ * between its schedule firing and this Lambda starting — a narrow,
+ * accepted race).
+ */
+async function resolveJob(d: ResolvedDeps, jobName: string): Promise<WarehouseJob> {
+  const definition = await d.jobRunsDao.getDefinition(jobName);
+  if (!definition) {
+    throw new NotFoundError(`No job named "${jobName}" — its definition may have been deleted`);
+  }
+  const response = await d.s3Client.send(
+    new GetObjectCommand({ Bucket: d.resultsBucket, Key: definition.sql_s3_key })
+  );
+  const sql = (await response.Body?.transformToString()) ?? "";
+  return { name: jobName, sql };
 }
 
 /**
@@ -166,6 +186,7 @@ async function runOneJob(d: ResolvedDeps, job: WarehouseJob): Promise<WarehouseJ
 
   let run: WarehouseJobRun = {
     job_run_id: ulid(),
+    record_type: "RUN",
     job_name: job.name,
     status: "RUNNING",
     trigger: decision.trigger,
@@ -227,24 +248,20 @@ async function runOneJob(d: ResolvedDeps, job: WarehouseJob): Promise<WarehouseJ
 }
 
 /**
- * One invocation of the daily runner (`7-data-warehousing.md` §8) — runs
- * every registered job in turn, each in its own try/catch so one job's
- * failure never blocks the rest. Per job: run the Athena query, write the
- * resultset envelope to S3 (§11), record the run in `WarehouseJobRuns`. A
- * failed job shows on `/data`, is auto-retried next day (§9), and does
- * not fail the runner Lambda — the schedule's error alarm is for a
- * runner-level crash, not one job's SQL bug.
+ * One invocation, scoped to the one job its own EventBridge Scheduler
+ * schedule fired for (`7-data-warehousing.md` §8, Leg 8). Resolves the
+ * definition + SQL (throws `NotFoundError`, no row written, if it's
+ * gone), then runs it as before: Athena, the resultset envelope to S3,
+ * the run recorded in `WarehouseJobRuns`. A job's own SQL failure is a
+ * `FAILED` row, not a throw — only a runner-level fault throws.
  */
-export async function runWarehouseJobs(deps: WarehouseJobRunnerDeps = {}): Promise<WarehouseJobRun[]> {
+export async function runWarehouseJob(jobName: string, deps: WarehouseJobRunnerDeps = {}): Promise<WarehouseJobRun> {
   const d = resolve(deps);
-  logInfo("WarehouseJobRunnerStarted", { jobCount: d.jobs.length, jobs: d.jobs.map((j) => j.name) });
+  logInfo("WarehouseJobRunnerStarted", { jobName });
 
-  const runs: WarehouseJobRun[] = [];
-  for (const job of d.jobs) {
-    runs.push(await runOneJob(d, job));
-  }
+  const job = await resolveJob(d, jobName);
+  const run = await runOneJob(d, job);
 
-  const failed = runs.filter((r) => r.status === "FAILED").map((r) => r.job_name);
-  logInfo("WarehouseJobRunnerCompleted", { total: runs.length, failed });
-  return runs;
+  logInfo("WarehouseJobRunnerCompleted", { jobName, status: run.status });
+  return run;
 }

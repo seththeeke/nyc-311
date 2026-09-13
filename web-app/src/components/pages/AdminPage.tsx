@@ -27,9 +27,9 @@ const ADMIN_TILES: AdminTileConfig[] = [
     icon: <SchedulingIcon />,
   },
   {
-    title: "SQL Query",
-    description: "Run a one-off, read-only query against the warehouse and see the result — no deploy required.",
-    to: "/admin/query",
+    title: "Warehouse",
+    description: "Browse the schema, run ad-hoc queries, and manage self-service scheduled jobs.",
+    to: "/admin/warehouse",
     accent: "violet",
     icon: <SqlConsoleIcon />,
   },

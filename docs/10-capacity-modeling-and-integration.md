@@ -407,7 +407,7 @@ instantly at `now`, so this is a zero-behavior-change addition today.
 
 ### 4.1 Cleanup script scope
 
-**Agreed.** `test-scripts/9-reset-test-data.py` (matching the existing
+**Agreed.** `test-scripts/10-reset-test-data.py` (matching the existing
 numbered-script convention), `--profile nyc311`, hardcoded/guarded to
 `Nyc311-Test` only (no `--env` flag that could ever point at Prod — the
 script simply doesn't accept one). Wipes `Requests-Test`, `Orders-Test`,
@@ -557,4 +557,4 @@ correctly returns `{ operators: [] }`.
 - [x] Two UX fixes landed same day, before/alongside deploy: removed HomePage's redundant title/nav (the global `Header` already covers it), made the map full-bleed under the header (`Header` given an explicit `h-14`, `scrollWheelZoom` enabled for free navigation), and `FleetMap` now always renders — a loading/error state overlays on top of it instead of replacing it, so a transient fetch failure (e.g. hitting the route before its own deploy finished, which is exactly what happened) never blanks the page.
 - [x] Deployed to `Nyc311-Test` 2026-09-12, verified live at `test.boroughsim.com`: `curl .../fleet/locations` confirmed all 10 re-seeded Operators `IDLE` at `{lat: 40.7128, lng: -74.006}`; the map itself showed one green dot at the depot (10 Operators overlapping at the same point, as expected) in a full-bleed, freely-navigable view with no title/nav clutter and no load error.
 
-**Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`. Logged to the backlog 2026-09-13 — [#35](https://github.com/seththeeke/nyc-311/issues/35).
+**Leg 4 — Test DB cleanup script**: not started — `test-scripts/10-reset-test-data.py`. Logged to the backlog 2026-09-13 — [#35](https://github.com/seththeeke/nyc-311/issues/35).

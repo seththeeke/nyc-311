@@ -14,7 +14,7 @@ import { LoginPage } from "../components/pages/LoginPage";
 import { AdminPage } from "../components/pages/AdminPage";
 import { CapacityManagementPage } from "../components/pages/CapacityManagementPage";
 import { SchedulingManagementPage } from "../components/pages/SchedulingManagementPage";
-import { AdminQueryPage } from "../components/pages/AdminQueryPage";
+import { AdminWarehousePage } from "../components/pages/AdminWarehousePage";
 import { PublicRoute } from "./PublicRoute";
 import { AdminRoute } from "./AdminRoute";
 
@@ -134,10 +134,10 @@ export function AppRoutes(): ReactElement {
         }
       />
       <Route
-        path="/admin/query"
+        path="/admin/warehouse"
         element={
           <AdminRoute>
-            <AdminQueryPage />
+            <AdminWarehousePage />
           </AdminRoute>
         }
       />

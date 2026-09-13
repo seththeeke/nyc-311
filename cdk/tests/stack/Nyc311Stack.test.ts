@@ -71,8 +71,13 @@ describe("Nyc311Stack", () => {
      * stack, not the only one.
      */
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Poller-Test" });
-    /* 3 — the poller's own Schedule, 6-order-scheduling.md's Nyc311OrderSchedulingSchedule, and 7-data-warehousing.md §8's Nyc311WarehouseJobSchedule. */
-    template.resourceCountIs("AWS::Scheduler::Schedule", 3);
+    /*
+     * 2 — the poller's own Schedule and 6-order-scheduling.md's
+     * Nyc311OrderSchedulingSchedule. 7-data-warehousing.md §8's warehouse
+     * job schedule is gone as a CDK-declared resource as of Leg 8 — each
+     * job's Schedule is created/deleted at runtime, not synthesized here.
+     */
+    template.resourceCountIs("AWS::Scheduler::Schedule", 2);
   });
 
   it("wires the order-ingestion fan-out Lambda and its SQS queue (3-order-ingestion.md §2)", () => {
@@ -173,7 +178,7 @@ describe("Nyc311Stack", () => {
     });
   });
 
-  it("wires the warehouse job runner, its daily schedule, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12)", () => {
+  it("wires the warehouse job runner, its schedule group + admin job routes, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12, Leg 8)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WarehouseJobRuns-Test" });
@@ -184,11 +189,13 @@ describe("Nyc311Stack", () => {
       )
     ).toBe(false);
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseJobRunner-Test" });
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
-      Name: "Nyc311WarehouseJobSchedule-Test",
-      ScheduleExpression: "rate(1 day)",
-    });
+    /* Leg 8 — no more CDK-declared daily Schedule; per-job schedules are created at runtime under this group. */
+    template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", { Name: "Nyc311WarehouseJobs-Test" });
+    template.hasResourceProperties("AWS::IAM::Role", { RoleName: "Nyc311WarehouseJobScheduleRole-Test" });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobFailureAlarm-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311CreateWarehouseJobApi-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311DeleteWarehouseJobApi-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311ListWarehouseJobsApi-Test" });
 
     /* §10 Leg 4 — the on-demand rebuild state machine + its worker Lambda + the ARN output. */
     template.hasResourceProperties("AWS::StepFunctions::StateMachine", { StateMachineName: "Nyc311WarehouseRebuild-Test" });

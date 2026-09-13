@@ -154,7 +154,7 @@ recur as the suite grows. See [#34](https://github.com/seththeeke/nyc-311/issues
 
 ---
 
-## capacity: build test-scripts/9-reset-test-data.py (Leg 4 cleanup script)
+## capacity: build test-scripts/10-reset-test-data.py (Leg 4 cleanup script)
 
 See [#35](https://github.com/seththeeke/nyc-311/issues/35).
 

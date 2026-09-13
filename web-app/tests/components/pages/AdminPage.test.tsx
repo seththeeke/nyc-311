@@ -69,7 +69,7 @@ describe("AdminPage", () => {
     expect(link).toHaveAttribute("href", "/admin/scheduling");
   });
 
-  it("renders the SQL Query tile, linking to /admin/query", () => {
+  it("renders the Warehouse tile, linking to /admin/warehouse", () => {
     mockedUseAuth.mockReturnValue({
       user,
       isLoading: false,
@@ -84,8 +84,8 @@ describe("AdminPage", () => {
 
     renderAdminPage();
 
-    const link = screen.getByRole("link", { name: /SQL Query/ });
-    expect(link).toHaveAttribute("href", "/admin/query");
+    const link = screen.getByRole("link", { name: /Warehouse/ });
+    expect(link).toHaveAttribute("href", "/admin/warehouse");
   });
 
   it("shows the signed-in admin's email", () => {

@@ -108,4 +108,24 @@ describe("SqlQueryConsole", () => {
     await user.type(screen.getByLabelText("SQL query"), "   ");
     expect(screen.getByRole("button", { name: "Run query" })).toBeDisabled();
   });
+
+  it("does not render a Save as job control when onSaveAsJob is omitted", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+
+    render(<SqlQueryConsole />);
+
+    expect(screen.queryByRole("button", { name: "Save as job" })).not.toBeInTheDocument();
+  });
+
+  it("calls onSaveAsJob with the current SQL text when clicked", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+    const onSaveAsJob = vi.fn();
+
+    render(<SqlQueryConsole onSaveAsJob={onSaveAsJob} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("SQL query"), "SELECT 1");
+    await user.click(screen.getByRole("button", { name: "Save as job" }));
+
+    expect(onSaveAsJob).toHaveBeenCalledWith("SELECT 1");
+  });
 });

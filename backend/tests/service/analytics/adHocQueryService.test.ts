@@ -102,7 +102,7 @@ describe("runAdHocQuery", () => {
     athenaMock.on(GetQueryExecutionCommand).resolves({ QueryExecution: { Status: { State: "SUCCEEDED" } } });
     athenaMock.on(GetQueryResultsCommand).resolves({
       ResultSet: {
-        ResultSetMetadata: { ColumnInfo: [{}, { Name: "b" }] },
+        ResultSetMetadata: { ColumnInfo: [{ Name: undefined, Type: undefined }, { Name: "b", Type: undefined }] },
         Rows: [
           /* header row, dropped by .slice(1) */ { Data: [{ VarCharValue: "" }, { VarCharValue: "b" }] },
           /* Data entirely missing */ {},

@@ -19,6 +19,9 @@ import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJ
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import type { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
+import type { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
+import type { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
+import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -42,6 +45,10 @@ export interface Nyc311ApiProps {
   getFleetLocationsApiLambda: Nyc311GetFleetLocationsApiLambda;
   /** `7-data-warehousing.md` §12a (Leg 7) — the admin ad-hoc SQL console, same authorizer. */
   adHocQueryApiLambda: Nyc311AdHocQueryApiLambda;
+  /** `7-data-warehousing.md` §12b (Leg 8) — self-service job authoring, same authorizer. */
+  createWarehouseJobApiLambda: Nyc311CreateWarehouseJobApiLambda;
+  deleteWarehouseJobApiLambda: Nyc311DeleteWarehouseJobApiLambda;
+  listWarehouseJobsApiLambda: Nyc311ListWarehouseJobsApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -180,6 +187,27 @@ export class Nyc311Api extends HttpApi {
       path: "/admin/warehouse/query",
       methods: [HttpMethod.POST],
       integration: new HttpLambdaIntegration("RunAdHocQueryIntegration", props.adHocQueryApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/jobs",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration("CreateWarehouseJobIntegration", props.createWarehouseJobApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/jobs/{name}",
+      methods: [HttpMethod.DELETE],
+      integration: new HttpLambdaIntegration("DeleteWarehouseJobIntegration", props.deleteWarehouseJobApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/jobs",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("ListWarehouseJobsIntegration", props.listWarehouseJobsApiLambda),
       authorizer: props.adminAuthorizer,
     });
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WarehouseJobSchema, WarehouseJobManifestSchema } from "../../models/warehouseJob";
+import { WarehouseJobSchema } from "../../models/warehouseJob";
 
 describe("WarehouseJobSchema", () => {
   it("accepts a lower_snake_case name with SQL", () => {
@@ -15,19 +15,5 @@ describe("WarehouseJobSchema", () => {
 
   it("rejects an empty SQL string", () => {
     expect(WarehouseJobSchema.safeParse({ name: "job_a", sql: "" }).success).toBe(false);
-  });
-});
-
-describe("WarehouseJobManifestSchema", () => {
-  it("accepts a non-empty array of jobs", () => {
-    const manifest = [
-      { name: "job_a", sql: "SELECT 1" },
-      { name: "job_b", sql: "SELECT 2" },
-    ];
-    expect(WarehouseJobManifestSchema.parse(manifest)).toEqual(manifest);
-  });
-
-  it("rejects an empty manifest", () => {
-    expect(WarehouseJobManifestSchema.safeParse([]).success).toBe(false);
   });
 });

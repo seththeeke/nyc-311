@@ -1,7 +1,15 @@
-import { QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
+import { TerminalError } from "../../models/errors";
 import { Dao } from "../dao";
 import { WarehouseJobRunSchema, JOB_RUNS_GSI1_PK, type WarehouseJobRun } from "../../models/warehouseJobRun";
+import {
+  DEFINITIONS_GSI1_PK,
+  WarehouseJobDefinitionSchema,
+  warehouseJobDefinitionId,
+  type WarehouseJobDefinition,
+} from "../../models/warehouseJobDefinition";
 
 const RECENT_RUNS_INDEX = "gsi1-recent-runs";
 
@@ -92,5 +100,75 @@ export class WarehouseJobRunsDao extends Dao<WarehouseJobRun> {
     );
     const items = result.Items ?? [];
     return items.length > 0 ? this.validate(items[0]) : null;
+  }
+
+  /**
+   * Creates a job definition row (`7-data-warehousing.md` §8, Leg 8) —
+   * conditioned on the name not already existing, since `job_name` is the
+   * one stable identity a job keeps for life. Bypasses {@link putItem}
+   * (tied to `WarehouseJobRunSchema`, not this table's other item shape)
+   * and validates against `WarehouseJobDefinitionSchema` directly.
+   *
+   * @throws {@link TerminalError} if a definition with this name already exists.
+   */
+  async putDefinition(definition: WarehouseJobDefinition): Promise<void> {
+    const validated = WarehouseJobDefinitionSchema.parse(definition);
+    const item = {
+      ...validated,
+      gsi1pk: DEFINITIONS_GSI1_PK,
+      gsi1sk: validated.created_at,
+    };
+    logInfo("WarehouseJobRunsDao.putDefinition", { table: this.tableName, jobName: validated.job_name });
+    try {
+      await this.client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: item,
+          ConditionExpression: "attribute_not_exists(job_run_id)",
+        })
+      );
+    } catch (err) {
+      if (err instanceof ConditionalCheckFailedException) {
+        throw new TerminalError(`A job named "${validated.job_name}" already exists`, err);
+      }
+      throw err;
+    }
+  }
+
+  /** The job definition for `jobName`, or `null` if none exists (never registered, or deleted). */
+  async getDefinition(jobName: string): Promise<WarehouseJobDefinition | null> {
+    logInfo("WarehouseJobRunsDao.getDefinition", { table: this.tableName, jobName });
+    const result = await this.client.send(
+      new GetCommand({ TableName: this.tableName, Key: { job_run_id: warehouseJobDefinitionId(jobName) } })
+    );
+    return result.Item ? WarehouseJobDefinitionSchema.parse(result.Item) : null;
+  }
+
+  /**
+   * Deletes a job definition row. Never touches the job's past
+   * `WarehouseJobRuns` run rows or `job-results/` output — deleting a job
+   * stops future runs, it doesn't erase history (§8's "keep history"
+   * design call). A no-op if the definition is already gone.
+   */
+  async deleteDefinition(jobName: string): Promise<void> {
+    logInfo("WarehouseJobRunsDao.deleteDefinition", { table: this.tableName, jobName });
+    await this.client.send(
+      new DeleteCommand({ TableName: this.tableName, Key: { job_run_id: warehouseJobDefinitionId(jobName) } })
+    );
+  }
+
+  /** Every job definition, most-recently-created first — backs `GET /admin/warehouse/jobs`. */
+  async listDefinitions(): Promise<WarehouseJobDefinition[]> {
+    logInfo("WarehouseJobRunsDao.listDefinitions", { table: this.tableName });
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: RECENT_RUNS_INDEX,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: { ":pk": DEFINITIONS_GSI1_PK },
+        ScanIndexForward: false,
+      })
+    );
+    return (result.Items ?? []).map((item) => WarehouseJobDefinitionSchema.parse(item));
   }
 }
