@@ -120,3 +120,13 @@ export function SchedulingIcon(): ReactElement {
     </svg>
   );
 }
+
+export function SqlConsoleIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9l3 3-3 3" />
+      <path d="M13 15h4" />
+    </svg>
+  );
+}

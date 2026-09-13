@@ -1,6 +1,6 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 import { OperatorsTable } from "../../data/OperatorsTable";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -29,11 +29,10 @@ describe("OperatorsTable", () => {
     });
   });
 
-  it("has no stream — the all-time cost warehouse job is future work, not built in this leg", () => {
-    const template = synthesize("TEST");
-    const tables = template.findResources("AWS::DynamoDB::GlobalTable");
-    const props = Object.values(tables)[0]?.Properties as Record<string, unknown>;
-    expect(props["StreamSpecification"]).toBeUndefined();
+  it("enables a NEW_AND_OLD_IMAGES stream for the warehouse fan-out (7-data-warehousing.md §4, Leg 6)", () => {
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      StreamSpecification: { StreamViewType: "NEW_AND_OLD_IMAGES" },
+    });
   });
 
   it("declares gsi1-availability and gsi2-roster as GSIs projecting ALL", () => {

@@ -18,6 +18,7 @@ import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311Warehous
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import type { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
+import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -39,6 +40,8 @@ export interface Nyc311ApiProps {
   runSchedulingApiLambda: Nyc311RunSchedulingApiLambda;
   /** `10-capacity-modeling-and-integration.md` §6.1 — the public home-page map's data source, no authorizer. */
   getFleetLocationsApiLambda: Nyc311GetFleetLocationsApiLambda;
+  /** `7-data-warehousing.md` §12a (Leg 7) — the admin ad-hoc SQL console, same authorizer. */
+  adHocQueryApiLambda: Nyc311AdHocQueryApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -171,6 +174,13 @@ export class Nyc311Api extends HttpApi {
       path: "/fleet/locations",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetFleetLocationsIntegration", props.getFleetLocationsApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/query",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration("RunAdHocQueryIntegration", props.adHocQueryApiLambda),
+      authorizer: props.adminAuthorizer,
     });
   }
 }

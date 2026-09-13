@@ -89,13 +89,14 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Locations-Test" });
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Orders-Test" });
     /*
-     * 5 = the Requests-side fan-out Lambda's stream mapping, the request-
+     * 6 = the Requests-side fan-out Lambda's stream mapping, the request-
      * evaluation Lambda's SQS mapping, the Orders-side fan-out Lambda's
      * own stream mapping, (5-order-evaluation.md §6) the evaluation
-     * Lambda's SQS mapping, and (7-data-warehousing.md §4) the Locations
-     * fan-out Lambda's stream mapping.
+     * Lambda's SQS mapping, (7-data-warehousing.md §4) the Locations
+     * fan-out Lambda's stream mapping, and (Leg 6) the Operators fan-out
+     * Lambda's stream mapping.
      */
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 5);
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 6);
   });
 
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
@@ -130,21 +131,25 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
-  it("wires the data-warehouse landing zone: bucket, Glue db + 5 tables (4 sources + job_results), workgroup, 4 Firehoses (7-data-warehousing.md §5-§7/§11)", () => {
+  it("wires the data-warehouse landing zone: bucket, Glue db + 7 tables (6 sources + job_results), workgroup, 6 Firehoses (7-data-warehousing.md §5-§7/§11, Leg 6)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-warehouse-test" });
     template.hasResourceProperties("AWS::Glue::Database", { DatabaseInput: { Name: "nyc311_warehouse_test" } });
-    template.resourceCountIs("AWS::Glue::Table", 5);
+    template.resourceCountIs("AWS::Glue::Table", 7);
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "job_results" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "locations" } });
+    template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_events" } });
+    template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_snapshots" } });
     template.hasResourceProperties("AWS::Athena::WorkGroup", { Name: "Nyc311Analytics-Test" });
-    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 4);
+    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 6);
     for (const name of [
       "Nyc311Warehouse-OrderEvents-Test",
       "Nyc311Warehouse-OrderSnapshots-Test",
       "Nyc311Warehouse-Requests-Test",
       "Nyc311Warehouse-Locations-Test",
+      "Nyc311Warehouse-OperatorEvents-Test",
+      "Nyc311Warehouse-OperatorSnapshots-Test",
     ]) {
       template.hasResourceProperties("AWS::KinesisFirehose::DeliveryStream", { DeliveryStreamName: name });
     }

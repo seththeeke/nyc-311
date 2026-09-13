@@ -1,5 +1,13 @@
 # Capacity Modeling & Integration — Design & Build Doc
 
+> **Capacity is MVP as of 2026-09-13.** §2.3's "all-time accumulated
+> cost" job — the last piece explicitly deferred pending
+> `7-data-warehousing.md`'s `Operators` pipeline — shipped that same day
+> (that doc's Leg 6). What remains open (Leg 4's cleanup script, §3.4
+> failure injection, the atomic-claim revisit trigger in §1.5) is
+> deliberately deferred future work, tracked in
+> `99-things-to-come-back-to.md`, not gaps in a working system.
+>
 > Legs 1-6 of the capacity-management effort (Leg 0, admin auth, is
 > `9-admin-auth-integration.md` — shipped and verified live 2026-09-10).
 > Replaces the hardcoded/mock capacity built in `6-order-scheduling.md` (`MOCK_POOL_CAPACITY_UNITS
@@ -203,17 +211,19 @@ question directly:
   fleet size (not full event history). At 1000 vehicles this is one
   sub-second, cheap `Query`. No scale concern. **Built** —
   `capacityService.getCapacityStatus`.
-- **All-time accumulated cost** — **not built in this pass**, still future
-  work. Computed by a **new job in the existing
-  data-warehouse pipeline** (`7-data-warehousing.md`'s job-runner: `Operators`
-  gets a DynamoDB Stream → Firehose → S3/Parquet → Athena, same as
-  `Orders`/`Requests` already do), not folded live on every page load.
-  This is the workload that genuinely doesn't scale as a live computation
-  (unbounded event history over the project's lifetime), and it's exactly
-  the kind of aggregate `business-insights.md`/`7-data-warehousing.md`
-  already built this infrastructure for. Surfaced via the existing `GET
-  /data/{schema,jobs,rollups}` / `/reports` read paths, linked from (or
-  embedded as a stat on) the Capacity tile.
+- **All-time accumulated cost** — **built 2026-09-13**
+  (`7-data-warehousing.md` Leg 6). Computed by a new job in the existing
+  data-warehouse pipeline (`Operators` got a DynamoDB Stream → Firehose →
+  S3/Parquet → Athena, same as `Orders`/`Requests`), not folded live on
+  every page load — this is the workload that genuinely doesn't scale as
+  a live computation (unbounded event history over the project's
+  lifetime). The job is `operator_fleet_cost_to_date` (`rate_per_hour ×
+  hours elapsed`, per Operator, cost descending); it has no dedicated
+  `/data` renderer (falls back to `GenericResultTable`, same as any job
+  with no per-job view) and isn't embedded on the Capacity page — "linked
+  from (or embedded as a stat on)" resolved to neither in this pass, it's
+  simply queryable on `/data`'s Results tab like every other job. Not yet
+  deployed/verified live — see `7-data-warehousing.md`'s Leg 6 checklist.
 
 ---
 
@@ -490,7 +500,7 @@ correctly returns `{ operators: [] }`.
 - [x] `backend/models/errors.ts` — added `NotFoundError` (a real code path needed it — removing a nonexistent Operator).
 - [x] `cdk/data/OperatorsTable.ts` — `gsi1-availability` (sparse) + `gsi2-roster`, no stream yet (§2.3's warehouse job is future work).
 - [x] `test-scripts/7-seed-capacity.py`.
-- [ ] §1.5's real `CapacityAvailabilityProvider` swap-in — deliberately deferred.
+- [x] §1.5's real-capacity swap-in — **shipped in Leg 3, not as a separate `CapacityAvailabilityProvider`**: §3.5 deleted that abstraction outright, and its substance (a live `gsi1-availability` query claiming a specific `operator_id`) is `operatorDao.findIdleOperator()` + `startTransit()`, called directly from `orderSchedulingService.ts`. Only the atomic-claim half named below is still deferred.
 
 **Leg 2 — Capacity management API + frontend**
 - [x] `backend/models/capacityRequest.ts`, `capacityStatus.ts`.
@@ -526,7 +536,7 @@ correctly returns `{ operators: [] }`.
 - [x] `cdk/lambda/Nyc311OrderSchedulingLambda.ts` — Operators grants + `ORDER_EXECUTION_STATE_MACHINE_ARN`/`states:StartExecution`; Cases grant removed (pool-derived unroutable path gone).
 - [x] §3.5 Dropping capacity pools from scheduling, §3.6 Resolving the idle→busy claim timing, §3.7 GPS pings, §3.8 Pre-scheduling hook — all designed and built this pass (see those sections above).
 - [~] §3.3 Sim-time config — **amended**: a plain per-environment `SIMULATION_TIME_SCALE` env var (100 for Test, 1 for Prod), not AWS AppConfig as originally sketched. Nothing yet needs to change the scale without a redeploy; swapping to AppConfig later is a drop-in change behind `getSimulationTimeScale()`, not a state-machine redesign — logged as a possible future refinement, not a gap.
-- [ ] §3.4 Failure injection at `EXECUTE` — deliberately deferred, as agreed.
+- [ ] §3.4 Failure injection at `EXECUTE` — deliberately deferred, as agreed. Logged to the backlog 2026-09-13 — [#36](https://github.com/seththeeke/nyc-311/issues/36).
 - [x] Deployed to `Nyc311-Test` 2026-09-12. The predicted breaking-data-shape gotcha **did occur exactly as flagged**: the 11 Operators seeded before `name`/`current_location` existed failed strict validation. Cleared them (`aws dynamodb delete-item` on all `#METADATA`/`EVENT#n` rows) and re-ran `test-scripts/7-seed-capacity.py` to create 10 fresh, schema-valid Operators.
 - [x] Verified live end to end: manually invoked `Nyc311OrderScheduling-Test` — `{ordersConsidered: 200, ordersScheduled: 10, ordersSkippedNoCapacity: 190, ordersFailed: 0}`, exactly matching the 10 idle Operators available, correctly exhausting the fleet rather than over-scheduling. All 10 `Nyc311OrderExecution-Test` state machine executions (one per Order, named by `order_id`) reached `SUCCEEDED`. Traced one Operator's full `OperatorEvent` history: `OPERATOR_ADDED`(home) → `TRANSIT_STARTED`(home) → `WORK_STARTED`(real job-site coords) → `WORK_COMPLETED`(same site, no teleport) — matches §3.7 exactly. Confirmed the corresponding `Order` moved `EXECUTE` → `RESOLVE` with `assigned_operator_id` set. All 10 Operators cycled back to `IDLE` once their executions finished (`SIMULATION_TIME_SCALE=100` in Test meant the whole run completed in under a minute).
 
@@ -547,4 +557,4 @@ correctly returns `{ operators: [] }`.
 - [x] Two UX fixes landed same day, before/alongside deploy: removed HomePage's redundant title/nav (the global `Header` already covers it), made the map full-bleed under the header (`Header` given an explicit `h-14`, `scrollWheelZoom` enabled for free navigation), and `FleetMap` now always renders — a loading/error state overlays on top of it instead of replacing it, so a transient fetch failure (e.g. hitting the route before its own deploy finished, which is exactly what happened) never blanks the page.
 - [x] Deployed to `Nyc311-Test` 2026-09-12, verified live at `test.boroughsim.com`: `curl .../fleet/locations` confirmed all 10 re-seeded Operators `IDLE` at `{lat: 40.7128, lng: -74.006}`; the map itself showed one green dot at the depot (10 Operators overlapping at the same point, as expected) in a full-bleed, freely-navigable view with no title/nav clutter and no load error.
 
-**Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`.
+**Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`. Logged to the backlog 2026-09-13 — [#35](https://github.com/seththeeke/nyc-311/issues/35).

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
-import { CapacityIcon, SchedulingIcon } from "../monitoring/MonitoringTileIcons";
+import { CapacityIcon, SchedulingIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
 
 interface AdminTileConfig {
@@ -25,6 +25,13 @@ const ADMIN_TILES: AdminTileConfig[] = [
     to: "/admin/scheduling",
     accent: "cyan",
     icon: <SchedulingIcon />,
+  },
+  {
+    title: "SQL Query",
+    description: "Run a one-off, read-only query against the warehouse and see the result — no deploy required.",
+    to: "/admin/query",
+    accent: "violet",
+    icon: <SqlConsoleIcon />,
   },
 ];
 

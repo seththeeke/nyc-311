@@ -1,5 +1,5 @@
 import { RemovalPolicy } from "aws-cdk-lib";
-import { AttributeType, ProjectionType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
+import { AttributeType, ProjectionType, StreamViewType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
@@ -13,9 +13,10 @@ export interface OperatorsTableProps {
  * `operator_id` + `sk` (`#METADATA`/`EVENT#<n>`), same event-sourced shape
  * as `OrdersTable`.
  *
- * No stream yet — the all-time cost computation (§2.3) is a future
- * warehouse-job consumer not built in this leg; adding the stream then is
- * a non-replacing table update, same as it was for `Locations`/`Requests`.
+ * Stream enabled `7-data-warehousing.md` §4 (Leg 6, 2026-09-13) — a
+ * non-replacing update, feeding `Nyc311OperatorsStreamFanOutLambda`, which
+ * backs the warehouse and §2.3's all-time cost job. No operational
+ * consumer of this stream exists.
  */
 export class OperatorsTable extends TableV2 {
   constructor(scope: Construct, id: string, props: OperatorsTableProps) {
@@ -25,6 +26,7 @@ export class OperatorsTable extends TableV2 {
       sortKey: { name: "sk", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: RemovalPolicy.RETAIN,
+      dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,
       globalSecondaryIndexes: [
         {
           indexName: "gsi1-availability",

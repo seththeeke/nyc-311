@@ -38,6 +38,8 @@ import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSche
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
+import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
+import { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
@@ -53,6 +55,9 @@ import { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocati
 import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
+import { Nyc311OperatorEventsTopic } from "../lambda/Nyc311OperatorEventsTopic";
+import { Nyc311OperatorProjectionsTopic } from "../lambda/Nyc311OperatorProjectionsTopic";
+import { Nyc311OperatorsStreamFanOutLambda } from "../lambda/Nyc311OperatorsStreamFanOutLambda";
 
 /* Enum-like discriminator, ALL_CAPS per CLAUDE.md §6. */
 export type Nyc311Environment = "TEST" | "PROD";
@@ -227,6 +232,30 @@ export class Nyc311Stack extends Stack {
       locationEventsTopic,
     });
 
+    /*
+     * 7-data-warehousing.md §4 (Leg 6, 2026-09-13) — the Operators table's
+     * first stream consumer, dual-topic like Orders (Operators is
+     * event-sourced too): EVENT# items onto Nyc311OperatorEventsTopic,
+     * #METADATA changes onto Nyc311OperatorProjectionsTopic. Neither topic
+     * has an operational subscriber — both feed the warehouse only.
+     */
+    const operatorEventsTopic = new Nyc311OperatorEventsTopic(this, "Nyc311OperatorEventsTopic", {
+      envName: props.envName,
+    });
+    const operatorProjectionsTopic = new Nyc311OperatorProjectionsTopic(this, "Nyc311OperatorProjectionsTopic", {
+      envName: props.envName,
+    });
+    const operatorsStreamFanOutLambda = new Nyc311OperatorsStreamFanOutLambda(
+      this,
+      "Nyc311OperatorsStreamFanOutLambda",
+      {
+        envName: props.envName,
+        operatorsTable,
+        operatorEventsTopic,
+        operatorProjectionsTopic,
+      }
+    );
+
     /* 3-order-ingestion.md §3 — consumes orderIngestionQueue, runs the filter pipeline, promotes/creates the Order. */
     const requestEvaluationLambda = new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
       envName: props.envName,
@@ -337,6 +366,30 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
+    /*
+     * Not captured in a const — unlike the four sources above, Operators
+     * isn't wired into Leg 4's rebuild state machine in this pass
+     * (7-data-warehousing.md Naming Reference/Open Items), so nothing
+     * downstream needs a reference to either delivery stream.
+     */
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOperatorEventsFirehose", {
+      envName: props.envName,
+      label: "OperatorEvents",
+      tableName: "operator_events",
+      sourceTopic: operatorEventsTopic.topic,
+      glueTable: warehouseCatalog.tables["operator_events"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOperatorSnapshotsFirehose", {
+      envName: props.envName,
+      label: "OperatorSnapshots",
+      tableName: "operator_snapshots",
+      sourceTopic: operatorProjectionsTopic.topic,
+      glueTable: warehouseCatalog.tables["operator_snapshots"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
 
     /*
      * 7-data-warehousing.md §8-§12 — the reporting substrate. One DynamoDB
@@ -417,6 +470,23 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       warehouseBucket,
+    });
+
+    /*
+     * 7-data-warehousing.md §12a (Leg 7) — the admin ad-hoc SQL console: a
+     * dedicated Athena workgroup (separate from the scheduled job
+     * runner's) and the POST /admin/warehouse/query Lambda.
+     */
+    const adHocQueryWorkgroup = new Nyc311AdHocQueryWorkgroup(this, "Nyc311AdHocQueryWorkgroup", {
+      envName: props.envName,
+      warehouseBucket,
+    });
+    const adHocQueryApiLambda = new Nyc311AdHocQueryApiLambda(this, "Nyc311AdHocQueryApiLambda", {
+      envName: props.envName,
+      warehouseBucket,
+      warehouseCatalog,
+      adHocQueryWorkgroup,
+      usersTable,
     });
 
     /*
@@ -510,6 +580,7 @@ export class Nyc311Stack extends Stack {
       pollerFunctionName: pollerLambda.functionName,
       orderFanOutFunctionName: requestsFanOutLambda.functionName,
       locationsFanOutFunctionName: locationsFanOutLambda.functionName,
+      operatorsFanOutFunctionName: operatorsStreamFanOutLambda.functionName,
       requestEvaluationFunctionName: requestEvaluationLambda.functionName,
       orderEventFanOutFunctionName: ordersStreamFanOutLambda.functionName,
       orderEvaluationFunctionName: orderEvaluationLambda.functionName,
@@ -540,6 +611,7 @@ export class Nyc311Stack extends Stack {
       getCapacityApiLambda,
       runSchedulingApiLambda,
       getFleetLocationsApiLambda,
+      adHocQueryApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

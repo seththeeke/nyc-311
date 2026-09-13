@@ -17,6 +17,8 @@ import { Nyc311WarehouseSchemaApiLambda } from "../../warehouse/Nyc311WarehouseS
 import { Nyc311WarehouseJobsApiLambda } from "../../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311ReportsApiLambda } from "../../warehouse/Nyc311ReportsApiLambda";
+import { Nyc311AdHocQueryWorkgroup } from "../../warehouse/Nyc311AdHocQueryWorkgroup";
+import { Nyc311AdHocQueryApiLambda } from "../../warehouse/Nyc311AdHocQueryApiLambda";
 import { UsersTable } from "../../data/UsersTable";
 import { Nyc311AdminAuth } from "../../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../../lambda/Nyc311AdminWhoamiApiLambda";
@@ -47,6 +49,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     pollerFunctionName: "Nyc311Poller-Test",
     orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
     locationsFanOutFunctionName: "Nyc311LocationsFanOut-Test",
+    operatorsFanOutFunctionName: "Nyc311OperatorsStreamFanOut-Test",
     requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
     orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
     orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
@@ -130,6 +133,17 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     operatorsTable,
   });
+  const adHocQueryWorkgroup = new Nyc311AdHocQueryWorkgroup(stack, "Nyc311AdHocQueryWorkgroup", {
+    envName,
+    warehouseBucket,
+  });
+  const adHocQueryApiLambda = new Nyc311AdHocQueryApiLambda(stack, "Nyc311AdHocQueryApiLambda", {
+    envName,
+    warehouseBucket,
+    warehouseCatalog,
+    adHocQueryWorkgroup,
+    usersTable,
+  });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -151,6 +165,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     getCapacityApiLambda,
     runSchedulingApiLambda,
     getFleetLocationsApiLambda,
+    adHocQueryApiLambda,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -203,7 +218,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 14);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 15);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -260,6 +275,13 @@ describe("Nyc311Api", () => {
     });
   });
 
+  it("wires POST /admin/warehouse/query to the ad-hoc query Lambda, behind the JWT authorizer", () => {
+    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "POST /admin/warehouse/query",
+      AuthorizationType: "JWT",
+    });
+  });
+
   it("wires GET /fleet/locations to the fleet-locations Lambda, no authorizer — public, unlike /capacity", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /fleet/locations",
@@ -280,6 +302,7 @@ describe("Nyc311Api", () => {
         "POST /capacity",
         "DELETE /capacity/{operator_id}",
         "POST /scheduling/run",
+        "POST /admin/warehouse/query",
       ].sort()
     );
   });
@@ -292,7 +315,7 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly fourteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 14);
+  it("declares exactly fifteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 15);
   });
 });

@@ -102,4 +102,35 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       ...INGEST_METADATA_COLUMNS,
     ],
   },
+  {
+    tableName: "operator_events",
+    opaqueFields: ["payload"],
+    columns: [
+      { name: "operator_id", type: "string" },
+      { name: "sequence_number", type: "bigint" },
+      { name: "event_type", type: "string" },
+      { name: "occurred_at", type: "string" },
+      { name: "actor", type: "string" },
+      { name: "payload", type: "string" },
+      ...INGEST_METADATA_COLUMNS,
+    ],
+  },
+  {
+    tableName: "operator_snapshots",
+    /* current_location ({lat,lng} | null) kept opaque like retry_counts — nothing queries it yet (7-data-warehousing.md §7). */
+    opaqueFields: ["current_location"],
+    columns: [
+      { name: "operator_id", type: "string" },
+      { name: "name", type: "string" },
+      { name: "status", type: "string" },
+      { name: "current_activity", type: "string" },
+      { name: "removal_requested_at", type: "string" },
+      { name: "start_datetime", type: "string" },
+      { name: "end_datetime", type: "string" },
+      { name: "rate_per_hour", type: "double" },
+      { name: "current_location", type: "string" },
+      { name: "last_event_sequence", type: "bigint" },
+      ...INGEST_METADATA_COLUMNS,
+    ],
+  },
 ];

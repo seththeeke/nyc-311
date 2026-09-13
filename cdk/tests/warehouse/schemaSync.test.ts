@@ -20,6 +20,8 @@ const TABLE_TO_MODEL: Record<string, { file: string; schema: string }> = {
   order_snapshots: { file: "order.ts", schema: "OrderSchema" },
   requests: { file: "request.ts", schema: "RequestSchema" },
   locations: { file: "location.ts", schema: "LocationSchema" },
+  operator_events: { file: "operator.ts", schema: "OperatorEventSchema" },
+  operator_snapshots: { file: "operator.ts", schema: "OperatorSchema" },
 };
 
 function extractZodObjectFields(source: string, schemaName: string): string[] {
@@ -37,7 +39,14 @@ function extractZodObjectFields(source: string, schemaName: string): string[] {
 
   const fields: string[] = [];
   for (const line of body.split("\n")) {
-    const match = /^\s{2}([a-z_][a-z0-9_]*):\s*z\./i.exec(line);
+    /*
+     * A top-level field's value is either a direct z.xxx() call or a
+     * reference to an imported schema (e.g. `current_location:
+     * GpsLocationSchema.nullable()` in operator.ts) — match any
+     * identifier-dot start, not just a literal `z.`, so composed schemas
+     * aren't silently invisible to the drift check.
+     */
+    const match = /^\s{2}([a-z_][a-z0-9_]*):\s*[A-Za-z_][\w$]*\./.exec(line);
     if (match) fields.push(match[1]);
   }
   return fields;
@@ -78,6 +87,13 @@ describe("warehouse schema sync (7-data-warehousing.md §4a)", () => {
   it("names every table exactly once", () => {
     const names = WAREHOUSE_TABLE_SCHEMAS.map((s) => s.tableName);
     expect(new Set(names).size).toBe(names.length);
-    expect(names).toEqual(["order_events", "order_snapshots", "requests", "locations"]);
+    expect(names).toEqual([
+      "order_events",
+      "order_snapshots",
+      "requests",
+      "locations",
+      "operator_events",
+      "operator_snapshots",
+    ]);
   });
 });

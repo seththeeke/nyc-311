@@ -69,6 +69,25 @@ describe("AdminPage", () => {
     expect(link).toHaveAttribute("href", "/admin/scheduling");
   });
 
+  it("renders the SQL Query tile, linking to /admin/query", () => {
+    mockedUseAuth.mockReturnValue({
+      user,
+      isLoading: false,
+      signIn: vi.fn(),
+      signInError: null,
+      isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
+      signOut: vi.fn(),
+    });
+
+    renderAdminPage();
+
+    const link = screen.getByRole("link", { name: /SQL Query/ });
+    expect(link).toHaveAttribute("href", "/admin/query");
+  });
+
   it("shows the signed-in admin's email", () => {
     mockedUseAuth.mockReturnValue({
       user,

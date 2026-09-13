@@ -7,6 +7,7 @@ const PROPS = {
   pollerFunctionName: "Nyc311Poller-Test",
   orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
   locationsFanOutFunctionName: "Nyc311LocationsFanOut-Test",
+  operatorsFanOutFunctionName: "Nyc311OperatorsStreamFanOut-Test",
   requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
   orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
   orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",

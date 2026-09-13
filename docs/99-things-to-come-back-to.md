@@ -153,3 +153,24 @@ helper) but the underlying flake mechanism is still unaddressed and will
 recur as the suite grows. See [#34](https://github.com/seththeeke/nyc-311/issues/34).
 
 ---
+
+## capacity: build test-scripts/9-reset-test-data.py (Leg 4 cleanup script)
+
+See [#35](https://github.com/seththeeke/nyc-311/issues/35).
+
+---
+
+## capacity: design + build failure injection at EXECUTE (§3.4)
+
+See [#36](https://github.com/seththeeke/nyc-311/issues/36).
+
+---
+
+## warehouse: event_name is documented as a Glue column but never actually reaches order_snapshots/requests
+
+Found while adding `operator_snapshots` (Leg 6) — the field is published
+only as an SNS message attribute, which raw Firehose delivery drops.
+Nothing currently queries it, so no visible bug, but the doc is wrong.
+See [#37](https://github.com/seththeeke/nyc-311/issues/37).
+
+---
