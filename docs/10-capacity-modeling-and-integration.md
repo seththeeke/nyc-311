@@ -466,13 +466,22 @@ already being behind `AdminRoute`. New:
 
 ## Build Checklist
 
-**Legs 1, 2, 3, 5, and 6 built and locally verified 2026-09-12**
-(build/lint/test/coverage green across `backend`/`cdk`/`web-app`, 90%+ per
-file); Leg 4 not yet started. Capacity **is now wired into scheduling**
-(Legs 3.5/3.6) — `orderSchedulingService.ts` claims a real idle `Operator`
-and starts one execution per Order; the old `MockOperatorAssignmentDao`/
-`mockCapacityAvailabilityProvider` stubs are deleted. Legs 3, 5, and 6 are
-built and locally verified but **not yet deployed**.
+**Legs 1, 2, 3, 5, and 6 built, deployed to `Nyc311-Test`, and verified
+live 2026-09-12** (build/lint/test/coverage green across `backend`/`cdk`/
+`web-app`, 90%+ per file); Leg 4 not yet started. Capacity **is now wired
+into scheduling** (Legs 3.5/3.6) — `orderSchedulingService.ts` claims a
+real idle `Operator` and starts one execution per Order; the old
+`MockOperatorAssignmentDao`/`mockCapacityAvailabilityProvider` stubs are
+deleted. A full end-to-end live run was verified this same day: seeded 10
+Operators, manually triggered scheduling (10 scheduled, 190 correctly
+skipped once the fleet was exhausted), watched all 10 execution state
+machines run to `SUCCEEDED`, confirmed the GPS ping chain and Order stage
+transitions, and confirmed the home-page map reflects it all live at
+`test.boroughsim.com`. The pipeline's own `DeployProd` stage also
+succeeded the same day — `Nyc311-Prod` has all of this too, though its
+`Operators` table is empty (no live Prod fleet has been seeded), so the
+scheduler there has nothing to claim yet and `GET /fleet/locations`
+correctly returns `{ operators: [] }`.
 
 **Leg 1 — Operator entity & capacity model**
 - [x] `backend/models/operator.ts` — real `Operator`/`OperatorEvent` (replacing the old `{operator_id}`-only stub schema).
@@ -500,9 +509,9 @@ built and locally verified but **not yet deployed**.
 - [x] Deployed to `Nyc311-Test`, verified live via `test-scripts/7-seed-capacity.py` (seeded fleet to 10, $450/hr) + `8-capacity-crud-test.py` (401/create/read/remove/read/400/404 all passed, net fleet-size change zero) — 2026-09-12.
 - [x] `name` added to `Operator`/`AddCapacityRequest` (required, free-text, not unique) — 2026-09-12, per explicit instruction to identify a vehicle past its id. Full stack: `backend/models/operator.ts`, `capacityRequest.ts`, `dao/operator/operatorDao.ts` (`addOperator(name, ratePerHour)`, stamped into the `OPERATOR_ADDED` payload), `service/capacity/capacityService.ts`, `addCapacityController.ts`; `web-app/src/models/operator.ts`, `services/capacityService.ts` (live + mock), `hooks/useCapacity.ts`, `components/capacity/{AddCapacityForm,CapacityRosterTable}.tsx`, `test-data/operators.ts`; `test-scripts/{7-seed-capacity,8-capacity-crud-test}.py`. **Breaking for existing data**: `name` is required on the `Operator` projection, and `OperatorDao.listActiveRoster`/`getOperator` parse strictly — any Operator row written before this change (the 10 seeded into `Nyc311-Test` earlier today) has no `name` and will fail validation once this deploys. Before/at deploy, clear `Nyc311-Test`'s `Operators` table (or re-run `7-seed-capacity.py` after a manual wipe) — there's no live Prod data yet, so Prod is unaffected.
 
-**Leg 3 — Order execution simulation, built and locally verified 2026-09-12**
-(build/lint/test/coverage green across `backend`/`cdk`/`web-app`, 90%+ per
-file; visually verified live in the browser, mock mode). Not yet deployed.
+**Leg 3 — Order execution simulation, built, deployed, and verified live in
+`Nyc311-Test` 2026-09-12** (build/lint/test/coverage green across
+`backend`/`cdk`/`web-app`, 90%+ per file).
 
 - [x] `backend/models/order.ts` — `ORDER_DISPATCHED`/`ORDER_ARRIVED`/`ORDER_PROCESSING` added to `ORDER_EVENT_TYPES` (§3.1; `ORDER_RESOLVED` already existed).
 - [x] `backend/models/gpsLocation.ts` — `GpsLocationSchema` + `HOME_DEPOT_LOCATION` mock constant (§3.7).
@@ -518,22 +527,24 @@ file; visually verified live in the browser, mock mode). Not yet deployed.
 - [x] §3.5 Dropping capacity pools from scheduling, §3.6 Resolving the idle→busy claim timing, §3.7 GPS pings, §3.8 Pre-scheduling hook — all designed and built this pass (see those sections above).
 - [~] §3.3 Sim-time config — **amended**: a plain per-environment `SIMULATION_TIME_SCALE` env var (100 for Test, 1 for Prod), not AWS AppConfig as originally sketched. Nothing yet needs to change the scale without a redeploy; swapping to AppConfig later is a drop-in change behind `getSimulationTimeScale()`, not a state-machine redesign — logged as a possible future refinement, not a gap.
 - [ ] §3.4 Failure injection at `EXECUTE` — deliberately deferred, as agreed.
-- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy. **Same breaking-data-shape gotcha as `name` earlier**: `current_location` is a new required `Operator` projection field, and `OperatorDao.listActiveRoster`/`getOperator`/`findIdleOperator` all parse strictly — whatever's currently seeded into `Nyc311-Test` (added after the `name` fix, but before this leg) has no `current_location` and will fail validation once this deploys. Clear/re-seed `Operators-Test` before or immediately after this deploy.
+- [x] Deployed to `Nyc311-Test` 2026-09-12. The predicted breaking-data-shape gotcha **did occur exactly as flagged**: the 11 Operators seeded before `name`/`current_location` existed failed strict validation. Cleared them (`aws dynamodb delete-item` on all `#METADATA`/`EVENT#n` rows) and re-ran `test-scripts/7-seed-capacity.py` to create 10 fresh, schema-valid Operators.
+- [x] Verified live end to end: manually invoked `Nyc311OrderScheduling-Test` — `{ordersConsidered: 200, ordersScheduled: 10, ordersSkippedNoCapacity: 190, ordersFailed: 0}`, exactly matching the 10 idle Operators available, correctly exhausting the fleet rather than over-scheduling. All 10 `Nyc311OrderExecution-Test` state machine executions (one per Order, named by `order_id`) reached `SUCCEEDED`. Traced one Operator's full `OperatorEvent` history: `OPERATOR_ADDED`(home) → `TRANSIT_STARTED`(home) → `WORK_STARTED`(real job-site coords) → `WORK_COMPLETED`(same site, no teleport) — matches §3.7 exactly. Confirmed the corresponding `Order` moved `EXECUTE` → `RESOLVE` with `assigned_operator_id` set. All 10 Operators cycled back to `IDLE` once their executions finished (`SIMULATION_TIME_SCALE=100` in Test meant the whole run completed in under a minute).
 
-**Leg 5 — Admin Scheduling tile, built and locally verified 2026-09-12.**
+**Leg 5 — Admin Scheduling tile, built and deployed 2026-09-12.**
 - [x] `backend/controller/web-api/runSchedulingController.ts` — `POST /scheduling/run`, admin-authorized, calls the same `scheduleOrders` the hourly schedule already runs.
 - [x] `cdk/lambda/Nyc311RunSchedulingApiLambda.ts`, `cdk/api/Nyc311Api.ts` route wiring.
 - [x] `web-app/src/services/schedulingService.ts` (real + mock), `hooks/useScheduling.ts`, `components/pages/SchedulingManagementPage.tsx` (routed at `/admin/scheduling`), `SchedulingIcon` added to the shared icon set, second Admin tile.
 - [x] Deliberately no output-statistics display, persisted run history, or `GET` status endpoint (§5.1) — you want to think that through before committing to it.
-- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy.
+- [x] Deployed to `Nyc311-Test` 2026-09-12. The underlying `scheduleOrders` service function was verified live (see Leg 3's manual-invoke results above, which this route calls identically) — the `POST /scheduling/run` route and the `SchedulingManagementPage` button itself weren't separately clicked live, only exercised locally/in mock mode.
 
-**Leg 6 — Home-page fleet map + public GPS read path, built and locally verified 2026-09-12.**
+**Leg 6 — Home-page fleet map + public GPS read path, built and deployed 2026-09-12.**
 - [x] `backend/models/fleetLocation.ts` — `FleetOperatorLocation`/`FleetLocations`, the public-safe subset of `Operator`.
 - [x] `backend/service/fleet/fleetLocationService.ts`, `controller/web-api/getFleetLocationsController.ts` — `GET /fleet/locations`, public, no `requireAdminUser`.
 - [x] `cdk/lambda/Nyc311GetFleetLocationsApiLambda.ts` — `OperatorsTable` `Query` only.
 - [x] `web-app/src/models/fleetLocation.ts`, `services/fleetLocationService.ts` (real + mock), `test-data/fleetLocations.ts`, `hooks/useFleetLocations.ts`, `components/FleetMap.tsx` (Leaflet + OpenStreetMap, new `leaflet`/`react-leaflet` deps), rendered on `HomePage.tsx`.
 - [x] Current position only — no path/trail rendering yet (§3.7 already supports reconstructing one from event history if wanted later).
 - [x] Unit tests, 90%+ per file, `backend`/`cdk`/`web-app` all green. Manually verified in the browser (mock mode): real map tiles, 7 mock vehicles color-coded by activity, popup on click showing name + activity.
-- [ ] Not yet deployed to `Nyc311-Test`/verified live — pending push/deploy.
+- [x] Two UX fixes landed same day, before/alongside deploy: removed HomePage's redundant title/nav (the global `Header` already covers it), made the map full-bleed under the header (`Header` given an explicit `h-14`, `scrollWheelZoom` enabled for free navigation), and `FleetMap` now always renders — a loading/error state overlays on top of it instead of replacing it, so a transient fetch failure (e.g. hitting the route before its own deploy finished, which is exactly what happened) never blanks the page.
+- [x] Deployed to `Nyc311-Test` 2026-09-12, verified live at `test.boroughsim.com`: `curl .../fleet/locations` confirmed all 10 re-seeded Operators `IDLE` at `{lat: 40.7128, lng: -74.006}`; the map itself showed one green dot at the depot (10 Operators overlapping at the same point, as expected) in a full-bleed, freely-navigable view with no title/nav clutter and no load error.
 
 **Leg 4 — Test DB cleanup script**: not started — `test-scripts/9-reset-test-data.py`.
