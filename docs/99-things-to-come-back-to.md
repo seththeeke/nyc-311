@@ -174,3 +174,10 @@ Nothing currently queries it, so no visible bug, but the doc is wrong.
 See [#37](https://github.com/seththeeke/nyc-311/issues/37).
 
 ---
+
+## cdk/: high-severity brace-expansion DoS advisory bypasses prior CVE-2026-14257 mitigation, non-breaking fix unapplied
+
+A regression of the vulnerability class fixed in #32 — a new advisory
+covers a bypass of that earlier mitigation. See [#38](https://github.com/seththeeke/nyc-311/issues/38).
+
+---
