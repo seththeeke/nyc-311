@@ -8,6 +8,7 @@ import {
   deleteWarehouseJob,
   listWarehouseJobs,
 } from "../../../service/analytics/warehouseJobDefinitionService";
+import type { WarehouseJobDefinitionDeps } from "../../../service/analytics/warehouseJobDefinitionService";
 import { NotFoundError, TerminalError } from "../../../models/errors";
 import type { WarehouseJobRunsDao } from "../../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobDefinition } from "../../../models/warehouseJobDefinition";
@@ -124,6 +125,22 @@ describe("createWarehouseJob", () => {
     await expect(
       createWarehouseJob("order_volume_by_zip", "cron(bad)", "SELECT 1", "01ADMIN", { ...baseDeps, jobRunsDao: dao })
     ).rejects.toThrow(/order_volume_by_zip/);
+  });
+
+  it("stamps created_at from the real clock when deps.now is not injected", async () => {
+    const dao = fakeDao();
+    const { now: _now, ...depsWithoutClock } = baseDeps;
+    void _now;
+    const before = Date.now();
+
+    const result = await createWarehouseJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1", "01ADMIN", {
+      ...(depsWithoutClock as WarehouseJobDefinitionDeps),
+      jobRunsDao: dao,
+    });
+
+    const stamped = new Date(result.created_at).getTime();
+    expect(stamped).toBeGreaterThanOrEqual(before);
+    expect(stamped).toBeLessThanOrEqual(Date.now());
   });
 
   it("still throws a TerminalError when CreateSchedule rejects with a non-Error value", async () => {
