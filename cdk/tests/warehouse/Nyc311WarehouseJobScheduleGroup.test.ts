@@ -78,7 +78,7 @@ describe("Nyc311WarehouseJobScheduleGroup", () => {
 
   it("creates a dead-letter queue named per environment, SSL-enforced, DESTROY on removal", () => {
     const template = synthesize("TEST");
-    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311WarehouseJobDlq-Test" });
+    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311WarehouseJobsDlq-Test" });
     template.hasResourceProperties("AWS::SQS::QueuePolicy", {});
     template.hasResource("AWS::SQS::Queue", { DeletionPolicy: "Delete" });
   });
@@ -86,12 +86,12 @@ describe("Nyc311WarehouseJobScheduleGroup", () => {
   it("alarms on a single failed run and emails the failure address", () => {
     const template = synthesize("TEST");
     template.hasResourceProperties("AWS::CloudWatch::Alarm", {
-      AlarmName: "Nyc311WarehouseJobFailureAlarm-Test",
+      AlarmName: "Nyc311WarehouseJobsFailureAlarm-Test",
       Threshold: 1,
       EvaluationPeriods: 1,
       ComparisonOperator: "GreaterThanOrEqualToThreshold",
     });
-    template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311WarehouseJobFailures-Test" });
+    template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311WarehouseJobsFailures-Test" });
     template.hasResourceProperties("AWS::SNS::Subscription", { Protocol: "email", Endpoint: "ops@example.com" });
   });
 });

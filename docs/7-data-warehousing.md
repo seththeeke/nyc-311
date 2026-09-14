@@ -439,14 +439,21 @@ don't exist at synth time anymore:
   schedule references this one role ARN, so the job-management API's own
   role needs `iam:PassRole` scoped to just this ARN — never a broad
   `iam:PassRole` on `*`.
-- **Dead-letter queue:** a fresh `Nyc311WarehouseJobDlq-<Env>` queue
-  under the new `Nyc311WarehouseJobScheduleGroup` construct — same name
-  and purpose as the one the old single schedule used, but a genuinely
-  new CloudFormation logical resource (deliberately not preserving the
-  literal old one: reusing an exact queue name across a delete-and-create
-  in the same changeset risks a transient `AlreadyExists` conflict for
-  no real benefit, since the old queue never carried any state worth
-  keeping). Referenced by every dynamically-created schedule's target.
+- **Dead-letter queue:** a fresh `Nyc311WarehouseJobsDlq-<Env>` queue
+  (plural "Jobs") under the new `Nyc311WarehouseJobScheduleGroup`
+  construct — same purpose as the one the old single schedule used, but a
+  genuinely new CloudFormation logical resource with a deliberately
+  distinct physical name, alongside a likewise-renamed
+  `Nyc311WarehouseJobsFailures-<Env>` topic and
+  `Nyc311WarehouseJobsFailureAlarm-<Env>` alarm. **Revised 2026-09-14**:
+  the first version of this construct reused the old singular-"Job"
+  names outright; a real `Nyc311-Test` deploy proved that isn't just a
+  "transient `AlreadyExists` risk" as originally assumed — CloudFormation's
+  `AWS::EarlyValidation::ResourceExistenceCheck` hook refuses to even
+  create a change set that both removes and adds a same-named resource,
+  since it checks every `Add` before any `Remove` runs. Distinct names
+  were the only fix; the old queue never carried state worth keeping
+  anyway. Referenced by every dynamically-created schedule's target.
 - **Target input:** `{"job_name": "<name>"}` — the runner's whole
   trigger contract now, replacing the old empty-object trigger.
 - **Physical schedule name:** `Nyc311WarehouseJob-<name>-<Env>`.

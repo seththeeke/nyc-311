@@ -192,7 +192,7 @@ describe("Nyc311Stack", () => {
     /* Leg 8 — no more CDK-declared daily Schedule; per-job schedules are created at runtime under this group. */
     template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", { Name: "Nyc311WarehouseJobs-Test" });
     template.hasResourceProperties("AWS::IAM::Role", { RoleName: "Nyc311WarehouseJobScheduleRole-Test" });
-    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobFailureAlarm-Test" });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobsFailureAlarm-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311CreateWarehouseJobApi-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311DeleteWarehouseJobApi-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311ListWarehouseJobsApi-Test" });

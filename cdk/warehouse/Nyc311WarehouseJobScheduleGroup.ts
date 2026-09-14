@@ -63,20 +63,29 @@ export class Nyc311WarehouseJobScheduleGroup extends Construct {
       })
     );
 
+    /*
+     * Deliberately distinct from the deleted Nyc311WarehouseJobSchedule's
+     * `Nyc311WarehouseJobDlq-<Env>`/`Nyc311WarehouseJobFailures-<Env>`/
+     * `Nyc311WarehouseJobFailureAlarm-<Env>` (singular "Job") — reusing
+     * those names, as originally designed, made CloudFormation's early-
+     * validation resource-existence check refuse to even create a change
+     * set, since it checks every Add before any Remove runs in the same
+     * changeset. Found via a real failed Nyc311-Test deploy, 2026-09-14.
+     */
     this.deadLetterQueue = new sqs.Queue(this, "Dlq", {
-      queueName: `Nyc311WarehouseJobDlq-${suffix}`,
+      queueName: `Nyc311WarehouseJobsDlq-${suffix}`,
       retentionPeriod: Duration.days(14),
       enforceSSL: true,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
     const failureTopic = new sns.Topic(this, "FailureTopic", {
-      topicName: `Nyc311WarehouseJobFailures-${suffix}`,
+      topicName: `Nyc311WarehouseJobsFailures-${suffix}`,
     });
     failureTopic.addSubscription(new subscriptions.EmailSubscription(props.failureNotificationEmail));
 
     this.failureAlarm = new cloudwatch.Alarm(this, "FailureAlarm", {
-      alarmName: `Nyc311WarehouseJobFailureAlarm-${suffix}`,
+      alarmName: `Nyc311WarehouseJobsFailureAlarm-${suffix}`,
       metric: props.jobRunnerLambda.metricErrors({ period: ALARM_PERIOD, statistic: "sum" }),
       threshold: 1,
       evaluationPeriods: CONSECUTIVE_FAILURES_TO_ALARM,
