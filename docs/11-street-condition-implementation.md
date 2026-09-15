@@ -24,9 +24,7 @@
 > never gets ingested at all. It also replaces `5-order-evaluation.md` §2's mock
 > `RandomOrderEvaluationRule` with a real complaint-type filter — the
 > project's first evaluation rule that actually inspects the `Order`
-> instead of sampling. It also removes the Orders/Order Events
-> Monitoring-page tiles (dead weight once every Order is the same
-> complaint type), and adds new ground: a general admin-toggleable
+> instead of sampling. It also adds new ground: a general admin-toggleable
 > feature-flag framework, a brute-force cost-prediction model at
 > scheduling time, an experimental locally-trained ML alternative to it
 > (on synthetic data, not real NYC 311 data — see §6), and a richer
@@ -40,19 +38,23 @@
 
 ## Decision Status
 
-Grouped roughly in build-dependency order: cleanup first (unblocks
-focus), routing before cost prediction (cost consumes routing's
-output), feature flags before cost prediction (cost prediction's
-brute-force/ML choice needs one), ML after brute-force (needs a
-baseline to compare against), UX last (most independent). Topic 1 is
-the only one actually built so far; the rest are negotiated at the
-design level only (§3 still open) — see the doc-level status banner
-above.
+Grouped roughly in build-dependency order: routing before cost prediction
+(cost consumes routing's output), feature flags before cost prediction
+(cost prediction's brute-force/ML choice needs one), ML after
+brute-force (needs a baseline to compare against), UX last (most
+independent). Topic 1 is the only one actually built so far; the rest
+are negotiated at the design level only (§3 still open) — see the
+doc-level status banner above.
+
+> Topic 2 (Monitoring cleanup) has been dropped from this doc — done on
+> a separate branch outside this workstream. Topic numbering below is
+> left as originally negotiated (with a gap at 2) rather than
+> renumbered, so every existing `§4`/`§5`/`§6`/`§7` cross-reference in
+> this doc still points at the right section.
 
 | Topic | Status |
 |---|---|
 | [1. Evaluation narrowing — drop the ingestion stub filters, replace random order evaluation with a Street-Condition filter](#1-evaluation-narrowing--drop-the-ingestion-stub-filters-replace-random-order-evaluation-with-a-street-condition-filter) | **Implemented (2026-09-14)** |
-| [2. Monitoring cleanup — remove the Orders/Order Events tiles and every file that exists only for them](#2-monitoring-cleanup--remove-the-ordersorder-events-tiles-and-every-file-that-exists-only-for-them) | **Agreed (2026-09-14)** |
 | [3. Route planning — self-hosted routing vs. a free routing API](#3-route-planning--self-hosted-routing-vs-a-free-routing-api) | **Deferred (2026-09-14)** — user wants to think it over |
 | [4. Feature flags — storage, evaluation, and a new Admin tile](#4-feature-flags--storage-evaluation-and-a-new-admin-tile) | **Agreed (2026-09-14)** |
 | [5. Cost prediction (brute-force) at scheduling, and where the estimate lives](#5-cost-prediction-brute-force-at-scheduling-and-where-the-estimate-lives) | **Agreed (2026-09-14)** — revisit in depth before implementation |
@@ -139,44 +141,6 @@ above:**
   filter, e.g. a rate limiter, would still slot in there); this doc's
   "remove the three stubs" ask is about the specific placeholder
   functions, not the pipeline shape around them.
-
----
-
-## 2. Monitoring cleanup — remove the Orders/Order Events tiles and every file that exists only for them
-
-**Agreed (2026-09-14).** Both `GET /orders` and `GET /order-events` are
-used by nothing except the two tiles' own supporting files (confirmed by
-grep — no other component/hook/service/controller references either
-route). Full deletion, not just unhooking the tiles from
-`MonitoringPage.tsx`:
-
-- **Frontend:** the two tile entries in `MonitoringPage.tsx` and their
-  routes in `AppRoutes.tsx`;
-  `components/pages/{OrderMonitoringPage,OrderEventMonitoringPage}.tsx`;
-  `components/orders/{OrderListTable,OrderFilters}.tsx`;
-  `components/orderEvents/{OrderEventListTable,OrderEventFilters}.tsx`;
-  `hooks/{useOrders,useOrderEvents}.ts`;
-  `services/{orderService,orderEventService}.ts`;
-  `test-data/{orders,orderEvents}.ts`; every mirrored test file for the
-  above. The web-app's `models/order.ts` (scoped to just these two
-  pages — distinct from the backend's project-wide `Order` model) goes
-  too, since nothing else there imports it.
-- **Backend:** `controller/web-api/{getOrdersController,getOrderEventsController}.ts`;
-  `models/{orderListQuery,orderEventListQuery}.ts`; the `listOrders`/
-  `listOrderEvents` exports in `service/order/orderService.ts` (the file
-  itself stays if it has other exports used elsewhere); every mirrored
-  test file for the above.
-- **CDK:** `lambda/{Nyc311OrdersApiLambda,Nyc311OrderEventsApiLambda}.ts`,
-  their route/integration wiring in `api/Nyc311Api.ts` and construction
-  in `stack/Nyc311Stack.ts`, their mirrored tests, and the "declares
-  exactly N routes" assertion count decremented by 2.
-- **Docs:** `4-pipeline-integration-tests.md`'s endpoint-coverage report
-  drops both routes' entries.
-
-**Not touched:** `backend/dao/order/orderDao.ts`, the backend's
-project-wide `backend/models/order.ts`, and every other
-`orderService.ts` export — all used by ingestion/evaluation/scheduling/
-execution, not tile-specific.
 
 ---
 
@@ -589,11 +553,11 @@ for the model change, the new component, and the DAO/GSI write.
       `Nyc311-Prod` deploy status for this change is unconfirmed. Check
       the pipeline before considering this leg actually live.
 
-### Topics 2, 4, 7 — agreed, not yet built
+### Topics 4, 7 — agreed, not yet built
 
-Monitoring cleanup, the feature-flag framework, and the fleet-map UX
-are all fully specified above with no open questions, ready to
-implement whenever picked up next.
+The feature-flag framework and the fleet-map UX are both fully
+specified above with no open questions, ready to implement whenever
+picked up next.
 
 ### Topics 5, 6 — agreed, explicitly held for a pre-implementation revisit
 

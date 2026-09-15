@@ -1,0 +1,10 @@
+{
+  "name": "test-scripts",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Node-based one-off scripts under test-scripts/ that need direct AWS SDK document-client access to Orders-Test/Orders-Prod (full-table scan + TransactWriteItems throughput a per-item aws-cli subprocess can't reasonably provide). Every other script here is Python + aws-cli subprocess (see e.g. 1-ingestion-test.py) — this package.json exists only to back the Node scripts.",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.906.0",
+    "@aws-sdk/lib-dynamodb": "^3.906.0"
+  }
+}
