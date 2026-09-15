@@ -1,6 +1,9 @@
 import { useState, type ReactElement } from "react";
 import { useWarehouseQuery } from "../../hooks/useWarehouseQuery";
+import type { WarehouseTable } from "../../models/warehouseSchema";
 import { QueryResultTable } from "./QueryResultTable";
+import { SqlAutocompleteMenu } from "./SqlAutocompleteMenu";
+import { useSqlAutocomplete } from "./useSqlAutocomplete";
 
 const SQL_TEXTAREA_ID = "ad-hoc-sql-query";
 
@@ -9,6 +12,8 @@ export interface SqlQueryConsoleProps {
   initialSql?: string;
   /** The job currently loaded into this console, if any (`7-data-warehousing.md` §12b's job-edit flow) — drives the "Save to {name}" control. */
   activeJobName?: string | null;
+  /** Table/column names for the schema-aware typeahead — omit (or pass []) to fall back to keyword-only suggestions. */
+  tables?: WarehouseTable[];
   /** When provided, shows a "Save as job" control once a query has run successfully at least once (§12b, Leg 8). */
   onSaveAsJob?: (sql: string) => void;
   /** When provided alongside `activeJobName`, shows a "Save to {activeJobName}" control that overwrites that job's SQL in place. */
@@ -28,6 +33,7 @@ export interface SqlQueryConsoleProps {
 export function SqlQueryConsole({
   initialSql,
   activeJobName,
+  tables,
   onSaveAsJob,
   onUpdateJob,
   isUpdating,
@@ -35,6 +41,11 @@ export function SqlQueryConsole({
 }: SqlQueryConsoleProps): ReactElement {
   const [sql, setSql] = useState(initialSql ?? "");
   const { runQuery, result, isRunning, error } = useWarehouseQuery();
+  const { suggestions, activeIndex, textareaRef, handleTextChange, handleKeyDown, handleSelect } = useSqlAutocomplete(
+    sql,
+    setSql,
+    tables ?? []
+  );
 
   async function handleRun(): Promise<void> {
     if (!sql.trim() || isRunning) return;
@@ -60,13 +71,21 @@ export function SqlQueryConsole({
         </div>
         <textarea
           id={SQL_TEXTAREA_ID}
+          ref={textareaRef}
           value={sql}
-          onChange={(e) => setSql(e.target.value)}
+          onChange={(e) => {
+            setSql(e.target.value);
+            handleTextChange(e.target.value, e.target.selectionStart ?? e.target.value.length);
+          }}
+          onKeyDown={handleKeyDown}
           rows={6}
           spellCheck={false}
           placeholder="SELECT borough, COUNT(*) FROM locations GROUP BY borough"
           className="w-full rounded-lg border border-white/10 bg-slate-950 p-3 font-mono text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
         />
+        {suggestions.length > 0 && (
+          <SqlAutocompleteMenu suggestions={suggestions} activeIndex={activeIndex} onSelect={handleSelect} />
+        )}
       </div>
 
       <button

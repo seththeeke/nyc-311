@@ -118,6 +118,7 @@ export function AdminWarehousePage(): ReactElement {
               key={activeJob?.job_name ?? "new"}
               initialSql={loadedSql}
               activeJobName={activeJob?.job_name ?? null}
+              tables={schemaQuery.data?.tables}
               onSaveAsJob={setDraftSql}
               onUpdateJob={activeJob ? (sql) => void handleUpdateJob(sql) : undefined}
               isUpdating={isUpdating}

@@ -4,6 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { SqlQueryConsole } from "../../../src/components/query/SqlQueryConsole";
 import { useWarehouseQuery } from "../../../src/hooks/useWarehouseQuery";
 import type { AdHocQueryResult } from "../../../src/models/adHocQueryResult";
+import type { WarehouseTable } from "../../../src/models/warehouseSchema";
+
+const locations: WarehouseTable = {
+  table_name: "locations",
+  columns: [{ name: "borough", type: "string", comment: null }],
+};
 
 vi.mock("../../../src/hooks/useWarehouseQuery", () => ({ useWarehouseQuery: vi.fn() }));
 
@@ -177,5 +183,46 @@ describe("SqlQueryConsole", () => {
 
     expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent("schedule update failed");
+  });
+
+  it("shows schema-aware suggestions as the schema-fed textarea is typed into", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole tables={[locations]} />);
+    await userEvent.setup().type(screen.getByLabelText("SQL query"), "SELECT * FROM loc");
+
+    expect(screen.getByRole("option", { name: "locations" })).toBeInTheDocument();
+  });
+
+  it("does not show a suggestion menu when nothing matches", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole tables={[locations]} />);
+    await userEvent.setup().type(screen.getByLabelText("SQL query"), "SELECT ");
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("selects a suggestion by clicking it, inserting it into the textarea", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole tables={[locations]} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("SQL query"), "SELECT * FROM loc");
+    await user.click(screen.getByRole("option", { name: "locations" }));
+
+    expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT * FROM locations ");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("selects a suggestion with Enter", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole tables={[locations]} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("SQL query"), "SELECT * FROM loc");
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT * FROM locations ");
   });
 });
