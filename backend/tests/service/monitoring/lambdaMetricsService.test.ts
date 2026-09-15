@@ -16,8 +16,6 @@ const ENV_VARS: Record<string, string> = {
   MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
   MONITORED_LAMBDA_ORDER_SCHEDULING: "Nyc311OrderScheduling-Test",
   MONITORED_LAMBDA_METRICS_API: "Nyc311MetricsApi-Test",
-  MONITORED_LAMBDA_ORDERS_API: "Nyc311OrdersApi-Test",
-  MONITORED_LAMBDA_ORDER_EVENTS_API: "Nyc311OrderEventsApi-Test",
   MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: "Nyc311WarehouseJobRunner-Test",
   MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: "Nyc311WarehouseSchemaApi-Test",
   MONITORED_LAMBDA_WAREHOUSE_JOBS_API: "Nyc311WarehouseJobsApi-Test",
@@ -64,7 +62,7 @@ describe("getLambdaHealth", () => {
 
     const result = await getLambdaHealth({ client, now });
 
-    expect(result).toHaveLength(17);
+    expect(result).toHaveLength(15);
     const poller = result.find((r) => r.logicalName === "Poller");
     expect(poller).toEqual({
       logicalName: "Poller",
@@ -172,7 +170,7 @@ describe("getLambdaHealth", () => {
   it("defaults `client` and `now` to fresh instances when not injected", async () => {
     cwMock.on(GetMetricStatisticsCommand).resolves({ Datapoints: [] });
 
-    await expect(getLambdaHealth()).resolves.toHaveLength(17);
+    await expect(getLambdaHealth()).resolves.toHaveLength(15);
   });
 
   it("throws when a monitored lambda's env var is unset", async () => {

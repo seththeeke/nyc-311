@@ -7,8 +7,6 @@ import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311MetricsApiLambda } from "../../lambda/Nyc311MetricsApiLambda";
-import { Nyc311OrdersApiLambda } from "../../lambda/Nyc311OrdersApiLambda";
-import { Nyc311OrderEventsApiLambda } from "../../lambda/Nyc311OrderEventsApiLambda";
 import { Nyc311LambdaMetricsApiLambda } from "../../lambda/Nyc311LambdaMetricsApiLambda";
 import { WarehouseJobRunsTable } from "../../data/WarehouseJobRunsTable";
 import { Nyc311WarehouseBucket } from "../../warehouse/Nyc311WarehouseBucket";
@@ -45,11 +43,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const metricsApiLambda = new Nyc311MetricsApiLambda(stack, "Nyc311MetricsApiLambda", { envName, requestsTable });
-  const ordersApiLambda = new Nyc311OrdersApiLambda(stack, "Nyc311OrdersApiLambda", { envName, ordersTable });
-  const orderEventsApiLambda = new Nyc311OrderEventsApiLambda(stack, "Nyc311OrderEventsApiLambda", {
-    envName,
-    ordersTable,
-  });
   const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(stack, "Nyc311LambdaMetricsApiLambda", {
     envName,
     pollerFunctionName: "Nyc311Poller-Test",
@@ -61,8 +54,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
     orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
     metricsApiFunctionName: "Nyc311MetricsApi-Test",
-    ordersApiFunctionName: "Nyc311OrdersApi-Test",
-    orderEventsApiFunctionName: "Nyc311OrderEventsApi-Test",
     warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
     warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
     warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
@@ -195,8 +186,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   new Nyc311Api(stack, "Nyc311Api", {
     envName,
     metricsApiLambda,
-    ordersApiLambda,
-    orderEventsApiLambda,
     lambdaMetricsApiLambda,
     warehouseSchemaApiLambda,
     warehouseJobsApiLambda,
@@ -264,22 +253,10 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 18);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 16);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
-    });
-  });
-
-  it("wires GET /orders to the orders Lambda", () => {
-    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
-      RouteKey: "GET /orders",
-    });
-  });
-
-  it("wires GET /order-events to the order-events Lambda", () => {
-    testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
-      RouteKey: "GET /order-events",
     });
   });
 
@@ -377,7 +354,7 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly eighteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 18);
+  it("declares exactly sixteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 16);
   });
 });

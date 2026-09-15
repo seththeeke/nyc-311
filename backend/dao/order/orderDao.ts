@@ -1,25 +1,17 @@
 import { ulid } from "ulid";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { EventSourcedDao, PROJECTION_SORT_KEY } from "../dao";
+import { QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { EventSourcedDao } from "../dao";
 import { logInfo } from "../../logger";
-import type { Order, OrderEvent, OrderEventType, OrderStage, OrderStatus } from "../../models/order";
+import type { Order, OrderEvent, OrderStage } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
-import type { OrderListResult } from "../../models/orderListQuery";
-import type { OrderEventListResult } from "../../models/orderEventListQuery";
+import type { OrderListResult } from "../../models/orderListResult";
 import { ValidationError } from "../../models/errors";
 
 export interface CreateOrderInput {
   request_id: string;
   location_id: string;
   complaint_type: string | null;
-}
-
-export interface ListOrdersOptions {
-  limit: number;
-  cursor?: string | null;
-  stage?: OrderStage;
-  status?: OrderStatus;
 }
 
 export interface AcceptOrderInput {
@@ -43,16 +35,6 @@ const STAGE_SLA_INDEX = "gsi1-stage-sla";
 function stageSlaPartitionKey(stage: OrderStage): string {
   return `STAGE#${stage}`;
 }
-
-export interface ListOrderEventsOptions {
-  limit: number;
-  cursor?: string | null;
-  orderId?: string;
-  eventType?: OrderEventType;
-}
-
-/* EVENT#<n> — the literal prefix EventSourcedDao.appendEvent's sk values always start with. */
-const EVENT_SORT_KEY_PREFIX = "EVENT#";
 
 /* Opaque pagination cursor = base64url(JSON(DynamoDB LastEvaluatedKey)) — round-tripped by the caller, never inspected. */
 function encodeCursor(key: Record<string, unknown>): string {
@@ -362,126 +344,10 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
     return previous;
   }
 
-  /**
-   * Paginated Order listing (3-order-ingestion.md's Order list view) — a
-   * plain Scan filtered to `sk = "#METADATA"` so EVENT# items never leak
-   * into the results, optionally further filtered by `current_stage`/
-   * `status`. DynamoDB applies `FilterExpression` after `Limit` caps items
-   * examined, so a page can come back shorter than `limit` (even empty,
-   * with a non-null `nextCursor`) — a known quirk, fine for this basic
-   * monitoring view.
-   */
-  async listOrders(options: ListOrdersOptions): Promise<OrderListResult> {
-    const filterParts = ["sk = :metadataSk"];
-    const values: Record<string, unknown> = { ":metadataSk": PROJECTION_SORT_KEY };
-    const names: Record<string, string> = {};
-
-    if (options.stage) {
-      filterParts.push("current_stage = :stage");
-      values[":stage"] = options.stage;
-    }
-    if (options.status) {
-      filterParts.push("#status = :status");
-      names["#status"] = "status";
-      values[":status"] = options.status;
-    }
-
-    logInfo("OrderDao.listOrders", { table: this.tableName, options });
-
-    const result = await this.client.send(
-      new ScanCommand({
-        TableName: this.tableName,
-        FilterExpression: filterParts.join(" AND "),
-        ExpressionAttributeValues: values,
-        ...(Object.keys(names).length > 0 ? { ExpressionAttributeNames: names } : {}),
-        Limit: options.limit,
-        ExclusiveStartKey: options.cursor ? decodeCursor(options.cursor) : undefined,
-      })
-    );
-
-    const orders = (result.Items ?? []).map((item) => this.validateOrderItem(item));
-    const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
-    return { orders, nextCursor };
-  }
-
-  /**
-   * Paginated `OrderEvent` listing (`5-order-evaluation.md`'s Order Events
-   * view, same shape as `listOrders`). Given `orderId`, a cheap `Query` on
-   * that partition (`sk` begins with `EVENT#`). Without one, a table-wide
-   * `Scan` filtered the same way — same page-shorter-than-`limit` quirk as
-   * `listOrders`. The Scan path sorts by `occurred_at` descending in
-   * application code; the Query path relies on `sk` order instead.
-   */
-  async listOrderEvents(options: ListOrderEventsOptions): Promise<OrderEventListResult> {
-    logInfo("OrderDao.listOrderEvents", { table: this.tableName, options });
-
-    if (options.orderId) {
-      const filterParts: string[] = [];
-      const values: Record<string, unknown> = {
-        ":orderId": options.orderId,
-        ":eventPrefix": EVENT_SORT_KEY_PREFIX,
-      };
-      if (options.eventType) {
-        filterParts.push("event_type = :eventType");
-        values[":eventType"] = options.eventType;
-      }
-
-      const result = await this.client.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: "order_id = :orderId AND begins_with(sk, :eventPrefix)",
-          ...(filterParts.length > 0 ? { FilterExpression: filterParts.join(" AND ") } : {}),
-          ExpressionAttributeValues: values,
-          ScanIndexForward: false,
-          Limit: options.limit,
-          ExclusiveStartKey: options.cursor ? decodeCursor(options.cursor) : undefined,
-        })
-      );
-
-      const events = (result.Items ?? []).map((item) => this.validateOrderEventItem(item));
-      const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
-      return { events, nextCursor };
-    }
-
-    const filterParts = ["begins_with(sk, :eventPrefix)"];
-    const values: Record<string, unknown> = { ":eventPrefix": EVENT_SORT_KEY_PREFIX };
-    if (options.eventType) {
-      filterParts.push("event_type = :eventType");
-      values[":eventType"] = options.eventType;
-    }
-
-    const result = await this.client.send(
-      new ScanCommand({
-        TableName: this.tableName,
-        FilterExpression: filterParts.join(" AND "),
-        ExpressionAttributeValues: values,
-        Limit: options.limit,
-        ExclusiveStartKey: options.cursor ? decodeCursor(options.cursor) : undefined,
-      })
-    );
-
-    const events = (result.Items ?? [])
-      .map((item) => this.validateOrderEventItem(item))
-      .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
-    const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
-    return { events, nextCursor };
-  }
-
   private validateOrderItem(item: unknown): Order {
     const parsed = OrderSchema.safeParse(item);
     if (!parsed.success) {
       throw new ValidationError(`Failed to validate an Order item for table ${this.tableName}`, parsed.error.issues);
-    }
-    return parsed.data;
-  }
-
-  private validateOrderEventItem(item: unknown): OrderEvent {
-    const parsed = OrderEventSchema.safeParse(item);
-    if (!parsed.success) {
-      throw new ValidationError(
-        `Failed to validate an OrderEvent item for table ${this.tableName}`,
-        parsed.error.issues
-      );
     }
     return parsed.data;
   }

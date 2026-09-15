@@ -28,8 +28,6 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "OrderEvaluation", envVar: "MONITORED_LAMBDA_ORDER_EVALUATION" },
   { logicalName: "OrderScheduling", envVar: "MONITORED_LAMBDA_ORDER_SCHEDULING" },
   { logicalName: "MetricsApi", envVar: "MONITORED_LAMBDA_METRICS_API" },
-  { logicalName: "OrdersApi", envVar: "MONITORED_LAMBDA_ORDERS_API" },
-  { logicalName: "OrderEventsApi", envVar: "MONITORED_LAMBDA_ORDER_EVENTS_API" },
   { logicalName: "WarehouseJobRunner", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER" },
   { logicalName: "WarehouseSchemaApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API" },
   { logicalName: "WarehouseJobsApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOBS_API" },

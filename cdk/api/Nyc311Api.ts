@@ -5,8 +5,6 @@ import type { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-author
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
-import type { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
-import type { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import type { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
 import type { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
@@ -26,8 +24,6 @@ import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWa
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
   metricsApiLambda: Nyc311MetricsApiLambda;
-  ordersApiLambda: Nyc311OrdersApiLambda;
-  orderEventsApiLambda: Nyc311OrderEventsApiLambda;
   lambdaMetricsApiLambda: Nyc311LambdaMetricsApiLambda;
   warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
@@ -98,18 +94,6 @@ export class Nyc311Api extends HttpApi {
       path: "/ingestion/metrics",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetPollerMetricsIntegration", props.metricsApiLambda),
-    });
-
-    this.addRoutes({
-      path: "/orders",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetOrdersIntegration", props.ordersApiLambda),
-    });
-
-    this.addRoutes({
-      path: "/order-events",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetOrderEventsIntegration", props.orderEventsApiLambda),
     });
 
     this.addRoutes({

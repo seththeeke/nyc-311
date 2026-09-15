@@ -5,8 +5,6 @@ import { DataPage } from "../components/pages/DataPage";
 import { MonitoringPage } from "../components/pages/MonitoringPage";
 import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoringPage";
 import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
-import { OrderMonitoringPage } from "../components/pages/OrderMonitoringPage";
-import { OrderEventMonitoringPage } from "../components/pages/OrderEventMonitoringPage";
 import { LambdaMonitoringPage } from "../components/pages/LambdaMonitoringPage";
 import { IntegrationTestReportPage } from "../components/pages/IntegrationTestReportPage";
 import { ReportsPage } from "../components/pages/ReportsPage";
@@ -58,22 +56,6 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <PipelineMonitoringPage />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/monitoring/orders"
-        element={
-          <PublicRoute>
-            <OrderMonitoringPage />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/monitoring/order-events"
-        element={
-          <PublicRoute>
-            <OrderEventMonitoringPage />
           </PublicRoute>
         }
       />

@@ -251,20 +251,6 @@ describe("Nyc311Stack", () => {
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
-  it("wires GET /orders to the Orders list Lambda (3-order-ingestion.md's Order list view)", () => {
-    const { template } = testEnv;
-
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrdersApi-Test" });
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /orders" });
-  });
-
-  it("wires GET /order-events to the Order Events list Lambda (5-order-evaluation.md's Order Events list view)", () => {
-    const { template } = testEnv;
-
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderEventsApi-Test" });
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /order-events" });
-  });
-
   it("wires GET /lambda-metrics to the Lambda health Lambda, with every monitored function name set (2026-08-22 incident)", () => {
     const { template } = testEnv;
 
@@ -280,8 +266,6 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
           MONITORED_LAMBDA_ORDER_SCHEDULING: { Ref: Match.stringLikeRegexp("^Nyc311OrderSchedulingLambda") },
           MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
-          MONITORED_LAMBDA_ORDERS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrdersApiLambda") },
-          MONITORED_LAMBDA_ORDER_EVENTS_API: { Ref: Match.stringLikeRegexp("^Nyc311OrderEventsApiLambda") },
           MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobRunnerLambda") },
           MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseSchemaApiLambda") },
           MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },

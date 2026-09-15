@@ -26,6 +26,5 @@ export const MOCK_LAMBDA_METRICS: LambdaHealth[] = [
   },
   { logicalName: "RequestEvaluation", functionName: "Nyc311RequestEvaluation-Test", points: [] },
   { logicalName: "MetricsApi", functionName: "Nyc311MetricsApi-Test", points: healthyPoints(12) },
-  { logicalName: "OrdersApi", functionName: "Nyc311OrdersApi-Test", points: healthyPoints(9) },
   { logicalName: "PipelineStatus", functionName: "Nyc311PipelineStatus", points: healthyPoints(20) },
 ];

@@ -6,8 +6,6 @@ import {
   IngestionIcon,
   IntegrationTestsIcon,
   LambdaHealthIcon,
-  OrderEventsIcon,
-  OrdersIcon,
   PipelineIcon,
   ReportsIcon,
 } from "../monitoring/MonitoringTileIcons";
@@ -35,20 +33,6 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/pipeline",
     accent: "violet",
     icon: <PipelineIcon />,
-  },
-  {
-    title: "Orders",
-    description: "Orders created from promoted Requests, filterable by stage and status.",
-    to: "/monitoring/orders",
-    accent: "emerald",
-    icon: <OrdersIcon />,
-  },
-  {
-    title: "Order Events",
-    description: "The full OrderEvent history — accept/reject/case outcomes and beyond.",
-    to: "/monitoring/order-events",
-    accent: "emerald",
-    icon: <OrderEventsIcon />,
   },
   {
     title: "Lambda Health",

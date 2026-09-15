@@ -13,7 +13,7 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
  * `GET /fleet/locations` (`10-capacity-modeling-and-integration.md` §6.1)
  * — public, unlike `/capacity`: this is the home-page map's data source,
  * not an admin tool. No `requireAdminUser` call, same pattern as every
- * other public GET route (`getOrdersController.ts` et al.).
+ * other public GET route (`getPollerMetricsController.ts` et al.).
  */
 export const getFleetLocationsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("GetFleetLocationsControllerInvoked", { event });

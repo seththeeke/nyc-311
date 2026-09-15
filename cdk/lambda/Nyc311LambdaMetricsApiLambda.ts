@@ -20,8 +20,6 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   orderEvaluationFunctionName: string;
   orderSchedulingFunctionName: string;
   metricsApiFunctionName: string;
-  ordersApiFunctionName: string;
-  orderEventsApiFunctionName: string;
   warehouseJobRunnerFunctionName: string;
   warehouseSchemaApiFunctionName: string;
   warehouseJobsApiFunctionName: string;
@@ -54,7 +52,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getLambdaMetricsController.ts"),
       handler: "getLambdaMetricsController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.seconds(25), /* up to 32 parallel CloudWatch calls (17 monitored lambdas x 2 metrics) per invocation */
+      timeout: Duration.seconds(25), /* up to 30 parallel CloudWatch calls (15 monitored lambdas x 2 metrics) per invocation */
       memorySize: 256,
       logGroup,
       /*
@@ -73,8 +71,6 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
         MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
         MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,
-        MONITORED_LAMBDA_ORDERS_API: props.ordersApiFunctionName,
-        MONITORED_LAMBDA_ORDER_EVENTS_API: props.orderEventsApiFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: props.warehouseSchemaApiFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_JOBS_API: props.warehouseJobsApiFunctionName,

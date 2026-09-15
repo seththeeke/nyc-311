@@ -7,7 +7,6 @@ import { OrdersTable } from "../data/OrdersTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
-import { Nyc311OrdersApiLambda } from "../lambda/Nyc311OrdersApiLambda";
 import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311RequestsFanOutLambda } from "../lambda/Nyc311RequestsFanOutLambda";
@@ -20,7 +19,6 @@ import { Nyc311OrdersStreamFanOutLambda } from "../lambda/Nyc311OrdersStreamFanO
 import { Nyc311OrderProjectionsTopic } from "../lambda/Nyc311OrderProjectionsTopic";
 import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue";
 import { Nyc311OrderEvaluationLambda } from "../lambda/Nyc311OrderEvaluationLambda";
-import { Nyc311OrderEventsApiLambda } from "../lambda/Nyc311OrderEventsApiLambda";
 import { Nyc311OrderPipelineAlarms } from "../lambda/Nyc311OrderPipelineAlarms";
 import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
@@ -598,18 +596,6 @@ export class Nyc311Stack extends Stack {
       requestsTable,
     });
 
-    /* 3-order-ingestion.md's Order list view — backs the public `GET /orders` route. */
-    const ordersApiLambda = new Nyc311OrdersApiLambda(this, "Nyc311OrdersApiLambda", {
-      envName: props.envName,
-      ordersTable,
-    });
-
-    /* 5-order-evaluation.md's Order Events list view — backs the public `GET /order-events` route. */
-    const orderEventsApiLambda = new Nyc311OrderEventsApiLambda(this, "Nyc311OrderEventsApiLambda", {
-      envName: props.envName,
-      ordersTable,
-    });
-
     /* The Lambda health tile, added after the 2026-08-22 fan-out-Lambda incident — backs the public `GET /lambda-metrics` route. */
     const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", {
       envName: props.envName,
@@ -622,8 +608,6 @@ export class Nyc311Stack extends Stack {
       orderEvaluationFunctionName: orderEvaluationLambda.functionName,
       orderSchedulingFunctionName: orderSchedulingLambda.functionName,
       metricsApiFunctionName: metricsApiLambda.functionName,
-      ordersApiFunctionName: ordersApiLambda.functionName,
-      orderEventsApiFunctionName: orderEventsApiLambda.functionName,
       warehouseJobRunnerFunctionName: warehouseJobRunnerLambda.functionName,
       warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
@@ -634,8 +618,6 @@ export class Nyc311Stack extends Stack {
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
       metricsApiLambda,
-      ordersApiLambda,
-      orderEventsApiLambda,
       lambdaMetricsApiLambda,
       warehouseSchemaApiLambda,
       warehouseJobsApiLambda,

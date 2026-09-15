@@ -17,8 +17,6 @@ const PARTIAL_DIR = path.join(REPORT_DIR, "partials");
 
 export const KNOWN_ROUTES = [
   "/ingestion/metrics",
-  "/orders",
-  "/order-events",
   "/lambda-metrics",
   "/data/schema",
   "/data/jobs",
