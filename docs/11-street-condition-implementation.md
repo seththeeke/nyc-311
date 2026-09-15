@@ -1,5 +1,15 @@
 # Street Condition Specialization — Narrowing Order Handling to One Complaint Type
 
+> **Status (2026-09-14): Topic 1 implemented** — `requestEvaluationService.ts`/
+> `orderEvaluationService.ts` changes built, tested (`backend`/`cdk`
+> build/lint/test:coverage all green, no coverage regressions), committed
+> (`d47ae5a`), and pushed to `main` — **pipeline not monitored this
+> round, per explicit instruction; not yet confirmed live in
+> `Nyc311-Test`/`Nyc311-Prod`.** Topics 2, 4, 7 are agreed at the design
+> level but not yet built. Topics 5/6 are agreed but explicitly flagged
+> for a fresh, in-depth pass right before their implementation starts —
+> not done yet. Topic 3 (routing) is still deferred, undecided.
+>
 > Narrows the system from handling any `Request` to servicing exactly one
 > `complaint_type` — **"Street Condition"** — end to end, so evaluation,
 > scheduling, cost estimation, and the operator-facing UX can all
@@ -30,13 +40,14 @@
 
 ## Decision Status
 
-Nothing below is decided yet — this table is the proposed shape of the
-conversation, open to reordering/splitting/merging. Grouped roughly in
-build-dependency order: cleanup first (unblocks focus), routing before
-cost prediction (cost consumes routing's output), feature flags before
-cost prediction (cost prediction's brute-force/ML choice needs one), ML
-after brute-force (needs a baseline to compare against), UX last (most
-independent).
+Grouped roughly in build-dependency order: cleanup first (unblocks
+focus), routing before cost prediction (cost consumes routing's
+output), feature flags before cost prediction (cost prediction's
+brute-force/ML choice needs one), ML after brute-force (needs a
+baseline to compare against), UX last (most independent). Topic 1 is
+the only one actually built so far; the rest are negotiated at the
+design level only (§3 still open) — see the doc-level status banner
+above.
 
 | Topic | Status |
 |---|---|
@@ -544,3 +555,53 @@ extracted rather than inlined, both to keep `FleetMap.tsx` under the
 natural, independently-testable unit. `models/fleetLocation.ts`
 (frontend and backend) gain `recent_job_locations`; full mirrored tests
 for the model change, the new component, and the DAO/GSI write.
+
+---
+
+## Build Checklist
+
+### Topic 1 — evaluation narrowing — **implemented 2026-09-14**
+
+- [x] `requestEvaluationService.ts`: `checkComplaintTypeSupported`/
+      `checkBusinessDuplicate` deleted; `checkAlreadyClosed` built for
+      real (rejects `FILTERED` on a `raw_payload.closed_date`);
+      `FILTERS` is now `[resolveLocation, checkAlreadyClosed]`.
+- [x] `models/request.ts`: `DUPLICATE`/`REJECTED` removed from
+      `REQUEST_STATUSES`; `FILTERED` stays (now reachable for real).
+- [x] `orderEvaluationService.ts`: `RandomOrderEvaluationRule` deleted;
+      `StreetConditionOnlyRule` added (`evaluateOrder`'s new default),
+      accepting only `complaint_type === "Street Condition"`.
+- [x] `models/order.ts`: `complaint_type` added (nullable, denormalized
+      from `Request` at creation via `orderDao.createOrder`); no
+      backfill on existing rows, per §1's agreed migration approach.
+- [x] `cdk/warehouse/warehouseTableSchemas.ts`: `order_snapshots` gains
+      the matching `complaint_type` column, keeping
+      `schemaSync.test.ts`'s drift check green — found and fixed as a
+      direct consequence of the `Order` schema change, not scoped in
+      advance.
+- [x] `docs/3-order-ingestion.md`: superseded-by note added where it
+      originally proposed all three ingestion filters.
+- [x] `backend`/`cdk` build/lint/`test:coverage` all green (896 + 331
+      tests, 90%+ per file, no regressions).
+- [x] Committed (`d47ae5a`) and pushed to `main`.
+- [ ] **Not yet done:** pipeline verification. Pushed without monitoring
+      the pipeline, per explicit instruction — `Nyc311-Test`/
+      `Nyc311-Prod` deploy status for this change is unconfirmed. Check
+      the pipeline before considering this leg actually live.
+
+### Topics 2, 4, 7 — agreed, not yet built
+
+Monitoring cleanup, the feature-flag framework, and the fleet-map UX
+are all fully specified above with no open questions, ready to
+implement whenever picked up next.
+
+### Topics 5, 6 — agreed, explicitly held for a pre-implementation revisit
+
+Per your own instruction: don't start building the brute-force cost
+model or the ML experiment from this doc alone — revisit both in depth
+first, right before implementation, not before.
+
+### Topic 3 — still undecided
+
+Self-hosted routing vs. a free API is deferred; nothing downstream is
+blocked on it (§5/§7 both use documented placeholders in the meantime).
