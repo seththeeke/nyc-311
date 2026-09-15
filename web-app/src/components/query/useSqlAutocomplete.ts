@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { applySuggestion, getCurrentWordRange, getSuggestions, type WordRange } from "./sqlAutocomplete";
+import { applySuggestion, getCompletionRange, getSuggestions, type WordRange } from "./sqlAutocomplete";
 import type { WarehouseTable } from "../../models/warehouseSchema";
 
 export interface UseSqlAutocompleteResult {
@@ -50,7 +50,7 @@ export function useSqlAutocomplete(
       return;
     }
     setSuggestions(nextSuggestions);
-    setWordRange(getCurrentWordRange(value, cursor));
+    setWordRange(getCompletionRange(value, cursor));
     setActiveIndex(0);
   }
 
