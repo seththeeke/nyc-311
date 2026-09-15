@@ -104,7 +104,7 @@ describe("CapacityManagementPage", () => {
 
     renderPage();
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Name"), "Truck 12");
+    await user.type(screen.getByLabelText("Name (optional)"), "Truck 12");
     await user.click(screen.getByRole("button", { name: "Add vehicle" }));
 
     await waitFor(() => expect(addCapacity).toHaveBeenCalledWith("Truck 12", undefined));

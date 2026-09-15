@@ -1,26 +1,36 @@
 import { useState, type FormEvent, type ReactElement } from "react";
+import type { Operator } from "../../models/operator";
 
 interface AddCapacityFormProps {
+  /** Current active roster — used only to compute the next default name, one past the highest existing "Truck N". */
+  roster: Operator[];
   onAdd: (name: string, ratePerHour?: number) => Promise<unknown>;
   isAdding: boolean;
   error: Error | null;
 }
 
-/** Name is required (not unique — just a way to identify a vehicle past its id). Rate defaults to the service's own default (DEFAULT_OPERATOR_RATE_PER_HOUR) when left blank. */
-export function AddCapacityForm({ onAdd, isAdding, error }: AddCapacityFormProps): ReactElement {
+const DEFAULT_NAME_PREFIX = "Truck";
+const DEFAULT_NAME_PATTERN = /^truck\s+(\d+)$/i;
+
+/** One past the highest "Truck N" name already in the roster (0 if none match), so rapid-adding needs no typing and stays distinguishable. */
+function nextDefaultName(roster: Operator[]): string {
+  const highest = roster.reduce((max, operator) => {
+    const match = DEFAULT_NAME_PATTERN.exec(operator.name.trim());
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `${DEFAULT_NAME_PREFIX} ${highest + 1}`;
+}
+
+/** Name defaults to an auto-incrementing "Truck N" (not unique — just a way to identify a vehicle past its id) so the button can be clicked with no input. Rate defaults to the service's own default (DEFAULT_OPERATOR_RATE_PER_HOUR) when left blank. */
+export function AddCapacityForm({ roster, onAdd, isAdding, error }: AddCapacityFormProps): ReactElement {
   const [nameInput, setNameInput] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
   const [rateInput, setRateInput] = useState("");
   const [rateError, setRateError] = useState<string | null>(null);
+  const defaultName = nextDefaultName(roster);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const name = nameInput.trim();
-    if (name === "") {
-      setNameError("Enter a name.");
-      return;
-    }
-    setNameError(null);
+    const name = nameInput.trim() || defaultName;
 
     if (rateInput.trim() === "") {
       setRateError(null);
@@ -50,12 +60,12 @@ export function AddCapacityForm({ onAdd, isAdding, error }: AddCapacityFormProps
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
       <div>
         <label htmlFor="add-capacity-name" className="block text-sm font-medium text-slate-300">
-          Name
+          Name (optional)
         </label>
         <input
           id="add-capacity-name"
           type="text"
-          placeholder="e.g. Truck 12"
+          placeholder={defaultName}
           value={nameInput}
           onChange={(e) => setNameInput(e.target.value)}
           className="mt-1 w-40 rounded border border-white/10 bg-white/5 px-3 py-2 text-white"
@@ -82,11 +92,6 @@ export function AddCapacityForm({ onAdd, isAdding, error }: AddCapacityFormProps
       >
         {isAdding ? "Adding…" : "Add vehicle"}
       </button>
-      {nameError && (
-        <p role="alert" className="w-full text-sm text-red-400">
-          {nameError}
-        </p>
-      )}
       {rateError && (
         <p role="alert" className="w-full text-sm text-red-400">
           {rateError}

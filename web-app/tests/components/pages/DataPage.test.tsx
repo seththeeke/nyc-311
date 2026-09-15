@@ -90,13 +90,13 @@ beforeEach(() => {
 });
 
 describe("DataPage", () => {
-  it("shows the heading and a link back home", () => {
+  it("shows the heading and a link back to Monitoring", () => {
     mockedGetSchema.mockResolvedValue(emptySchema);
     mockedGetJobRuns.mockResolvedValue({ jobRuns: [] });
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /home/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /monitoring/i })).toHaveAttribute("href", "/monitoring");
   });
 
   it("lays the schema and job columns out side by side", () => {

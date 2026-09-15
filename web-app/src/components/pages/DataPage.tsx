@@ -41,9 +41,10 @@ function QueryState({ isPending, error, label }: { isPending: boolean; error: un
 /**
  * The data warehouse's public, read-only surface (7-data-warehousing.md
  * §12) — schema on the left; the job runner's history, its query
- * performance, or a job's latest resultset on the right. Deliberately not
- * nested under /monitoring. No write actions exist here or on any route
- * this page reaches.
+ * performance, or a job's latest resultset on the right. No write actions
+ * exist here or on any route this page reaches. Only reachable today via
+ * the Monitoring page's "Data Warehouse" tile, so its back link returns
+ * there rather than to Home.
  */
 export function DataPage(): ReactElement {
   const schemaQuery = useWarehouseSchema();
@@ -67,8 +68,8 @@ export function DataPage(): ReactElement {
       />
 
       <main className="relative mx-auto max-w-7xl px-6 py-16">
-        <Link to="/" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
-          &larr; Home
+        <Link to="/monitoring" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
+          &larr; Monitoring
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-cyan-300 via-blue-300 to-violet-300 bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Data
