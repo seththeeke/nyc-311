@@ -6,14 +6,15 @@
 > Appendix A.10). Leg 4 (on-demand rebuild) shipped + verified 2026-09-09; Leg 5
 > (observability) runs on OOTB metrics for now with the alarm suite
 > deferred to [#25](https://github.com/seththeeke/nyc-311/issues/25).
-> **Leg 6 (`Operators` joins the pipeline) built 2026-09-13, deploy
-> in progress. Leg 7 (admin ad-hoc SQL console) built and manually
-> verified in the browser (mock mode). Leg 8 (self-service job
-> authoring — DDB+S3 job definitions, per-job EventBridge Scheduler
-> schedules, replacing checked-in `.sql` files + one shared static
-> schedule) built 2026-09-13 (backend, CDK, and frontend all
-> implemented and fully tested; not yet deployed or live-verified)** —
-> see the [Build Checklist](#build-checklist).
+> **Legs 6/7/8 deployed to `Nyc311-Test` 2026-09-14** (two real bugs
+> found and fixed along the way — Appendix A.11's env-var-limit incident,
+> and a physical-name collision in `Nyc311WarehouseJobScheduleGroup`
+> that CloudFormation's early-validation hook refused outright; see
+> each leg's Build Checklist entry). Leg 8's backfill script confirmed
+> the create-job path live the same day. Deeper live verification
+> (Operator seed-and-watch, real-Athena ad-hoc query, per-job schedule
+> firing, job delete) is still open per each leg's checklist — see the
+> [Build Checklist](#build-checklist).
 > Written **declaratively** — this doc describes the current design, not
 > the negotiation that produced it. Tradeoffs, rejected alternatives, and
 > the reasoning behind each call live in the
@@ -1659,9 +1660,19 @@ warehouse on its first real run — hence the chunked redesign.)
       source is future work (Open Items), not part of this leg.
 - [x] `backend`/`cdk` build/lint/`test:coverage` all green (90%+ per
       file) — 2026-09-13.
-- [ ] **Not yet deployed to `Nyc311-Test`/verified live** — pending push
-      + deploy + the same "seed an Operator, watch it flow through" check
-      as Leg 3's original live verification.
+- [x] **Deployed to `Nyc311-Test` 2026-09-14.** The first deploy attempt
+      (2026-09-13) had failed and rolled back on exactly the Appendix
+      A.11 incident (the `WAREHOUSE_JOBS` env-var limit); a second bug
+      found only by attempting a real deploy — `Nyc311WarehouseJobScheduleGroup`'s
+      DLQ/failure-topic/alarm reusing the deleted `Nyc311WarehouseJobSchedule`'s
+      exact physical names, which CloudFormation's early-validation hook
+      refuses outright rather than tolerating as a "transient" conflict —
+      also had to be fixed first (see §8's revised DLQ note). Deploy
+      itself succeeded once both were fixed.
+- [ ] **Still open: the "seed an Operator, watch it flow through" live
+      check** — confirm an `OperatorEvent`/`operator_snapshots` row
+      actually lands in the warehouse and `operator_fleet_cost_to_date`
+      produces a non-empty resultset from real data.
 
 ### Leg 7 — admin ad-hoc SQL console (§12a) — **built 2026-09-13**
 
@@ -1703,10 +1714,11 @@ warehouse on its first real run — hence the chunked redesign.)
       renders the console, a `SELECT` returns the canned 5-row resultset
       with row-count/timing summary, and a `DELETE` is rejected client-side
       with "Only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN statements are allowed".
-- [ ] **Not yet deployed to `Nyc311-Test`/verified live against real
-      Athena** — pending push + deploy; live verification is a real
-      `SELECT` returning real warehouse rows, a non-`SELECT` rejected at
-      `400`, and (harder to trigger deliberately) the 20 s timeout path.
+- [x] **Deployed to `Nyc311-Test` 2026-09-14** (same deploy as Leg 6/8).
+- [ ] **Still open: live verification against real Athena** — a real
+      `SELECT` returning real warehouse rows through `/admin/warehouse`'s
+      Query tab, a non-`SELECT` rejected at `400`, and (harder to trigger
+      deliberately) the 20 s timeout path.
 
 ### Leg 8 — self-service job authoring (§8/§9/§12b, Appendix A.11) — **built 2026-09-13, not yet deployed**
 
@@ -1775,13 +1787,20 @@ the same change.
       in aggregate; no per-schedule alarm is created dynamically. A
       stuck single job is visible on `/data`'s Jobs tab
       ("retries exhausted"), same as before Leg 8.
-- [ ] Verify live in `Nyc311-Test`: create a job through `/admin/warehouse`
-      end to end (schema tab informs the query, save-as-job, see it in
-      the Jobs tab, see its schedule actually fire and produce a run);
-      delete a job and confirm its schedule stops firing but its history
-      stays visible; run the backfill script and confirm all four
-      original jobs keep producing the same resultsets on the same
-      cadence as before.
+- [x] **Deployed to `Nyc311-Test` 2026-09-14**; `test-scripts/9-backfill-warehouse-jobs.py`
+      run the same day — all four jobs (`order_volume_by_stage_7d`,
+      `order_volume_by_stage_8w`, `order_volume_by_borough`,
+      `operator_fleet_cost_to_date`) created `201` via the real
+      `POST /admin/warehouse/jobs`, each returning its
+      `Nyc311WarehouseJob-<name>-Test` schedule name — confirms the
+      create path (S3 SQL write → DDB definition → `CreateSchedule`) end
+      to end against real infrastructure.
+- [ ] **Still open:** create-through-the-UI (vs. the backfill script),
+      confirm a per-job schedule actually fires and produces a run on its
+      own cadence, delete a job and confirm its schedule stops firing but
+      history stays visible, and run the backfill script a second time to
+      confirm the four jobs keep producing the same resultsets going
+      forward as they did pre-Leg-8.
 
 ### Doc
 
