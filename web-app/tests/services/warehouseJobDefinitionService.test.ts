@@ -71,6 +71,56 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     );
   });
 
+  it("updateJob overwrites cadence and the stored mock SQL, reflected in the next list/getJobSql", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
+    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
+
+    const updated = await warehouseJobDefinitionService.updateJob(existingName, "cron(0 10 * * ? *)", "SELECT 2");
+
+    expect(updated.cadence_cron).toBe("cron(0 10 * * ? *)");
+    const jobs = await warehouseJobDefinitionService.listJobs();
+    expect(jobs.find((job) => job.job_name === existingName)?.cadence_cron).toBe("cron(0 10 * * ? *)");
+    expect(await warehouseJobDefinitionService.getJobSql(existingName)).toBe("SELECT 2");
+  });
+
+  it("updateJob throws for an unknown job name", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+
+    await expect(
+      warehouseJobDefinitionService.updateJob("no_such_job", "cron(0 10 * * ? *)", "SELECT 2")
+    ).rejects.toThrow("No job named");
+  });
+
+  it("updateJob rejects blank SQL", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
+    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
+
+    await expect(warehouseJobDefinitionService.updateJob(existingName, "cron(0 10 * * ? *)", "   ")).rejects.toThrow(
+      "SQL is required"
+    );
+  });
+
+  it("getJobSql returns a placeholder for a job never created/updated this session", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
+    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
+
+    await expect(warehouseJobDefinitionService.getJobSql(existingName)).resolves.toContain("mock placeholder");
+  });
+
+  it("getJobSql throws for an unknown job name", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+
+    await expect(warehouseJobDefinitionService.getJobSql("no_such_job")).rejects.toThrow("No job named");
+  });
+
   it("deleteJob removes the definition from the next list", async () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
@@ -175,6 +225,84 @@ describe("warehouseJobDefinitionService — live mode", () => {
 
     await expect(warehouseJobDefinitionService.createJob("x", "cron(0 9 * * ? *)", "SELECT 1")).rejects.toThrow(
       'A job named "x" already exists'
+    );
+  });
+
+  it("updateJob PUTs the cadence/sql to the job's path and parses the updated definition", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
+    const definitionBody = {
+      job_run_id: "DEF#order_volume_by_zip",
+      record_type: "DEFINITION",
+      job_name: "order_volume_by_zip",
+      sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+      cadence_cron: "cron(0 10 * * ? *)",
+      schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
+      created_at: "2026-09-13T19:04:11.000Z",
+      created_by: "01ADMIN0000000000000000001",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => definitionBody });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const result = await warehouseJobDefinitionService.updateJob("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/admin/warehouse/jobs/order_volume_by_zip",
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({ Authorization: "Bearer id-token-value" }),
+        body: JSON.stringify({ cadence_cron: "cron(0 10 * * ? *)", sql: "SELECT 2" }),
+      })
+    );
+    expect(result).toEqual(definitionBody);
+  });
+
+  it("updateJob surfaces the server's error message on a non-2xx response", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ message: 'No job named "x"' }) })
+    );
+
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+
+    await expect(warehouseJobDefinitionService.updateJob("x", "cron(0 10 * * ? *)", "SELECT 2")).rejects.toThrow(
+      'No job named "x"'
+    );
+  });
+
+  it("getJobSql GETs the job's /sql path and returns the parsed sql text", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sql: "SELECT 1" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const sql = await warehouseJobDefinitionService.getJobSql("order volume");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/admin/warehouse/jobs/order%20volume/sql",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer id-token-value" }) })
+    );
+    expect(sql).toBe("SELECT 1");
+  });
+
+  it("getJobSql throws a descriptive error on a non-2xx response", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: () => Promise.reject(new Error("no body")) })
+    );
+
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+
+    await expect(warehouseJobDefinitionService.getJobSql("no_such_job")).rejects.toThrow(
+      "Failed to load job SQL: HTTP 404"
     );
   });
 
