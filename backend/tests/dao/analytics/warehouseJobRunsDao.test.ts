@@ -181,6 +181,23 @@ describe("WarehouseJobRunsDao.putDefinition", () => {
   });
 });
 
+describe("WarehouseJobRunsDao.updateDefinition", () => {
+  it("writes the definition with gsi1 (JOB#DEFINITIONS) key attributes and no uniqueness condition", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await dao.updateDefinition(definition({ cadence_cron: "cron(0 10 * * ? *)" }));
+
+    const call = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(call.Item).toMatchObject({
+      job_run_id: "DEF#order_volume_by_borough",
+      record_type: "DEFINITION",
+      cadence_cron: "cron(0 10 * * ? *)",
+      gsi1pk: "JOB#DEFINITIONS",
+      gsi1sk: "2026-09-13T00:00:00.000Z",
+    });
+    expect(call.ConditionExpression).toBeUndefined();
+  });
+});
+
 describe("WarehouseJobRunsDao.getDefinition", () => {
   it("gets by the DEF#<name> key and validates the result", async () => {
     ddbMock.on(GetCommand).resolves({ Item: definition() });

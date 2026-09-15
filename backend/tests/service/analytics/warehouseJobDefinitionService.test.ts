@@ -1,5 +1,10 @@
-import { S3Client, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { SchedulerClient, CreateScheduleCommand, DeleteScheduleCommand } from "@aws-sdk/client-scheduler";
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  SchedulerClient,
+  CreateScheduleCommand,
+  DeleteScheduleCommand,
+  UpdateScheduleCommand,
+} from "@aws-sdk/client-scheduler";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +12,8 @@ import {
   createWarehouseJob,
   deleteWarehouseJob,
   listWarehouseJobs,
+  updateWarehouseJob,
+  getWarehouseJobSql,
 } from "../../../service/analytics/warehouseJobDefinitionService";
 import type { WarehouseJobDefinitionDeps } from "../../../service/analytics/warehouseJobDefinitionService";
 import { NotFoundError, TerminalError } from "../../../models/errors";
@@ -38,6 +45,7 @@ function definition(overrides: Partial<WarehouseJobDefinition> = {}): WarehouseJ
 function fakeDao(overrides: Partial<Record<keyof WarehouseJobRunsDao, unknown>> = {}): WarehouseJobRunsDao {
   return {
     putDefinition: vi.fn().mockResolvedValue(undefined),
+    updateDefinition: vi.fn().mockResolvedValue(undefined),
     getDefinition: vi.fn().mockResolvedValue(definition()),
     deleteDefinition: vi.fn().mockResolvedValue(undefined),
     listDefinitions: vi.fn().mockResolvedValue([definition()]),
@@ -220,6 +228,83 @@ describe("listWarehouseJobs", () => {
   it("returns every definition from the DAO", async () => {
     const dao = fakeDao();
     expect(await listWarehouseJobs({ ...baseDeps, jobRunsDao: dao })).toEqual([definition()]);
+  });
+});
+
+describe("updateWarehouseJob", () => {
+  it("overwrites the S3 SQL file, updates the schedule, and updates the DDB row, in that order", async () => {
+    const dao = fakeDao();
+
+    const updated = await updateWarehouseJob(
+      "order_volume_by_zip",
+      "cron(0 10 * * ? *)",
+      "SELECT 2",
+      { ...baseDeps, jobRunsDao: dao }
+    );
+
+    expect(s3Mock.commandCalls(PutObjectCommand)[0].args[0].input).toMatchObject({
+      Bucket: "nyc311-warehouse-test",
+      Key: "job-definitions/order_volume_by_zip.sql",
+      Body: "SELECT 2",
+    });
+    expect(schedulerMock.commandCalls(UpdateScheduleCommand)[0].args[0].input).toMatchObject({
+      Name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
+      GroupName: "Nyc311WarehouseJobs-Test",
+      ScheduleExpression: "cron(0 10 * * ? *)",
+    });
+    expect(dao.updateDefinition).toHaveBeenCalledWith({ ...definition(), cadence_cron: "cron(0 10 * * ? *)" });
+    expect(updated).toEqual({ ...definition(), cadence_cron: "cron(0 10 * * ? *)" });
+  });
+
+  it("throws NotFoundError when no job with this name exists, without touching S3/scheduler/DDB", async () => {
+    const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(null) });
+
+    await expect(
+      updateWarehouseJob("ghost_job", "cron(0 10 * * ? *)", "SELECT 2", { ...baseDeps, jobRunsDao: dao })
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(s3Mock.calls()).toHaveLength(0);
+    expect(schedulerMock.calls()).toHaveLength(0);
+    expect(dao.updateDefinition).not.toHaveBeenCalled();
+  });
+
+  it("throws TerminalError naming the job when the schedule update fails, without touching the DDB row", async () => {
+    const dao = fakeDao();
+    schedulerMock.on(UpdateScheduleCommand).rejects(new Error("access denied"));
+
+    await expect(
+      updateWarehouseJob("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2", { ...baseDeps, jobRunsDao: dao })
+    ).rejects.toThrow(/order_volume_by_zip/);
+    expect(dao.updateDefinition).not.toHaveBeenCalled();
+  });
+});
+
+describe("getWarehouseJobSql", () => {
+  it("reads the definition's SQL text from its S3 key", async () => {
+    const dao = fakeDao();
+    s3Mock.on(GetObjectCommand).resolves({ Body: { transformToString: async () => "SELECT 1" } } as never);
+
+    const sql = await getWarehouseJobSql("order_volume_by_zip", { ...baseDeps, jobRunsDao: dao });
+
+    expect(s3Mock.commandCalls(GetObjectCommand)[0].args[0].input).toMatchObject({
+      Bucket: "nyc311-warehouse-test",
+      Key: "job-definitions/order_volume_by_zip.sql",
+    });
+    expect(sql).toBe("SELECT 1");
+  });
+
+  it("returns an empty string when the S3 response has no Body", async () => {
+    const dao = fakeDao();
+    s3Mock.on(GetObjectCommand).resolves({});
+
+    expect(await getWarehouseJobSql("order_volume_by_zip", { ...baseDeps, jobRunsDao: dao })).toBe("");
+  });
+
+  it("throws NotFoundError when no job with this name exists", async () => {
+    const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(null) });
+
+    await expect(getWarehouseJobSql("ghost_job", { ...baseDeps, jobRunsDao: dao })).rejects.toBeInstanceOf(
+      NotFoundError
+    );
   });
 });
 

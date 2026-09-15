@@ -20,7 +20,19 @@ export const CreateWarehouseJobRequestSchema = z.object({
 });
 export type CreateWarehouseJobRequest = z.infer<typeof CreateWarehouseJobRequestSchema>;
 
-export const DeleteWarehouseJobParamsSchema = z.object({
+/** `{name}` path param shared by every `/admin/warehouse/jobs/{name}` route (PUT, DELETE, GET .../sql). */
+export const WarehouseJobNameParamsSchema = z.object({
   name: z.string().min(1),
 });
-export type DeleteWarehouseJobParams = z.infer<typeof DeleteWarehouseJobParamsSchema>;
+export type WarehouseJobNameParams = z.infer<typeof WarehouseJobNameParamsSchema>;
+
+/*
+ * PUT /admin/warehouse/jobs/{name}'s request body — no `name` field since
+ * it's the path param; a job's name is its stable identity for life
+ * (warehouseJobDefinitionService.ts), never itself editable.
+ */
+export const UpdateWarehouseJobRequestSchema = z.object({
+  cadence_cron: z.string().min(1),
+  sql: z.string().min(1),
+});
+export type UpdateWarehouseJobRequest = z.infer<typeof UpdateWarehouseJobRequestSchema>;

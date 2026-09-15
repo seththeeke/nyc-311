@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CreateWarehouseJobRequestSchema, DeleteWarehouseJobParamsSchema } from "../../models/warehouseJobRequest";
+import {
+  CreateWarehouseJobRequestSchema,
+  UpdateWarehouseJobRequestSchema,
+  WarehouseJobNameParamsSchema,
+} from "../../models/warehouseJobRequest";
 
 describe("CreateWarehouseJobRequestSchema", () => {
   const valid = { name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" };
@@ -20,14 +24,27 @@ describe("CreateWarehouseJobRequestSchema", () => {
   });
 });
 
-describe("DeleteWarehouseJobParamsSchema", () => {
+describe("WarehouseJobNameParamsSchema", () => {
   it("accepts a name", () => {
-    expect(DeleteWarehouseJobParamsSchema.parse({ name: "order_volume_by_zip" })).toEqual({
+    expect(WarehouseJobNameParamsSchema.parse({ name: "order_volume_by_zip" })).toEqual({
       name: "order_volume_by_zip",
     });
   });
 
   it("rejects a missing name", () => {
-    expect(DeleteWarehouseJobParamsSchema.safeParse({}).success).toBe(false);
+    expect(WarehouseJobNameParamsSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("UpdateWarehouseJobRequestSchema", () => {
+  const valid = { cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" };
+
+  it("accepts a well-formed request", () => {
+    expect(UpdateWarehouseJobRequestSchema.parse(valid)).toEqual(valid);
+  });
+
+  it("rejects an empty cadence_cron or sql", () => {
+    expect(UpdateWarehouseJobRequestSchema.safeParse({ ...valid, cadence_cron: "" }).success).toBe(false);
+    expect(UpdateWarehouseJobRequestSchema.safeParse({ ...valid, sql: "" }).success).toBe(false);
   });
 });

@@ -1,7 +1,12 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { S3Client, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { SchedulerClient, CreateScheduleCommand, DeleteScheduleCommand } from "@aws-sdk/client-scheduler";
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  SchedulerClient,
+  CreateScheduleCommand,
+  DeleteScheduleCommand,
+  UpdateScheduleCommand,
+} from "@aws-sdk/client-scheduler";
 import { logError, logInfo } from "../../logger";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { NotFoundError, TerminalError } from "../../models/errors";
@@ -166,4 +171,80 @@ export async function deleteWarehouseJob(name: string, deps: WarehouseJobDefinit
 export async function listWarehouseJobs(deps: WarehouseJobDefinitionDeps = {}): Promise<WarehouseJobDefinition[]> {
   const d = resolve(deps);
   return d.jobRunsDao.listDefinitions();
+}
+
+/**
+ * Overwrites an existing self-service job's SQL and cadence in place
+ * (`7-data-warehousing.md` §12b's job-edit flow) — `name`, `sql_s3_key`,
+ * and `schedule_name` never change, so this is a content update, not a
+ * rename/recreate. S3 is overwritten first (harmless if the schedule
+ * update below fails — the schedule just keeps the *old* cadence rather
+ * than pointing at a half-written job), then the schedule, then the DDB row.
+ *
+ * @throws {@link NotFoundError} if no job with this name exists.
+ * @throws {@link TerminalError} if the schedule fails to update.
+ */
+export async function updateWarehouseJob(
+  name: string,
+  cadenceCron: string,
+  sql: string,
+  deps: WarehouseJobDefinitionDeps = {}
+): Promise<WarehouseJobDefinition> {
+  const d = resolve(deps);
+  const existing = await d.jobRunsDao.getDefinition(name);
+  if (!existing) {
+    throw new NotFoundError(`No job named "${name}"`);
+  }
+  logInfo("WarehouseJobDefinitionUpdateStarted", { jobName: name, cadenceCron });
+
+  await d.s3Client.send(
+    new PutObjectCommand({ Bucket: d.warehouseBucket, Key: existing.sql_s3_key, Body: sql, ContentType: "text/plain" })
+  );
+
+  try {
+    await d.schedulerClient.send(
+      new UpdateScheduleCommand({
+        Name: existing.schedule_name,
+        GroupName: d.scheduleGroupName,
+        ScheduleExpression: cadenceCron,
+        FlexibleTimeWindow: { Mode: "OFF" },
+        Target: {
+          Arn: d.runnerFunctionArn,
+          RoleArn: d.scheduleRoleArn,
+          Input: JSON.stringify({ job_name: name }),
+          DeadLetterConfig: { Arn: d.deadLetterQueueArn },
+        },
+      })
+    );
+  } catch (err) {
+    logError("WarehouseJobScheduleUpdateFailed", { jobName: name, error: err instanceof Error ? err.message : err });
+    throw new TerminalError(`Job "${name}"'s SQL was updated but its schedule failed to update`, err);
+  }
+
+  const updated: WarehouseJobDefinition = { ...existing, cadence_cron: cadenceCron };
+  await d.jobRunsDao.updateDefinition(updated);
+
+  logInfo("WarehouseJobDefinitionUpdateSucceeded", { jobName: name });
+  return updated;
+}
+
+/**
+ * The raw SQL text behind a job definition — read from S3 at its
+ * `sql_s3_key` (`7-data-warehousing.md` §12b's "load a job into the query
+ * editor" flow). The definition row itself only stores the S3 key, never
+ * the SQL text inline.
+ *
+ * @throws {@link NotFoundError} if no job with this name exists.
+ */
+export async function getWarehouseJobSql(name: string, deps: WarehouseJobDefinitionDeps = {}): Promise<string> {
+  const d = resolve(deps);
+  const definition = await d.jobRunsDao.getDefinition(name);
+  if (!definition) {
+    throw new NotFoundError(`No job named "${name}"`);
+  }
+
+  const response = await d.s3Client.send(
+    new GetObjectCommand({ Bucket: d.warehouseBucket, Key: definition.sql_s3_key })
+  );
+  return (await response.Body?.transformToString()) ?? "";
 }

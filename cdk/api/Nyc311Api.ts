@@ -18,8 +18,10 @@ import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLa
 import type { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import type { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
+import type { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWarehouseJobApiLambda";
 import type { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
 import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
+import type { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -43,8 +45,10 @@ export interface Nyc311ApiProps {
   adHocQueryApiLambda: Nyc311AdHocQueryApiLambda;
   /** `7-data-warehousing.md` §12b (Leg 8) — self-service job authoring, same authorizer. */
   createWarehouseJobApiLambda: Nyc311CreateWarehouseJobApiLambda;
+  updateWarehouseJobApiLambda: Nyc311UpdateWarehouseJobApiLambda;
   deleteWarehouseJobApiLambda: Nyc311DeleteWarehouseJobApiLambda;
   listWarehouseJobsApiLambda: Nyc311ListWarehouseJobsApiLambda;
+  getWarehouseJobSqlApiLambda: Nyc311GetWarehouseJobSqlApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -83,7 +87,7 @@ export class Nyc311Api extends HttpApi {
       apiName: `Nyc311Api-${suffix}`,
       corsPreflight: {
         allowOrigins: [...props.webAppDomainNames.map((d) => `https://${d}`), LOCAL_DEV_ORIGIN],
-        allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.DELETE],
+        allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST, CorsHttpMethod.PUT, CorsHttpMethod.DELETE],
         allowHeaders: ["Content-Type", "Authorization"],
         maxAge: Duration.days(1),
       },
@@ -189,9 +193,23 @@ export class Nyc311Api extends HttpApi {
     });
 
     this.addRoutes({
+      path: "/admin/warehouse/jobs/{name}",
+      methods: [HttpMethod.PUT],
+      integration: new HttpLambdaIntegration("UpdateWarehouseJobIntegration", props.updateWarehouseJobApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
       path: "/admin/warehouse/jobs",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("ListWarehouseJobsIntegration", props.listWarehouseJobsApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/jobs/{name}/sql",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetWarehouseJobSqlIntegration", props.getWarehouseJobSqlApiLambda),
       authorizer: props.adminAuthorizer,
     });
   }

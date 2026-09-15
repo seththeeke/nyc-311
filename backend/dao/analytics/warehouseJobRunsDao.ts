@@ -135,6 +135,27 @@ export class WarehouseJobRunsDao extends Dao<WarehouseJobRun> {
     }
   }
 
+  /**
+   * Overwrites an existing job definition row unconditionally
+   * (`7-data-warehousing.md` §12b's job-edit flow) — unlike
+   * {@link putDefinition}, no `attribute_not_exists` check, since the
+   * point here is replacing a definition that already exists. The
+   * caller carries over `created_at`/`created_by`/`job_run_id`/
+   * `schedule_name` from the existing row, so `gsi1sk` (keyed off
+   * `created_at`) doesn't shift and the job doesn't jump in the
+   * most-recently-created listing.
+   */
+  async updateDefinition(definition: WarehouseJobDefinition): Promise<void> {
+    const validated = WarehouseJobDefinitionSchema.parse(definition);
+    const item = {
+      ...validated,
+      gsi1pk: DEFINITIONS_GSI1_PK,
+      gsi1sk: validated.created_at,
+    };
+    logInfo("WarehouseJobRunsDao.updateDefinition", { table: this.tableName, jobName: validated.job_name });
+    await this.client.send(new PutCommand({ TableName: this.tableName, Item: item }));
+  }
+
   /** The job definition for `jobName`, or `null` if none exists (never registered, or deleted). */
   async getDefinition(jobName: string): Promise<WarehouseJobDefinition | null> {
     logInfo("WarehouseJobRunsDao.getDefinition", { table: this.tableName, jobName });

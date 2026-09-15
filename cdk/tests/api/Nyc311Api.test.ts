@@ -21,8 +21,10 @@ import { Nyc311AnalyticsWorkgroup } from "../../warehouse/Nyc311AnalyticsWorkgro
 import { Nyc311WarehouseJobRunnerLambda } from "../../warehouse/Nyc311WarehouseJobRunnerLambda";
 import { Nyc311WarehouseJobScheduleGroup } from "../../warehouse/Nyc311WarehouseJobScheduleGroup";
 import { Nyc311CreateWarehouseJobApiLambda } from "../../warehouse/Nyc311CreateWarehouseJobApiLambda";
+import { Nyc311UpdateWarehouseJobApiLambda } from "../../warehouse/Nyc311UpdateWarehouseJobApiLambda";
 import { Nyc311DeleteWarehouseJobApiLambda } from "../../warehouse/Nyc311DeleteWarehouseJobApiLambda";
 import { Nyc311ListWarehouseJobsApiLambda } from "../../warehouse/Nyc311ListWarehouseJobsApiLambda";
+import { Nyc311GetWarehouseJobSqlApiLambda } from "../../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
 import { UsersTable } from "../../data/UsersTable";
 import { Nyc311AdminAuth } from "../../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../../lambda/Nyc311AdminWhoamiApiLambda";
@@ -162,6 +164,14 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunnerLambda: warehouseJobRunnerLambda,
     jobScheduleGroup: warehouseJobScheduleGroup,
   });
+  const updateWarehouseJobApiLambda = new Nyc311UpdateWarehouseJobApiLambda(stack, "Nyc311UpdateWarehouseJobApiLambda", {
+    envName,
+    jobRunsTable: warehouseJobRunsTable,
+    usersTable,
+    warehouseBucket,
+    jobRunnerLambda: warehouseJobRunnerLambda,
+    jobScheduleGroup: warehouseJobScheduleGroup,
+  });
   const deleteWarehouseJobApiLambda = new Nyc311DeleteWarehouseJobApiLambda(stack, "Nyc311DeleteWarehouseJobApiLambda", {
     envName,
     jobRunsTable: warehouseJobRunsTable,
@@ -171,6 +181,14 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobScheduleGroup: warehouseJobScheduleGroup,
   });
   const listWarehouseJobsApiLambda = new Nyc311ListWarehouseJobsApiLambda(stack, "Nyc311ListWarehouseJobsApiLambda", {
+    envName,
+    jobRunsTable: warehouseJobRunsTable,
+    usersTable,
+    warehouseBucket,
+    jobRunnerLambda: warehouseJobRunnerLambda,
+    jobScheduleGroup: warehouseJobScheduleGroup,
+  });
+  const getWarehouseJobSqlApiLambda = new Nyc311GetWarehouseJobSqlApiLambda(stack, "Nyc311GetWarehouseJobSqlApiLambda", {
     envName,
     jobRunsTable: warehouseJobRunsTable,
     usersTable,
@@ -199,8 +217,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     getFleetLocationsApiLambda,
     adHocQueryApiLambda,
     createWarehouseJobApiLambda,
+    updateWarehouseJobApiLambda,
     deleteWarehouseJobApiLambda,
     listWarehouseJobsApiLambda,
+    getWarehouseJobSqlApiLambda,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -253,7 +273,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 16);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 18);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -305,11 +325,13 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("wires POST/GET /admin/warehouse/jobs and DELETE /admin/warehouse/jobs/{name}, behind the JWT authorizer", () => {
+  it("wires POST/GET /admin/warehouse/jobs, PUT/DELETE /admin/warehouse/jobs/{name}, and GET .../sql, behind the JWT authorizer", () => {
     for (const [method, path] of [
       ["POST", "/admin/warehouse/jobs"],
       ["GET", "/admin/warehouse/jobs"],
+      ["PUT", "/admin/warehouse/jobs/{name}"],
       ["DELETE", "/admin/warehouse/jobs/{name}"],
+      ["GET", "/admin/warehouse/jobs/{name}/sql"],
     ]) {
       testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
         RouteKey: `${method} ${path}`,
@@ -341,20 +363,22 @@ describe("Nyc311Api", () => {
         "POST /admin/warehouse/query",
         "POST /admin/warehouse/jobs",
         "GET /admin/warehouse/jobs",
+        "PUT /admin/warehouse/jobs/{name}",
         "DELETE /admin/warehouse/jobs/{name}",
+        "GET /admin/warehouse/jobs/{name}/sql",
       ].sort()
     );
   });
 
-  it("allows POST and DELETE in CORS, alongside GET", () => {
+  it("allows POST, PUT, and DELETE in CORS, alongside GET", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Api", {
       CorsConfiguration: Match.objectLike({
-        AllowMethods: Match.arrayWith(["GET", "POST", "DELETE"]),
+        AllowMethods: Match.arrayWith(["GET", "POST", "PUT", "DELETE"]),
       }),
     });
   });
 
-  it("declares exactly sixteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 16);
+  it("declares exactly eighteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 18);
   });
 });

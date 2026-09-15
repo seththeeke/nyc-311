@@ -39,8 +39,10 @@ import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
+import { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWarehouseJobApiLambda";
 import { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
 import { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
+import { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
@@ -433,6 +435,15 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
+    const updateWarehouseJobApiLambda = new Nyc311UpdateWarehouseJobApiLambda(this, "Nyc311UpdateWarehouseJobApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      usersTable,
+      warehouseBucket,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
+    });
+
     const deleteWarehouseJobApiLambda = new Nyc311DeleteWarehouseJobApiLambda(this, "Nyc311DeleteWarehouseJobApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
@@ -443,6 +454,15 @@ export class Nyc311Stack extends Stack {
     });
 
     const listWarehouseJobsApiLambda = new Nyc311ListWarehouseJobsApiLambda(this, "Nyc311ListWarehouseJobsApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      usersTable,
+      warehouseBucket,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
+    });
+
+    const getWarehouseJobSqlApiLambda = new Nyc311GetWarehouseJobSqlApiLambda(this, "Nyc311GetWarehouseJobSqlApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -631,8 +651,10 @@ export class Nyc311Stack extends Stack {
       getFleetLocationsApiLambda,
       adHocQueryApiLambda,
       createWarehouseJobApiLambda,
+      updateWarehouseJobApiLambda,
       deleteWarehouseJobApiLambda,
       listWarehouseJobsApiLambda,
+      getWarehouseJobSqlApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { WarehouseJobNameParamsSchema } from "../../models/warehouseJobRequest";
 import { NotFoundError, ValidationError } from "../../models/errors";
-import { deleteWarehouseJob } from "../../service/analytics/warehouseJobDefinitionService";
+import { getWarehouseJobSql } from "../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -13,37 +13,35 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
 }
 
 /**
- * `DELETE /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b,
- * Leg 8) — admin-authorized. Stops the job's schedule and removes its
- * S3 SQL file + DDB definition; every past `WarehouseJobRuns` row and
- * `job-results/` resultset is left untouched (§8).
+ * `GET /admin/warehouse/jobs/{name}/sql` (`7-data-warehousing.md` §12b's
+ * "load a job into the query editor" flow) — admin-authorized. The
+ * definition row only stores an S3 key, never the SQL text inline, so
+ * loading a job into the editor needs its own round trip to fetch it.
  */
-export const deleteWarehouseJobController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
-  logInfo("DeleteWarehouseJobControllerInvoked", { event });
+export const getWarehouseJobSqlController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
+  logInfo("GetWarehouseJobSqlControllerInvoked", { event });
 
   const parsedEvent = ApiGatewayHttpEventSchema.safeParse(event);
   if (!parsedEvent.success) {
-    logError("DeleteWarehouseJobControllerValidationFailed", { issues: parsedEvent.error.issues });
+    logError("GetWarehouseJobSqlControllerValidationFailed", { issues: parsedEvent.error.issues });
     return jsonResponse(400, { message: "Malformed request" });
   }
 
   const parsedParams = WarehouseJobNameParamsSchema.safeParse(parsedEvent.data.pathParameters ?? {});
   if (!parsedParams.success) {
-    logError("DeleteWarehouseJobControllerParamsValidationFailed", { issues: parsedParams.error.issues });
+    logError("GetWarehouseJobSqlControllerParamsValidationFailed", { issues: parsedParams.error.issues });
     return jsonResponse(400, { message: "Missing or malformed name path parameter" });
   }
 
+  const { name } = parsedParams.data;
   try {
     await requireAdminUser(parsedEvent.data);
-    await deleteWarehouseJob(parsedParams.data.name);
-    logInfo("DeleteWarehouseJobControllerCompleted", { jobName: parsedParams.data.name });
-    return { statusCode: 204 };
+    const sql = await getWarehouseJobSql(name);
+    logInfo("GetWarehouseJobSqlControllerCompleted", { jobName: name });
+    return jsonResponse(200, { sql });
   } catch (err) {
-    logError("DeleteWarehouseJobControllerFailed", {
-      jobName: parsedParams.data.name,
-      error: err instanceof Error ? err.message : err,
-    });
+    logError("GetWarehouseJobSqlControllerFailed", { jobName: name, error: err instanceof Error ? err.message : err });
     const statusCode = err instanceof NotFoundError ? 404 : err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to delete job" });
+    return jsonResponse(statusCode, { message: "Failed to load job SQL" });
   }
 };
