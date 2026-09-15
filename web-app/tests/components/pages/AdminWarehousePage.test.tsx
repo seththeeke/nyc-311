@@ -15,7 +15,13 @@ vi.mock("../../../src/services/warehouseDataService", () => ({
   warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getJobResult: vi.fn() },
 }));
 vi.mock("../../../src/services/warehouseJobDefinitionService", () => ({
-  warehouseJobDefinitionService: { listJobs: vi.fn(), createJob: vi.fn(), deleteJob: vi.fn() },
+  warehouseJobDefinitionService: {
+    listJobs: vi.fn(),
+    createJob: vi.fn(),
+    updateJob: vi.fn(),
+    deleteJob: vi.fn(),
+    getJobSql: vi.fn(),
+  },
 }));
 vi.mock("../../../src/services/warehouseQueryService", () => ({
   warehouseQueryService: { runQuery: vi.fn() },
@@ -25,7 +31,9 @@ const mockedGetSchema = vi.mocked(warehouseDataService.getSchema);
 const mockedGetJobRuns = vi.mocked(warehouseDataService.getJobRuns);
 const mockedListJobs = vi.mocked(warehouseJobDefinitionService.listJobs);
 const mockedCreateJob = vi.mocked(warehouseJobDefinitionService.createJob);
+const mockedUpdateJob = vi.mocked(warehouseJobDefinitionService.updateJob);
 const mockedDeleteJob = vi.mocked(warehouseJobDefinitionService.deleteJob);
+const mockedGetJobSql = vi.mocked(warehouseJobDefinitionService.getJobSql);
 const mockedRunQuery = vi.mocked(warehouseQueryService.runQuery);
 
 const emptySchema: WarehouseSchemaResponse = { tables: [] };
@@ -66,7 +74,9 @@ beforeEach(() => {
   mockedGetJobRuns.mockReset().mockResolvedValue({ jobRuns: [] });
   mockedListJobs.mockReset().mockResolvedValue([job]);
   mockedCreateJob.mockReset();
+  mockedUpdateJob.mockReset();
   mockedDeleteJob.mockReset();
+  mockedGetJobSql.mockReset();
   mockedRunQuery.mockReset();
 });
 
@@ -78,38 +88,41 @@ describe("AdminWarehousePage", () => {
     expect(screen.getByRole("link", { name: /Admin/ })).toHaveAttribute("href", "/admin");
   });
 
-  it("defaults to the Query tab", () => {
-    renderPage();
-
-    expect(screen.getByRole("tab", { name: "Query" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByLabelText("SQL query")).toBeInTheDocument();
-  });
-
-  it("switches to the Schema tab and renders the warehouse schema once it resolves", async () => {
+  it("shows the schema, query editor, and jobs panels all at once", async () => {
     mockedGetSchema.mockResolvedValue({ tables: [{ table_name: "order_events", columns: [] }] });
     renderPage();
 
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Schema" }));
-
     expect(await screen.findByText("order_events")).toBeInTheDocument();
+    expect(screen.getByLabelText("SQL query")).toBeInTheDocument();
+    expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
   });
 
-  it("shows a loading state on the Schema tab while the fetch is pending", async () => {
+  it("shows a loading state on the schema panel while the fetch is pending", async () => {
     mockedGetSchema.mockReturnValue(new Promise(() => {}));
     renderPage();
-
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Schema" }));
+    await screen.findByText("order_volume_by_zip");
 
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
-  it("shows an error message on the Schema tab when the fetch fails", async () => {
+  it("shows an error message on the schema panel when the fetch fails", async () => {
     mockedGetSchema.mockRejectedValue(new Error("HTTP 500"));
     renderPage();
 
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Schema" }));
-
     expect(await screen.findByText("Failed to load warehouse schema.")).toBeInTheDocument();
+  });
+
+  it("collapses and re-expands the Schema panel", async () => {
+    mockedGetSchema.mockResolvedValue({ tables: [{ table_name: "order_events", columns: [] }] });
+    renderPage();
+    await screen.findByText("order_events");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Hide Schema" }));
+    expect(screen.queryByText("order_events")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show Schema" }));
+    expect(await screen.findByText("order_events")).toBeInTheDocument();
   });
 
   it("runs a query, then Save as job opens a pre-filled create form", async () => {
@@ -120,7 +133,7 @@ describe("AdminWarehousePage", () => {
 
     await user.type(screen.getByLabelText("SQL query"), "SELECT 1");
     await user.click(screen.getByRole("button", { name: "Run query" }));
-    await screen.findByRole("table");
+    await screen.findByText(/1 row/);
     await user.click(screen.getByRole("button", { name: "Save as job" }));
 
     expect(screen.getByLabelText("SQL")).toHaveValue("SELECT 1");
@@ -132,91 +145,107 @@ describe("AdminWarehousePage", () => {
     await waitFor(() => expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument());
   });
 
-  it("Cancel on the Save as job form closes it without creating anything", async () => {
+  it("loads a job's SQL into the editor and shows the active-job badge", async () => {
+    mockedGetJobSql.mockResolvedValue("SELECT borough FROM locations");
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Load" }));
+
+    expect(mockedGetJobSql).toHaveBeenCalledWith("order_volume_by_zip");
+    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT borough FROM locations"));
+    expect(screen.getAllByText("order_volume_by_zip").length).toBeGreaterThan(1);
+  });
+
+  it("saves changes back to the loaded job instead of creating a new one", async () => {
+    mockedGetJobSql.mockResolvedValue("SELECT 1");
     mockedRunQuery.mockResolvedValue(queryResult);
+    mockedUpdateJob.mockResolvedValue({ ...job, cadence_cron: "cron(0 9 * * ? *)" });
     renderPage();
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText("SQL query"), "SELECT 1");
-    await user.click(screen.getByRole("button", { name: "Run query" }));
-    await screen.findByRole("table");
-    await user.click(screen.getByRole("button", { name: "Save as job" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await screen.findByText("order_volume_by_zip");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
 
-    expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument();
-    expect(mockedCreateJob).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Run query" }));
+    await screen.findByText(/1 row/);
+    await user.click(screen.getByRole("button", { name: "Save to order_volume_by_zip" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1")
+    );
   });
 
-  it("switches to the Jobs tab, listing existing jobs and creating a new one via the New job form", async () => {
+  it("does not throw when updateJob rejects, and surfaces the failure", async () => {
+    mockedGetJobSql.mockResolvedValue("SELECT 1");
+    mockedRunQuery.mockResolvedValue(queryResult);
+    mockedUpdateJob.mockRejectedValue(new Error("schedule update failed"));
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText("order_volume_by_zip");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
+
+    await user.click(screen.getByRole("button", { name: "Run query" }));
+    await screen.findByText(/1 row/);
+    await user.click(screen.getByRole("button", { name: "Save to order_volume_by_zip" }));
+
+    await waitFor(() => expect(mockedUpdateJob).toHaveBeenCalled());
+    expect(await screen.findByRole("alert")).toHaveTextContent("schedule update failed");
+  });
+
+  it("clears the active job via 'Start a new query'", async () => {
+    mockedGetJobSql.mockResolvedValue("SELECT 1");
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText("order_volume_by_zip");
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
+
+    await user.click(screen.getByRole("button", { name: "Start a new query" }));
+
+    expect(screen.getByLabelText("SQL query")).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Start a new query" })).not.toBeInTheDocument();
+  });
+
+  it("creates a job from the Jobs panel's New job form", async () => {
     mockedCreateJob.mockResolvedValue({ ...job, job_name: "new_job" });
     renderPage();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("tab", { name: "Jobs" }));
-    expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
-
+    await screen.findByText("order_volume_by_zip");
     await user.click(screen.getByRole("button", { name: "New job" }));
     await user.type(screen.getByLabelText("Job name"), "new_job");
     await user.type(screen.getByLabelText("SQL"), "SELECT 1");
     await user.click(screen.getByRole("button", { name: "Create job" }));
 
     await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("new_job", "cron(0 9 * * ? *)", "SELECT 1"));
-    await waitFor(() => expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument());
   });
 
-  it("shows a loading state on the Jobs tab while the list fetch is pending", async () => {
-    mockedListJobs.mockReturnValue(new Promise(() => {}));
-    renderPage();
-
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Jobs" }));
-
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
-  });
-
-  it("renders the Jobs tab with an empty run history while job runs are still loading", async () => {
-    mockedGetJobRuns.mockReturnValue(new Promise(() => {}));
-    renderPage();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("tab", { name: "Jobs" }));
-    await screen.findByText("order_volume_by_zip");
-    await user.click(screen.getByRole("button", { name: "History" }));
-
-    expect(screen.getByRole("button", { name: "Hide history" })).toBeInTheDocument();
-  });
-
-  it("Cancel on the New job form closes it without creating anything", async () => {
-    renderPage();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("tab", { name: "Jobs" }));
-    await screen.findByText("order_volume_by_zip");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument();
-    expect(mockedCreateJob).not.toHaveBeenCalled();
-  });
-
-  it("shows an error message on the Jobs tab when the list fetch fails", async () => {
-    mockedListJobs.mockRejectedValue(new Error("HTTP 500"));
-    renderPage();
-
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Jobs" }));
-
-    expect(await screen.findByText("Failed to load jobs.")).toBeInTheDocument();
-  });
-
-  it("deletes a job from the Jobs tab", async () => {
+  it("deletes a job from the Jobs panel", async () => {
     mockedDeleteJob.mockResolvedValue(undefined);
     renderPage();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("tab", { name: "Jobs" }));
     await screen.findByText("order_volume_by_zip");
     await user.click(screen.getByRole("button", { name: "Delete job order_volume_by_zip" }));
     await user.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() => expect(mockedDeleteJob).toHaveBeenCalledWith("order_volume_by_zip"));
+  });
+
+  it("collapses and re-expands the Jobs panel", async () => {
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Hide Jobs" }));
+    expect(screen.queryByText("order_volume_by_zip")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show Jobs" }));
+    expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
   });
 });

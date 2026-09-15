@@ -111,6 +111,51 @@ describe("JobDefinitionList", () => {
     expect(screen.getByRole("button", { name: "Deleting…" })).toBeDisabled();
   });
 
+  it("does not render a Load button when onLoad is omitted", () => {
+    render(<JobDefinitionList jobs={[jobA]} jobRuns={[]} onDelete={vi.fn()} isDeleting={false} deleteError={null} />);
+
+    expect(screen.queryByRole("button", { name: "Load" })).not.toBeInTheDocument();
+  });
+
+  it("calls onLoad with the job when its Load button is clicked", async () => {
+    const onLoad = vi.fn();
+    render(
+      <JobDefinitionList
+        jobs={[jobA, jobB]}
+        jobRuns={[]}
+        onDelete={vi.fn()}
+        isDeleting={false}
+        deleteError={null}
+        onLoad={onLoad}
+      />
+    );
+
+    const rowB = screen.getByText("job_b").closest("tr");
+    expect(rowB).not.toBeNull();
+    await userEvent.setup().click(within(rowB as HTMLElement).getByRole("button", { name: "Load" }));
+
+    expect(onLoad).toHaveBeenCalledWith(jobB);
+  });
+
+  it("disables and relabels only the loading job's own Load button", () => {
+    render(
+      <JobDefinitionList
+        jobs={[jobA, jobB]}
+        jobRuns={[]}
+        onDelete={vi.fn()}
+        isDeleting={false}
+        deleteError={null}
+        onLoad={vi.fn()}
+        loadingName="job_a"
+      />
+    );
+
+    const rowA = screen.getByText("job_a").closest("tr");
+    const rowB = screen.getByText("job_b").closest("tr");
+    expect(within(rowA as HTMLElement).getByRole("button", { name: "Loading…" })).toBeDisabled();
+    expect(within(rowB as HTMLElement).getByRole("button", { name: "Load" })).toBeEnabled();
+  });
+
   it("shows the delete error message when present", () => {
     render(
       <JobDefinitionList jobs={[jobA]} jobRuns={[]} onDelete={vi.fn()} isDeleting={false} deleteError={new Error("boom")} />

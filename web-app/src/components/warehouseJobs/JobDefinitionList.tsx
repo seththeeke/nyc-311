@@ -10,6 +10,10 @@ export interface JobDefinitionListProps {
   onDelete: (name: string) => Promise<void>;
   isDeleting: boolean;
   deleteError: Error | null;
+  /** When provided, shows a "Load" action per row — fetches the job's SQL into the query editor (`7-data-warehousing.md` §12b's job-edit flow). */
+  onLoad?: (job: WarehouseJobDefinition) => void;
+  /** The job name currently being loaded (disables its own Load button and relabels it), if any. */
+  loadingName?: string | null;
 }
 
 /**
@@ -21,7 +25,15 @@ export interface JobDefinitionListProps {
  * only removes its definition/schedule; its history stays visible here
  * (§8's "keep history" design call).
  */
-export function JobDefinitionList({ jobs, jobRuns, onDelete, isDeleting, deleteError }: JobDefinitionListProps): ReactElement {
+export function JobDefinitionList({
+  jobs,
+  jobRuns,
+  onDelete,
+  isDeleting,
+  deleteError,
+  onLoad,
+  loadingName,
+}: JobDefinitionListProps): ReactElement {
   const [confirmingName, setConfirmingName] = useState<string | null>(null);
   const [expandedName, setExpandedName] = useState<string | null>(null);
 
@@ -78,6 +90,16 @@ export function JobDefinitionList({ jobs, jobRuns, onDelete, isDeleting, deleteE
                     <div className="font-mono text-xs text-slate-500">{job.created_by}</div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {onLoad && (
+                      <button
+                        type="button"
+                        onClick={() => onLoad(job)}
+                        disabled={loadingName === job.job_name}
+                        className="mr-2 rounded bg-cyan-600 px-3 py-1 text-white disabled:opacity-50"
+                      >
+                        {loadingName === job.job_name ? "Loading…" : "Load"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setExpandedName(expandedName === job.job_name ? null : job.job_name)}

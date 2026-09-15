@@ -128,4 +128,54 @@ describe("SqlQueryConsole", () => {
 
     expect(onSaveAsJob).toHaveBeenCalledWith("SELECT 1");
   });
+
+  it("pre-fills the textarea from initialSql", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole initialSql="SELECT * FROM locations" />);
+
+    expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT * FROM locations");
+  });
+
+  it("shows the active job name badge when activeJobName is set", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+
+    render(<SqlQueryConsole activeJobName="order_volume_by_zip" />);
+
+    expect(screen.getByText("order_volume_by_zip")).toBeInTheDocument();
+  });
+
+  it("does not render a Save-to-job control when activeJobName is set but onUpdateJob is omitted", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+
+    render(<SqlQueryConsole activeJobName="order_volume_by_zip" />);
+
+    expect(screen.queryByRole("button", { name: /save to/i })).not.toBeInTheDocument();
+  });
+
+  it("calls onUpdateJob with the current SQL text when the Save-to-job button is clicked", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+    const onUpdateJob = vi.fn();
+
+    render(<SqlQueryConsole activeJobName="order_volume_by_zip" onUpdateJob={onUpdateJob} initialSql="SELECT 2" />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save to order_volume_by_zip" }));
+
+    expect(onUpdateJob).toHaveBeenCalledWith("SELECT 2");
+  });
+
+  it("disables and relabels the Save-to-job button while updating, and shows the update error", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+
+    render(
+      <SqlQueryConsole
+        activeJobName="order_volume_by_zip"
+        onUpdateJob={vi.fn()}
+        isUpdating={true}
+        updateError={new Error("schedule update failed")}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("schedule update failed");
+  });
 });
