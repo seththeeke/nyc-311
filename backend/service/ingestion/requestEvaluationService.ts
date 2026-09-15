@@ -34,7 +34,7 @@ function getDefaultOrderDao(): OrderDao {
  */
 export type FilterOutcome =
   | { readonly kind: "CONTINUE"; readonly locationId?: string }
-  | { readonly kind: "REJECT"; readonly status: "FILTERED" | "DUPLICATE" | "REJECTED" }
+  | { readonly kind: "REJECT"; readonly status: "FILTERED" }
   | { readonly kind: "HALT" };
 
 interface FilterDeps {
@@ -83,30 +83,25 @@ async function resolveLocation(request: Request, deps: FilterDeps): Promise<Filt
   return { kind: "CONTINUE", locationId: location.location_id };
 }
 
-/* Stubs (3-order-ingestion.md §1) — always continue until built for real. */
-async function checkAlreadyClosed(): Promise<FilterOutcome> {
-  return { kind: "CONTINUE" };
-}
-async function checkComplaintTypeSupported(): Promise<FilterOutcome> {
-  return { kind: "CONTINUE" };
-}
-async function checkBusinessDuplicate(): Promise<FilterOutcome> {
-  return { kind: "CONTINUE" };
+/**
+ * Rejects a Request whose raw NYC 311 record already carries a
+ * `closed_date` — the complaint was already closed before it was ever
+ * ingested, so it never gets promoted to an Order
+ * (`11-street-condition-implementation.md` §1; supersedes the
+ * `3-order-ingestion.md` §1 stub of the same name).
+ */
+async function checkAlreadyClosed(request: Request): Promise<FilterOutcome> {
+  const closedDate = stringField(request.raw_payload, "closed_date");
+  return closedDate ? { kind: "REJECT", status: "FILTERED" } : { kind: "CONTINUE" };
 }
 
-const FILTERS: readonly FilterFn[] = [
-  resolveLocation,
-  checkAlreadyClosed,
-  checkComplaintTypeSupported,
-  checkBusinessDuplicate,
-];
+const FILTERS: readonly FilterFn[] = [resolveLocation, checkAlreadyClosed];
 
 /**
  * Dependencies for {@link evaluateRequest} — all default to this module's
  * own singletons. `filters` defaults to the real {@link FILTERS} pipeline;
- * tests override it to exercise the `REJECT` branch, which no real filter
- * produces yet (§1 — all four stay stubs except `resolveLocation`, which
- * only ever `CONTINUE`s or `HALT`s).
+ * tests may still override it to exercise `evaluateRequest`'s own
+ * REJECT/HALT handling in isolation from either real filter's logic.
  */
 export interface RequestEvaluationDeps {
   requestDao?: RequestDao;
@@ -170,7 +165,11 @@ export async function evaluateRequest(request: Request, deps: RequestEvaluationD
     throw new Error(`Request ${current.request_id} passed all filters without a resolved location_id`);
   }
 
-  const order = await orderDao.createOrder({ request_id: current.request_id, location_id: locationId });
+  const order = await orderDao.createOrder({
+    request_id: current.request_id,
+    location_id: locationId,
+    complaint_type: current.complaint_type,
+  });
   await requestDao.updateRequestStatus(current.request_id, "PROMOTED", locationId);
   logInfo("RequestEvaluationCompleted", {
     requestId: current.request_id,

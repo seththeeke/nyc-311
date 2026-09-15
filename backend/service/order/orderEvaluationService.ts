@@ -151,33 +151,20 @@ export interface OrderEvaluationRule {
   evaluate(order: Order): Promise<OrderEvaluationOutcome>;
 }
 
-/** Fixed split (§2) — 80% ACCEPT, 19% REJECT, 1% CASE. */
-const ACCEPT_THRESHOLD = 0.8;
-const REJECT_THRESHOLD = 0.99;
-
-export interface RandomOrderEvaluationRuleDeps {
-  random?: () => number;
-}
+/* The one complaint type this system now services (11-street-condition-implementation.md §1). */
+const STREET_CONDITION_COMPLAINT_TYPE = "Street Condition";
 
 /**
- * v1 (mock) implementation: a single random-number draw, fixed split, no
- * inspection of the `Order` at all — proves the three-outcome contract and
- * the event-recording/Case-handoff plumbing without deciding any real
- * business rule, same "stub proves the shape" pattern as every other mock
- * interface in this project.
+ * v1 real implementation (11-street-condition-implementation.md §1):
+ * accepts an Order only if its (denormalized) complaint type is exactly
+ * "Street Condition," rejecting everything else — a single hardcoded
+ * target, not a data-driven allow-list, since narrowing to this one type
+ * is the whole point. Replaces the mock `RandomOrderEvaluationRule`,
+ * which never inspected the Order at all.
  */
-export class RandomOrderEvaluationRule implements OrderEvaluationRule {
-  private readonly random: () => number;
-
-  constructor(deps: RandomOrderEvaluationRuleDeps = {}) {
-    this.random = deps.random ?? Math.random;
-  }
-
-  async evaluate(): Promise<OrderEvaluationOutcome> {
-    const draw = this.random();
-    if (draw < ACCEPT_THRESHOLD) return "ACCEPT";
-    if (draw < REJECT_THRESHOLD) return "REJECT";
-    return "CASE";
+export class StreetConditionOnlyRule implements OrderEvaluationRule {
+  async evaluate(order: Order): Promise<OrderEvaluationOutcome> {
+    return order.complaint_type === STREET_CONDITION_COMPLAINT_TYPE ? "ACCEPT" : "REJECT";
   }
 }
 
@@ -202,7 +189,7 @@ export interface OrderEvaluationDeps {
  */
 export async function evaluateOrder(orderEvent: OrderEvent, deps: OrderEvaluationDeps = {}): Promise<void> {
   const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const rule = deps.rule ?? new RandomOrderEvaluationRule();
+  const rule = deps.rule ?? new StreetConditionOnlyRule();
   const priorityAssigner = deps.priorityAssigner ?? new MockOrderPriorityAssigner();
   const createCaseFn = deps.createCaseFn ?? createCase;
 

@@ -63,6 +63,14 @@ export const OrderSchema = z.object({
   order_id: z.string().min(1),
   request_id: z.string().min(1),
   location_id: z.string().min(1),
+  /*
+   * Denormalized from the originating Request at creation
+   * (11-street-condition-implementation.md §1) — lets OrderEvaluationRule
+   * inspect it without a Request lookup. Nullable to mirror
+   * Request.complaint_type's own nullability; only ever populated going
+   * forward, no backfill on existing rows.
+   */
+  complaint_type: z.string().min(1).nullable(),
   current_stage: z.enum(ORDER_STAGES),
   status: z.enum(ORDER_STATUSES),
   retry_counts: z.record(z.enum(ORDER_STAGES), z.number().int().nonnegative()),

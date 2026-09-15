@@ -7,14 +7,7 @@ import { z } from "zod";
  * ALL_CAPS per CLAUDE.md §6.
  */
 
-export const REQUEST_STATUSES = [
-  "DRAFT",
-  "PENDING",
-  "PROMOTED",
-  "FILTERED",
-  "DUPLICATE",
-  "REJECTED",
-] as const;
+export const REQUEST_STATUSES = ["DRAFT", "PENDING", "PROMOTED", "FILTERED"] as const;
 
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 

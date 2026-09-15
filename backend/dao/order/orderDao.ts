@@ -12,6 +12,7 @@ import { ValidationError } from "../../models/errors";
 export interface CreateOrderInput {
   request_id: string;
   location_id: string;
+  complaint_type: string | null;
 }
 
 export interface ListOrdersOptions {
@@ -89,7 +90,11 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         sequence_number: nextSequence,
         event_type: "ORDER_CREATED",
         stage: null,
-        payload: { request_id: input.request_id, location_id: input.location_id },
+        payload: {
+          request_id: input.request_id,
+          location_id: input.location_id,
+          complaint_type: input.complaint_type,
+        },
         occurred_at: now,
         actor: "SYSTEM",
       }),
@@ -97,6 +102,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         order_id: orderId,
         request_id: input.request_id,
         location_id: input.location_id,
+        complaint_type: input.complaint_type,
         current_stage: "INGEST",
         status: "CREATED",
         retry_counts: Object.fromEntries(ORDER_STAGES.map((stage) => [stage, 0])) as Record<string, number>,

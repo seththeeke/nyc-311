@@ -102,6 +102,17 @@ Requests table (draft Request written by poller)
 | 2 | `checkAlreadyClosed` | reject filter | NYC 311's own `status` field on the raw record (e.g. `"Closed"`) means the real-world complaint was already resolved before we ever ingested it — nothing for a simulated crew to dispatch to. Reject → `filtered`. |
 | 3 | `checkComplaintTypeSupported` | reject filter | Placeholder seam for an eventual admin-configurable per-`complaint_type`/`agency` allow/deny list (ties to `capacity-model.md` §1's agency+borough capacity pools — a complaint type with no matching pool has nowhere to go). |
 | 4 | `checkBusinessDuplicate` | reject filter | Distinct from the ingestion-time raw dedup already handled by `gsi1-external-key` (`external_unique_key`, exact-record dedup pre-insert). This is a *business*-level duplicate: is there already an active, unresolved Order for the same `location_id` + `complaint_type`? Reject → `duplicate`. |
+
+> **Superseded 2026-09-14 (`11-street-condition-implementation.md` §1):**
+> `checkComplaintTypeSupported` and `checkBusinessDuplicate` were deleted
+> outright rather than ever built for real — narrowing to one hardcoded
+> complaint type supersedes the allow/deny-list future
+> `checkComplaintTypeSupported` was a placeholder for, and rejection is
+> now handled entirely at order evaluation, not ingestion.
+> `checkAlreadyClosed` **was** built for real, but checks `raw_payload`
+> for a `closed_date` field instead of the `status` field this table
+> proposed — same intent (an already-closed complaint is filtered before
+> ever reaching an Order), different signal.
 | 5 | *(implicit)* | promote | All filters passed → `promoted`, Order created. |
 
 **Given `claude-prompt-initial.md` §1's standing "ingest all complaint

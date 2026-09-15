@@ -121,8 +121,27 @@ describe("evaluateRequest", () => {
     expect(locationDao.findOrCreateLocation).toHaveBeenCalledWith(
       expect.objectContaining({ location_id: "1234567890", bbl: "1234567890", borough: "QUEENS" })
     );
-    expect(orderDao.createOrder).toHaveBeenCalledWith({ request_id: "01REQUEST", location_id: "1234567890" });
+    expect(orderDao.createOrder).toHaveBeenCalledWith({
+      request_id: "01REQUEST",
+      location_id: "1234567890",
+      complaint_type: "Noise - Residential",
+    });
     expect(requestDao.updateRequestStatus).toHaveBeenCalledWith("01REQUEST", "PROMOTED", "1234567890");
+  });
+
+  it("rejects (FILTERED) a Request whose raw_payload already carries a closed_date, without creating an Order", async () => {
+    const closedRequest: Request = {
+      ...draftRequest,
+      raw_payload: { unique_key: "69243509", bbl: "1234567890", closed_date: "2026-06-06T00:00:00.000" },
+    };
+    const requestDao = makeRequestDao({ getRequestById: vi.fn().mockResolvedValue(closedRequest) });
+    const locationDao = makeLocationDao();
+    const orderDao = makeOrderDao();
+
+    await evaluateRequest(closedRequest, { requestDao, locationDao, orderDao, now: () => NOW });
+
+    expect(requestDao.updateRequestStatus).toHaveBeenCalledWith("01REQUEST", "FILTERED");
+    expect(orderDao.createOrder).not.toHaveBeenCalled();
   });
 
   it("falls back to the real clock when now isn't provided in deps", async () => {

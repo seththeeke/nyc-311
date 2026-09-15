@@ -16,6 +16,7 @@ function makeOrderItem(overrides: Record<string, unknown> = {}): Record<string, 
     sk: "#METADATA",
     request_id: "01REQUEST",
     location_id: "1234567890",
+    complaint_type: "Street Condition",
     current_stage: "INGEST",
     status: "CREATED",
     retry_counts: { INGEST: 0, SCHEDULE: 0, EXECUTE: 0, RESOLVE: 0 },
@@ -46,11 +47,16 @@ afterEach(() => {
 
 describe("OrderDao.createOrder", () => {
   it("creates an Order in its first state: INGEST stage, CREATED status, zeroed retry counts", async () => {
-    const order = await orderDao.createOrder({ request_id: "01REQUEST", location_id: "1234567890" });
+    const order = await orderDao.createOrder({
+      request_id: "01REQUEST",
+      location_id: "1234567890",
+      complaint_type: "Street Condition",
+    });
 
     expect(order).toMatchObject({
       request_id: "01REQUEST",
       location_id: "1234567890",
+      complaint_type: "Street Condition",
       current_stage: "INGEST",
       status: "CREATED",
       retry_counts: { INGEST: 0, SCHEDULE: 0, EXECUTE: 0, RESOLVE: 0 },
@@ -66,8 +72,12 @@ describe("OrderDao.createOrder", () => {
     expect(order.order_id).toBeTruthy();
   });
 
-  it("writes an ORDER_CREATED event with the request/location in its payload", async () => {
-    await orderDao.createOrder({ request_id: "01REQUEST", location_id: "1234567890" });
+  it("writes an ORDER_CREATED event with the request/location/complaint_type in its payload", async () => {
+    await orderDao.createOrder({
+      request_id: "01REQUEST",
+      location_id: "1234567890",
+      complaint_type: "Street Condition",
+    });
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     const eventPut = transactInput.TransactItems?.[0]?.Put;
@@ -76,13 +86,21 @@ describe("OrderDao.createOrder", () => {
       event_type: "ORDER_CREATED",
       stage: null,
       actor: "SYSTEM",
-      payload: { request_id: "01REQUEST", location_id: "1234567890" },
+      payload: { request_id: "01REQUEST", location_id: "1234567890", complaint_type: "Street Condition" },
     });
   });
 
   it("generates a distinct order_id per call", async () => {
-    const first = await orderDao.createOrder({ request_id: "01REQUEST", location_id: "1234567890" });
-    const second = await orderDao.createOrder({ request_id: "02REQUEST", location_id: "1234567890" });
+    const first = await orderDao.createOrder({
+      request_id: "01REQUEST",
+      location_id: "1234567890",
+      complaint_type: "Street Condition",
+    });
+    const second = await orderDao.createOrder({
+      request_id: "02REQUEST",
+      location_id: "1234567890",
+      complaint_type: "Street Condition",
+    });
 
     expect(first.order_id).not.toBe(second.order_id);
   });

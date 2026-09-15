@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   evaluateOrder,
   fanOutOrdersStreamRecord,
-  RandomOrderEvaluationRule,
+  StreetConditionOnlyRule,
   type OrderEvaluationRule,
 } from "../../../service/order/orderEvaluationService";
 import type { OrderDao } from "../../../dao/order/orderDao";
@@ -225,34 +225,20 @@ describe("fanOutOrdersStreamRecord", () => {
   });
 });
 
-describe("RandomOrderEvaluationRule", () => {
-  it("returns ACCEPT for a draw below 0.8", async () => {
-    const rule = new RandomOrderEvaluationRule({ random: () => 0.5 });
-    await expect(rule.evaluate()).resolves.toBe("ACCEPT");
+describe("StreetConditionOnlyRule", () => {
+  it("returns ACCEPT when complaint_type is exactly Street Condition", async () => {
+    const rule = new StreetConditionOnlyRule();
+    await expect(rule.evaluate(makeOrder({ complaint_type: "Street Condition" }))).resolves.toBe("ACCEPT");
   });
 
-  it("returns ACCEPT for a draw just below the 0.8 boundary", async () => {
-    const rule = new RandomOrderEvaluationRule({ random: () => 0.7999 });
-    await expect(rule.evaluate()).resolves.toBe("ACCEPT");
+  it("returns REJECT for any other complaint_type", async () => {
+    const rule = new StreetConditionOnlyRule();
+    await expect(rule.evaluate(makeOrder({ complaint_type: "Noise - Residential" }))).resolves.toBe("REJECT");
   });
 
-  it("returns REJECT for a draw at the 0.8 boundary and just below 0.99", async () => {
-    const rule = new RandomOrderEvaluationRule({ random: () => 0.8 });
-    await expect(rule.evaluate()).resolves.toBe("REJECT");
-    const rule2 = new RandomOrderEvaluationRule({ random: () => 0.9899 });
-    await expect(rule2.evaluate()).resolves.toBe("REJECT");
-  });
-
-  it("returns CASE for a draw at or above 0.99", async () => {
-    const rule = new RandomOrderEvaluationRule({ random: () => 0.99 });
-    await expect(rule.evaluate()).resolves.toBe("CASE");
-    const rule2 = new RandomOrderEvaluationRule({ random: () => 0.999999 });
-    await expect(rule2.evaluate()).resolves.toBe("CASE");
-  });
-
-  it("defaults `random` to Math.random when not injected", async () => {
-    const rule = new RandomOrderEvaluationRule();
-    await expect(["ACCEPT", "REJECT", "CASE"]).toContain(await rule.evaluate());
+  it("returns REJECT when complaint_type is null", async () => {
+    const rule = new StreetConditionOnlyRule();
+    await expect(rule.evaluate(makeOrder({ complaint_type: null }))).resolves.toBe("REJECT");
   });
 });
 
@@ -261,6 +247,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     order_id: "01ORDER",
     request_id: "01REQUEST",
     location_id: "1234567890",
+    complaint_type: "Street Condition",
     current_stage: "INGEST",
     status: "CREATED",
     retry_counts: { INGEST: 0, SCHEDULE: 0, EXECUTE: 0, RESOLVE: 0 },
@@ -378,11 +365,8 @@ describe("evaluateOrder", () => {
 
     await evaluateOrder(makeOrderEvent(), { orderDao });
 
-    /* The real RandomOrderEvaluationRule/MockOrderPriorityAssigner ran — one of the three outcome DAO calls fired. */
-    const called = [orderDao.acceptOrder, orderDao.rejectOrder, orderDao.recordCaseCreated].some(
-      (fn) => (fn as ReturnType<typeof vi.fn>).mock.calls.length > 0
-    );
-    expect(called).toBe(true);
+    /* The real StreetConditionOnlyRule/MockOrderPriorityAssigner ran — makeOrder()'s default complaint_type ("Street Condition") deterministically ACCEPTs. */
+    expect(orderDao.acceptOrder).toHaveBeenCalledWith("01ORDER", expect.any(Object));
   });
 
   it("throws when deps.orderDao is omitted and ORDERS_TABLE_NAME isn't set", async () => {

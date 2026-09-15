@@ -52,6 +52,7 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "order_id", type: "string" },
       { name: "request_id", type: "string" },
       { name: "location_id", type: "string" },
+      { name: "complaint_type", type: "string" },
       { name: "current_stage", type: "string" },
       { name: "status", type: "string" },
       { name: "priority_tier", type: "string" },

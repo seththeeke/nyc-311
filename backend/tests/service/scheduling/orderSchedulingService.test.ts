@@ -20,6 +20,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     order_id: "01ORDER",
     request_id: "01REQUEST",
     location_id: "1234567890",
+    complaint_type: "Street Condition",
     current_stage: "SCHEDULE",
     status: "ACTIVE",
     retry_counts: { INGEST: 0, SCHEDULE: 0, EXECUTE: 0, RESOLVE: 0 },

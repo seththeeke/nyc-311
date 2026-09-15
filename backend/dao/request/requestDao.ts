@@ -52,8 +52,8 @@ export class RequestDao extends Dao<Request> {
 
   /**
    * Moves a `DRAFT` Request to a terminal-for-this-pipeline status
-   * (`PROMOTED`/`FILTERED`/`DUPLICATE`/`REJECTED`), per
-   * `3-order-ingestion.md` §3's `evaluateRequest`. Condition-checked
+   * (`PROMOTED`/`FILTERED`), per `3-order-ingestion.md` §3's
+   * `evaluateRequest`. Condition-checked
    * against `status = "DRAFT"` so a redelivered SQS message (the
    * request-processor Lambda's queue is standard, at-least-once) can never
    * double-process an already-evaluated Request — the second attempt
