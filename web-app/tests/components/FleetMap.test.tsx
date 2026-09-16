@@ -6,59 +6,97 @@ import type { FleetOperatorLocation } from "../../src/models/fleetLocation";
 /*
  * react-leaflet's MapContainer manipulates real DOM layout/canvas APIs
  * happy-dom doesn't fully implement — mocked to simple stand-ins so this
- * test can assert on what FleetMap passes it, not exercise Leaflet itself
- * (that's what the browser check is for).
+ * test can assert on what FleetMap passes down, not exercise Leaflet
+ * itself (that's what the browser check is for). OperatorTrail's own
+ * marker/trail rendering is covered by its own test file — mocked here to
+ * a stand-in that surfaces the props FleetMap passed it.
  */
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => <div data-testid="tile-layer" />,
-  CircleMarker: ({ children, center, pathOptions }: { children: React.ReactNode; center: [number, number]; pathOptions: { color: string } }) => (
-    <div data-testid="circle-marker" data-center={center.join(",")} data-color={pathOptions.color}>
-      {children}
-    </div>
+}));
+
+vi.mock("../../src/components/OperatorTrail", () => ({
+  OperatorTrail: ({
+    name,
+    activity,
+    color,
+    currentLocation,
+    recentJobLocations,
+  }: {
+    name: string;
+    activity: string;
+    color: string;
+    currentLocation: { lat: number; lng: number };
+    recentJobLocations: { lat: number; lng: number }[];
+  }) => (
+    <div
+      data-testid="operator-trail"
+      data-name={name}
+      data-activity={activity}
+      data-color={color}
+      data-current={`${currentLocation.lat},${currentLocation.lng}`}
+      data-recent-count={recentJobLocations.length}
+    />
   ),
-  Popup: ({ children }: { children: React.ReactNode }) => <div data-testid="popup">{children}</div>,
 }));
 
 const operators: FleetOperatorLocation[] = [
-  { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 } },
-  { operator_id: "01B", name: "Truck B", current_activity: "WORKING", current_location: { lat: 40.72, lng: -73.9 } },
-  { operator_id: "01C", name: "Truck C", current_activity: "TRANSIT", current_location: null },
+  { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 }, recent_job_locations: [] },
+  {
+    operator_id: "01B",
+    name: "Truck B",
+    current_activity: "WORKING",
+    current_location: { lat: 40.72, lng: -73.9 },
+    recent_job_locations: [{ lat: 40.7, lng: -73.8 }],
+  },
+  { operator_id: "01C", name: "Truck C", current_activity: "TRANSIT", current_location: null, recent_job_locations: [] },
 ];
 
 describe("FleetMap", () => {
-  it("renders one marker per plottable Operator, skipping one with no current_location", () => {
+  it("renders one OperatorTrail per plottable Operator, skipping one with no current_location", () => {
     render(<FleetMap operators={operators} />);
 
-    expect(screen.getAllByTestId("circle-marker")).toHaveLength(2);
+    expect(screen.getAllByTestId("operator-trail")).toHaveLength(2);
   });
 
-  it("plots each marker at the Operator's current_location", () => {
+  it("passes each Operator's current_location through to its trail", () => {
     render(<FleetMap operators={operators} />);
 
-    const markers = screen.getAllByTestId("circle-marker");
-    expect(markers[0]).toHaveAttribute("data-center", "40.71,-74");
-    expect(markers[1]).toHaveAttribute("data-center", "40.72,-73.9");
+    const trails = screen.getAllByTestId("operator-trail");
+    expect(trails[0]).toHaveAttribute("data-current", "40.71,-74");
+    expect(trails[1]).toHaveAttribute("data-current", "40.72,-73.9");
   });
 
-  it("colors markers by activity", () => {
+  it("colors each trail by activity", () => {
     render(<FleetMap operators={operators} />);
 
-    const markers = screen.getAllByTestId("circle-marker");
-    expect(markers[0]).toHaveAttribute("data-color", "#10b981");
-    expect(markers[1]).toHaveAttribute("data-color", "#3b82f6");
+    const trails = screen.getAllByTestId("operator-trail");
+    expect(trails[0]).toHaveAttribute("data-color", "#10b981");
+    expect(trails[1]).toHaveAttribute("data-color", "#3b82f6");
   });
 
-  it("labels each popup with the Operator's name and activity", () => {
+  it("passes each Operator's recent_job_locations through to its trail", () => {
     render(<FleetMap operators={operators} />);
 
-    expect(screen.getByText("Truck A")).toBeInTheDocument();
-    expect(screen.getByText("Truck B")).toBeInTheDocument();
+    const trails = screen.getAllByTestId("operator-trail");
+    expect(trails[0]).toHaveAttribute("data-recent-count", "0");
+    expect(trails[1]).toHaveAttribute("data-recent-count", "1");
   });
 
-  it("renders no markers for an empty roster", () => {
+  it("passes each Operator's name and activity through to its trail", () => {
+    render(<FleetMap operators={operators} />);
+
+    const trails = screen.getAllByTestId("operator-trail");
+    expect(trails[0]).toHaveAttribute("data-name", "Truck A");
+    expect(trails[0]).toHaveAttribute("data-activity", "IDLE");
+    expect(trails[1]).toHaveAttribute("data-name", "Truck B");
+    expect(trails[1]).toHaveAttribute("data-activity", "WORKING");
+  });
+
+  it("renders no trails for an empty roster", () => {
     render(<FleetMap operators={[]} />);
 
-    expect(screen.queryByTestId("circle-marker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("operator-trail")).not.toBeInTheDocument();
   });
 });

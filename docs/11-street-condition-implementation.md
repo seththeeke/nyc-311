@@ -1,14 +1,22 @@
 # Street Condition Specialization — Narrowing Order Handling to One Complaint Type
 
-> **Status (2026-09-14): Topic 1 implemented** — `requestEvaluationService.ts`/
-> `orderEvaluationService.ts` changes built, tested (`backend`/`cdk`
-> build/lint/test:coverage all green, no coverage regressions), committed
-> (`d47ae5a`), and pushed to `main` — **pipeline not monitored this
-> round, per explicit instruction; not yet confirmed live in
-> `Nyc311-Test`/`Nyc311-Prod`.** Topics 2, 4, 7 are agreed at the design
-> level but not yet built. Topics 5/6 are agreed but explicitly flagged
-> for a fresh, in-depth pass right before their implementation starts —
-> not done yet. Topic 3 (routing) is still deferred, undecided.
+> **Status (2026-09-15): Topics 1 and 7 implemented.** Topic 1
+> (`requestEvaluationService.ts`/`orderEvaluationService.ts` changes) was
+> built 2026-09-14; committed (`d47ae5a`) and pushed to `main`. Its schema
+> change (`Order.complaint_type`, non-optional) turned out to be silently
+> crashing `Nyc311OrderScheduling-Test` on every scheduled run, since
+> pre-migration Orders lack the attribute entirely — fixed 2026-09-15 by
+> `test-scripts/10-reject-non-street-condition-orders.js`, a one-time bulk
+> reject of every non-Street-Condition/legacy Order (371,757 rejected in
+> `Nyc311-Test`, 0 failures), confirmed live via a manual Lambda
+> invocation. Topic 7 (fleet map UX) was built 2026-09-15 — see its own
+> section below for the full checklist; **neither Topic 1's original
+> commit nor Topic 7's changes have been confirmed live via the pipeline
+> yet.** Topic 2 (monitoring cleanup) was dropped from this doc — done on
+> a separate branch. Topic 4 is agreed at the design level but not yet
+> built. Topics 5/6 are agreed but explicitly flagged for a fresh,
+> in-depth pass right before their implementation starts — not done yet.
+> Topic 3 (routing) is still deferred, undecided.
 >
 > Narrows the system from handling any `Request` to servicing exactly one
 > `complaint_type` — **"Street Condition"** — end to end, so evaluation,
@@ -59,7 +67,7 @@ doc-level status banner above.
 | [4. Feature flags — storage, evaluation, and a new Admin tile](#4-feature-flags--storage-evaluation-and-a-new-admin-tile) | **Agreed (2026-09-14)** |
 | [5. Cost prediction (brute-force) at scheduling, and where the estimate lives](#5-cost-prediction-brute-force-at-scheduling-and-where-the-estimate-lives) | **Agreed (2026-09-14)** — revisit in depth before implementation |
 | [6. ML cost-estimation experiment — synthetic data, local training, and a Python Lambda](#6-ml-cost-estimation-experiment--synthetic-data-local-training-and-a-python-lambda) | **Agreed (2026-09-14)** — revisit in depth before implementation |
-| [7. Fleet map UX — truck icons and a fading path trail of an operator's last 5 completed jobs](#7-fleet-map-ux--truck-icons-and-a-fading-path-trail-of-an-operators-last-5-completed-jobs) | **Agreed (2026-09-14)** |
+| [7. Fleet map UX — truck icons and a fading path trail of an operator's last 5 completed jobs](#7-fleet-map-ux--truck-icons-and-a-fading-path-trail-of-an-operators-last-5-completed-jobs) | **Implemented (2026-09-15)** |
 
 ---
 
@@ -553,11 +561,39 @@ for the model change, the new component, and the DAO/GSI write.
       `Nyc311-Prod` deploy status for this change is unconfirmed. Check
       the pipeline before considering this leg actually live.
 
-### Topics 4, 7 — agreed, not yet built
+### Topic 4 — agreed, not yet built
 
-The feature-flag framework and the fleet-map UX are both fully
-specified above with no open questions, ready to implement whenever
-picked up next.
+The feature-flag framework is fully specified above with no open
+questions, ready to implement whenever picked up next.
+
+### Topic 7 — fleet map UX — **implemented 2026-09-15**
+
+- [x] `OrdersTable`'s `gsi2-assigned-operator` is now actually populated:
+      `orderDao.scheduleOrder()`'s projection Put stamps
+      `gsi2pk = assigned_operator_id`, `gsi2sk = updated_at`.
+- [x] `OrderDao.listRecentResolvedOrdersForOperator(operatorId)`: queries
+      `gsi2-assigned-operator`, `ScanIndexForward: false`, over-fetches to
+      20, filters to `current_stage === "RESOLVE"`, takes the first 5.
+- [x] `fleetLocationService.ts`'s `getFleetLocations` resolves each recent
+      Order's `location_id` to a `Location` via `locationDao.getLocation`,
+      converts to `GpsLocation` (falling back to `HOME_DEPOT_LOCATION` for
+      missing lat/lng, same rule as `orderSchedulingService.ts`), and adds
+      `recent_job_locations` to each `FleetOperatorLocation` — wired into
+      the existing `GET /fleet/locations` route, no new route.
+      `backend`/`web-app` `models/fleetLocation.ts` both gain the field.
+- [x] CDK: `Nyc311GetFleetLocationsApiLambda` gains `OrdersTable`
+      (`dynamodb:Query`) and `LocationsTable` (`dynamodb:GetItem`) grants
+      and env vars.
+- [x] `FleetMap.tsx`: `CircleMarker` replaced by a `Marker` with an inline-
+      SVG truck `divIcon`, keeping the IDLE/TRANSIT/WORKING fill-color
+      coding. A new `OperatorTrail.tsx` (marker + fading `Polyline`
+      segments, opacity `1.0/0.8/0.6/0.4/0.2` nearest-to-oldest) is
+      extracted to keep `FleetMap.tsx` under the 200-line cap.
+- [x] `backend`/`cdk`/`web-app` build/lint/`test:coverage` all green (872,
+      331, and 693 tests respectively, 90%+ per file, no regressions).
+- [ ] **Not yet done:** committed to `main` but not deployed/verified in
+      `Nyc311-Test`/`Nyc311-Prod` — check the pipeline before considering
+      this leg actually live.
 
 ### Topics 5, 6 — agreed, explicitly held for a pre-implementation revisit
 

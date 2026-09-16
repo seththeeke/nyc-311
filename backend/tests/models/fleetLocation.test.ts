@@ -7,6 +7,7 @@ const operator = {
   name: "Truck 12",
   current_activity: "IDLE",
   current_location: HOME_DEPOT_LOCATION,
+  recent_job_locations: [HOME_DEPOT_LOCATION],
 };
 
 describe("FleetOperatorLocationSchema", () => {
@@ -27,6 +28,17 @@ describe("FleetOperatorLocationSchema", () => {
     const withoutName: Record<string, unknown> = { ...operator };
     delete withoutName.name;
     expect(FleetOperatorLocationSchema.safeParse(withoutName).success).toBe(false);
+  });
+
+  it("accepts an empty recent_job_locations array", () => {
+    const noRecentJobs = { ...operator, recent_job_locations: [] };
+    expect(FleetOperatorLocationSchema.parse(noRecentJobs)).toEqual(noRecentJobs);
+  });
+
+  it("rejects a missing recent_job_locations", () => {
+    const withoutRecentJobs: Record<string, unknown> = { ...operator };
+    delete withoutRecentJobs.recent_job_locations;
+    expect(FleetOperatorLocationSchema.safeParse(withoutRecentJobs).success).toBe(false);
   });
 });
 

@@ -14,7 +14,15 @@ const validEvent = {
 };
 
 const locations: FleetLocations = {
-  operators: [{ operator_id: "01OPERATOR", name: "Truck 12", current_activity: "IDLE", current_location: HOME_DEPOT_LOCATION }],
+  operators: [
+    {
+      operator_id: "01OPERATOR",
+      name: "Truck 12",
+      current_activity: "IDLE",
+      current_location: HOME_DEPOT_LOCATION,
+      recent_job_locations: [],
+    },
+  ],
 };
 
 beforeEach(() => {

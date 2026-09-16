@@ -36,6 +36,17 @@ function stageSlaPartitionKey(stage: OrderStage): string {
   return `STAGE#${stage}`;
 }
 
+/* gsi2pk = assigned_operator_id, gsi2sk = updated_at, per ddb-design.md — "Orders currently assigned to a given Operator". */
+const ASSIGNED_OPERATOR_INDEX = "gsi2-assigned-operator";
+/*
+ * Over-fetches past RECENT_JOBS_LIMIT (11-street-condition-implementation.md
+ * §7) to absorb in-progress Orders (SCHEDULE/EXECUTE, still gsi2-current)
+ * that would otherwise crowd a pure recency sort ahead of completed
+ * (RESOLVE) ones.
+ */
+const RECENT_JOBS_OVER_FETCH_LIMIT = 20;
+const RECENT_JOBS_LIMIT = 5;
+
 /* Opaque pagination cursor = base64url(JSON(DynamoDB LastEvaluatedKey)) — round-tripped by the caller, never inspected. */
 function encodeCursor(key: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
@@ -244,8 +255,20 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
           last_event_sequence: event.sequence_number,
         };
       },
-      /* Keeps the item in gsi1-stage-sla under its new stage — same index also answers "how many Orders in stage X" (ddb-design.md). */
-      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+      /*
+       * Keeps the item in gsi1-stage-sla under its new stage — same index
+       * also answers "how many Orders in stage X" (ddb-design.md). Also
+       * (11-street-condition-implementation.md §7) stamps gsi2-assigned-
+       * operator so the fleet map's recent-job-locations trail can query
+       * this Operator's Orders — the only place assigned_operator_id is
+       * ever set, so the only place this needs writing.
+       */
+      (projection) => ({
+        gsi1pk: stageSlaPartitionKey(projection.current_stage),
+        gsi1sk: projection.sla_deadline,
+        gsi2pk: projection.assigned_operator_id,
+        gsi2sk: projection.updated_at,
+      })
     );
   }
 
@@ -333,6 +356,34 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
     const orders = (result.Items ?? []).map((item) => this.validateOrderItem(item));
     const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
     return { orders, nextCursor };
+  }
+
+  /**
+   * The fleet map's fading path trail (`11-street-condition-implementation.md`
+   * §7): this Operator's last `RECENT_JOBS_LIMIT` completed (`RESOLVE`)
+   * Orders, most-recent-first. Queries `gsi2-assigned-operator` for every
+   * Order ever assigned to `operatorId`, newest `updated_at` first,
+   * over-fetching to `RECENT_JOBS_OVER_FETCH_LIMIT` so in-progress Orders
+   * sitting ahead of older completed ones in raw recency don't crowd out
+   * real results, then filters to `RESOLVE` and takes the first
+   * `RECENT_JOBS_LIMIT`.
+   */
+  async listRecentResolvedOrdersForOperator(operatorId: string): Promise<Order[]> {
+    logInfo("OrderDao.listRecentResolvedOrdersForOperator", { table: this.tableName, operatorId });
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: ASSIGNED_OPERATOR_INDEX,
+        KeyConditionExpression: "gsi2pk = :operatorId",
+        ExpressionAttributeValues: { ":operatorId": operatorId },
+        ScanIndexForward: false,
+        Limit: RECENT_JOBS_OVER_FETCH_LIMIT,
+      })
+    );
+    return (result.Items ?? [])
+      .map((item) => this.validateOrderItem(item))
+      .filter((order) => order.current_stage === "RESOLVE")
+      .slice(0, RECENT_JOBS_LIMIT);
   }
 
   private requirePreviousProjection(orderId: string, previous: Order | null): Order {

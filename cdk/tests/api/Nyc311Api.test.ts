@@ -131,6 +131,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(stack, "Nyc311GetFleetLocationsApiLambda", {
     envName,
     operatorsTable,
+    ordersTable,
+    locationsTable,
   });
   const adHocQueryWorkgroup = new Nyc311AdHocQueryWorkgroup(stack, "Nyc311AdHocQueryWorkgroup", {
     envName,

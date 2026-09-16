@@ -1,0 +1,65 @@
+import type { ReactElement } from "react";
+import { divIcon, type DivIcon } from "leaflet";
+import { Marker, Polyline, Popup } from "react-leaflet";
+import type { GpsLocation, OperatorActivity } from "../models/fleetLocation";
+
+interface OperatorTrailProps {
+  name: string;
+  activity: OperatorActivity;
+  color: string;
+  currentLocation: GpsLocation;
+  recentJobLocations: GpsLocation[];
+}
+
+const ICON_SIZE = 24;
+
+/* Most-recent-completed-job segment first, fading toward the oldest — 11-street-condition-implementation.md §7's "even linear steps". */
+const SEGMENT_OPACITIES = [1.0, 0.8, 0.6, 0.4, 0.2];
+
+/* Inline SVG via divIcon, no image asset/CDN dependency — fill matches the existing IDLE/TRANSIT/WORKING color coding. */
+function truckIcon(color: string): DivIcon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${ICON_SIZE}" height="${ICON_SIZE}">
+    <path d="M2 7h12v8H2z" fill="${color}" stroke="#1f2937" stroke-width="1" />
+    <path d="M14 11h4l4 3v1h-8z" fill="${color}" stroke="#1f2937" stroke-width="1" />
+    <circle cx="6" cy="18" r="2" fill="#1f2937" />
+    <circle cx="18" cy="18" r="2" fill="#1f2937" />
+  </svg>`;
+  return divIcon({ html: svg, className: "", iconSize: [ICON_SIZE, ICON_SIZE], iconAnchor: [ICON_SIZE / 2, ICON_SIZE / 2] });
+}
+
+/**
+ * One Operator's truck marker plus its fading path trail through the last
+ * up to 5 completed jobs (`11-street-condition-implementation.md` §7),
+ * extracted out of `FleetMap.tsx` to keep it under the 200-line component
+ * cap — "one Operator's icon + trail" is also a natural, independently
+ * testable unit on its own. Straight-line segments, not a real road
+ * path — §3's routing decision is still deferred.
+ */
+export function OperatorTrail({ name, activity, color, currentLocation, recentJobLocations }: OperatorTrailProps): ReactElement {
+  const trailPoints = [currentLocation, ...recentJobLocations];
+
+  return (
+    <>
+      <Marker position={[currentLocation.lat, currentLocation.lng]} icon={truckIcon(color)}>
+        <Popup>
+          <strong>{name}</strong>
+          <br />
+          {activity}
+        </Popup>
+      </Marker>
+      {trailPoints.slice(1).map((point, index) => {
+        const previousPoint = trailPoints[index];
+        return (
+          <Polyline
+            key={`${point.lat},${point.lng},${index}`}
+            positions={[
+              [previousPoint.lat, previousPoint.lng],
+              [point.lat, point.lng],
+            ]}
+            pathOptions={{ color, opacity: SEGMENT_OPACITIES[index] }}
+          />
+        );
+      })}
+    </>
+  );
+}

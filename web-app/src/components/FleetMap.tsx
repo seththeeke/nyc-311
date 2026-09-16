@@ -1,7 +1,8 @@
 import type { ReactElement } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FleetOperatorLocation, GpsLocation, OperatorActivity } from "../models/fleetLocation";
+import { OperatorTrail } from "./OperatorTrail";
 
 interface FleetMapProps {
   operators: FleetOperatorLocation[];
@@ -25,11 +26,11 @@ const DEFAULT_ZOOM = 11;
 
 /**
  * The home-page fleet map (`10-capacity-modeling-and-integration.md`
- * §6.1) — a live, freely-navigable view of every active Operator's
- * current GPS position, color-coded by activity. Fills whatever height/
- * width its parent gives it — HomePage.tsx makes that the full viewport.
- * Current position only, no path/trail yet. Always renders, even with an
- * empty roster — HomePage overlays loading/error state on top of it.
+ * §6.1, truck icons + path trails added by
+ * `11-street-condition-implementation.md` §7) — every active Operator's
+ * current GPS position, color-coded by activity, with a fading trail
+ * through its last up to 5 completed jobs. Fills its parent's height/
+ * width. Always renders, even with an empty roster.
  */
 export function FleetMap({ operators }: FleetMapProps): ReactElement {
   const plottable = operators.filter(isPlottable);
@@ -41,18 +42,14 @@ export function FleetMap({ operators }: FleetMapProps): ReactElement {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {plottable.map((operator) => (
-        <CircleMarker
+        <OperatorTrail
           key={operator.operator_id}
-          center={[operator.current_location.lat, operator.current_location.lng]}
-          radius={8}
-          pathOptions={{ color: ACTIVITY_COLOR[operator.current_activity], fillOpacity: 0.8 }}
-        >
-          <Popup>
-            <strong>{operator.name}</strong>
-            <br />
-            {operator.current_activity}
-          </Popup>
-        </CircleMarker>
+          name={operator.name}
+          activity={operator.current_activity}
+          color={ACTIVITY_COLOR[operator.current_activity]}
+          currentLocation={operator.current_location}
+          recentJobLocations={operator.recent_job_locations}
+        />
       ))}
     </MapContainer>
   );

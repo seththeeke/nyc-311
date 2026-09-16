@@ -207,6 +207,8 @@ export class Nyc311Stack extends Stack {
     const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
       envName: props.envName,
       operatorsTable,
+      ordersTable,
+      locationsTable,
     });
     /*
      * Consumed by test-scripts/6-setup-test-admin.py and the integration

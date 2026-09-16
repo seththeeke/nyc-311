@@ -13,7 +13,15 @@ vi.mock("../../src/services/fleetLocationService", () => ({
 const mockedGetFleetLocations = vi.mocked(fleetLocationService.getFleetLocations);
 
 const locations: FleetLocations = {
-  operators: [{ operator_id: "01OPERATOR", name: "Truck 12", current_activity: "IDLE", current_location: { lat: 40.7128, lng: -74.006 } }],
+  operators: [
+    {
+      operator_id: "01OPERATOR",
+      name: "Truck 12",
+      current_activity: "IDLE",
+      current_location: { lat: 40.7128, lng: -74.006 },
+      recent_job_locations: [],
+    },
+  ],
 };
 
 function wrapper({ children }: { children: ReactNode }) {

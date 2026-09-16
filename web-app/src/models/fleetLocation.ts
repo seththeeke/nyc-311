@@ -22,6 +22,12 @@ export const FleetOperatorLocationSchema = z.object({
   name: z.string().min(1),
   current_activity: z.enum(OPERATOR_ACTIVITIES),
   current_location: GpsLocationSchema.nullable(),
+  /*
+   * 11-street-condition-implementation.md §7 — this Operator's last-5-
+   * completed-jobs locations, most-recent-first, for the home-page map's
+   * fading path trail. Empty, not null, when there are none yet.
+   */
+  recent_job_locations: z.array(GpsLocationSchema),
 });
 export type FleetOperatorLocation = z.infer<typeof FleetOperatorLocationSchema>;
 
