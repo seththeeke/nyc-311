@@ -174,3 +174,12 @@ Nothing currently queries it, so no visible bug, but the doc is wrong.
 See [#37](https://github.com/seththeeke/nyc-311/issues/37).
 
 ---
+
+## order_snapshots "latest row per order_id" dedup keys on the wrong column (warehouse_ingested_at, not last_event_sequence)
+
+Surfaced while triaging a suspected Street-Condition filter violation
+(order `01M2JKH2G5T8HWZPTR96EBC8MA`) that turned out to be this instead —
+DynamoDB was correct, the warehouse query picked a stale row due to a
+`warehouse_ingested_at` tie. See [#40](https://github.com/seththeeke/nyc-311/issues/40).
+
+---
