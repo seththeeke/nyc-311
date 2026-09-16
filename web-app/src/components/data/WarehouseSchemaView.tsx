@@ -19,17 +19,17 @@ function TableSchema({ table }: { table: WarehouseTable }): ReactElement {
         {table.table_name}
         <span className="ml-2 font-normal text-slate-500">({table.columns.length} columns)</span>
       </summary>
-      <table className="mt-3 w-full border-collapse text-sm">
+      <table className="mt-3 w-full table-fixed border-collapse text-xs">
         <caption className="sr-only">Columns of the {table.table_name} warehouse table</caption>
         <thead>
           <tr className="border-b border-slate-200 text-left text-slate-500">
-            <th scope="col" className="py-2 pr-4 font-medium">
+            <th scope="col" className="w-[38%] py-2 pr-2 font-medium">
               Column
             </th>
-            <th scope="col" className="py-2 pr-4 font-medium">
+            <th scope="col" className="w-[24%] py-2 pr-2 font-medium">
               Type
             </th>
-            <th scope="col" className="py-2 font-medium">
+            <th scope="col" className="w-[38%] py-2 font-medium">
               Notes
             </th>
           </tr>
@@ -37,9 +37,9 @@ function TableSchema({ table }: { table: WarehouseTable }): ReactElement {
         <tbody>
           {table.columns.map((column) => (
             <tr key={column.name} className="border-b border-slate-100">
-              <td className="py-2 pr-4 font-mono text-xs text-slate-700">{column.name}</td>
-              <td className="py-2 pr-4 text-slate-500">{column.type}</td>
-              <td className="py-2 text-slate-500">{column.comment ?? ""}</td>
+              <td className="py-2 pr-2 font-mono break-words text-slate-700">{column.name}</td>
+              <td className="py-2 pr-2 break-words text-slate-500">{column.type}</td>
+              <td className="py-2 break-words text-slate-500">{column.comment ?? ""}</td>
             </tr>
           ))}
         </tbody>

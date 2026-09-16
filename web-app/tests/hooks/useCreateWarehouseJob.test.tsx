@@ -17,6 +17,7 @@ const job: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T19:04:11.000Z",
@@ -37,18 +38,30 @@ afterEach(() => {
 });
 
 describe("useCreateWarehouseJob", () => {
-  it("calls the service with name/cadence/sql and resolves the created definition", async () => {
+  it("calls the service with name/sql/cadence and resolves the created definition", async () => {
     mockedCreateJob.mockResolvedValue(job);
 
     const { result } = renderHook(() => useCreateWarehouseJob(), { wrapper });
 
     await act(async () => {
-      const created = await result.current.createJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1");
+      const created = await result.current.createJob("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)");
       expect(created).toEqual(job);
     });
 
-    expect(mockedCreateJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1");
+    expect(mockedCreateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)");
     expect(result.current.isCreating).toBe(false);
+  });
+
+  it("calls the service with no cadenceCron when omitted (a saved query)", async () => {
+    mockedCreateJob.mockResolvedValue({ ...job, job_type: "SAVED_QUERY", cadence_cron: undefined, schedule_name: undefined });
+
+    const { result } = renderHook(() => useCreateWarehouseJob(), { wrapper });
+
+    await act(async () => {
+      await result.current.createJob("order_volume_by_zip", "SELECT 1");
+    });
+
+    expect(mockedCreateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 1", undefined);
   });
 
   it("surfaces a createJob failure via error", async () => {
@@ -57,7 +70,7 @@ describe("useCreateWarehouseJob", () => {
     const { result } = renderHook(() => useCreateWarehouseJob(), { wrapper });
 
     await act(async () => {
-      await expect(result.current.createJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1")).rejects.toThrow(
+      await expect(result.current.createJob("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)")).rejects.toThrow(
         "already exists"
       );
     });

@@ -9,7 +9,7 @@ export interface WarehouseJobsPanelProps {
   jobsLoading: boolean;
   jobsError: boolean;
   jobRuns: WarehouseJobRun[];
-  createJob: (name: string, cadenceCron: string, sql: string) => Promise<WarehouseJobDefinition>;
+  createJob: (name: string, sql: string, cadenceCron: string) => Promise<WarehouseJobDefinition>;
   isCreating: boolean;
   createError: Error | null;
   deleteJob: (name: string) => Promise<void>;

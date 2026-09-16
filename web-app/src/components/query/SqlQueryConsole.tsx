@@ -1,11 +1,9 @@
-import { useState, type ReactElement } from "react";
+import { useId, useState, type ReactElement } from "react";
 import { useWarehouseQuery } from "../../hooks/useWarehouseQuery";
 import type { WarehouseTable } from "../../models/warehouseSchema";
 import { QueryResultTable } from "./QueryResultTable";
 import { SqlAutocompleteMenu } from "./SqlAutocompleteMenu";
 import { useSqlAutocomplete } from "./useSqlAutocomplete";
-
-const SQL_TEXTAREA_ID = "ad-hoc-sql-query";
 
 export interface SqlQueryConsoleProps {
   /** Pre-fills the SQL textarea — set by the caller (e.g. a loaded job's SQL); render with a `key` that changes per load so this actually re-initializes. */
@@ -16,10 +14,14 @@ export interface SqlQueryConsoleProps {
   tables?: WarehouseTable[];
   /** When provided, shows a "Save as job" control once a query has run successfully at least once (§12b, Leg 8). */
   onSaveAsJob?: (sql: string) => void;
+  /** When provided, shows a "Save as query" control — a saved query, distinct from a scheduled job (admin warehouse query-tabs enhancement). */
+  onSaveAsQuery?: (sql: string) => void;
   /** When provided alongside `activeJobName`, shows a "Save to {activeJobName}" control that overwrites that job's SQL in place. */
   onUpdateJob?: (sql: string) => void;
   isUpdating?: boolean;
   updateError?: Error | null;
+  /** Fires on every keystroke with the current SQL text — lets a caller (e.g. the query-tabs workspace) mirror it for persistence, without making this component controlled. */
+  onSqlChange?: (sql: string) => void;
 }
 
 /**
@@ -35,15 +37,25 @@ export function SqlQueryConsole({
   activeJobName,
   tables,
   onSaveAsJob,
+  onSaveAsQuery,
   onUpdateJob,
   isUpdating,
   updateError,
+  onSqlChange,
 }: SqlQueryConsoleProps): ReactElement {
+  const sqlTextareaId = useId();
   const [sql, setSql] = useState(initialSql ?? "");
   const { runQuery, result, isRunning, error } = useWarehouseQuery();
+
+  /* Routes every sql update — typed or an applied autocomplete selection alike — through onSqlChange, so a caller mirroring this for persistence (e.g. the query-tabs workspace) never misses one. */
+  function updateSql(value: string): void {
+    setSql(value);
+    onSqlChange?.(value);
+  }
+
   const { suggestions, activeIndex, textareaRef, handleTextChange, handleKeyDown, handleSelect } = useSqlAutocomplete(
     sql,
-    setSql,
+    updateSql,
     tables ?? []
   );
 
@@ -60,7 +72,7 @@ export function SqlQueryConsole({
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label htmlFor={SQL_TEXTAREA_ID} className="block text-sm font-medium text-slate-300">
+          <label htmlFor={sqlTextareaId} className="block text-sm font-medium text-slate-300">
             SQL query
           </label>
           {activeJobName && (
@@ -70,11 +82,11 @@ export function SqlQueryConsole({
           )}
         </div>
         <textarea
-          id={SQL_TEXTAREA_ID}
+          id={sqlTextareaId}
           ref={textareaRef}
           value={sql}
           onChange={(e) => {
-            setSql(e.target.value);
+            updateSql(e.target.value);
             handleTextChange(e.target.value, e.target.selectionStart ?? e.target.value.length);
           }}
           onKeyDown={handleKeyDown}
@@ -120,6 +132,15 @@ export function SqlQueryConsole({
                   className="rounded bg-cyan-600 px-3 py-1 text-sm text-white disabled:opacity-50"
                 >
                   {isUpdating ? "Saving…" : `Save to ${activeJobName}`}
+                </button>
+              )}
+              {onSaveAsQuery && (
+                <button
+                  type="button"
+                  onClick={() => onSaveAsQuery(sql)}
+                  className="rounded bg-white/10 px-3 py-1 text-sm text-slate-100 hover:bg-white/20"
+                >
+                  Save as query
                 </button>
               )}
               {onSaveAsJob && (

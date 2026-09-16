@@ -6,7 +6,7 @@ import { CronScheduleBuilder } from "../query/CronScheduleBuilder";
 export interface JobDefinitionFormProps {
   /** Pre-fills the SQL textarea — the Query tab's "Save as job" control hands over the query text already in the console. */
   initialSql?: string;
-  onCreate: (name: string, cadenceCron: string, sql: string) => Promise<WarehouseJobDefinition>;
+  onCreate: (name: string, sql: string, cadenceCron: string) => Promise<WarehouseJobDefinition>;
   isCreating: boolean;
   error: Error | null;
   onCreated: (job: WarehouseJobDefinition) => void;
@@ -42,7 +42,7 @@ export function JobDefinitionForm({
     }
     setNameError(null);
     try {
-      const job = await onCreate(trimmedName, cadenceCron, sql);
+      const job = await onCreate(trimmedName, sql, cadenceCron);
       onCreated(job);
     } catch {
       /* error prop (from the caller's mutation state) already surfaces the failure below. */

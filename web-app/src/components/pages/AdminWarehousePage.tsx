@@ -7,28 +7,31 @@ import { useCreateWarehouseJob } from "../../hooks/useCreateWarehouseJob";
 import { useUpdateWarehouseJob } from "../../hooks/useUpdateWarehouseJob";
 import { useDeleteWarehouseJob } from "../../hooks/useDeleteWarehouseJob";
 import { useJobSql } from "../../hooks/useJobSql";
+import { useQueryTabs } from "../../hooks/useQueryTabs";
 import type { WarehouseJobDefinition } from "../../models/warehouseJobDefinition";
 import { CollapsiblePanel } from "../CollapsiblePanel";
 import { WarehouseSchemaSearch } from "../data/WarehouseSchemaSearch";
-import { SqlQueryConsole } from "../query/SqlQueryConsole";
-import { JobDefinitionForm } from "../warehouseJobs/JobDefinitionForm";
+import { SavedQueriesList } from "../data/SavedQueriesList";
+import { QueryWorkspace } from "../query/QueryWorkspace";
 import { WarehouseJobsPanel } from "../warehouseJobs/WarehouseJobsPanel";
 
+type SchemaPanelView = "SCHEMA" | "SAVED_QUERIES";
+
+const SCHEMA_TAB_CLASS = "rounded px-2.5 py-1 text-xs font-medium";
+
 /**
- * The admin-gated warehouse workspace (`7-data-warehousing.md` §12b) —
- * schema search and job management flank the query editor as
- * collapsible side panels, all visible at once, rather than tabs, so
- * neither needs a second tab open while writing a query. Loading a job
- * pulls its SQL into the editor (a fresh round trip — SQL text isn't
- * part of the job list response); saving from there updates that same
- * job instead of creating a new one.
+ * The admin-gated warehouse workspace (`7-data-warehousing.md` §12b,
+ * extended by the admin warehouse query-tabs enhancement) — a Schema/
+ * Saved-queries toggle panel and a Jobs panel flank the multi-tab query
+ * workspace. `useQueryTabs` owns the open tabs (persisted to
+ * `localStorage`); loading a job or a saved query always opens a new tab
+ * via `openLoadedTab`, seeded by a fresh SQL round trip (SQL text isn't
+ * part of the job list response).
  */
 export function AdminWarehousePage(): ReactElement {
   const [schemaCollapsed, setSchemaCollapsed] = useState(false);
   const [jobsCollapsed, setJobsCollapsed] = useState(false);
-  const [activeJob, setActiveJob] = useState<WarehouseJobDefinition | null>(null);
-  const [loadedSql, setLoadedSql] = useState("");
-  const [draftSql, setDraftSql] = useState<string | null>(null);
+  const [schemaPanelView, setSchemaPanelView] = useState<SchemaPanelView>("SCHEMA");
   const [loadingName, setLoadingName] = useState<string | null>(null);
 
   const schemaQuery = useWarehouseSchema();
@@ -38,29 +41,21 @@ export function AdminWarehousePage(): ReactElement {
   const { updateJob, isUpdating, error: updateError } = useUpdateWarehouseJob();
   const { deleteJob, isDeleting, error: deleteError } = useDeleteWarehouseJob();
   const { loadSql } = useJobSql();
+  const queryTabs = useQueryTabs();
+
+  const jobDefinitions = jobDefinitionsQuery.data ?? [];
+  const scheduledJobs = jobDefinitions.filter((job) => job.job_type === "SCHEDULED");
+  const savedQueries = jobDefinitions.filter((job) => job.job_type === "SAVED_QUERY");
 
   async function handleLoad(job: WarehouseJobDefinition): Promise<void> {
     setLoadingName(job.job_name);
     try {
       const sql = await loadSql(job.job_name);
-      setActiveJob(job);
-      setLoadedSql(sql);
-      setDraftSql(null);
+      queryTabs.openLoadedTab(job, sql);
     } catch {
       /* useJobSql's own error state isn't surfaced here — the Load click just silently stays put; retrying is one more click away. */
     } finally {
       setLoadingName(null);
-    }
-  }
-
-  async function handleUpdateJob(sql: string): Promise<void> {
-    if (!activeJob) return;
-    try {
-      const updated = await updateJob(activeJob.job_name, activeJob.cadence_cron, sql);
-      setActiveJob(updated);
-      setLoadedSql(sql);
-    } catch {
-      /* updateError (from the hook's mutation state) already surfaces the failure inside SqlQueryConsole. */
     }
   }
 
@@ -86,56 +81,57 @@ export function AdminWarehousePage(): ReactElement {
 
         <div className="mt-6 flex items-start gap-4">
           <CollapsiblePanel title="Schema" collapsed={schemaCollapsed} onToggle={() => setSchemaCollapsed((c) => !c)}>
-            {schemaQuery.isPending || schemaQuery.isError ? (
-              <p className={schemaQuery.isError ? "text-red-400" : "text-slate-400"}>
-                {schemaQuery.isError ? "Failed to load warehouse schema." : "Loading…"}
-              </p>
+            <div className="mb-3 flex gap-1.5" role="tablist" aria-label="Schema panel view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={schemaPanelView === "SCHEMA"}
+                onClick={() => setSchemaPanelView("SCHEMA")}
+                className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SCHEMA" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                Schema
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={schemaPanelView === "SAVED_QUERIES"}
+                onClick={() => setSchemaPanelView("SAVED_QUERIES")}
+                className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SAVED_QUERIES" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                Saved queries
+              </button>
+            </div>
+
+            {schemaPanelView === "SCHEMA" ? (
+              schemaQuery.isPending || schemaQuery.isError ? (
+                <p className={schemaQuery.isError ? "text-red-400" : "text-slate-400"}>
+                  {schemaQuery.isError ? "Failed to load warehouse schema." : "Loading…"}
+                </p>
+              ) : (
+                <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
+              )
             ) : (
-              <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
+              <SavedQueriesList
+                queries={savedQueries}
+                onDelete={deleteJob}
+                isDeleting={isDeleting}
+                deleteError={deleteError}
+                onLoad={(query) => void handleLoad(query)}
+                loadingName={loadingName}
+              />
             )}
           </CollapsiblePanel>
 
-          <div className="min-w-0 flex-1 space-y-4 rounded-2xl border border-white/10 bg-slate-950 p-6">
-            {activeJob && (
-              <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm text-slate-300">
-                <span>
-                  Editing job <span className="font-mono text-cyan-300">{activeJob.job_name}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveJob(null);
-                    setLoadedSql("");
-                  }}
-                  className="text-slate-400 hover:text-white"
-                >
-                  Start a new query
-                </button>
-              </div>
-            )}
-
-            <SqlQueryConsole
-              key={activeJob?.job_name ?? "new"}
-              initialSql={loadedSql}
-              activeJobName={activeJob?.job_name ?? null}
-              tables={schemaQuery.data?.tables}
-              onSaveAsJob={setDraftSql}
-              onUpdateJob={activeJob ? (sql) => void handleUpdateJob(sql) : undefined}
-              isUpdating={isUpdating}
-              updateError={updateError}
-            />
-
-            {draftSql !== null && (
-              <JobDefinitionForm
-                initialSql={draftSql}
-                onCreate={createJob}
-                isCreating={isCreating}
-                error={createError}
-                onCreated={() => setDraftSql(null)}
-                onCancel={() => setDraftSql(null)}
-              />
-            )}
-          </div>
+          <QueryWorkspace
+            queryTabs={queryTabs}
+            tables={schemaQuery.data?.tables}
+            createJob={createJob}
+            isCreating={isCreating}
+            createError={createError}
+            updateJob={updateJob}
+            isUpdating={isUpdating}
+            updateError={updateError}
+          />
 
           <CollapsiblePanel
             title="Jobs"
@@ -144,7 +140,7 @@ export function AdminWarehousePage(): ReactElement {
             expandedClassName="w-96"
           >
             <WarehouseJobsPanel
-              jobs={jobDefinitionsQuery.data ?? []}
+              jobs={scheduledJobs}
               jobsLoading={jobDefinitionsQuery.isPending}
               jobsError={jobDefinitionsQuery.isError}
               jobRuns={jobRunsQuery.data?.jobRuns ?? []}

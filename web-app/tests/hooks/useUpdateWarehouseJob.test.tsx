@@ -17,6 +17,7 @@ const definition: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 10 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T00:00:00.000Z",
@@ -37,18 +38,30 @@ afterEach(() => {
 });
 
 describe("useUpdateWarehouseJob", () => {
-  it("calls the service with name/cadence/sql and returns the updated definition", async () => {
+  it("calls the service with name/sql/cadence and returns the updated definition", async () => {
     mockedUpdateJob.mockResolvedValue(definition);
 
     const { result } = renderHook(() => useUpdateWarehouseJob(), { wrapper });
 
     await act(async () => {
-      const updated = await result.current.updateJob("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2");
+      const updated = await result.current.updateJob("order_volume_by_zip", "SELECT 2", "cron(0 10 * * ? *)");
       expect(updated).toEqual(definition);
     });
 
-    expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2");
+    expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 2", "cron(0 10 * * ? *)");
     expect(result.current.isUpdating).toBe(false);
+  });
+
+  it("calls the service with no cadenceCron when omitted (a saved query)", async () => {
+    mockedUpdateJob.mockResolvedValue({ ...definition, job_type: "SAVED_QUERY", cadence_cron: undefined, schedule_name: undefined });
+
+    const { result } = renderHook(() => useUpdateWarehouseJob(), { wrapper });
+
+    await act(async () => {
+      await result.current.updateJob("order_volume_by_zip", "SELECT 2");
+    });
+
+    expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 2", undefined);
   });
 
   it("surfaces an updateJob failure via error", async () => {
@@ -57,7 +70,7 @@ describe("useUpdateWarehouseJob", () => {
     const { result } = renderHook(() => useUpdateWarehouseJob(), { wrapper });
 
     await act(async () => {
-      await expect(result.current.updateJob("x", "cron(0 10 * * ? *)", "SELECT 2")).rejects.toThrow(
+      await expect(result.current.updateJob("x", "SELECT 2", "cron(0 10 * * ? *)")).rejects.toThrow(
         'No job named "x"'
       );
     });

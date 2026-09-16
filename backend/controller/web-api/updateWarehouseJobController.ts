@@ -52,7 +52,7 @@ export const updateWarehouseJobController = async (event: unknown): Promise<APIG
   const { name } = parsedParams.data;
   try {
     await requireAdminUser(parsedEvent.data);
-    const definition = await updateWarehouseJob(name, parsedBody.data.cadence_cron, parsedBody.data.sql);
+    const definition = await updateWarehouseJob(name, parsedBody.data.sql, parsedBody.data.cadence_cron);
     logInfo("UpdateWarehouseJobControllerCompleted", { jobName: definition.job_name });
     return jsonResponse(200, definition);
   } catch (err) {

@@ -4,35 +4,37 @@ import type { WarehouseJobDefinition } from "../models/warehouseJobDefinition";
 import { WAREHOUSE_JOB_DEFINITIONS_QUERY_KEY } from "./useWarehouseJobDefinitions";
 
 export interface UseCreateWarehouseJobResult {
-  createJob: (name: string, cadenceCron: string, sql: string) => Promise<WarehouseJobDefinition>;
+  /** `cadenceCron` omitted creates a saved query (no schedule); passing one creates a scheduled job. */
+  createJob: (name: string, sql: string, cadenceCron?: string) => Promise<WarehouseJobDefinition>;
   isCreating: boolean;
   error: Error | null;
 }
 
 interface CreateWarehouseJobInput {
   name: string;
-  cadenceCron: string;
   sql: string;
+  cadenceCron?: string;
 }
 
 /**
  * Components call hooks, never services, directly (CLAUDE.md §5.1). Backs
- * both the Jobs tab's "New job" form and the Query tab's "Save as job"
- * control (7-data-warehousing.md §12b, Leg 8). Invalidates the job
- * definition list on success so a newly created job appears immediately.
+ * the Jobs panel's "New job" form and the query console's "Save as job"/
+ * "Save as query" controls (7-data-warehousing.md §12b, Leg 8). Invalidates
+ * the job definition list on success so a newly created job/query appears
+ * immediately.
  */
 export function useCreateWarehouseJob(): UseCreateWarehouseJobResult {
   const queryClient = useQueryClient();
 
   const mutation = useMutation<WarehouseJobDefinition, Error, CreateWarehouseJobInput>({
-    mutationFn: ({ name, cadenceCron, sql }) => warehouseJobDefinitionService.createJob(name, cadenceCron, sql),
+    mutationFn: ({ name, sql, cadenceCron }) => warehouseJobDefinitionService.createJob(name, sql, cadenceCron),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: WAREHOUSE_JOB_DEFINITIONS_QUERY_KEY });
     },
   });
 
   return {
-    createJob: (name, cadenceCron, sql) => mutation.mutateAsync({ name, cadenceCron, sql }),
+    createJob: (name, sql, cadenceCron) => mutation.mutateAsync({ name, sql, cadenceCron }),
     isCreating: mutation.isPending,
     error: mutation.error,
   };

@@ -29,6 +29,7 @@ const definition: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 10 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T00:00:00.000Z",
@@ -69,7 +70,17 @@ describe("updateWarehouseJobController", () => {
 
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body as string)).toEqual(definition);
-    expect(mockedUpdateWarehouseJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2");
+    expect(mockedUpdateWarehouseJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 2", "cron(0 10 * * ? *)");
+  });
+
+  it("updates a SAVED_QUERY with no cadence_cron", async () => {
+    mockedRequireAdminUser.mockResolvedValue(admin);
+    mockedUpdateWarehouseJob.mockResolvedValue({ ...definition, job_type: "SAVED_QUERY", cadence_cron: undefined, schedule_name: undefined });
+
+    const response = await updateWarehouseJobController(eventWithParamsAndBody("order_volume_by_zip", { sql: "SELECT 2" }));
+
+    expect(response.statusCode).toBe(200);
+    expect(mockedUpdateWarehouseJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 2", undefined);
   });
 
   it("returns 400 without calling requireAdminUser for a malformed event", async () => {

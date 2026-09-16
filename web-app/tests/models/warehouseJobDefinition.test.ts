@@ -10,6 +10,7 @@ const validDefinition = {
   record_type: "DEFINITION" as const,
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED" as const,
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T19:04:11.000Z",
@@ -43,10 +44,18 @@ describe("WarehouseJobDefinitionSchema", () => {
     expect(WarehouseJobDefinitionSchema.safeParse({ ...validDefinition, record_type: "RUN" }).success).toBe(false);
   });
 
-  it("rejects a missing cadence_cron", () => {
-    const withoutCadence: Partial<typeof validDefinition> = { ...validDefinition };
-    delete withoutCadence.cadence_cron;
-    expect(WarehouseJobDefinitionSchema.safeParse(withoutCadence).success).toBe(false);
+  it("defaults job_type to SCHEDULED when absent", () => {
+    const { job_type: _jobType, ...rest } = validDefinition;
+    void _jobType;
+    expect(WarehouseJobDefinitionSchema.parse(rest).job_type).toBe("SCHEDULED");
+  });
+
+  it("accepts a SAVED_QUERY definition with no cadence_cron/schedule_name", () => {
+    const { cadence_cron: _cadenceCron, schedule_name: _scheduleName, ...rest } = validDefinition;
+    void _cadenceCron;
+    void _scheduleName;
+    const savedQuery = { ...rest, job_type: "SAVED_QUERY" as const };
+    expect(WarehouseJobDefinitionSchema.parse(savedQuery)).toEqual(savedQuery);
   });
 });
 

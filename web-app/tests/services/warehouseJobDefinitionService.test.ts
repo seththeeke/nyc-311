@@ -32,9 +32,10 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
     const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
 
-    const created = await warehouseJobDefinitionService.createJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1");
+    const created = await warehouseJobDefinitionService.createJob("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)");
 
     expect(created.job_name).toBe("order_volume_by_zip");
+    expect(created.job_type).toBe("SCHEDULED");
     expect(created.cadence_cron).toBe("cron(0 9 * * ? *)");
     expect(created.record_type).toBe("DEFINITION");
 
@@ -42,11 +43,22 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     expect(jobs).toHaveLength(MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs.length + 1);
   });
 
+  it("createJob with no cadenceCron creates a SAVED_QUERY with no schedule fields", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+
+    const created = await warehouseJobDefinitionService.createJob("top_five_zips", "SELECT 1");
+
+    expect(created.job_type).toBe("SAVED_QUERY");
+    expect(created.cadence_cron).toBeUndefined();
+    expect(created.schedule_name).toBeUndefined();
+  });
+
   it("createJob rejects a name that doesn't match the naming regex", async () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
 
-    await expect(warehouseJobDefinitionService.createJob("Order Volume", "cron(0 9 * * ? *)", "SELECT 1")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.createJob("Order Volume", "SELECT 1", "cron(0 9 * * ? *)")).rejects.toThrow(
       "lowercase letters, digits, and underscores only"
     );
   });
@@ -55,7 +67,7 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
 
-    await expect(warehouseJobDefinitionService.createJob("order_volume_by_zip", "cron(0 9 * * ? *)", "   ")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.createJob("order_volume_by_zip", "   ", "cron(0 9 * * ? *)")).rejects.toThrow(
       "SQL is required"
     );
   });
@@ -66,7 +78,7 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
     const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
 
-    await expect(warehouseJobDefinitionService.createJob(existingName, "cron(0 9 * * ? *)", "SELECT 1")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.createJob(existingName, "SELECT 1", "cron(0 9 * * ? *)")).rejects.toThrow(
       "already exists"
     );
   });
@@ -75,13 +87,26 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
     const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
-    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
+    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs.find((job) => job.job_type === "SCHEDULED")!.job_name;
 
-    const updated = await warehouseJobDefinitionService.updateJob(existingName, "cron(0 10 * * ? *)", "SELECT 2");
+    const updated = await warehouseJobDefinitionService.updateJob(existingName, "SELECT 2", "cron(0 10 * * ? *)");
 
     expect(updated.cadence_cron).toBe("cron(0 10 * * ? *)");
     const jobs = await warehouseJobDefinitionService.listJobs();
     expect(jobs.find((job) => job.job_name === existingName)?.cadence_cron).toBe("cron(0 10 * * ? *)");
+    expect(await warehouseJobDefinitionService.getJobSql(existingName)).toBe("SELECT 2");
+  });
+
+  it("updateJob on a SAVED_QUERY overwrites only the SQL, leaving job_type/cadence untouched", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
+    const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs.find((job) => job.job_type === "SAVED_QUERY")!.job_name;
+
+    const updated = await warehouseJobDefinitionService.updateJob(existingName, "SELECT 2");
+
+    expect(updated.job_type).toBe("SAVED_QUERY");
+    expect(updated.cadence_cron).toBeUndefined();
     expect(await warehouseJobDefinitionService.getJobSql(existingName)).toBe("SELECT 2");
   });
 
@@ -90,7 +115,7 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
 
     await expect(
-      warehouseJobDefinitionService.updateJob("no_such_job", "cron(0 10 * * ? *)", "SELECT 2")
+      warehouseJobDefinitionService.updateJob("no_such_job", "SELECT 2", "cron(0 10 * * ? *)")
     ).rejects.toThrow("No job named");
   });
 
@@ -100,7 +125,7 @@ describe("warehouseJobDefinitionService — mock mode", () => {
     const { MOCK_WAREHOUSE_JOB_DEFINITIONS } = await import("../../src/test-data/warehouseJobDefinitions");
     const existingName = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs[0].job_name;
 
-    await expect(warehouseJobDefinitionService.updateJob(existingName, "cron(0 10 * * ? *)", "   ")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.updateJob(existingName, "   ", "cron(0 10 * * ? *)")).rejects.toThrow(
       "SQL is required"
     );
   });
@@ -191,6 +216,7 @@ describe("warehouseJobDefinitionService — live mode", () => {
       record_type: "DEFINITION",
       job_name: "order_volume_by_zip",
       sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+      job_type: "SCHEDULED",
       cadence_cron: "cron(0 9 * * ? *)",
       schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
       created_at: "2026-09-13T19:04:11.000Z",
@@ -200,14 +226,48 @@ describe("warehouseJobDefinitionService — live mode", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
-    const result = await warehouseJobDefinitionService.createJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1");
+    const result = await warehouseJobDefinitionService.createJob("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.example.com/admin/warehouse/jobs",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer id-token-value" }),
-        body: JSON.stringify({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" }),
+        body: JSON.stringify({
+          name: "order_volume_by_zip",
+          job_type: "SCHEDULED",
+          cadence_cron: "cron(0 9 * * ? *)",
+          sql: "SELECT 1",
+        }),
+      })
+    );
+    expect(result).toEqual(definitionBody);
+  });
+
+  it("createJob with no cadenceCron POSTs job_type SAVED_QUERY and no cadence_cron", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    mockedFetchAuthSession.mockResolvedValue({ tokens: { idToken: { toString: () => "id-token-value" } } } as never);
+    const definitionBody = {
+      job_run_id: "DEF#top_five_zips",
+      record_type: "DEFINITION",
+      job_name: "top_five_zips",
+      sql_s3_key: "job-definitions/top_five_zips.sql",
+      job_type: "SAVED_QUERY",
+      created_at: "2026-09-13T19:04:11.000Z",
+      created_by: "01ADMIN0000000000000000001",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => definitionBody });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
+    const result = await warehouseJobDefinitionService.createJob("top_five_zips", "SELECT 1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/admin/warehouse/jobs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ name: "top_five_zips", job_type: "SAVED_QUERY", cadence_cron: undefined, sql: "SELECT 1" }),
       })
     );
     expect(result).toEqual(definitionBody);
@@ -223,7 +283,7 @@ describe("warehouseJobDefinitionService — live mode", () => {
 
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
 
-    await expect(warehouseJobDefinitionService.createJob("x", "cron(0 9 * * ? *)", "SELECT 1")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.createJob("x", "SELECT 1", "cron(0 9 * * ? *)")).rejects.toThrow(
       'A job named "x" already exists'
     );
   });
@@ -237,6 +297,7 @@ describe("warehouseJobDefinitionService — live mode", () => {
       record_type: "DEFINITION",
       job_name: "order_volume_by_zip",
       sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+      job_type: "SCHEDULED",
       cadence_cron: "cron(0 10 * * ? *)",
       schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
       created_at: "2026-09-13T19:04:11.000Z",
@@ -246,7 +307,7 @@ describe("warehouseJobDefinitionService — live mode", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
-    const result = await warehouseJobDefinitionService.updateJob("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2");
+    const result = await warehouseJobDefinitionService.updateJob("order_volume_by_zip", "SELECT 2", "cron(0 10 * * ? *)");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.example.com/admin/warehouse/jobs/order_volume_by_zip",
@@ -269,7 +330,7 @@ describe("warehouseJobDefinitionService — live mode", () => {
 
     const { warehouseJobDefinitionService } = await import("../../src/services/warehouseJobDefinitionService");
 
-    await expect(warehouseJobDefinitionService.updateJob("x", "cron(0 10 * * ? *)", "SELECT 2")).rejects.toThrow(
+    await expect(warehouseJobDefinitionService.updateJob("x", "SELECT 2", "cron(0 10 * * ? *)")).rejects.toThrow(
       'No job named "x"'
     );
   });

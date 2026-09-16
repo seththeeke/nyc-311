@@ -29,6 +29,7 @@ const definition: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T00:00:00.000Z",
@@ -63,16 +64,35 @@ describe("createWarehouseJobController", () => {
     mockedCreateWarehouseJob.mockResolvedValue(definition);
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(201);
     expect(JSON.parse(response.body as string)).toEqual(definition);
     expect(mockedCreateWarehouseJob).toHaveBeenCalledWith(
       "order_volume_by_zip",
-      "cron(0 9 * * ? *)",
       "SELECT 1",
-      "01ADMIN"
+      "01ADMIN",
+      "SCHEDULED",
+      "cron(0 9 * * ? *)"
+    );
+  });
+
+  it("creates a SAVED_QUERY with no cadence_cron", async () => {
+    mockedRequireAdminUser.mockResolvedValue(admin);
+    mockedCreateWarehouseJob.mockResolvedValue({ ...definition, job_type: "SAVED_QUERY", cadence_cron: undefined, schedule_name: undefined });
+
+    const response = await createWarehouseJobController(
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SAVED_QUERY", sql: "SELECT 1" })
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(mockedCreateWarehouseJob).toHaveBeenCalledWith(
+      "order_volume_by_zip",
+      "SELECT 1",
+      "01ADMIN",
+      "SAVED_QUERY",
+      undefined
     );
   });
 
@@ -106,7 +126,7 @@ describe("createWarehouseJobController", () => {
     mockedCreateWarehouseJob.mockRejectedValue(new TerminalError('A job named "x" already exists'));
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "x", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "x", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(409);
@@ -117,7 +137,7 @@ describe("createWarehouseJobController", () => {
     mockedCreateWarehouseJob.mockRejectedValue(new Error("DynamoDB throttled"));
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(500);
@@ -128,7 +148,7 @@ describe("createWarehouseJobController", () => {
     mockedCreateWarehouseJob.mockRejectedValue(new ValidationError("bad input"));
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(400);
@@ -138,7 +158,7 @@ describe("createWarehouseJobController", () => {
     mockedRequireAdminUser.mockRejectedValue(new Error("no claims"));
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(500);
@@ -150,7 +170,7 @@ describe("createWarehouseJobController", () => {
     mockedCreateWarehouseJob.mockRejectedValue("string rejection");
 
     const response = await createWarehouseJobController(
-      eventWithBody({ name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
+      eventWithBody({ name: "order_volume_by_zip", job_type: "SCHEDULED", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" })
     );
 
     expect(response.statusCode).toBe(500);

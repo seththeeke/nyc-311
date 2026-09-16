@@ -10,6 +10,15 @@ import { z } from "zod";
  */
 export const WAREHOUSE_JOB_NAME_REGEX = /^[a-z0-9_]+$/;
 
+/**
+ * A job definition is either a cron-scheduled job (an EventBridge
+ * Scheduler schedule fires it) or a saved query (SQL kept for later
+ * reload into the console, never run on its own) — see
+ * warehouseJobDefinition.ts.
+ */
+export const WAREHOUSE_JOB_TYPES = ["SCHEDULED", "SAVED_QUERY"] as const;
+export type WarehouseJobType = (typeof WAREHOUSE_JOB_TYPES)[number];
+
 export const WarehouseJobSchema = z.object({
   name: z.string().min(1).regex(WAREHOUSE_JOB_NAME_REGEX, "job name must be lower_snake_case (S3 partition-safe)"),
   sql: z.string().min(1),

@@ -6,9 +6,14 @@ import {
 } from "../../models/warehouseJobRequest";
 
 describe("CreateWarehouseJobRequestSchema", () => {
-  const valid = { name: "order_volume_by_zip", cadence_cron: "cron(0 9 * * ? *)", sql: "SELECT 1" };
+  const valid = {
+    name: "order_volume_by_zip",
+    job_type: "SCHEDULED" as const,
+    cadence_cron: "cron(0 9 * * ? *)",
+    sql: "SELECT 1",
+  };
 
-  it("accepts a well-formed request", () => {
+  it("accepts a well-formed SCHEDULED request", () => {
     expect(CreateWarehouseJobRequestSchema.parse(valid)).toEqual(valid);
   });
 
@@ -21,6 +26,23 @@ describe("CreateWarehouseJobRequestSchema", () => {
   it("rejects an empty cadence_cron or sql", () => {
     expect(CreateWarehouseJobRequestSchema.safeParse({ ...valid, cadence_cron: "" }).success).toBe(false);
     expect(CreateWarehouseJobRequestSchema.safeParse({ ...valid, sql: "" }).success).toBe(false);
+  });
+
+  it("rejects a SCHEDULED request with no cadence_cron", () => {
+    const { cadence_cron: _cadenceCron, ...rest } = valid;
+    void _cadenceCron;
+    expect(CreateWarehouseJobRequestSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("accepts a SAVED_QUERY request with no cadence_cron", () => {
+    const { cadence_cron: _cadenceCron, ...rest } = valid;
+    void _cadenceCron;
+    const savedQuery = { ...rest, job_type: "SAVED_QUERY" as const };
+    expect(CreateWarehouseJobRequestSchema.parse(savedQuery)).toEqual(savedQuery);
+  });
+
+  it("rejects an unrecognized job_type", () => {
+    expect(CreateWarehouseJobRequestSchema.safeParse({ ...valid, job_type: "WEEKLY" }).success).toBe(false);
   });
 });
 
@@ -46,5 +68,11 @@ describe("UpdateWarehouseJobRequestSchema", () => {
   it("rejects an empty cadence_cron or sql", () => {
     expect(UpdateWarehouseJobRequestSchema.safeParse({ ...valid, cadence_cron: "" }).success).toBe(false);
     expect(UpdateWarehouseJobRequestSchema.safeParse({ ...valid, sql: "" }).success).toBe(false);
+  });
+
+  it("accepts a request with no cadence_cron (a SAVED_QUERY update)", () => {
+    const { cadence_cron: _cadenceCron, ...rest } = valid;
+    void _cadenceCron;
+    expect(UpdateWarehouseJobRequestSchema.parse(rest)).toEqual(rest);
   });
 });

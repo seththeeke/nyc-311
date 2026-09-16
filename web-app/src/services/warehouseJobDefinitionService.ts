@@ -5,6 +5,7 @@ import {
   WarehouseJobDefinitionListResponseSchema,
   WAREHOUSE_JOB_NAME_REGEX,
   type WarehouseJobDefinition,
+  type WarehouseJobType,
 } from "../models/warehouseJobDefinition";
 import { WarehouseJobSqlResponseSchema } from "../models/warehouseJobSql";
 import { MOCK_WAREHOUSE_JOB_DEFINITIONS } from "../test-data/warehouseJobDefinitions";
@@ -18,8 +19,10 @@ import { MOCK_WAREHOUSE_JOB_DEFINITIONS } from "../test-data/warehouseJobDefinit
  */
 export interface WarehouseJobDefinitionService {
   listJobs(): Promise<WarehouseJobDefinition[]>;
-  createJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition>;
-  updateJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition>;
+  /** `cadenceCron` omitted (or undefined) creates a SAVED_QUERY; passing one creates a SCHEDULED job. */
+  createJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition>;
+  /** `cadenceCron` is ignored server-side for a SAVED_QUERY (it has no schedule to update). */
+  updateJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition>;
   deleteJob(name: string): Promise<void>;
   getJobSql(name: string): Promise<string>;
 }
@@ -51,11 +54,12 @@ class LiveWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     return WarehouseJobDefinitionListResponseSchema.parse(body).jobs;
   }
 
-  async createJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition> {
+  async createJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
+    const jobType: WarehouseJobType = cadenceCron ? "SCHEDULED" : "SAVED_QUERY";
     const response = await authorizedFetch("/admin/warehouse/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, cadence_cron: cadenceCron, sql }),
+      body: JSON.stringify({ name, job_type: jobType, cadence_cron: cadenceCron, sql }),
     });
     if (!response.ok) {
       throw new Error(await errorMessageFrom(response, "Failed to create job"));
@@ -64,7 +68,7 @@ class LiveWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     return WarehouseJobDefinitionSchema.parse(body);
   }
 
-  async updateJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition> {
+  async updateJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
     const response = await authorizedFetch(`/admin/warehouse/jobs/${encodeURIComponent(name)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -118,7 +122,7 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     return mockJobs;
   }
 
-  async createJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition> {
+  async createJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
     if (!WAREHOUSE_JOB_NAME_REGEX.test(name)) {
       throw new Error("Job name must be lowercase letters, digits, and underscores only");
     }
@@ -128,13 +132,14 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     if (sql.trim() === "") {
       throw new Error("SQL is required");
     }
+    const jobType: WarehouseJobType = cadenceCron ? "SCHEDULED" : "SAVED_QUERY";
     const job: WarehouseJobDefinition = {
       job_run_id: `DEF#${name}`,
       record_type: "DEFINITION",
       job_name: name,
       sql_s3_key: `job-definitions/${name}.sql`,
-      cadence_cron: cadenceCron,
-      schedule_name: `Nyc311WarehouseJob-${name}-Mock`,
+      job_type: jobType,
+      ...(jobType === "SCHEDULED" ? { cadence_cron: cadenceCron, schedule_name: `Nyc311WarehouseJob-${name}-Mock` } : {}),
       created_at: new Date().toISOString(),
       created_by: "01MOCKADMIN0000000000000001",
     };
@@ -143,7 +148,7 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     return job;
   }
 
-  async updateJob(name: string, cadenceCron: string, sql: string): Promise<WarehouseJobDefinition> {
+  async updateJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
     const existing = mockJobs.find((job) => job.job_name === name);
     if (!existing) {
       throw new Error(`No job named "${name}"`);
@@ -151,7 +156,8 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     if (sql.trim() === "") {
       throw new Error("SQL is required");
     }
-    const updated: WarehouseJobDefinition = { ...existing, cadence_cron: cadenceCron };
+    const updated: WarehouseJobDefinition =
+      existing.job_type === "SCHEDULED" && cadenceCron ? { ...existing, cadence_cron: cadenceCron } : existing;
     mockJobs = mockJobs.map((job) => (job.job_name === name ? updated : job));
     mockJobSql[name] = sql;
     return updated;

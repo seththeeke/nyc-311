@@ -4,15 +4,16 @@ import type { WarehouseJobDefinition } from "../models/warehouseJobDefinition";
 import { WAREHOUSE_JOB_DEFINITIONS_QUERY_KEY } from "./useWarehouseJobDefinitions";
 
 export interface UseUpdateWarehouseJobResult {
-  updateJob: (name: string, cadenceCron: string, sql: string) => Promise<WarehouseJobDefinition>;
+  /** `cadenceCron` is ignored server-side when the job is a saved query (it has no schedule). */
+  updateJob: (name: string, sql: string, cadenceCron?: string) => Promise<WarehouseJobDefinition>;
   isUpdating: boolean;
   error: Error | null;
 }
 
 interface UpdateWarehouseJobInput {
   name: string;
-  cadenceCron: string;
   sql: string;
+  cadenceCron?: string;
 }
 
 /**
@@ -27,14 +28,14 @@ export function useUpdateWarehouseJob(): UseUpdateWarehouseJobResult {
   const queryClient = useQueryClient();
 
   const mutation = useMutation<WarehouseJobDefinition, Error, UpdateWarehouseJobInput>({
-    mutationFn: ({ name, cadenceCron, sql }) => warehouseJobDefinitionService.updateJob(name, cadenceCron, sql),
+    mutationFn: ({ name, sql, cadenceCron }) => warehouseJobDefinitionService.updateJob(name, sql, cadenceCron),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: WAREHOUSE_JOB_DEFINITIONS_QUERY_KEY });
     },
   });
 
   return {
-    updateJob: (name, cadenceCron, sql) => mutation.mutateAsync({ name, cadenceCron, sql }),
+    updateJob: (name, sql, cadenceCron) => mutation.mutateAsync({ name, sql, cadenceCron }),
     isUpdating: mutation.isPending,
     error: mutation.error,
   };

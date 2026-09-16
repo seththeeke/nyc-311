@@ -10,6 +10,7 @@ const jobA: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "job_a",
   sql_s3_key: "job-definitions/job_a.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-job_a-Test",
   created_at: "2026-09-13T19:04:11.000Z",
@@ -36,6 +37,12 @@ const runForA: WarehouseJobRun = {
   query_queue_time_ms: 5,
 };
 
+function rowFor(jobName: string): HTMLElement {
+  const row = screen.getByText(jobName).closest("li");
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
 describe("JobDefinitionList", () => {
   it("shows a placeholder when there are no jobs", () => {
     render(<JobDefinitionList jobs={[]} jobRuns={[]} onDelete={vi.fn()} isDeleting={false} deleteError={null} />);
@@ -43,7 +50,7 @@ describe("JobDefinitionList", () => {
     expect(screen.getByText(/No jobs yet/)).toBeInTheDocument();
   });
 
-  it("renders one row per job, with its cadence and creator", () => {
+  it("renders one row per job, with its name and cadence subtext", () => {
     render(<JobDefinitionList jobs={[jobA, jobB]} jobRuns={[]} onDelete={vi.fn()} isDeleting={false} deleteError={null} />);
 
     expect(screen.getByText("job_a")).toBeInTheDocument();
@@ -55,15 +62,13 @@ describe("JobDefinitionList", () => {
     render(<JobDefinitionList jobs={[jobA, jobB]} jobRuns={[runForA]} onDelete={vi.fn()} isDeleting={false} deleteError={null} />);
     const user = userEvent.setup();
 
-    const rowA = screen.getByText("job_a").closest("tr");
-    expect(rowA).not.toBeNull();
-    await user.click(within(rowA as HTMLElement).getByRole("button", { name: "History" }));
+    await user.click(within(rowFor("job_a")).getByRole("button", { name: "Show run history for job_a" }));
 
-    expect(screen.getByRole("button", { name: "Hide history" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide run history for job_a" })).toBeInTheDocument();
     expect(screen.getByText("5s")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Hide history" }));
-    expect(screen.queryByRole("button", { name: "Hide history" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide run history for job_a" }));
+    expect(screen.queryByRole("button", { name: "Hide run history for job_a" })).not.toBeInTheDocument();
   });
 
   it("requires confirmation before deleting, and calls onDelete on confirm", async () => {
@@ -114,7 +119,7 @@ describe("JobDefinitionList", () => {
   it("does not render a Load button when onLoad is omitted", () => {
     render(<JobDefinitionList jobs={[jobA]} jobRuns={[]} onDelete={vi.fn()} isDeleting={false} deleteError={null} />);
 
-    expect(screen.queryByRole("button", { name: "Load" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load job job_a" })).not.toBeInTheDocument();
   });
 
   it("calls onLoad with the job when its Load button is clicked", async () => {
@@ -130,9 +135,7 @@ describe("JobDefinitionList", () => {
       />
     );
 
-    const rowB = screen.getByText("job_b").closest("tr");
-    expect(rowB).not.toBeNull();
-    await userEvent.setup().click(within(rowB as HTMLElement).getByRole("button", { name: "Load" }));
+    await userEvent.setup().click(within(rowFor("job_b")).getByRole("button", { name: "Load job job_b" }));
 
     expect(onLoad).toHaveBeenCalledWith(jobB);
   });
@@ -150,10 +153,8 @@ describe("JobDefinitionList", () => {
       />
     );
 
-    const rowA = screen.getByText("job_a").closest("tr");
-    const rowB = screen.getByText("job_b").closest("tr");
-    expect(within(rowA as HTMLElement).getByRole("button", { name: "Loading…" })).toBeDisabled();
-    expect(within(rowB as HTMLElement).getByRole("button", { name: "Load" })).toBeEnabled();
+    expect(within(rowFor("job_a")).getByRole("button", { name: "Loading job_a" })).toBeDisabled();
+    expect(within(rowFor("job_b")).getByRole("button", { name: "Load job job_b" })).toBeEnabled();
   });
 
   it("shows the delete error message when present", () => {

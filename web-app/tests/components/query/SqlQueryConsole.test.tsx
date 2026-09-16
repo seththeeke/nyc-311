@@ -135,6 +135,37 @@ describe("SqlQueryConsole", () => {
     expect(onSaveAsJob).toHaveBeenCalledWith("SELECT 1");
   });
 
+  it("does not render a Save as query control when onSaveAsQuery is omitted", () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+
+    render(<SqlQueryConsole />);
+
+    expect(screen.queryByRole("button", { name: "Save as query" })).not.toBeInTheDocument();
+  });
+
+  it("calls onSaveAsQuery with the current SQL text when clicked", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result, isRunning: false, error: null });
+    const onSaveAsQuery = vi.fn();
+
+    render(<SqlQueryConsole onSaveAsQuery={onSaveAsQuery} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("SQL query"), "SELECT 1");
+    await user.click(screen.getByRole("button", { name: "Save as query" }));
+
+    expect(onSaveAsQuery).toHaveBeenCalledWith("SELECT 1");
+  });
+
+  it("calls onSqlChange with each keystroke's current value", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+    const onSqlChange = vi.fn();
+
+    render(<SqlQueryConsole onSqlChange={onSqlChange} />);
+    await userEvent.setup().type(screen.getByLabelText("SQL query"), "hi");
+
+    expect(onSqlChange).toHaveBeenCalledWith("h");
+    expect(onSqlChange).toHaveBeenCalledWith("hi");
+  });
+
   it("pre-fills the textarea from initialSql", () => {
     mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
 
@@ -213,6 +244,19 @@ describe("SqlQueryConsole", () => {
 
     expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT * FROM locations ");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("calls onSqlChange when a suggestion is applied via click, not just via typing", async () => {
+    mockedUseWarehouseQuery.mockReturnValue({ runQuery: vi.fn(), result: undefined, isRunning: false, error: null });
+    const onSqlChange = vi.fn();
+
+    render(<SqlQueryConsole tables={[locations]} onSqlChange={onSqlChange} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("SQL query"), "SELECT * FROM loc");
+    onSqlChange.mockClear();
+    await user.click(screen.getByRole("option", { name: "locations" }));
+
+    expect(onSqlChange).toHaveBeenCalledWith("SELECT * FROM locations ");
   });
 
   it("selects a suggestion with Enter", async () => {

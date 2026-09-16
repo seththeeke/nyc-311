@@ -34,12 +34,20 @@ function definition(overrides: Partial<WarehouseJobDefinition> = {}): WarehouseJ
     record_type: "DEFINITION",
     job_name: "order_volume_by_zip",
     sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+    job_type: "SCHEDULED",
     cadence_cron: "cron(0 9 * * ? *)",
     schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
     created_at: "2026-09-13T19:04:11.000Z",
     created_by: "01ADMIN",
     ...overrides,
   };
+}
+
+function savedQueryDefinition(overrides: Partial<WarehouseJobDefinition> = {}): WarehouseJobDefinition {
+  const { cadence_cron: _cadenceCron, schedule_name: _scheduleName, ...rest } = definition();
+  void _cadenceCron;
+  void _scheduleName;
+  return { ...rest, job_type: "SAVED_QUERY", ...overrides };
 }
 
 function fakeDao(overrides: Partial<Record<keyof WarehouseJobRunsDao, unknown>> = {}): WarehouseJobRunsDao {
@@ -87,9 +95,10 @@ describe("createWarehouseJob", () => {
 
     const result = await createWarehouseJob(
       "order_volume_by_zip",
-      "cron(0 9 * * ? *)",
       "SELECT zip, COUNT(*) FROM locations GROUP BY zip",
       "01ADMIN",
+      "SCHEDULED",
+      "cron(0 9 * * ? *)",
       { ...baseDeps, jobRunsDao: dao }
     );
 
@@ -121,7 +130,7 @@ describe("createWarehouseJob", () => {
     const dao = fakeDao({ putDefinition: vi.fn().mockRejectedValue(new TerminalError('A job named "x" already exists')) });
 
     await expect(
-      createWarehouseJob("x", "cron(0 9 * * ? *)", "SELECT 1", "01ADMIN", { ...baseDeps, jobRunsDao: dao })
+      createWarehouseJob("x", "SELECT 1", "01ADMIN", "SCHEDULED", "cron(0 9 * * ? *)", { ...baseDeps, jobRunsDao: dao })
     ).rejects.toBeInstanceOf(TerminalError);
     expect(schedulerMock.calls()).toHaveLength(0);
   });
@@ -131,7 +140,10 @@ describe("createWarehouseJob", () => {
     schedulerMock.on(CreateScheduleCommand).rejects(new Error("invalid cron expression"));
 
     await expect(
-      createWarehouseJob("order_volume_by_zip", "cron(bad)", "SELECT 1", "01ADMIN", { ...baseDeps, jobRunsDao: dao })
+      createWarehouseJob("order_volume_by_zip", "SELECT 1", "01ADMIN", "SCHEDULED", "cron(bad)", {
+        ...baseDeps,
+        jobRunsDao: dao,
+      })
     ).rejects.toThrow(/order_volume_by_zip/);
   });
 
@@ -141,7 +153,7 @@ describe("createWarehouseJob", () => {
     void _now;
     const before = Date.now();
 
-    const result = await createWarehouseJob("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1", "01ADMIN", {
+    const result = await createWarehouseJob("order_volume_by_zip", "SELECT 1", "01ADMIN", "SCHEDULED", "cron(0 9 * * ? *)", {
       ...(depsWithoutClock as WarehouseJobDefinitionDeps),
       jobRunsDao: dao,
     });
@@ -158,9 +170,27 @@ describe("createWarehouseJob", () => {
     const sendSpy = vi.spyOn(schedulerClient, "send").mockRejectedValueOnce("raw string blow-up");
 
     await expect(
-      createWarehouseJob("order_volume_by_zip", "cron(bad)", "SELECT 1", "01ADMIN", { ...baseDeps, jobRunsDao: dao })
+      createWarehouseJob("order_volume_by_zip", "SELECT 1", "01ADMIN", "SCHEDULED", "cron(bad)", {
+        ...baseDeps,
+        jobRunsDao: dao,
+      })
     ).rejects.toThrow(TerminalError);
     sendSpy.mockRestore();
+  });
+
+  it("creates a SAVED_QUERY definition with no cadence/schedule and never calls the scheduler", async () => {
+    const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(savedQueryDefinition()) });
+
+    const result = await createWarehouseJob("order_volume_by_zip", "SELECT 1", "01ADMIN", "SAVED_QUERY", undefined, {
+      ...baseDeps,
+      jobRunsDao: dao,
+    });
+
+    expect(result.job_type).toBe("SAVED_QUERY");
+    expect(result.cadence_cron).toBeUndefined();
+    expect(result.schedule_name).toBeUndefined();
+    expect(dao.putDefinition).toHaveBeenCalledWith(expect.not.objectContaining({ cadence_cron: expect.anything() }));
+    expect(schedulerMock.calls()).toHaveLength(0);
   });
 });
 
@@ -222,6 +252,15 @@ describe("deleteWarehouseJob", () => {
     expect(dao.deleteDefinition).not.toHaveBeenCalled();
     sendSpy.mockRestore();
   });
+
+  it("skips DeleteSchedule entirely for a SAVED_QUERY (no schedule_name)", async () => {
+    const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(savedQueryDefinition()) });
+
+    await deleteWarehouseJob("order_volume_by_zip", { ...baseDeps, jobRunsDao: dao });
+
+    expect(schedulerMock.calls()).toHaveLength(0);
+    expect(dao.deleteDefinition).toHaveBeenCalledWith("order_volume_by_zip");
+  });
 });
 
 describe("listWarehouseJobs", () => {
@@ -237,8 +276,8 @@ describe("updateWarehouseJob", () => {
 
     const updated = await updateWarehouseJob(
       "order_volume_by_zip",
-      "cron(0 10 * * ? *)",
       "SELECT 2",
+      "cron(0 10 * * ? *)",
       { ...baseDeps, jobRunsDao: dao }
     );
 
@@ -260,7 +299,7 @@ describe("updateWarehouseJob", () => {
     const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(null) });
 
     await expect(
-      updateWarehouseJob("ghost_job", "cron(0 10 * * ? *)", "SELECT 2", { ...baseDeps, jobRunsDao: dao })
+      updateWarehouseJob("ghost_job", "SELECT 2", "cron(0 10 * * ? *)", { ...baseDeps, jobRunsDao: dao })
     ).rejects.toBeInstanceOf(NotFoundError);
     expect(s3Mock.calls()).toHaveLength(0);
     expect(schedulerMock.calls()).toHaveLength(0);
@@ -272,9 +311,22 @@ describe("updateWarehouseJob", () => {
     schedulerMock.on(UpdateScheduleCommand).rejects(new Error("access denied"));
 
     await expect(
-      updateWarehouseJob("order_volume_by_zip", "cron(0 10 * * ? *)", "SELECT 2", { ...baseDeps, jobRunsDao: dao })
+      updateWarehouseJob("order_volume_by_zip", "SELECT 2", "cron(0 10 * * ? *)", { ...baseDeps, jobRunsDao: dao })
     ).rejects.toThrow(/order_volume_by_zip/);
     expect(dao.updateDefinition).not.toHaveBeenCalled();
+  });
+
+  it("overwrites only the S3 SQL for a SAVED_QUERY, never touching the scheduler", async () => {
+    const dao = fakeDao({ getDefinition: vi.fn().mockResolvedValue(savedQueryDefinition()) });
+
+    const updated = await updateWarehouseJob("order_volume_by_zip", "SELECT 2", undefined, {
+      ...baseDeps,
+      jobRunsDao: dao,
+    });
+
+    expect(schedulerMock.calls()).toHaveLength(0);
+    expect(dao.updateDefinition).toHaveBeenCalledWith(savedQueryDefinition());
+    expect(updated).toEqual(savedQueryDefinition());
   });
 });
 

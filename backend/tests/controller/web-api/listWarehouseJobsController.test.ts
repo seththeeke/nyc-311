@@ -29,6 +29,7 @@ const jobs: WarehouseJobDefinition[] = [
     record_type: "DEFINITION",
     job_name: "order_volume_by_zip",
     sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+    job_type: "SCHEDULED",
     cadence_cron: "cron(0 9 * * ? *)",
     schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
     created_at: "2026-09-13T00:00:00.000Z",

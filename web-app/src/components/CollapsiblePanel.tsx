@@ -25,7 +25,7 @@ export function CollapsiblePanel({
 }: CollapsiblePanelProps): ReactElement {
   return (
     <div
-      className={`flex shrink-0 flex-col rounded-2xl border border-white/10 bg-slate-950 ${collapsed ? "w-12" : expandedClassName}`}
+      className={`flex min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950 ${collapsed ? "w-12" : expandedClassName}`}
     >
       <div className="flex items-center justify-between gap-2 border-b border-white/10 p-2">
         {!collapsed && <h2 className="truncate px-1 text-sm font-semibold text-white">{title}</h2>}
@@ -39,7 +39,7 @@ export function CollapsiblePanel({
           {collapsed ? "»" : "«"}
         </button>
       </div>
-      {!collapsed && <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>}
+      {!collapsed && <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3">{children}</div>}
     </div>
   );
 }

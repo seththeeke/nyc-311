@@ -38,14 +38,25 @@ const mockedRunQuery = vi.mocked(warehouseQueryService.runQuery);
 
 const emptySchema: WarehouseSchemaResponse = { tables: [] };
 
-const job: WarehouseJobDefinition = {
+const scheduledJob: WarehouseJobDefinition = {
   job_run_id: "DEF#order_volume_by_zip",
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T19:04:11.000Z",
+  created_by: "01ADMIN0000000000000000001",
+};
+
+const savedQuery: WarehouseJobDefinition = {
+  job_run_id: "DEF#top_five_zips",
+  record_type: "DEFINITION",
+  job_name: "top_five_zips",
+  sql_s3_key: "job-definitions/top_five_zips.sql",
+  job_type: "SAVED_QUERY",
+  created_at: "2026-09-13T19:04:10.000Z",
   created_by: "01ADMIN0000000000000000001",
 };
 
@@ -70,9 +81,10 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   mockedGetSchema.mockReset().mockResolvedValue(emptySchema);
   mockedGetJobRuns.mockReset().mockResolvedValue({ jobRuns: [] });
-  mockedListJobs.mockReset().mockResolvedValue([job]);
+  mockedListJobs.mockReset().mockResolvedValue([scheduledJob, savedQuery]);
   mockedCreateJob.mockReset();
   mockedUpdateJob.mockReset();
   mockedDeleteJob.mockReset();
@@ -88,13 +100,14 @@ describe("AdminWarehousePage", () => {
     expect(screen.getByRole("link", { name: /Admin/ })).toHaveAttribute("href", "/admin");
   });
 
-  it("shows the schema, query editor, and jobs panels all at once", async () => {
+  it("shows the schema, query editor, and jobs panels all at once, jobs filtered to SCHEDULED only", async () => {
     mockedGetSchema.mockResolvedValue({ tables: [{ table_name: "order_events", columns: [] }] });
     renderPage();
 
     expect(await screen.findByText("order_events")).toBeInTheDocument();
     expect(screen.getByLabelText("SQL query")).toBeInTheDocument();
     expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
+    expect(screen.queryByText("top_five_zips")).not.toBeInTheDocument();
   });
 
   it("shows a loading state on the schema panel while the fetch is pending", async () => {
@@ -125,9 +138,26 @@ describe("AdminWarehousePage", () => {
     expect(await screen.findByText("order_events")).toBeInTheDocument();
   });
 
+  it("toggles the Schema panel between Schema and Saved queries", async () => {
+    mockedGetSchema.mockResolvedValue({ tables: [{ table_name: "order_events", columns: [] }] });
+    renderPage();
+    await screen.findByText("order_events");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Saved queries" }));
+
+    expect(await screen.findByText("top_five_zips")).toBeInTheDocument();
+    expect(screen.queryByText("order_events")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Schema" }));
+
+    expect(await screen.findByText("order_events")).toBeInTheDocument();
+    expect(screen.queryByText("top_five_zips")).not.toBeInTheDocument();
+  });
+
   it("runs a query, then Save as job opens a pre-filled create form", async () => {
     mockedRunQuery.mockResolvedValue(queryResult);
-    mockedCreateJob.mockResolvedValue(job);
+    mockedCreateJob.mockResolvedValue(scheduledJob);
     renderPage();
     const user = userEvent.setup();
 
@@ -141,40 +171,85 @@ describe("AdminWarehousePage", () => {
     await user.type(screen.getByLabelText("Job name"), "order_volume_by_zip");
     await user.click(screen.getByRole("button", { name: "Create job" }));
 
-    await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1"));
+    await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 1", "cron(0 9 * * ? *)"));
     await waitFor(() => expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument());
   });
 
-  it("loads a job's SQL into the editor and shows the active-job badge", async () => {
+  it("runs a query, then Save as query creates a saved query with no cadence", async () => {
+    mockedRunQuery.mockResolvedValue(queryResult);
+    mockedCreateJob.mockResolvedValue(savedQuery);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("SQL query"), "SELECT 1");
+    await user.click(screen.getByRole("button", { name: "Run query" }));
+    await screen.findByText(/1 row/);
+    await user.click(screen.getByRole("button", { name: "Save as query" }));
+    await user.type(screen.getByLabelText("Query name"), "top_five_zips");
+    await user.click(screen.getByRole("button", { name: "Save query" }));
+
+    await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("top_five_zips", "SELECT 1", undefined));
+  });
+
+  it("loads a job's SQL into a new tab", async () => {
     mockedGetJobSql.mockResolvedValue("SELECT borough FROM locations");
     renderPage();
     await screen.findByText("order_volume_by_zip");
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Load" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Load job order_volume_by_zip" }));
 
     expect(mockedGetJobSql).toHaveBeenCalledWith("order_volume_by_zip");
-    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT borough FROM locations"));
-    expect(screen.getAllByText("order_volume_by_zip").length).toBeGreaterThan(1);
+    await waitFor(() => expect(screen.getAllByLabelText("SQL query").length).toBe(2));
+    const loadedConsole = screen.getAllByLabelText("SQL query")[1];
+    expect(loadedConsole).toHaveValue("SELECT borough FROM locations");
+  });
+
+  it("does not throw and clears loadingName when loading a job's SQL fails", async () => {
+    mockedGetJobSql.mockRejectedValue(new Error("HTTP 500"));
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Load job order_volume_by_zip" }));
+
+    await waitFor(() => expect(mockedGetJobSql).toHaveBeenCalledWith("order_volume_by_zip"));
+    expect(await screen.findByRole("button", { name: "Load job order_volume_by_zip" })).toBeEnabled();
+    expect(screen.getAllByLabelText("SQL query")).toHaveLength(1);
+  });
+
+  it("loads a saved query's SQL into a new tab from the Saved queries view", async () => {
+    mockedGetSchema.mockResolvedValue({ tables: [{ table_name: "order_events", columns: [] }] });
+    mockedGetJobSql.mockResolvedValue("SELECT 1");
+    renderPage();
+    await screen.findByText("order_events");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "Saved queries" }));
+    await screen.findByText("top_five_zips");
+    await user.click(screen.getByRole("button", { name: "Load query top_five_zips" }));
+
+    expect(mockedGetJobSql).toHaveBeenCalledWith("top_five_zips");
+    await waitFor(() => expect(screen.getAllByLabelText("SQL query").length).toBe(2));
   });
 
   it("saves changes back to the loaded job instead of creating a new one", async () => {
     mockedGetJobSql.mockResolvedValue("SELECT 1");
     mockedRunQuery.mockResolvedValue(queryResult);
-    mockedUpdateJob.mockResolvedValue({ ...job, cadence_cron: "cron(0 9 * * ? *)" });
+    mockedUpdateJob.mockResolvedValue(scheduledJob);
     renderPage();
     const user = userEvent.setup();
 
     await screen.findByText("order_volume_by_zip");
-    await user.click(screen.getByRole("button", { name: "Load" }));
-    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
+    await user.click(screen.getByRole("button", { name: "Load job order_volume_by_zip" }));
+    await waitFor(() => expect(screen.getAllByLabelText("SQL query")).toHaveLength(2));
+    const loadedConsole = screen.getAllByLabelText("SQL query")[1];
 
-    await user.click(screen.getByRole("button", { name: "Run query" }));
+    await user.click(screen.getAllByRole("button", { name: "Run query" })[1]);
     await screen.findByText(/1 row/);
     await user.click(screen.getByRole("button", { name: "Save to order_volume_by_zip" }));
 
-    await waitFor(() =>
-      expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "cron(0 9 * * ? *)", "SELECT 1")
-    );
+    await waitFor(() => expect(mockedUpdateJob).toHaveBeenCalledWith("order_volume_by_zip", "SELECT 1", undefined));
+    expect(loadedConsole).toHaveValue("SELECT 1");
   });
 
   it("does not throw when updateJob rejects, and surfaces the failure", async () => {
@@ -185,10 +260,10 @@ describe("AdminWarehousePage", () => {
     const user = userEvent.setup();
 
     await screen.findByText("order_volume_by_zip");
-    await user.click(screen.getByRole("button", { name: "Load" }));
-    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
+    await user.click(screen.getByRole("button", { name: "Load job order_volume_by_zip" }));
+    await waitFor(() => expect(screen.getAllByLabelText("SQL query")).toHaveLength(2));
 
-    await user.click(screen.getByRole("button", { name: "Run query" }));
+    await user.click(screen.getAllByRole("button", { name: "Run query" })[1]);
     await screen.findByText(/1 row/);
     await user.click(screen.getByRole("button", { name: "Save to order_volume_by_zip" }));
 
@@ -196,23 +271,8 @@ describe("AdminWarehousePage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("schedule update failed");
   });
 
-  it("clears the active job via 'Start a new query'", async () => {
-    mockedGetJobSql.mockResolvedValue("SELECT 1");
-    renderPage();
-    const user = userEvent.setup();
-
-    await screen.findByText("order_volume_by_zip");
-    await user.click(screen.getByRole("button", { name: "Load" }));
-    await waitFor(() => expect(screen.getByLabelText("SQL query")).toHaveValue("SELECT 1"));
-
-    await user.click(screen.getByRole("button", { name: "Start a new query" }));
-
-    expect(screen.getByLabelText("SQL query")).toHaveValue("");
-    expect(screen.queryByRole("button", { name: "Start a new query" })).not.toBeInTheDocument();
-  });
-
   it("creates a job from the Jobs panel's New job form", async () => {
-    mockedCreateJob.mockResolvedValue({ ...job, job_name: "new_job" });
+    mockedCreateJob.mockResolvedValue({ ...scheduledJob, job_name: "new_job" });
     renderPage();
     const user = userEvent.setup();
 
@@ -222,7 +282,7 @@ describe("AdminWarehousePage", () => {
     await user.type(screen.getByLabelText("SQL"), "SELECT 1");
     await user.click(screen.getByRole("button", { name: "Create job" }));
 
-    await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("new_job", "cron(0 9 * * ? *)", "SELECT 1"));
+    await waitFor(() => expect(mockedCreateJob).toHaveBeenCalledWith("new_job", "SELECT 1", "cron(0 9 * * ? *)"));
   });
 
   it("deletes a job from the Jobs panel", async () => {

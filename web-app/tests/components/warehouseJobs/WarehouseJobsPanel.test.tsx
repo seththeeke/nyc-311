@@ -9,6 +9,7 @@ const job: WarehouseJobDefinition = {
   record_type: "DEFINITION",
   job_name: "order_volume_by_zip",
   sql_s3_key: "job-definitions/order_volume_by_zip.sql",
+  job_type: "SCHEDULED",
   cadence_cron: "cron(0 9 * * ? *)",
   schedule_name: "Nyc311WarehouseJob-order_volume_by_zip-Test",
   created_at: "2026-09-13T19:04:11.000Z",
@@ -50,7 +51,7 @@ describe("WarehouseJobsPanel", () => {
     render(<WarehouseJobsPanel {...baseProps()} onLoad={onLoad} />);
 
     expect(screen.getByText("order_volume_by_zip")).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Load" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Load job order_volume_by_zip" }));
 
     expect(onLoad).toHaveBeenCalledWith(job);
   });
@@ -65,7 +66,7 @@ describe("WarehouseJobsPanel", () => {
     await user.type(screen.getByLabelText("SQL"), "SELECT 1");
     await user.click(screen.getByRole("button", { name: "Create job" }));
 
-    await waitFor(() => expect(createJob).toHaveBeenCalledWith("new_job", "cron(0 9 * * ? *)", "SELECT 1"));
+    await waitFor(() => expect(createJob).toHaveBeenCalledWith("new_job", "SELECT 1", "cron(0 9 * * ? *)"));
     await waitFor(() => expect(screen.queryByLabelText("Job name")).not.toBeInTheDocument());
   });
 

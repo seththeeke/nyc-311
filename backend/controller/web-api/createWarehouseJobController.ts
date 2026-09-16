@@ -45,8 +45,8 @@ export const createWarehouseJobController = async (event: unknown): Promise<APIG
 
   try {
     const admin = await requireAdminUser(parsedEvent.data);
-    const { name, cadence_cron, sql } = parsedBody.data;
-    const definition = await createWarehouseJob(name, cadence_cron, sql, admin.user_id);
+    const { name, job_type, cadence_cron, sql } = parsedBody.data;
+    const definition = await createWarehouseJob(name, sql, admin.user_id, job_type, cadence_cron);
     logInfo("CreateWarehouseJobControllerCompleted", { jobName: definition.job_name });
     return jsonResponse(201, definition);
   } catch (err) {
