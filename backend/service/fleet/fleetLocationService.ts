@@ -4,9 +4,10 @@ import { logInfo } from "../../logger";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import { OrderDao } from "../../dao/order/orderDao";
 import { LocationDao } from "../../dao/location/locationDao";
-import type { FleetLocations } from "../../models/fleetLocation";
+import type { FleetLocations, FleetCurrentOrder } from "../../models/fleetLocation";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { Location } from "../../models/location";
+import type { Order } from "../../models/order";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -40,23 +41,46 @@ export interface GetFleetLocationsDeps {
 }
 
 /**
- * This Operator's last-5-completed-jobs GPS trail
- * (`11-street-condition-implementation.md` §7), most-recent-first.
- * Skips an Order whose Location record can't be found — a data anomaly,
- * not a reason to fail the whole map.
+ * The on-click detail for the Order an Operator is currently executing
+ * (§7's on-click enrichment) — `null` if its Location record can't be
+ * found, a data anomaly, not a reason to fail the whole map.
  */
-async function getRecentJobLocations(orderDao: OrderDao, locationDao: LocationDao, operatorId: string): Promise<GpsLocation[]> {
-  const recentOrders = await orderDao.listRecentResolvedOrdersForOperator(operatorId);
-  const locations = await Promise.all(recentOrders.map((order) => locationDao.getLocation(order.location_id)));
-  return locations.filter((location): location is Location => location !== null).map(toGpsLocation);
+async function buildCurrentOrderDetail(order: Order, locationDao: LocationDao): Promise<FleetCurrentOrder | null> {
+  const location = await locationDao.getLocation(order.location_id);
+  if (!location) return null;
+  return { order_id: order.order_id, complaint_type: order.complaint_type, location_address: location.address };
+}
+
+/**
+ * This Operator's current-order detail plus its last-5-completed-jobs GPS
+ * trail (`11-street-condition-implementation.md` §7). Skips a recent job
+ * whose Location record can't be found — a data anomaly, not a reason to
+ * fail the whole map.
+ */
+async function getOperatorFleetDetail(
+  orderDao: OrderDao,
+  locationDao: LocationDao,
+  operatorId: string
+): Promise<{ currentOrder: FleetCurrentOrder | null; recentJobLocations: GpsLocation[] }> {
+  const { currentOrder, recentCompletedOrders } = await orderDao.getOperatorOrderActivity(operatorId);
+
+  const [currentOrderDetail, recentLocations] = await Promise.all([
+    currentOrder ? buildCurrentOrderDetail(currentOrder, locationDao) : Promise.resolve(null),
+    Promise.all(recentCompletedOrders.map((order) => locationDao.getLocation(order.location_id))),
+  ]);
+
+  return {
+    currentOrder: currentOrderDetail,
+    recentJobLocations: recentLocations.filter((location): location is Location => location !== null).map(toGpsLocation),
+  };
 }
 
 /**
  * `GET /fleet/locations` (`10-capacity-modeling-and-integration.md` §6.1)
  * — the public read path behind the home-page map. Returns the
  * public-safe subset of each active Operator (§6.1's
- * `FleetOperatorLocation`), plus its `recent_job_locations` trail
- * (`11-street-condition-implementation.md` §7).
+ * `FleetOperatorLocation`), plus its `recent_job_locations` trail and
+ * `current_order` on-click detail (`11-street-condition-implementation.md` §7).
  */
 export async function getFleetLocations(deps: GetFleetLocationsDeps = {}): Promise<FleetLocations> {
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
@@ -66,13 +90,17 @@ export async function getFleetLocations(deps: GetFleetLocationsDeps = {}): Promi
 
   const roster = await operatorDao.listActiveRoster();
   const operators = await Promise.all(
-    roster.map(async (operator) => ({
-      operator_id: operator.operator_id,
-      name: operator.name,
-      current_activity: operator.current_activity,
-      current_location: operator.current_location,
-      recent_job_locations: await getRecentJobLocations(orderDao, locationDao, operator.operator_id),
-    }))
+    roster.map(async (operator) => {
+      const { currentOrder, recentJobLocations } = await getOperatorFleetDetail(orderDao, locationDao, operator.operator_id);
+      return {
+        operator_id: operator.operator_id,
+        name: operator.name,
+        current_activity: operator.current_activity,
+        current_location: operator.current_location,
+        recent_job_locations: recentJobLocations,
+        current_order: currentOrder,
+      };
+    })
   );
 
   logInfo("GetFleetLocationsCompleted", { operatorCount: operators.length });

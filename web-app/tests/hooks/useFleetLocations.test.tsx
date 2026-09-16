@@ -20,6 +20,7 @@ const locations: FleetLocations = {
       current_activity: "IDLE",
       current_location: { lat: 40.7128, lng: -74.006 },
       recent_job_locations: [],
+      current_order: null,
     },
   ],
 };

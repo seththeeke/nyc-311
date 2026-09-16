@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { divIcon, type DivIcon } from "leaflet";
 import { Marker, Polyline, Popup } from "react-leaflet";
-import type { GpsLocation, OperatorActivity } from "../models/fleetLocation";
+import type { FleetCurrentOrder, GpsLocation, OperatorActivity } from "../models/fleetLocation";
 
 interface OperatorTrailProps {
   name: string;
@@ -9,6 +9,7 @@ interface OperatorTrailProps {
   color: string;
   currentLocation: GpsLocation;
   recentJobLocations: GpsLocation[];
+  currentOrder: FleetCurrentOrder | null;
 }
 
 const ICON_SIZE = 24;
@@ -30,12 +31,12 @@ function truckIcon(color: string): DivIcon {
 /**
  * One Operator's truck marker plus its fading path trail through the last
  * up to 5 completed jobs (`11-street-condition-implementation.md` §7),
- * extracted out of `FleetMap.tsx` to keep it under the 200-line component
- * cap — "one Operator's icon + trail" is also a natural, independently
- * testable unit on its own. Straight-line segments, not a real road
- * path — §3's routing decision is still deferred.
+ * extracted out of `FleetMap.tsx` to keep it under the 200-line cap.
+ * Straight-line segments, not a real road path — §3's routing decision is
+ * still deferred. The popup also shows the Order currently being
+ * executed, if any (§7's on-click enrichment).
  */
-export function OperatorTrail({ name, activity, color, currentLocation, recentJobLocations }: OperatorTrailProps): ReactElement {
+export function OperatorTrail({ name, activity, color, currentLocation, recentJobLocations, currentOrder }: OperatorTrailProps): ReactElement {
   const trailPoints = [currentLocation, ...recentJobLocations];
 
   return (
@@ -45,6 +46,16 @@ export function OperatorTrail({ name, activity, color, currentLocation, recentJo
           <strong>{name}</strong>
           <br />
           {activity}
+          {currentOrder && (
+            <>
+              <hr />
+              Order: {currentOrder.order_id}
+              <br />
+              Complaint: {currentOrder.complaint_type ?? "Unknown"}
+              <br />
+              Location: {currentOrder.location_address ?? "Unknown"}
+            </>
+          )}
         </Popup>
       </Marker>
       {trailPoints.slice(1).map((point, index) => {

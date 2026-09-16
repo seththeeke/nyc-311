@@ -14,7 +14,7 @@ const mockedUseFleetLocations = vi.mocked(useFleetLocations);
 
 const locations: FleetLocations = {
   operators: [
-    { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 }, recent_job_locations: [] },
+    { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 }, recent_job_locations: [], current_order: null },
   ],
 };
 

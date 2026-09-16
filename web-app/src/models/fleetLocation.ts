@@ -17,6 +17,17 @@ export const GpsLocationSchema = z.object({
 });
 export type GpsLocation = z.infer<typeof GpsLocationSchema>;
 
+/*
+ * 11-street-condition-implementation.md §7's on-click enrichment
+ * (2026-09-15) — the Order an Operator is currently executing.
+ */
+export const FleetCurrentOrderSchema = z.object({
+  order_id: z.string().min(1),
+  complaint_type: z.string().min(1).nullable(),
+  location_address: z.string().min(1).nullable(),
+});
+export type FleetCurrentOrder = z.infer<typeof FleetCurrentOrderSchema>;
+
 export const FleetOperatorLocationSchema = z.object({
   operator_id: z.string().min(1),
   name: z.string().min(1),
@@ -31,6 +42,8 @@ export const FleetOperatorLocationSchema = z.object({
    * the whole roster over a missing enhancement.
    */
   recent_job_locations: z.array(GpsLocationSchema).optional().default([]),
+  /* Same resilience rule as recent_job_locations — an older deployed API omitting this shouldn't hide the Operator. */
+  current_order: FleetCurrentOrderSchema.nullable().optional().default(null),
 });
 export type FleetOperatorLocation = z.infer<typeof FleetOperatorLocationSchema>;
 

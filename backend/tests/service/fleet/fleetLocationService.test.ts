@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OperatorDao } from "../../../dao/operator/operatorDao";
-import { OrderDao } from "../../../dao/order/orderDao";
+import { OrderDao, type OperatorOrderActivity } from "../../../dao/order/orderDao";
 import { LocationDao } from "../../../dao/location/locationDao";
 import { getFleetLocations } from "../../../service/fleet/fleetLocationService";
 import type { Operator } from "../../../models/operator";
@@ -62,8 +62,16 @@ function makeLocation(overrides: Partial<Location> = {}): Location {
   };
 }
 
-const noRecentJobsOrderDao = { listRecentResolvedOrdersForOperator: vi.fn().mockResolvedValue([]) } as unknown as OrderDao;
-const unusedLocationDao = { getLocation: vi.fn() } as unknown as LocationDao;
+function makeActivity(overrides: Partial<OperatorOrderActivity> = {}): OperatorOrderActivity {
+  return { currentOrder: null, recentCompletedOrders: [], ...overrides };
+}
+
+function makeNoActivityOrderDao(): OrderDao {
+  return { getOperatorOrderActivity: vi.fn().mockResolvedValue(makeActivity()) } as unknown as OrderDao;
+}
+function makeUnusedLocationDao(): LocationDao {
+  return { getLocation: vi.fn() } as unknown as LocationDao;
+}
 
 beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -80,14 +88,21 @@ describe("getFleetLocations", () => {
 
     const result = await getFleetLocations({
       operatorDao: { listActiveRoster } as unknown as OperatorDao,
-      orderDao: noRecentJobsOrderDao,
-      locationDao: unusedLocationDao,
+      orderDao: makeNoActivityOrderDao(),
+      locationDao: makeUnusedLocationDao(),
     });
 
     expect(result).toEqual({
       operators: [
-        { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: HOME_DEPOT_LOCATION, recent_job_locations: [] },
-        { operator_id: "01B", name: "Truck B", current_activity: "WORKING", current_location: HOME_DEPOT_LOCATION, recent_job_locations: [] },
+        { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: HOME_DEPOT_LOCATION, recent_job_locations: [], current_order: null },
+        {
+          operator_id: "01B",
+          name: "Truck B",
+          current_activity: "WORKING",
+          current_location: HOME_DEPOT_LOCATION,
+          recent_job_locations: [],
+          current_order: null,
+        },
       ],
     });
     expect(result.operators[0]).not.toHaveProperty("rate_per_hour");
@@ -97,14 +112,14 @@ describe("getFleetLocations", () => {
     const listActiveRoster = vi.fn().mockResolvedValue([]);
 
     await expect(
-      getFleetLocations({ operatorDao: { listActiveRoster } as unknown as OperatorDao, orderDao: noRecentJobsOrderDao, locationDao: unusedLocationDao })
+      getFleetLocations({ operatorDao: { listActiveRoster } as unknown as OperatorDao, orderDao: makeNoActivityOrderDao(), locationDao: makeUnusedLocationDao() })
     ).resolves.toEqual({ operators: [] });
   });
 
   it("resolves each recent RESOLVE-stage Order's location_id to a GPS point, most-recent-first", async () => {
     const listActiveRoster = vi.fn().mockResolvedValue([makeOperator()]);
     const recentOrders = [makeOrder({ location_id: "LOC1" }), makeOrder({ location_id: "LOC2" })];
-    const listRecentResolvedOrdersForOperator = vi.fn().mockResolvedValue(recentOrders);
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(makeActivity({ recentCompletedOrders: recentOrders }));
     const getLocation = vi
       .fn()
       .mockImplementationOnce(() => Promise.resolve(makeLocation({ location_id: "LOC1", latitude: "40.1", longitude: "-73.1" })))
@@ -112,7 +127,7 @@ describe("getFleetLocations", () => {
 
     const result = await getFleetLocations({
       operatorDao: { listActiveRoster } as unknown as OperatorDao,
-      orderDao: { listRecentResolvedOrdersForOperator } as unknown as OrderDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
       locationDao: { getLocation } as unknown as LocationDao,
     });
 
@@ -120,17 +135,17 @@ describe("getFleetLocations", () => {
       { lat: 40.1, lng: -73.1 },
       { lat: 40.2, lng: -73.2 },
     ]);
-    expect(listRecentResolvedOrdersForOperator).toHaveBeenCalledWith("01OPERATOR");
+    expect(getOperatorOrderActivity).toHaveBeenCalledWith("01OPERATOR");
   });
 
   it("falls back to HOME_DEPOT_LOCATION for a recent job whose Location has no lat/lng", async () => {
     const listActiveRoster = vi.fn().mockResolvedValue([makeOperator()]);
-    const listRecentResolvedOrdersForOperator = vi.fn().mockResolvedValue([makeOrder()]);
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(makeActivity({ recentCompletedOrders: [makeOrder()] }));
     const getLocation = vi.fn().mockResolvedValue(makeLocation({ latitude: null, longitude: null }));
 
     const result = await getFleetLocations({
       operatorDao: { listActiveRoster } as unknown as OperatorDao,
-      orderDao: { listRecentResolvedOrdersForOperator } as unknown as OrderDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
       locationDao: { getLocation } as unknown as LocationDao,
     });
 
@@ -139,16 +154,62 @@ describe("getFleetLocations", () => {
 
   it("skips a recent job whose Location record can't be found", async () => {
     const listActiveRoster = vi.fn().mockResolvedValue([makeOperator()]);
-    const listRecentResolvedOrdersForOperator = vi.fn().mockResolvedValue([makeOrder()]);
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(makeActivity({ recentCompletedOrders: [makeOrder()] }));
     const getLocation = vi.fn().mockResolvedValue(null);
 
     const result = await getFleetLocations({
       operatorDao: { listActiveRoster } as unknown as OperatorDao,
-      orderDao: { listRecentResolvedOrdersForOperator } as unknown as OrderDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
       locationDao: { getLocation } as unknown as LocationDao,
     });
 
     expect(result.operators[0].recent_job_locations).toEqual([]);
+  });
+
+  it("builds current_order detail (order id, complaint type, location address) for an Operator with an in-progress EXECUTE Order", async () => {
+    const listActiveRoster = vi.fn().mockResolvedValue([makeOperator({ current_activity: "WORKING" })]);
+    const currentOrder = makeOrder({ order_id: "01CURRENT", current_stage: "EXECUTE", complaint_type: "Street Condition", location_id: "LOC1" });
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(makeActivity({ currentOrder }));
+    const getLocation = vi.fn().mockResolvedValue(makeLocation({ location_id: "LOC1", address: "742 Flatbush Ave" }));
+
+    const result = await getFleetLocations({
+      operatorDao: { listActiveRoster } as unknown as OperatorDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
+      locationDao: { getLocation } as unknown as LocationDao,
+    });
+
+    expect(result.operators[0].current_order).toEqual({
+      order_id: "01CURRENT",
+      complaint_type: "Street Condition",
+      location_address: "742 Flatbush Ave",
+    });
+  });
+
+  it("returns current_order null for an idle Operator with no in-progress Order", async () => {
+    const listActiveRoster = vi.fn().mockResolvedValue([makeOperator()]);
+
+    const result = await getFleetLocations({
+      operatorDao: { listActiveRoster } as unknown as OperatorDao,
+      orderDao: makeNoActivityOrderDao(),
+      locationDao: makeUnusedLocationDao(),
+    });
+
+    expect(result.operators[0].current_order).toBeNull();
+  });
+
+  it("returns current_order null when the in-progress Order's Location record can't be found", async () => {
+    const listActiveRoster = vi.fn().mockResolvedValue([makeOperator({ current_activity: "WORKING" })]);
+    const currentOrder = makeOrder({ current_stage: "EXECUTE" });
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(makeActivity({ currentOrder }));
+    const getLocation = vi.fn().mockResolvedValue(null);
+
+    const result = await getFleetLocations({
+      operatorDao: { listActiveRoster } as unknown as OperatorDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
+      locationDao: { getLocation } as unknown as LocationDao,
+    });
+
+    expect(result.operators[0].current_order).toBeNull();
   });
 
   it("falls back to the module's own default OperatorDao/OrderDao/LocationDao when deps are omitted", async () => {

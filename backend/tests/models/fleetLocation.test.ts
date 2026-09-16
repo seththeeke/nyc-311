@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FleetLocationsSchema, FleetOperatorLocationSchema } from "../../models/fleetLocation";
+import { FleetCurrentOrderSchema, FleetLocationsSchema, FleetOperatorLocationSchema } from "../../models/fleetLocation";
 import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
+
+const currentOrder = {
+  order_id: "01ORDER",
+  complaint_type: "Street Condition",
+  location_address: "123 Main St",
+};
 
 const operator = {
   operator_id: "01OPERATOR",
@@ -8,7 +14,25 @@ const operator = {
   current_activity: "IDLE",
   current_location: HOME_DEPOT_LOCATION,
   recent_job_locations: [HOME_DEPOT_LOCATION],
+  current_order: currentOrder,
 };
+
+describe("FleetCurrentOrderSchema", () => {
+  it("accepts a well-formed current order", () => {
+    expect(FleetCurrentOrderSchema.parse(currentOrder)).toEqual(currentOrder);
+  });
+
+  it("accepts null complaint_type and location_address", () => {
+    const unknowns = { ...currentOrder, complaint_type: null, location_address: null };
+    expect(FleetCurrentOrderSchema.parse(unknowns)).toEqual(unknowns);
+  });
+
+  it("rejects a missing order_id", () => {
+    const withoutOrderId: Record<string, unknown> = { ...currentOrder };
+    delete withoutOrderId.order_id;
+    expect(FleetCurrentOrderSchema.safeParse(withoutOrderId).success).toBe(false);
+  });
+});
 
 describe("FleetOperatorLocationSchema", () => {
   it("accepts a well-formed fleet operator", () => {
@@ -39,6 +63,17 @@ describe("FleetOperatorLocationSchema", () => {
     const withoutRecentJobs: Record<string, unknown> = { ...operator };
     delete withoutRecentJobs.recent_job_locations;
     expect(FleetOperatorLocationSchema.safeParse(withoutRecentJobs).success).toBe(false);
+  });
+
+  it("accepts a null current_order (idle/between jobs)", () => {
+    const idleOperator = { ...operator, current_order: null };
+    expect(FleetOperatorLocationSchema.parse(idleOperator)).toEqual(idleOperator);
+  });
+
+  it("rejects a missing current_order", () => {
+    const withoutCurrentOrder: Record<string, unknown> = { ...operator };
+    delete withoutCurrentOrder.current_order;
+    expect(FleetOperatorLocationSchema.safeParse(withoutCurrentOrder).success).toBe(false);
   });
 });
 

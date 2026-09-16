@@ -30,6 +30,13 @@ export interface ListOrdersWaitingForScheduleOptions {
   cursor?: string | null;
 }
 
+export interface OperatorOrderActivity {
+  /** The Order this Operator is currently executing (`current_stage === "EXECUTE"`), or `null` if idle/none. */
+  currentOrder: Order | null;
+  /** This Operator's last `RECENT_JOBS_LIMIT` completed (`RESOLVE`) Orders, most-recent-first. */
+  recentCompletedOrders: Order[];
+}
+
 /* "STAGE#" + current_stage — gsi1-stage-sla's partition key, per ddb-design.md. */
 const STAGE_SLA_INDEX = "gsi1-stage-sla";
 function stageSlaPartitionKey(stage: OrderStage): string {
@@ -38,6 +45,17 @@ function stageSlaPartitionKey(stage: OrderStage): string {
 
 /* gsi2pk = assigned_operator_id, gsi2sk = updated_at, per ddb-design.md — "Orders currently assigned to a given Operator". */
 const ASSIGNED_OPERATOR_INDEX = "gsi2-assigned-operator";
+/*
+ * Every `additionalProjectionAttributes` Put fully replaces the item, so
+ * gsi2pk/gsi2sk must be re-stamped on every write from scheduleOrder
+ * onward, not just scheduleOrder's own — otherwise the very next
+ * execution event (dispatched/arrived/processing/resolved) silently
+ * drops them, since none of those touch gsi2 on their own.
+ */
+function assignedOperatorAttributes(projection: Order): Record<string, unknown> {
+  if (!projection.assigned_operator_id) return {};
+  return { gsi2pk: projection.assigned_operator_id, gsi2sk: projection.updated_at };
+}
 /*
  * Over-fetches past RECENT_JOBS_LIMIT (11-street-condition-implementation.md
  * §7) to absorb in-progress Orders (SCHEDULE/EXECUTE, still gsi2-current)
@@ -259,15 +277,13 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
        * Keeps the item in gsi1-stage-sla under its new stage — same index
        * also answers "how many Orders in stage X" (ddb-design.md). Also
        * (11-street-condition-implementation.md §7) stamps gsi2-assigned-
-       * operator so the fleet map's recent-job-locations trail can query
-       * this Operator's Orders — the only place assigned_operator_id is
-       * ever set, so the only place this needs writing.
+       * operator, first set here since this is where assigned_operator_id
+       * first becomes non-null.
        */
       (projection) => ({
         gsi1pk: stageSlaPartitionKey(projection.current_stage),
         gsi1sk: projection.sla_deadline,
-        gsi2pk: projection.assigned_operator_id,
-        gsi2sk: projection.updated_at,
+        ...assignedOperatorAttributes(projection),
       })
     );
   }
@@ -305,7 +321,11 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         const base = this.requirePreviousProjection(orderId, previous);
         return { ...base, current_stage: "RESOLVE", updated_at: now, last_event_sequence: event.sequence_number };
       },
-      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+      (projection) => ({
+        gsi1pk: stageSlaPartitionKey(projection.current_stage),
+        gsi1sk: projection.sla_deadline,
+        ...assignedOperatorAttributes(projection),
+      })
     );
   }
 
@@ -327,7 +347,11 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         const base = this.requirePreviousProjection(orderId, previous);
         return { ...base, updated_at: now, last_event_sequence: event.sequence_number };
       },
-      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+      (projection) => ({
+        gsi1pk: stageSlaPartitionKey(projection.current_stage),
+        gsi1sk: projection.sla_deadline,
+        ...assignedOperatorAttributes(projection),
+      })
     );
   }
 
@@ -359,17 +383,15 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
   }
 
   /**
-   * The fleet map's fading path trail (`11-street-condition-implementation.md`
-   * §7): this Operator's last `RECENT_JOBS_LIMIT` completed (`RESOLVE`)
-   * Orders, most-recent-first. Queries `gsi2-assigned-operator` for every
-   * Order ever assigned to `operatorId`, newest `updated_at` first,
-   * over-fetching to `RECENT_JOBS_OVER_FETCH_LIMIT` so in-progress Orders
-   * sitting ahead of older completed ones in raw recency don't crowd out
-   * real results, then filters to `RESOLVE` and takes the first
-   * `RECENT_JOBS_LIMIT`.
+   * The fleet map's fading path trail plus its on-click current-order
+   * detail (`11-street-condition-implementation.md` §7): one `Query` on
+   * `gsi2-assigned-operator`, newest `updated_at` first, over-fetched to
+   * `RECENT_JOBS_OVER_FETCH_LIMIT`. `currentOrder` is the newest
+   * still-`EXECUTE` Order; `recentCompletedOrders` is the first
+   * `RECENT_JOBS_LIMIT` at `RESOLVE`. One query serves both.
    */
-  async listRecentResolvedOrdersForOperator(operatorId: string): Promise<Order[]> {
-    logInfo("OrderDao.listRecentResolvedOrdersForOperator", { table: this.tableName, operatorId });
+  async getOperatorOrderActivity(operatorId: string): Promise<OperatorOrderActivity> {
+    logInfo("OrderDao.getOperatorOrderActivity", { table: this.tableName, operatorId });
     const result = await this.client.send(
       new QueryCommand({
         TableName: this.tableName,
@@ -380,10 +402,11 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         Limit: RECENT_JOBS_OVER_FETCH_LIMIT,
       })
     );
-    return (result.Items ?? [])
-      .map((item) => this.validateOrderItem(item))
-      .filter((order) => order.current_stage === "RESOLVE")
-      .slice(0, RECENT_JOBS_LIMIT);
+    const orders = (result.Items ?? []).map((item) => this.validateOrderItem(item));
+    return {
+      currentOrder: orders.find((order) => order.current_stage === "EXECUTE") ?? null,
+      recentCompletedOrders: orders.filter((order) => order.current_stage === "RESOLVE").slice(0, RECENT_JOBS_LIMIT),
+    };
   }
 
   private requirePreviousProjection(orderId: string, previous: Order | null): Order {

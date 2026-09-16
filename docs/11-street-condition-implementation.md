@@ -591,6 +591,32 @@ questions, ready to implement whenever picked up next.
       extracted to keep `FleetMap.tsx` under the 200-line cap.
 - [x] `backend`/`cdk`/`web-app` build/lint/`test:coverage` all green (872,
       331, and 693 tests respectively, 90%+ per file, no regressions).
+- [x] **Bug found and fixed same day:** `recordDispatched`/`recordArrived`/
+      `recordProcessing`/`recordResolved`'s projection Puts each fully
+      replace the item but only re-stamped `gsi1pk`/`gsi1sk`, silently
+      dropping `gsi2pk`/`gsi2sk` on the very next execution event after
+      `scheduleOrder` set them — meaning `recent_job_locations` would have
+      stayed empty for every Order that actually completed. Fixed via a
+      shared `assignedOperatorAttributes(projection)` helper, re-stamped
+      on every post-scheduling projection write.
+- [x] **On-click enrichment (same day, user follow-up):** the marker
+      popup now also shows the Order an Operator is currently executing —
+      order id, complaint type, and location address. `OrderDao`'s recent-
+      jobs query was folded into one combined
+      `getOperatorOrderActivity(operatorId)` (one `gsi2-assigned-operator`
+      Query instead of two): `currentOrder` (newest still-`EXECUTE` Order,
+      or `null`) plus `recentCompletedOrders`. `FleetCurrentOrder` added
+      to `models/fleetLocation.ts` (`order_id`/`complaint_type`/
+      `location_address`), exposed as `current_order` on
+      `FleetOperatorLocation`. `web-app`'s copy defaults `current_order`
+      to `null` (and `recent_job_locations` to `[]`) when a field is
+      missing from the response — discovered live: the local dev server
+      against `Nyc311-Test`'s not-yet-redeployed API omitted
+      `recent_job_locations` entirely, and the original required-field
+      schema failed the whole roster over it, hiding every operator's
+      current position along with the missing trail. `OperatorTrail.tsx`'s
+      popup renders the detail (with "Unknown" for a null complaint
+      type/address) only when `current_order` is non-null.
 - [ ] **Not yet done:** committed to `main` but not deployed/verified in
       `Nyc311-Test`/`Nyc311-Prod` — check the pipeline before considering
       this leg actually live.

@@ -49,6 +49,7 @@ export function FleetMap({ operators }: FleetMapProps): ReactElement {
           color={ACTIVITY_COLOR[operator.current_activity]}
           currentLocation={operator.current_location}
           recentJobLocations={operator.recent_job_locations}
+          currentOrder={operator.current_order}
         />
       ))}
     </MapContainer>

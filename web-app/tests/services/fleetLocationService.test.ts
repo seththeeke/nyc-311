@@ -52,4 +52,17 @@ describe("fleetLocationService — live mode", () => {
 
     expect(result.operators[0].recent_job_locations).toEqual([]);
   });
+
+  it("defaults current_order to null for an Operator whose response omits it", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    const body = {
+      operators: [{ operator_id: "01OPERATOR", name: "Truck 12", current_activity: "WORKING", current_location: { lat: 40.71, lng: -74.0 } }],
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => body }));
+
+    const { fleetLocationService } = await import("../../src/services/fleetLocationService");
+    const result = await fleetLocationService.getFleetLocations();
+
+    expect(result.operators[0].current_order).toBeNull();
+  });
 });

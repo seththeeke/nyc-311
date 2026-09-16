@@ -316,6 +316,17 @@ describe("OrderDao.recordDispatched", () => {
 
     await expect(orderDao.recordDispatched("01ORDER")).rejects.toThrow(ValidationError);
   });
+
+  it("preserves gsi2-assigned-operator across the transition — a Put without it would silently drop the Operator's index entry", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", assigned_operator_id: "01OPERATOR" }),
+    });
+
+    const order = await orderDao.recordDispatched("01ORDER");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({ gsi2pk: "01OPERATOR", gsi2sk: order.updated_at });
+  });
 });
 
 describe("OrderDao.recordArrived", () => {
@@ -399,6 +410,17 @@ describe("OrderDao.recordResolved", () => {
 
     await expect(orderDao.recordResolved("01ORDER")).rejects.toThrow(ValidationError);
   });
+
+  it("preserves gsi2-assigned-operator through to RESOLVE — the fleet map's recent-jobs query depends on this surviving the whole execution flow", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "EXECUTE", assigned_operator_id: "01OPERATOR" }),
+    });
+
+    const order = await orderDao.recordResolved("01ORDER");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({ gsi2pk: "01OPERATOR", gsi2sk: order.updated_at });
+  });
 });
 
 describe("OrderDao.listOrdersWaitingForSchedule", () => {
@@ -462,13 +484,13 @@ describe("OrderDao.listOrdersWaitingForSchedule", () => {
   });
 });
 
-describe("OrderDao.listRecentResolvedOrdersForOperator", () => {
+describe("OrderDao.getOperatorOrderActivity", () => {
   it("queries gsi2-assigned-operator for the given operator, newest-first, over-fetching to 20", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [makeOrderItem({ current_stage: "RESOLVE" })] });
 
-    const orders = await orderDao.listRecentResolvedOrdersForOperator("01OPERATOR");
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
 
-    expect(orders).toHaveLength(1);
+    expect(activity.recentCompletedOrders).toHaveLength(1);
     const queryInput = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
     expect(queryInput).toMatchObject({
       IndexName: "gsi2-assigned-operator",
@@ -479,37 +501,55 @@ describe("OrderDao.listRecentResolvedOrdersForOperator", () => {
     });
   });
 
-  it("filters out Orders not yet in RESOLVE stage (still in-progress, wrongly ahead in raw recency)", async () => {
+  it("returns the newest still-EXECUTE Order as currentOrder", async () => {
     ddbMock.on(QueryCommand).resolves({
       Items: [makeOrderItem({ order_id: "01IN_PROGRESS", current_stage: "EXECUTE" }), makeOrderItem({ order_id: "01DONE", current_stage: "RESOLVE" })],
     });
 
-    const orders = await orderDao.listRecentResolvedOrdersForOperator("01OPERATOR");
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
 
-    expect(orders.map((o) => o.order_id)).toEqual(["01DONE"]);
+    expect(activity.currentOrder?.order_id).toBe("01IN_PROGRESS");
+  });
+
+  it("returns currentOrder null when no Order is in EXECUTE (Operator idle or between jobs)", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [makeOrderItem({ current_stage: "RESOLVE" })] });
+
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
+
+    expect(activity.currentOrder).toBeNull();
+  });
+
+  it("excludes Orders not yet in RESOLVE stage from recentCompletedOrders (still in-progress, wrongly ahead in raw recency)", async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [makeOrderItem({ order_id: "01IN_PROGRESS", current_stage: "EXECUTE" }), makeOrderItem({ order_id: "01DONE", current_stage: "RESOLVE" })],
+    });
+
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
+
+    expect(activity.recentCompletedOrders.map((o) => o.order_id)).toEqual(["01DONE"]);
   });
 
   it("takes only the first 5 RESOLVE-stage Orders, even if more come back", async () => {
     const resolvedOrders = Array.from({ length: 8 }, (_, i) => makeOrderItem({ order_id: `01ORDER${i}`, current_stage: "RESOLVE" }));
     ddbMock.on(QueryCommand).resolves({ Items: resolvedOrders });
 
-    const orders = await orderDao.listRecentResolvedOrdersForOperator("01OPERATOR");
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
 
-    expect(orders).toHaveLength(5);
+    expect(activity.recentCompletedOrders).toHaveLength(5);
   });
 
-  it("returns an empty array when the response has no Items at all", async () => {
+  it("returns an empty recentCompletedOrders array and null currentOrder when the response has no Items at all", async () => {
     ddbMock.on(QueryCommand).resolves({});
 
-    const orders = await orderDao.listRecentResolvedOrdersForOperator("01OPERATOR");
+    const activity = await orderDao.getOperatorOrderActivity("01OPERATOR");
 
-    expect(orders).toEqual([]);
+    expect(activity).toEqual({ currentOrder: null, recentCompletedOrders: [] });
   });
 
   it("throws ValidationError when a queried item fails OrderSchema validation", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [{ order_id: "01ORDER" }] });
 
-    await expect(orderDao.listRecentResolvedOrdersForOperator("01OPERATOR")).rejects.toThrow(ValidationError);
+    await expect(orderDao.getOperatorOrderActivity("01OPERATOR")).rejects.toThrow(ValidationError);
   });
 });
 

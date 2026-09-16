@@ -28,32 +28,32 @@ const RECENT_JOBS = [
 
 describe("OperatorTrail", () => {
   it("renders a Marker at the Operator's current position", () => {
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} />);
 
     expect(screen.getByTestId("marker")).toHaveAttribute("data-position", "40.71,-74");
   });
 
   it("labels the popup with the Operator's name and activity", () => {
-    render(<OperatorTrail name="Truck A" activity="WORKING" color="#3b82f6" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} />);
+    render(<OperatorTrail name="Truck A" activity="WORKING" color="#3b82f6" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} />);
 
     expect(screen.getByText("Truck A")).toBeInTheDocument();
     expect(screen.getByText("WORKING")).toBeInTheDocument();
   });
 
   it("bakes the activity color into the truck icon's inline SVG", () => {
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} />);
 
     expect(screen.getByTestId("marker")).toHaveAttribute("data-icon-html", expect.stringContaining("#10b981"));
   });
 
   it("renders no trail segments for an Operator with no recent jobs", () => {
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} />);
 
     expect(screen.queryByTestId("polyline")).not.toBeInTheDocument();
   });
 
   it("draws one segment per recent job, current position through each job in order", () => {
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} currentOrder={null} />);
 
     const segments = screen.getAllByTestId("polyline");
     expect(segments).toHaveLength(2);
@@ -75,17 +75,41 @@ describe("OperatorTrail", () => {
       { lat: 4, lng: 4 },
       { lat: 5, lng: 5 },
     ];
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={fiveJobs} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={fiveJobs} currentOrder={null} />);
 
     const segments = screen.getAllByTestId("polyline");
     expect(segments.map((s) => s.getAttribute("data-opacity"))).toEqual(["1", "0.8", "0.6", "0.4", "0.2"]);
   });
 
   it("colors every trail segment the same as the marker", () => {
-    render(<OperatorTrail name="Truck A" activity="IDLE" color="#f59e0b" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} />);
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#f59e0b" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} currentOrder={null} />);
 
     for (const segment of screen.getAllByTestId("polyline")) {
       expect(segment).toHaveAttribute("data-color", "#f59e0b");
     }
+  });
+
+  it("shows no order detail in the popup when the Operator has no current_order", () => {
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} />);
+
+    expect(screen.queryByText(/Order:/)).not.toBeInTheDocument();
+  });
+
+  it("shows the current order's id, complaint type, and location in the popup", () => {
+    const currentOrder = { order_id: "01ORDER", complaint_type: "Street Condition", location_address: "742 Flatbush Ave" };
+    render(<OperatorTrail name="Truck A" activity="WORKING" color="#3b82f6" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={currentOrder} />);
+
+    expect(screen.getByText(/01ORDER/)).toBeInTheDocument();
+    expect(screen.getByText(/Street Condition/)).toBeInTheDocument();
+    expect(screen.getByText(/742 Flatbush Ave/)).toBeInTheDocument();
+  });
+
+  it("shows 'Unknown' for a null complaint_type or location_address on the current order", () => {
+    const currentOrder = { order_id: "01ORDER", complaint_type: null, location_address: null };
+    render(<OperatorTrail name="Truck A" activity="WORKING" color="#3b82f6" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={currentOrder} />);
+
+    const popupText = screen.getByTestId("popup").textContent ?? "";
+    expect(popupText).toContain("Complaint: Unknown");
+    expect(popupText).toContain("Location: Unknown");
   });
 });

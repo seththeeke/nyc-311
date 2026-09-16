@@ -3,6 +3,19 @@ import { OPERATOR_ACTIVITIES } from "./operator";
 import { GpsLocationSchema } from "./gpsLocation";
 
 /*
+ * The public, read-only subset of an Order this Operator is currently
+ * executing — just enough for the fleet map's on-click detail (§7's
+ * on-click enrichment, 2026-09-15): no cost/priority/SLA or other
+ * operationally-sensitive fields cross this public boundary.
+ */
+export const FleetCurrentOrderSchema = z.object({
+  order_id: z.string().min(1),
+  complaint_type: z.string().min(1).nullable(),
+  location_address: z.string().min(1).nullable(),
+});
+export type FleetCurrentOrder = z.infer<typeof FleetCurrentOrderSchema>;
+
+/*
  * The public, read-only subset of Operator that powers the home-page
  * fleet map (10-capacity-modeling-and-integration.md §6.1) — deliberately
  * narrower than the admin-only Operator projection: no rate_per_hour,
@@ -21,6 +34,11 @@ export const FleetOperatorLocationSchema = z.object({
    * has no resolved jobs yet.
    */
   recent_job_locations: z.array(GpsLocationSchema),
+  /*
+   * §7's on-click enrichment (2026-09-15) — the Order this Operator is
+   * currently executing, or null while idle/between jobs.
+   */
+  current_order: FleetCurrentOrderSchema.nullable(),
 });
 export type FleetOperatorLocation = z.infer<typeof FleetOperatorLocationSchema>;
 

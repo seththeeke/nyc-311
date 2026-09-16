@@ -23,12 +23,14 @@ vi.mock("../../src/components/OperatorTrail", () => ({
     color,
     currentLocation,
     recentJobLocations,
+    currentOrder,
   }: {
     name: string;
     activity: string;
     color: string;
     currentLocation: { lat: number; lng: number };
     recentJobLocations: { lat: number; lng: number }[];
+    currentOrder: { order_id: string } | null;
   }) => (
     <div
       data-testid="operator-trail"
@@ -37,20 +39,22 @@ vi.mock("../../src/components/OperatorTrail", () => ({
       data-color={color}
       data-current={`${currentLocation.lat},${currentLocation.lng}`}
       data-recent-count={recentJobLocations.length}
+      data-current-order-id={currentOrder?.order_id ?? ""}
     />
   ),
 }));
 
 const operators: FleetOperatorLocation[] = [
-  { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 }, recent_job_locations: [] },
+  { operator_id: "01A", name: "Truck A", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 }, recent_job_locations: [], current_order: null },
   {
     operator_id: "01B",
     name: "Truck B",
     current_activity: "WORKING",
     current_location: { lat: 40.72, lng: -73.9 },
     recent_job_locations: [{ lat: 40.7, lng: -73.8 }],
+    current_order: { order_id: "01ORDER", complaint_type: "Street Condition", location_address: "123 Main St" },
   },
-  { operator_id: "01C", name: "Truck C", current_activity: "TRANSIT", current_location: null, recent_job_locations: [] },
+  { operator_id: "01C", name: "Truck C", current_activity: "TRANSIT", current_location: null, recent_job_locations: [], current_order: null },
 ];
 
 describe("FleetMap", () => {
@@ -92,6 +96,14 @@ describe("FleetMap", () => {
     expect(trails[0]).toHaveAttribute("data-activity", "IDLE");
     expect(trails[1]).toHaveAttribute("data-name", "Truck B");
     expect(trails[1]).toHaveAttribute("data-activity", "WORKING");
+  });
+
+  it("passes each Operator's current_order through to its trail", () => {
+    render(<FleetMap operators={operators} />);
+
+    const trails = screen.getAllByTestId("operator-trail");
+    expect(trails[0]).toHaveAttribute("data-current-order-id", "");
+    expect(trails[1]).toHaveAttribute("data-current-order-id", "01ORDER");
   });
 
   it("renders no trails for an empty roster", () => {

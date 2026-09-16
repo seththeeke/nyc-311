@@ -10,14 +10,29 @@ const HOME_DEPOT_LOCATION = { lat: 40.7128, lng: -74.006 };
 
 export const MOCK_FLEET_LOCATIONS: FleetLocations = {
   operators: [
-    { operator_id: "01MOCKOPERATOR000", name: "Vehicle 1", current_activity: "IDLE", current_location: HOME_DEPOT_LOCATION, recent_job_locations: [] },
-    { operator_id: "01MOCKOPERATOR001", name: "Vehicle 2", current_activity: "IDLE", current_location: HOME_DEPOT_LOCATION, recent_job_locations: [] },
+    {
+      operator_id: "01MOCKOPERATOR000",
+      name: "Vehicle 1",
+      current_activity: "IDLE",
+      current_location: HOME_DEPOT_LOCATION,
+      recent_job_locations: [],
+      current_order: null,
+    },
+    {
+      operator_id: "01MOCKOPERATOR001",
+      name: "Vehicle 2",
+      current_activity: "IDLE",
+      current_location: HOME_DEPOT_LOCATION,
+      recent_job_locations: [],
+      current_order: null,
+    },
     {
       operator_id: "01MOCKOPERATOR002",
       name: "Vehicle 3",
       current_activity: "TRANSIT",
       current_location: { lat: 40.6892, lng: -73.9442 },
       recent_job_locations: [{ lat: 40.6821, lng: -73.9553 }],
+      current_order: { order_id: "01MOCKORDER000", complaint_type: "Street Condition", location_address: "742 Flatbush Ave, Brooklyn" },
     },
     {
       operator_id: "01MOCKOPERATOR003",
@@ -32,6 +47,7 @@ export const MOCK_FLEET_LOCATIONS: FleetLocations = {
         { lat: 40.6533, lng: -73.9774 },
         { lat: 40.6471, lng: -73.9852 },
       ],
+      current_order: { order_id: "01MOCKORDER001", complaint_type: "Street Condition", location_address: "310 Nostrand Ave, Brooklyn" },
     },
     {
       operator_id: "01MOCKOPERATOR004",
@@ -39,6 +55,7 @@ export const MOCK_FLEET_LOCATIONS: FleetLocations = {
       current_activity: "WORKING",
       current_location: { lat: 40.7831, lng: -73.9712 },
       recent_job_locations: [],
+      current_order: { order_id: "01MOCKORDER002", complaint_type: "Street Condition", location_address: "2 W 96th St, Manhattan" },
     },
     {
       operator_id: "01MOCKOPERATOR005",
@@ -46,6 +63,7 @@ export const MOCK_FLEET_LOCATIONS: FleetLocations = {
       current_activity: "TRANSIT",
       current_location: { lat: 40.7282, lng: -73.7949 },
       recent_job_locations: [],
+      current_order: null,
     },
     {
       operator_id: "01MOCKOPERATOR006",
@@ -53,6 +71,7 @@ export const MOCK_FLEET_LOCATIONS: FleetLocations = {
       current_activity: "WORKING",
       current_location: { lat: 40.8448, lng: -73.8648 },
       recent_job_locations: [{ lat: 40.8391, lng: -73.8722 }, { lat: 40.8329, lng: -73.8801 }],
+      current_order: { order_id: "01MOCKORDER003", complaint_type: "Street Condition", location_address: "888 Grand Concourse, Bronx" },
     },
   ],
 };

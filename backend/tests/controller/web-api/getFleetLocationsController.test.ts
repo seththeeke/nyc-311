@@ -21,6 +21,7 @@ const locations: FleetLocations = {
       current_activity: "IDLE",
       current_location: HOME_DEPOT_LOCATION,
       recent_job_locations: [],
+      current_order: null,
     },
   ],
 };
