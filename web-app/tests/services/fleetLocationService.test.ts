@@ -39,4 +39,17 @@ describe("fleetLocationService — live mode", () => {
 
     await expect(fleetLocationService.getFleetLocations()).rejects.toThrow("Failed to fetch fleet locations: HTTP 500");
   });
+
+  it("defaults recent_job_locations to [] for an Operator whose response omits it — an older deployed API shouldn't hide the whole roster", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "live");
+    const body = {
+      operators: [{ operator_id: "01OPERATOR", name: "Truck 12", current_activity: "IDLE", current_location: { lat: 40.71, lng: -74.0 } }],
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => body }));
+
+    const { fleetLocationService } = await import("../../src/services/fleetLocationService");
+    const result = await fleetLocationService.getFleetLocations();
+
+    expect(result.operators[0].recent_job_locations).toEqual([]);
+  });
 });

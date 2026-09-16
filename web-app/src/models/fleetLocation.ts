@@ -25,9 +25,12 @@ export const FleetOperatorLocationSchema = z.object({
   /*
    * 11-street-condition-implementation.md §7 — this Operator's last-5-
    * completed-jobs locations, most-recent-first, for the home-page map's
-   * fading path trail. Empty, not null, when there are none yet.
+   * fading path trail. Optional, defaulting to empty: an older deployed
+   * API (or a genuine no-history Operator) that omits this field should
+   * still let the map show the truck at its current position, not fail
+   * the whole roster over a missing enhancement.
    */
-  recent_job_locations: z.array(GpsLocationSchema),
+  recent_job_locations: z.array(GpsLocationSchema).optional().default([]),
 });
 export type FleetOperatorLocation = z.infer<typeof FleetOperatorLocationSchema>;
 
