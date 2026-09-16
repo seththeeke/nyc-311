@@ -15,13 +15,13 @@ import type { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetL
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
-import type { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import type { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
 import type { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWarehouseJobApiLambda";
 import type { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
 import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
 import type { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
+import type { Nyc311GetWarehouseJobRunResultsApiLambda } from "../warehouse/Nyc311GetWarehouseJobRunResultsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -30,7 +30,6 @@ export interface Nyc311ApiProps {
   warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
-  reportsApiLambda: Nyc311ReportsApiLambda;
   /** `9-admin-auth-integration.md` §8 — the first route behind the admin JWT authorizer. */
   adminWhoamiApiLambda: Nyc311AdminWhoamiApiLambda;
   /** `10-capacity-modeling-and-integration.md` §2.1 — admin-only capacity CRUD, same authorizer. */
@@ -49,6 +48,8 @@ export interface Nyc311ApiProps {
   deleteWarehouseJobApiLambda: Nyc311DeleteWarehouseJobApiLambda;
   listWarehouseJobsApiLambda: Nyc311ListWarehouseJobsApiLambda;
   getWarehouseJobSqlApiLambda: Nyc311GetWarehouseJobSqlApiLambda;
+  /** `7-data-warehousing.md` §12b's Reports tab addition — bulk raw job-run results by id, same authorizer. */
+  getWarehouseJobRunResultsApiLambda: Nyc311GetWarehouseJobRunResultsApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -122,12 +123,6 @@ export class Nyc311Api extends HttpApi {
       path: "/data/jobs/{name}/result",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetJobResultIntegration", props.jobResultApiLambda),
-    });
-
-    this.addRoutes({
-      path: "/reports",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetReportsIntegration", props.reportsApiLambda),
     });
 
     this.addRoutes({
@@ -210,6 +205,13 @@ export class Nyc311Api extends HttpApi {
       path: "/admin/warehouse/jobs/{name}/sql",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetWarehouseJobSqlIntegration", props.getWarehouseJobSqlApiLambda),
+      authorizer: props.adminAuthorizer,
+    });
+
+    this.addRoutes({
+      path: "/admin/warehouse/job-runs/results",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration("PostJobRunResultsIntegration", props.getWarehouseJobRunResultsApiLambda),
       authorizer: props.adminAuthorizer,
     });
   }

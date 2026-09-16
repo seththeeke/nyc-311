@@ -63,15 +63,6 @@ export function IntegrationTestsIcon(): ReactElement {
   );
 }
 
-export function ReportsIcon(): ReactElement {
-  return (
-    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
-      <path d="M5 4h11l3 3v13a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
-      <path d="M8 17v-4M12 17v-7M16 17v-2" />
-    </svg>
-  );
-}
-
 export function DataWarehouseIcon(): ReactElement {
   return (
     <svg {...ICON_STROKE_PROPS} className="h-6 w-6">

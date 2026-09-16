@@ -103,6 +103,18 @@ export class WarehouseJobRunsDao extends Dao<WarehouseJobRun> {
   }
 
   /**
+   * A single run by its own primary key, or `null` if no such run exists —
+   * backs the admin "view any historical run's result" Reports tab
+   * (`7-data-warehousing.md` §12b's addition), unlike
+   * {@link getLatestRunForJob}/{@link getLatestSucceededRunForJob} which
+   * resolve by `job_name` instead.
+   */
+  async getJobRun(jobRunId: string): Promise<WarehouseJobRun | null> {
+    logInfo("WarehouseJobRunsDao.getJobRun", { table: this.tableName, jobRunId });
+    return this.getItem(jobRunId);
+  }
+
+  /**
    * Creates a job definition row (`7-data-warehousing.md` §8, Leg 8) —
    * conditioned on the name not already existing, since `job_name` is the
    * one stable identity a job keeps for life. Bypasses {@link putItem}

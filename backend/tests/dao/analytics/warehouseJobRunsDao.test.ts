@@ -154,6 +154,21 @@ describe("WarehouseJobRunsDao.getLatestSucceededRunForJob", () => {
   });
 });
 
+describe("WarehouseJobRunsDao.getJobRun", () => {
+  it("gets by the run's own job_run_id and validates the result", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: run({ job_run_id: "01RUN" }) });
+    const result = await dao.getJobRun("01RUN");
+
+    expect(ddbMock.commandCalls(GetCommand)[0].args[0].input.Key).toEqual({ job_run_id: "01RUN" });
+    expect(result).toEqual(run({ job_run_id: "01RUN" }));
+  });
+
+  it("returns null when no run exists for that id", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    expect(await dao.getJobRun("01GHOST")).toBeNull();
+  });
+});
+
 describe("WarehouseJobRunsDao.putDefinition", () => {
   it("writes the definition with gsi1 (JOB#DEFINITIONS) key attributes and a name-uniqueness condition", async () => {
     ddbMock.on(PutCommand).resolves({});

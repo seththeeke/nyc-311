@@ -308,4 +308,60 @@ describe("AdminWarehousePage", () => {
     await user.click(screen.getByRole("button", { name: "Show Jobs" }));
     expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
   });
+
+  it("defaults to the Workspace view, with Workspace marked selected", async () => {
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+
+    expect(screen.getByRole("tab", { name: "Workspace" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("switches to the Reports view and back, hiding/showing the workspace panels", async () => {
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "Reports" }));
+
+    expect(screen.getByRole("tab", { name: "Reports" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText("order_volume_by_zip")).not.toBeInTheDocument();
+    expect(screen.getByText("No job runs yet.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Workspace" }));
+
+    expect(await screen.findByText("order_volume_by_zip")).toBeInTheDocument();
+    expect(screen.queryByText("No job runs yet.")).not.toBeInTheDocument();
+  });
+
+  it("shows a job run in the Reports tab's picker, sourced from the same job-runs fetch as the Jobs panel", async () => {
+    mockedGetJobRuns.mockResolvedValue({
+      jobRuns: [
+        {
+          job_run_id: "01RUN",
+          job_name: "order_volume_by_zip",
+          status: "SUCCEEDED",
+          trigger: "SCHEDULED",
+          started_at: "2026-09-04T09:00:01.000Z",
+          completed_at: "2026-09-04T09:00:14.000Z",
+          execution_ref: "ref",
+          result_location: "s3://bucket/job-results/job_name=order_volume_by_zip/run_date=2026-09-04/result.json",
+          row_count: 1,
+          error_message: null,
+          retry_count: 0,
+          retried_from_job_run_id: null,
+          data_scanned_bytes: null,
+          engine_execution_time_ms: null,
+          query_queue_time_ms: null,
+        },
+      ],
+    });
+    renderPage();
+    await screen.findByText("order_volume_by_zip");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "Reports" }));
+
+    expect(await screen.findByRole("button", { name: /order_volume_by_zip/ })).toBeEnabled();
+  });
 });

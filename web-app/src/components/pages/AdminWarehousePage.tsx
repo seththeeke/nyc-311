@@ -14,6 +14,13 @@ import { WarehouseSchemaSearch } from "../data/WarehouseSchemaSearch";
 import { SavedQueriesList } from "../data/SavedQueriesList";
 import { QueryWorkspace } from "../query/QueryWorkspace";
 import { WarehouseJobsPanel } from "../warehouseJobs/WarehouseJobsPanel";
+import {
+  AdminWarehouseViewTabs,
+  adminWarehouseViewPanelId,
+  adminWarehouseViewTabId,
+  type AdminWarehouseView,
+} from "../warehouseJobs/AdminWarehouseViewTabs";
+import { JobRunResultView } from "../warehouseJobs/JobRunResultView";
 
 type SchemaPanelView = "SCHEMA" | "SAVED_QUERIES";
 
@@ -29,6 +36,7 @@ const SCHEMA_TAB_CLASS = "rounded px-2.5 py-1 text-xs font-medium";
  * part of the job list response).
  */
 export function AdminWarehousePage(): ReactElement {
+  const [view, setView] = useState<AdminWarehouseView>("workspace");
   const [schemaCollapsed, setSchemaCollapsed] = useState(false);
   const [jobsCollapsed, setJobsCollapsed] = useState(false);
   const [schemaPanelView, setSchemaPanelView] = useState<SchemaPanelView>("SCHEMA");
@@ -79,81 +87,96 @@ export function AdminWarehousePage(): ReactElement {
         </h1>
         <p className="mt-2 text-slate-400">Schema, ad-hoc queries, and self-service scheduled jobs, all in one place.</p>
 
-        <div className="mt-6 flex items-start gap-4">
-          <CollapsiblePanel title="Schema" collapsed={schemaCollapsed} onToggle={() => setSchemaCollapsed((c) => !c)}>
-            <div className="mb-3 flex gap-1.5" role="tablist" aria-label="Schema panel view">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={schemaPanelView === "SCHEMA"}
-                onClick={() => setSchemaPanelView("SCHEMA")}
-                className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SCHEMA" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
-              >
-                Schema
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={schemaPanelView === "SAVED_QUERIES"}
-                onClick={() => setSchemaPanelView("SAVED_QUERIES")}
-                className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SAVED_QUERIES" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
-              >
-                Saved queries
-              </button>
-            </div>
+        <div className="mt-6">
+          <AdminWarehouseViewTabs view={view} onChange={setView} />
+        </div>
 
-            {schemaPanelView === "SCHEMA" ? (
-              schemaQuery.isPending || schemaQuery.isError ? (
-                <p className={schemaQuery.isError ? "text-red-400" : "text-slate-400"}>
-                  {schemaQuery.isError ? "Failed to load warehouse schema." : "Loading…"}
-                </p>
-              ) : (
-                <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
-              )
-            ) : (
-              <SavedQueriesList
-                queries={savedQueries}
-                onDelete={deleteJob}
-                isDeleting={isDeleting}
-                deleteError={deleteError}
-                onLoad={(query) => void handleLoad(query)}
-                loadingName={loadingName}
+        <div
+          id={adminWarehouseViewPanelId(view)}
+          role="tabpanel"
+          aria-labelledby={adminWarehouseViewTabId(view)}
+          className="mt-4"
+        >
+          {view === "reports" ? (
+            <JobRunResultView jobRuns={jobRunsQuery.data?.jobRuns ?? []} />
+          ) : (
+            <div className="flex items-start gap-4">
+              <CollapsiblePanel title="Schema" collapsed={schemaCollapsed} onToggle={() => setSchemaCollapsed((c) => !c)}>
+                <div className="mb-3 flex gap-1.5" role="tablist" aria-label="Schema panel view">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={schemaPanelView === "SCHEMA"}
+                    onClick={() => setSchemaPanelView("SCHEMA")}
+                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SCHEMA" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    Schema
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={schemaPanelView === "SAVED_QUERIES"}
+                    onClick={() => setSchemaPanelView("SAVED_QUERIES")}
+                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SAVED_QUERIES" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    Saved queries
+                  </button>
+                </div>
+
+                {schemaPanelView === "SCHEMA" ? (
+                  schemaQuery.isPending || schemaQuery.isError ? (
+                    <p className={schemaQuery.isError ? "text-red-400" : "text-slate-400"}>
+                      {schemaQuery.isError ? "Failed to load warehouse schema." : "Loading…"}
+                    </p>
+                  ) : (
+                    <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
+                  )
+                ) : (
+                  <SavedQueriesList
+                    queries={savedQueries}
+                    onDelete={deleteJob}
+                    isDeleting={isDeleting}
+                    deleteError={deleteError}
+                    onLoad={(query) => void handleLoad(query)}
+                    loadingName={loadingName}
+                  />
+                )}
+              </CollapsiblePanel>
+
+              <QueryWorkspace
+                queryTabs={queryTabs}
+                tables={schemaQuery.data?.tables}
+                createJob={createJob}
+                isCreating={isCreating}
+                createError={createError}
+                updateJob={updateJob}
+                isUpdating={isUpdating}
+                updateError={updateError}
               />
-            )}
-          </CollapsiblePanel>
 
-          <QueryWorkspace
-            queryTabs={queryTabs}
-            tables={schemaQuery.data?.tables}
-            createJob={createJob}
-            isCreating={isCreating}
-            createError={createError}
-            updateJob={updateJob}
-            isUpdating={isUpdating}
-            updateError={updateError}
-          />
-
-          <CollapsiblePanel
-            title="Jobs"
-            collapsed={jobsCollapsed}
-            onToggle={() => setJobsCollapsed((c) => !c)}
-            expandedClassName="w-96"
-          >
-            <WarehouseJobsPanel
-              jobs={scheduledJobs}
-              jobsLoading={jobDefinitionsQuery.isPending}
-              jobsError={jobDefinitionsQuery.isError}
-              jobRuns={jobRunsQuery.data?.jobRuns ?? []}
-              createJob={createJob}
-              isCreating={isCreating}
-              createError={createError}
-              deleteJob={deleteJob}
-              isDeleting={isDeleting}
-              deleteError={deleteError}
-              onLoad={(job) => void handleLoad(job)}
-              loadingName={loadingName}
-            />
-          </CollapsiblePanel>
+              <CollapsiblePanel
+                title="Jobs"
+                collapsed={jobsCollapsed}
+                onToggle={() => setJobsCollapsed((c) => !c)}
+                expandedClassName="w-96"
+              >
+                <WarehouseJobsPanel
+                  jobs={scheduledJobs}
+                  jobsLoading={jobDefinitionsQuery.isPending}
+                  jobsError={jobDefinitionsQuery.isError}
+                  jobRuns={jobRunsQuery.data?.jobRuns ?? []}
+                  createJob={createJob}
+                  isCreating={isCreating}
+                  createError={createError}
+                  deleteJob={deleteJob}
+                  isDeleting={isDeleting}
+                  deleteError={deleteError}
+                  onLoad={(job) => void handleLoad(job)}
+                  loadingName={loadingName}
+                />
+              </CollapsiblePanel>
+            </div>
+          )}
         </div>
       </main>
     </div>

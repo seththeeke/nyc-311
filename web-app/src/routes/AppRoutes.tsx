@@ -7,7 +7,6 @@ import { IngestionMonitoringPage } from "../components/pages/IngestionMonitoring
 import { PipelineMonitoringPage } from "../components/pages/PipelineMonitoringPage";
 import { LambdaMonitoringPage } from "../components/pages/LambdaMonitoringPage";
 import { IntegrationTestReportPage } from "../components/pages/IntegrationTestReportPage";
-import { ReportsPage } from "../components/pages/ReportsPage";
 import { LoginPage } from "../components/pages/LoginPage";
 import { AdminPage } from "../components/pages/AdminPage";
 import { CapacityManagementPage } from "../components/pages/CapacityManagementPage";
@@ -72,14 +71,6 @@ export function AppRoutes(): ReactElement {
         element={
           <PublicRoute>
             <IntegrationTestReportPage />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <PublicRoute>
-            <ReportsPage />
           </PublicRoute>
         }
       />

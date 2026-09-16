@@ -35,7 +35,6 @@ import { Nyc311WarehouseJobScheduleGroup } from "../warehouse/Nyc311WarehouseJob
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
-import { Nyc311ReportsApiLambda } from "../warehouse/Nyc311ReportsApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
@@ -43,6 +42,7 @@ import { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWare
 import { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
 import { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
 import { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
+import { Nyc311GetWarehouseJobRunResultsApiLambda } from "../warehouse/Nyc311GetWarehouseJobRunResultsApiLambda";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
@@ -473,6 +473,17 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
+    const getWarehouseJobRunResultsApiLambda = new Nyc311GetWarehouseJobRunResultsApiLambda(
+      this,
+      "Nyc311GetWarehouseJobRunResultsApiLambda",
+      {
+        envName: props.envName,
+        jobRunsTable: warehouseJobRunsTable,
+        usersTable,
+        warehouseBucket,
+      }
+    );
+
     /*
      * 7-data-warehousing.md §10 — the on-demand rebuild. A manually
      * triggered Step Functions state machine (the project's only one)
@@ -516,13 +527,6 @@ export class Nyc311Stack extends Stack {
     });
 
     const jobResultApiLambda = new Nyc311JobResultApiLambda(this, "Nyc311JobResultApiLambda", {
-      envName: props.envName,
-      jobRunsTable: warehouseJobRunsTable,
-      warehouseBucket,
-    });
-
-    /* 7-data-warehousing.md §12 — GET /reports: weekly trends assembled from the materialized job resultsets, no Athena on the read path. */
-    const reportsApiLambda = new Nyc311ReportsApiLambda(this, "Nyc311ReportsApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       warehouseBucket,
@@ -634,7 +638,6 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
       jobResultApiFunctionName: jobResultApiLambda.functionName,
-      reportsApiFunctionName: reportsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -644,7 +647,6 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiLambda,
       warehouseJobsApiLambda,
       jobResultApiLambda,
-      reportsApiLambda,
       adminWhoamiApiLambda,
       addCapacityApiLambda,
       removeCapacityApiLambda,
@@ -657,6 +659,7 @@ export class Nyc311Stack extends Stack {
       deleteWarehouseJobApiLambda,
       listWarehouseJobsApiLambda,
       getWarehouseJobSqlApiLambda,
+      getWarehouseJobRunResultsApiLambda,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

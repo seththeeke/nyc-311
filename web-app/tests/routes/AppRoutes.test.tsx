@@ -53,11 +53,6 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
   });
 
-  it("renders ReportsPage at /reports", () => {
-    renderAt("/reports");
-    expect(screen.getByRole("heading", { name: "Reports" })).toBeInTheDocument();
-  });
-
   it("renders LoginPage at /login", () => {
     renderAt("/login");
     expect(screen.getByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();

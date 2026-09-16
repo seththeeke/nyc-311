@@ -7,7 +7,6 @@ import {
   IntegrationTestsIcon,
   LambdaHealthIcon,
   PipelineIcon,
-  ReportsIcon,
 } from "../monitoring/MonitoringTileIcons";
 
 interface MonitoringTileConfig {
@@ -62,13 +61,6 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/data",
     accent: "cyan",
     icon: <DataWarehouseIcon />,
-  },
-  {
-    title: "Reports",
-    description: "Week-over-week trends assembled from the daily warehouse job runs.",
-    to: "/reports",
-    accent: "emerald",
-    icon: <ReportsIcon />,
   },
 ];
 

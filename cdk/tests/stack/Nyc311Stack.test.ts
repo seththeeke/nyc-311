@@ -202,15 +202,10 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseRebuildWorker-Test" });
     template.hasOutput("Nyc311WarehouseRebuildStateMachineArn", {});
 
-    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result", "GET /reports"]) {
+    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result"]) {
       template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }
-    for (const fn of [
-      "Nyc311WarehouseSchemaApi-Test",
-      "Nyc311WarehouseJobsApi-Test",
-      "Nyc311JobResultApi-Test",
-      "Nyc311ReportsApi-Test",
-    ]) {
+    for (const fn of ["Nyc311WarehouseSchemaApi-Test", "Nyc311WarehouseJobsApi-Test", "Nyc311JobResultApi-Test"]) {
       template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
     }
   });
@@ -270,7 +265,6 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseSchemaApiLambda") },
           MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },
           MONITORED_LAMBDA_JOB_RESULT_API: { Ref: Match.stringLikeRegexp("^Nyc311JobResultApiLambda") },
-          MONITORED_LAMBDA_REPORTS_API: { Ref: Match.stringLikeRegexp("^Nyc311ReportsApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

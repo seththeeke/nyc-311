@@ -24,7 +24,6 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   warehouseSchemaApiFunctionName: string;
   warehouseJobsApiFunctionName: string;
   jobResultApiFunctionName: string;
-  reportsApiFunctionName: string;
 }
 
 /**
@@ -75,7 +74,6 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: props.warehouseSchemaApiFunctionName,
         MONITORED_LAMBDA_WAREHOUSE_JOBS_API: props.warehouseJobsApiFunctionName,
         MONITORED_LAMBDA_JOB_RESULT_API: props.jobResultApiFunctionName,
-        MONITORED_LAMBDA_REPORTS_API: props.reportsApiFunctionName,
         MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
       },
     });
