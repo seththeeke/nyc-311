@@ -10,9 +10,14 @@ interface OperatorTrailProps {
   currentLocation: GpsLocation;
   recentJobLocations: GpsLocation[];
   currentOrder: FleetCurrentOrder | null;
+  isSelected: boolean;
+  onSelect: () => void;
 }
 
 const ICON_SIZE = 24;
+
+/* Overrides the activity color for a clicked Operator's trail, so it stands out from the rest of the fleet. */
+const SELECTED_TRAIL_COLOR = "#dc2626";
 
 /* Most-recent-completed-job segment first, fading toward the oldest — 11-street-condition-implementation.md §7's "even linear steps". */
 const SEGMENT_OPACITIES = [1.0, 0.8, 0.6, 0.4, 0.2];
@@ -34,14 +39,25 @@ function truckIcon(color: string): DivIcon {
  * extracted out of `FleetMap.tsx` to keep it under the 200-line cap.
  * Straight-line segments, not a real road path — §3's routing decision is
  * still deferred. The popup also shows the Order currently being
- * executed, if any (§7's on-click enrichment).
+ * executed, if any (§7's on-click enrichment). Clicking the marker calls
+ * `onSelect`, which turns this Operator's trail red to pick it out.
  */
-export function OperatorTrail({ name, activity, color, currentLocation, recentJobLocations, currentOrder }: OperatorTrailProps): ReactElement {
+export function OperatorTrail({
+  name,
+  activity,
+  color,
+  currentLocation,
+  recentJobLocations,
+  currentOrder,
+  isSelected,
+  onSelect,
+}: OperatorTrailProps): ReactElement {
   const trailPoints = [currentLocation, ...recentJobLocations];
+  const trailColor = isSelected ? SELECTED_TRAIL_COLOR : color;
 
   return (
     <>
-      <Marker position={[currentLocation.lat, currentLocation.lng]} icon={truckIcon(color)}>
+      <Marker position={[currentLocation.lat, currentLocation.lng]} icon={truckIcon(color)} eventHandlers={{ click: onSelect }}>
         <Popup>
           <strong>{name}</strong>
           <br />
@@ -67,7 +83,7 @@ export function OperatorTrail({ name, activity, color, currentLocation, recentJo
               [previousPoint.lat, previousPoint.lng],
               [point.lat, point.lng],
             ]}
-            pathOptions={{ color, opacity: SEGMENT_OPACITIES[index] }}
+            pathOptions={{ color: trailColor, opacity: SEGMENT_OPACITIES[index] }}
           />
         );
       })}

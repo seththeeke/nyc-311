@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { FleetMap } from "../../src/components/FleetMap";
 import type { FleetOperatorLocation } from "../../src/models/fleetLocation";
 
@@ -24,6 +25,8 @@ vi.mock("../../src/components/OperatorTrail", () => ({
     currentLocation,
     recentJobLocations,
     currentOrder,
+    isSelected,
+    onSelect,
   }: {
     name: string;
     activity: string;
@@ -31,8 +34,11 @@ vi.mock("../../src/components/OperatorTrail", () => ({
     currentLocation: { lat: number; lng: number };
     recentJobLocations: { lat: number; lng: number }[];
     currentOrder: { order_id: string } | null;
+    isSelected: boolean;
+    onSelect: () => void;
   }) => (
-    <div
+    <button
+      type="button"
       data-testid="operator-trail"
       data-name={name}
       data-activity={activity}
@@ -40,6 +46,8 @@ vi.mock("../../src/components/OperatorTrail", () => ({
       data-current={`${currentLocation.lat},${currentLocation.lng}`}
       data-recent-count={recentJobLocations.length}
       data-current-order-id={currentOrder?.order_id ?? ""}
+      data-selected={isSelected}
+      onClick={onSelect}
     />
   ),
 }));
@@ -110,5 +118,27 @@ describe("FleetMap", () => {
     render(<FleetMap operators={[]} />);
 
     expect(screen.queryByTestId("operator-trail")).not.toBeInTheDocument();
+  });
+
+  it("marks only the clicked Operator's trail as selected", async () => {
+    const user = userEvent.setup();
+    render(<FleetMap operators={operators} />);
+
+    const trails = screen.getAllByTestId("operator-trail");
+    await user.click(trails[0]);
+
+    expect(screen.getAllByTestId("operator-trail")[0]).toHaveAttribute("data-selected", "true");
+    expect(screen.getAllByTestId("operator-trail")[1]).toHaveAttribute("data-selected", "false");
+  });
+
+  it("deselects an Operator's trail when clicked again", async () => {
+    const user = userEvent.setup();
+    render(<FleetMap operators={operators} />);
+
+    const trails = screen.getAllByTestId("operator-trail");
+    await user.click(trails[0]);
+    await user.click(screen.getAllByTestId("operator-trail")[0]);
+
+    expect(screen.getAllByTestId("operator-trail")[0]).toHaveAttribute("data-selected", "false");
   });
 });

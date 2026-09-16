@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FleetOperatorLocation, GpsLocation, OperatorActivity } from "../models/fleetLocation";
@@ -34,6 +34,7 @@ const DEFAULT_ZOOM = 11;
  */
 export function FleetMap({ operators }: FleetMapProps): ReactElement {
   const plottable = operators.filter(isPlottable);
+  const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
 
   return (
     <MapContainer center={NYC_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
@@ -50,6 +51,8 @@ export function FleetMap({ operators }: FleetMapProps): ReactElement {
           currentLocation={operator.current_location}
           recentJobLocations={operator.recent_job_locations}
           currentOrder={operator.current_order}
+          isSelected={operator.operator_id === selectedOperatorId}
+          onSelect={() => setSelectedOperatorId((prev) => (prev === operator.operator_id ? null : operator.operator_id))}
         />
       ))}
     </MapContainer>
