@@ -9,8 +9,8 @@ const DEFAULT_CLASS = "h-4 w-4";
 /**
  * Small hand-rolled action icons (admin warehouse condensed-row
  * enhancement) — no icon library is used anywhere else in `web-app/`, so
- * three inline SVGs keep this dependency-free rather than pulling one in
- * for three glyphs.
+ * inline SVGs keep this dependency-free rather than pulling one in for a
+ * handful of glyphs.
  */
 export function LoadIcon({ className = DEFAULT_CLASS }: IconProps): ReactElement {
   return (
@@ -33,6 +33,16 @@ export function DeleteIcon({ className = DEFAULT_CLASS }: IconProps): ReactEleme
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 6h10M8 6V4.5h4V6m-6 0 .6 9a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9L14 6" />
+    </svg>
+  );
+}
+
+/** A generic loading spinner — bakes in `animate-spin` since it's never shown static. */
+export function SpinnerIcon({ className = DEFAULT_CLASS }: IconProps): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={`${className} animate-spin`}>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

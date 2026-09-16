@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { FleetMap } from "../FleetMap";
 import { useFleetLocations } from "../../hooks/useFleetLocations";
+import { SpinnerIcon } from "../icons";
 
 /**
  * The public landing page — the fleet map
@@ -19,7 +20,8 @@ export function HomePage(): ReactElement {
       <FleetMap operators={locations?.operators ?? []} />
 
       {isLoading && (
-        <div className="pointer-events-none absolute top-4 left-4 z-[1000] rounded-full bg-slate-950/90 px-3 py-1.5 text-sm text-slate-300 shadow-lg">
+        <div className="pointer-events-none absolute top-4 left-4 z-[1000] flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-1.5 text-sm text-slate-300 shadow-lg">
+          <SpinnerIcon className="h-4 w-4" />
           Loading fleet…
         </div>
       )}

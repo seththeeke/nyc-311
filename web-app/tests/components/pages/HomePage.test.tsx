@@ -47,10 +47,11 @@ describe("HomePage", () => {
   it("overlays a loading indicator on top of the map, not in place of it", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
 
-    renderHomePage();
+    const { container } = renderHomePage();
 
     expect(screen.getByText("Loading fleet…")).toBeInTheDocument();
     expect(screen.getByTestId("fleet-map")).toBeInTheDocument();
+    expect(container.querySelector("svg")).toHaveClass("animate-spin");
   });
 
   it("overlays an error message on top of the map when fetching fails, without hiding the map", () => {
@@ -65,10 +66,11 @@ describe("HomePage", () => {
   it("passes the resolved operators to the map once locations load", () => {
     mockedUseFleetLocations.mockReturnValue({ locations, isLoading: false, error: null });
 
-    renderHomePage();
+    const { container } = renderHomePage();
 
     expect(screen.getByTestId("fleet-map")).toHaveTextContent("1 operators");
     expect(screen.queryByText("Loading fleet…")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(container.querySelector("svg.animate-spin")).not.toBeInTheDocument();
   });
 });

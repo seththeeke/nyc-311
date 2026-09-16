@@ -28,6 +28,24 @@ vi.mock("react-leaflet", () => ({
       data-opacity={pathOptions.opacity}
     />
   ),
+  CircleMarker: ({
+    center,
+    radius,
+    pathOptions,
+  }: {
+    center: [number, number];
+    radius: number;
+    pathOptions: { color: string; weight: number; fillColor: string; fillOpacity: number; opacity: number };
+  }) => (
+    <div
+      data-testid="stop-marker"
+      data-center={center.join(",")}
+      data-radius={radius}
+      data-stroke-color={pathOptions.color}
+      data-fill-color={pathOptions.fillColor}
+      data-fill-opacity={pathOptions.fillOpacity}
+    />
+  ),
   Popup: ({ children }: { children: React.ReactNode }) => <div data-testid="popup">{children}</div>,
 }));
 
@@ -158,6 +176,48 @@ describe("OperatorTrail", () => {
     );
 
     expect(screen.getByTestId("marker")).toHaveAttribute("data-icon-html", expect.stringContaining("#10b981"));
+  });
+
+  it("renders no stop markers for an Operator with no recent jobs", () => {
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={[]} currentOrder={null} isSelected={false} onSelect={() => {}} />);
+
+    expect(screen.queryByTestId("stop-marker")).not.toBeInTheDocument();
+  });
+
+  it("draws one filled stop marker per recent job, at that job's position", () => {
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#10b981" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} currentOrder={null} isSelected={false} onSelect={() => {}} />);
+
+    const stops = screen.getAllByTestId("stop-marker");
+    expect(stops).toHaveLength(2);
+    expect(stops[0]).toHaveAttribute("data-center", `${RECENT_JOBS[0].lat},${RECENT_JOBS[0].lng}`);
+    expect(stops[1]).toHaveAttribute("data-center", `${RECENT_JOBS[1].lat},${RECENT_JOBS[1].lng}`);
+  });
+
+  it("fills each stop marker with the trail color, fading the same as its segment", () => {
+    render(<OperatorTrail name="Truck A" activity="IDLE" color="#f59e0b" currentLocation={CURRENT_LOCATION} recentJobLocations={RECENT_JOBS} currentOrder={null} isSelected={false} onSelect={() => {}} />);
+
+    const stops = screen.getAllByTestId("stop-marker");
+    expect(stops.map((s) => s.getAttribute("data-fill-color"))).toEqual(["#f59e0b", "#f59e0b"]);
+    expect(stops.map((s) => s.getAttribute("data-fill-opacity"))).toEqual(["1", "0.8"]);
+  });
+
+  it("fills stop markers red when selected, overriding the activity color", () => {
+    render(
+      <OperatorTrail
+        name="Truck A"
+        activity="IDLE"
+        color="#10b981"
+        currentLocation={CURRENT_LOCATION}
+        recentJobLocations={RECENT_JOBS}
+        currentOrder={null}
+        isSelected
+        onSelect={() => {}}
+      />,
+    );
+
+    for (const stop of screen.getAllByTestId("stop-marker")) {
+      expect(stop).toHaveAttribute("data-fill-color", "#dc2626");
+    }
   });
 
   it("calls onSelect when the marker is clicked", async () => {

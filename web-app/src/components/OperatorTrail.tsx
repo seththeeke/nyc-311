@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { divIcon, type DivIcon } from "leaflet";
-import { Marker, Polyline, Popup } from "react-leaflet";
+import { CircleMarker, Marker, Polyline, Popup } from "react-leaflet";
 import type { FleetCurrentOrder, GpsLocation, OperatorActivity } from "../models/fleetLocation";
 
 interface OperatorTrailProps {
@@ -22,6 +22,10 @@ const SELECTED_TRAIL_COLOR = "#dc2626";
 /* Most-recent-completed-job segment first, fading toward the oldest — 11-street-condition-implementation.md §7's "even linear steps". */
 const SEGMENT_OPACITIES = [1.0, 0.8, 0.6, 0.4, 0.2];
 
+/* A filled dot at each past stop, sized/outlined to read clearly against the line segments alone. */
+const STOP_RADIUS = 5;
+const STOP_STROKE_COLOR = "#1f2937";
+
 /* Inline SVG via divIcon, no image asset/CDN dependency — fill matches the existing IDLE/TRANSIT/WORKING color coding. */
 function truckIcon(color: string): DivIcon {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${ICON_SIZE}" height="${ICON_SIZE}">
@@ -36,11 +40,11 @@ function truckIcon(color: string): DivIcon {
 /**
  * One Operator's truck marker plus its fading path trail through the last
  * up to 5 completed jobs (`11-street-condition-implementation.md` §7),
- * extracted out of `FleetMap.tsx` to keep it under the 200-line cap.
- * Straight-line segments, not a real road path — §3's routing decision is
- * still deferred. The popup also shows the Order currently being
- * executed, if any (§7's on-click enrichment). Clicking the marker calls
- * `onSelect`, which turns this Operator's trail red to pick it out.
+ * extracted out of `FleetMap.tsx` to keep it under the 200-line cap. Each
+ * past stop also gets a filled circle marker, faded like its segment.
+ * Straight-line segments, not a real road path — §3's routing is still
+ * deferred. The popup shows the Order being executed, if any. Clicking
+ * the marker calls `onSelect`, which turns this Operator's trail red.
  */
 export function OperatorTrail({
   name,
@@ -87,6 +91,20 @@ export function OperatorTrail({
           />
         );
       })}
+      {recentJobLocations.map((point, index) => (
+        <CircleMarker
+          key={`stop-${point.lat},${point.lng},${index}`}
+          center={[point.lat, point.lng]}
+          radius={STOP_RADIUS}
+          pathOptions={{
+            color: STOP_STROKE_COLOR,
+            weight: 1.5,
+            fillColor: trailColor,
+            fillOpacity: SEGMENT_OPACITIES[index],
+            opacity: SEGMENT_OPACITIES[index],
+          }}
+        />
+      ))}
     </>
   );
 }
