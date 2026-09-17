@@ -34,11 +34,9 @@ describe("orderExecutionController", () => {
       order_id: "01ORDER",
       operator_id: "01OPERATOR",
       job_location: { lat: 40.75, lng: -73.98 },
-      transit_minutes: 20,
-      processing_minutes: 30,
     });
 
-    expect(mockedDispatchOrder).toHaveBeenCalledWith("01ORDER", 20, 30);
+    expect(mockedDispatchOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR", { lat: 40.75, lng: -73.98 });
     expect(result).toEqual({ transit_wait_seconds: 12, processing_wait_seconds: 18 });
   });
 

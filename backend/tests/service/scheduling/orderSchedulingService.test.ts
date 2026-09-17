@@ -85,9 +85,14 @@ function makeLocationDao(location: Location | null): LocationDao {
   return { getLocation: vi.fn().mockResolvedValue(location) } as unknown as LocationDao;
 }
 
-function makeOperatorDao(operatorId: string | null = "01OPERATOR"): OperatorDao {
+function makeOperatorDao(
+  operatorId: string | null = "01OPERATOR",
+  currentLocation: { lat: number; lng: number } | null = HOME_DEPOT_LOCATION
+): OperatorDao {
   return {
-    findIdleOperator: vi.fn().mockResolvedValue(operatorId ? { operator_id: operatorId } : null),
+    findIdleOperator: vi
+      .fn()
+      .mockResolvedValue(operatorId ? { operator_id: operatorId, current_location: currentLocation } : null),
     startTransit: vi.fn().mockResolvedValue(undefined),
   } as unknown as OperatorDao;
 }
@@ -145,10 +150,27 @@ describe("scheduleOrders", () => {
       orderId: "01ORDER",
       operatorId: "01OPERATOR",
       jobLocation: { lat: 40.75, lng: -73.82 },
-      transitMinutes: 20,
-      processingMinutes: 30,
       scheduledStartDatetime: "2026-08-28T12:00:00.000Z",
     });
+  });
+
+  it("calls the transit estimator with the idle Operator's current position and the job's resolved position", async () => {
+    const deps = baseDeps({ operatorDao: makeOperatorDao("01OPERATOR", { lat: 40.75, lng: -73.9 }) });
+
+    await scheduleOrders(deps);
+
+    expect(deps.transitEstimator!.estimateMinutes).toHaveBeenCalledWith(
+      { lat: 40.75, lng: -73.9 },
+      { lat: 40.75, lng: -73.82 }
+    );
+  });
+
+  it("falls back to HOME_DEPOT_LOCATION for the Operator's position when current_location is null", async () => {
+    const deps = baseDeps({ operatorDao: makeOperatorDao("01OPERATOR", null) });
+
+    await scheduleOrders(deps);
+
+    expect(deps.transitEstimator!.estimateMinutes).toHaveBeenCalledWith(HOME_DEPOT_LOCATION, expect.anything());
   });
 
   it("falls back to HOME_DEPOT_LOCATION when the Location has no lat/lng", async () => {

@@ -7,7 +7,7 @@ import { LocationDao } from "../../dao/location/locationDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import type { Order } from "../../models/order";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
-import { mockTransitTimeEstimator, type TransitTimeEstimator } from "./transitTimeService";
+import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "./transitTimeService";
 import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "./processingTimeService";
 import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
 
@@ -106,8 +106,12 @@ async function dispatchOneOrder(
     throw new Error(`Order ${order.order_id} has no resolvable Request/Location record`);
   }
 
+  const jobLocation = resolveJobLocation(location);
+  /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED — but the schema allows it, so this is defended rather than assumed. */
+  const operatorLocation = idleOperator.current_location ?? HOME_DEPOT_LOCATION;
+
   const [transitMinutes, processingMinutes] = await Promise.all([
-    deps.transitEstimator.estimateMinutes(order, location),
+    deps.transitEstimator.estimateMinutes(operatorLocation, jobLocation),
     deps.processingEstimator.estimateMinutes(order, request),
   ]);
 
@@ -130,9 +134,7 @@ async function dispatchOneOrder(
   await deps.executionStarter.startExecution({
     orderId: order.order_id,
     operatorId: idleOperator.operator_id,
-    jobLocation: resolveJobLocation(location),
-    transitMinutes,
-    processingMinutes,
+    jobLocation,
     scheduledStartDatetime: scheduledStart.toISOString(),
   });
 
@@ -160,7 +162,7 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     requestDao: deps.requestDao ?? getDefaultRequestDao(),
     locationDao: deps.locationDao ?? getDefaultLocationDao(),
     operatorDao: deps.operatorDao ?? getDefaultOperatorDao(),
-    transitEstimator: deps.transitEstimator ?? mockTransitTimeEstimator,
+    transitEstimator: deps.transitEstimator ?? straightLineTransitTimeEstimator,
     processingEstimator: deps.processingEstimator ?? mockProcessingTimeEstimator,
     executionStarter: deps.executionStarter ?? stepFunctionsOrderExecutionStarter,
     now: deps.now ?? (() => new Date()),

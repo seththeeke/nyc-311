@@ -3,6 +3,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { OrdersTable } from "../../data/OrdersTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
+import { RequestsTable } from "../../data/RequestsTable";
 import { Nyc311OrderExecutionLambda } from "../../lambda/Nyc311OrderExecutionLambda";
 
 function synthesize(envName: "TEST" | "PROD", simulationTimeScale = 100): Template {
@@ -10,10 +11,12 @@ function synthesize(envName: "TEST" | "PROD", simulationTimeScale = 100): Templa
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
+  const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   new Nyc311OrderExecutionLambda(stack, "Nyc311OrderExecutionLambda", {
     envName,
     ordersTable,
     operatorsTable,
+    requestsTable,
     simulationTimeScale,
   });
   return Template.fromStack(stack);
@@ -38,7 +41,7 @@ describe("Nyc311OrderExecutionLambda", () => {
     synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311OrderExecution-Prod" });
   });
 
-  it("passes the Orders/Operators table names and SIMULATION_TIME_SCALE as env vars", () => {
+  it("passes the Orders/Operators/Requests table names and SIMULATION_TIME_SCALE as env vars", () => {
     const template = synthesize("TEST", 100);
 
     template.hasResourceProperties("AWS::Lambda::Function", {
@@ -46,6 +49,7 @@ describe("Nyc311OrderExecutionLambda", () => {
         Variables: {
           ORDERS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^OrdersTable") },
           OPERATORS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^OperatorsTable") },
+          REQUESTS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^RequestsTable") },
           SIMULATION_TIME_SCALE: "100",
         },
       },
@@ -60,7 +64,7 @@ describe("Nyc311OrderExecutionLambda", () => {
     });
   });
 
-  it("grants exactly GetItem/PutItem on Orders and Operators — no Query, this Lambda never scans/queries", () => {
+  it("grants exactly GetItem/PutItem on Orders/Operators plus GetItem on Requests — no Query, this Lambda never scans/queries", () => {
     const template = synthesize("TEST");
 
     const policies = template.findResources("AWS::IAM::Policy");

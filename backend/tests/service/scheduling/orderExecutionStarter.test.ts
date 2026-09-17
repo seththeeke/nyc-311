@@ -23,8 +23,6 @@ describe("stepFunctionsOrderExecutionStarter", () => {
       orderId: "01ORDER",
       operatorId: "01OPERATOR",
       jobLocation: { lat: 40.75, lng: -73.82 },
-      transitMinutes: 20,
-      processingMinutes: 30,
       scheduledStartDatetime: "2026-09-12T00:00:00.000Z",
     });
 
@@ -35,8 +33,6 @@ describe("stepFunctionsOrderExecutionStarter", () => {
       order_id: "01ORDER",
       operator_id: "01OPERATOR",
       job_location: { lat: 40.75, lng: -73.82 },
-      transit_minutes: 20,
-      processing_minutes: 30,
       scheduled_start_datetime: "2026-09-12T00:00:00.000Z",
     });
   });
@@ -51,8 +47,6 @@ describe("stepFunctionsOrderExecutionStarter", () => {
           orderId: "01ORDER",
           operatorId: "01OPERATOR",
           jobLocation: { lat: 40.75, lng: -73.82 },
-          transitMinutes: 20,
-          processingMinutes: 30,
           scheduledStartDatetime: "2026-09-12T00:00:00.000Z",
         })
       ).rejects.toThrow("Missing required environment variable: ORDER_EXECUTION_STATE_MACHINE_ARN");

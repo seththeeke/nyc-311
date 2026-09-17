@@ -3,6 +3,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { OrdersTable } from "../../data/OrdersTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
+import { RequestsTable } from "../../data/RequestsTable";
 import { Nyc311OrderExecutionLambda } from "../../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../../step-function/Nyc311OrderExecutionStateMachine";
 
@@ -11,10 +12,12 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): { template: Template; de
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
+  const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
   const executionLambda = new Nyc311OrderExecutionLambda(stack, "Nyc311OrderExecutionLambda", {
     envName,
     ordersTable,
     operatorsTable,
+    requestsTable,
     simulationTimeScale: 100,
   });
   new Nyc311OrderExecutionStateMachine(stack, "Nyc311OrderExecutionStateMachine", { envName, executionLambda });

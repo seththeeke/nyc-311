@@ -13,8 +13,6 @@ export interface StartOrderExecutionInput {
   operatorId: string;
   /** The job's GPS position — already resolved (Location's lat/lng, or HOME_DEPOT_LOCATION as a fallback) by the caller. */
   jobLocation: GpsLocation;
-  transitMinutes: number;
-  processingMinutes: number;
   /** Always `now` today — the state machine's leading `Wait` state resolves instantly. A later pre-scheduling flow just passes a future timestamp (§3.8). */
   scheduledStartDatetime: string;
 }
@@ -53,8 +51,6 @@ export const stepFunctionsOrderExecutionStarter: OrderExecutionStarter = {
           order_id: input.orderId,
           operator_id: input.operatorId,
           job_location: input.jobLocation,
-          transit_minutes: input.transitMinutes,
-          processing_minutes: input.processingMinutes,
           scheduled_start_datetime: input.scheduledStartDatetime,
         }),
       })

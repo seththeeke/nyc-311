@@ -3,8 +3,11 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
 import { OrderDao } from "../../dao/order/orderDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
-import type { GpsLocation } from "../../models/gpsLocation";
+import { RequestDao } from "../../dao/request/requestDao";
+import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { DispatchResult } from "../../models/orderExecutionTask";
+import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "../scheduling/transitTimeService";
+import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "../scheduling/processingTimeService";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -20,6 +23,9 @@ function getDefaultOrderDao(): OrderDao {
 }
 function getDefaultOperatorDao(): OperatorDao {
   return new OperatorDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("OPERATORS_TABLE_NAME"));
+}
+function getDefaultRequestDao(): RequestDao {
+  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
 }
 
 /**
@@ -40,28 +46,85 @@ function getSimulationTimeScale(): number {
 export interface OrderExecutionDeps {
   orderDao?: OrderDao;
   operatorDao?: OperatorDao;
+  requestDao?: RequestDao;
+  transitEstimator?: TransitTimeEstimator;
+  processingEstimator?: ProcessingTimeEstimator;
+  /** Source of the execution-time random variance factors — defaults to `Math.random`, injectable for deterministic tests. */
+  random?: () => number;
   getSimulationTimeScale?: () => number;
+}
+
+/*
+ * Real-world execution-time variance (traffic/detours for transit,
+ * job-to-job variability for processing) the scheduling-time estimates
+ * can't capture — a uniform random factor in [1, 2), drawn independently
+ * per estimate.
+ */
+function randomVarianceFactor(random: () => number): number {
+  return 1 + random();
 }
 
 /**
  * The execution state machine's `Dispatch` phase
  * (`10-capacity-modeling-and-integration.md` §3.2/§3.6) — fires
- * `ORDER_DISPATCHED` only; the assigned Operator already transitioned to
- * `TRANSIT` when the scheduling job claimed it, so no Operator event
- * fires here. Returns the scaled `Wait` durations the state machine's
- * next two `Wait` states read.
+ * `ORDER_DISPATCHED` only, no Operator event (already `TRANSIT` since
+ * scheduling). Re-estimates both transit (from the Operator's live
+ * position) and processing time live, each with its own random variance
+ * factor, instead of reusing the scheduling-time estimates. Returns the
+ * scaled `Wait` durations the next two `Wait` states read.
  */
 export async function dispatchOrder(
   orderId: string,
-  transitMinutes: number,
-  processingMinutes: number,
+  operatorId: string,
+  jobLocation: GpsLocation,
   deps: OrderExecutionDeps = {}
 ): Promise<DispatchResult> {
   const orderDao = deps.orderDao ?? getDefaultOrderDao();
+  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const transitEstimator = deps.transitEstimator ?? straightLineTransitTimeEstimator;
+  const processingEstimator = deps.processingEstimator ?? mockProcessingTimeEstimator;
+  const random = deps.random ?? Math.random;
   const scale = (deps.getSimulationTimeScale ?? getSimulationTimeScale)();
 
-  logInfo("OrderExecutionDispatchStarted", { orderId, transitMinutes, processingMinutes, scale });
-  await orderDao.recordDispatched(orderId);
+  logInfo("OrderExecutionDispatchStarted", { orderId, operatorId, scale });
+  const order = await orderDao.recordDispatched(orderId);
+
+  const [operator, request] = await Promise.all([
+    operatorDao.getOperator(operatorId),
+    requestDao.getRequestById(order.request_id),
+  ]);
+  if (!request) {
+    throw new Error(`Order ${orderId} has no resolvable Request record`);
+  }
+  /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED, and this one was just claimed moments earlier — but defended against rather than assumed. */
+  const operatorLocation = operator?.current_location ?? HOME_DEPOT_LOCATION;
+
+  const [estimatedTransitMinutes, estimatedProcessingMinutes] = await Promise.all([
+    transitEstimator.estimateMinutes(operatorLocation, jobLocation),
+    processingEstimator.estimateMinutes(order, request),
+  ]);
+
+  const transitRandomFactor = randomVarianceFactor(random);
+  const transitMinutes = estimatedTransitMinutes * transitRandomFactor;
+  logInfo("OrderExecutionTransitReestimated", {
+    orderId,
+    operatorId,
+    operatorLocation,
+    jobLocation,
+    estimatedTransitMinutes,
+    randomFactor: transitRandomFactor,
+    transitMinutes,
+  });
+
+  const processingRandomFactor = randomVarianceFactor(random);
+  const processingMinutes = estimatedProcessingMinutes * processingRandomFactor;
+  logInfo("OrderExecutionProcessingReestimated", {
+    orderId,
+    estimatedProcessingMinutes,
+    randomFactor: processingRandomFactor,
+    processingMinutes,
+  });
 
   const result: DispatchResult = {
     transit_wait_seconds: Math.round((transitMinutes * 60) / scale),

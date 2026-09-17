@@ -38,6 +38,7 @@ export class Nyc311OrderExecutionStateMachine extends Construct {
       time: sfn.WaitTime.timestampPath("$.scheduled_start_datetime"),
     });
 
+    /* No transit/processing minutes here — `dispatchOrder` re-estimates both live (Operator position for transit, processingTimeService for processing), each with its own random factor. */
     const dispatch = new tasks.LambdaInvoke(this, "Dispatch", {
       lambdaFunction: props.executionLambda,
       payload: sfn.TaskInput.fromObject({
@@ -45,8 +46,6 @@ export class Nyc311OrderExecutionStateMachine extends Construct {
         "order_id.$": "$.order_id",
         "operator_id.$": "$.operator_id",
         "job_location.$": "$.job_location",
-        "transit_minutes.$": "$.transit_minutes",
-        "processing_minutes.$": "$.processing_minutes",
       }),
       payloadResponseOnly: true,
       resultPath: "$.dispatch",

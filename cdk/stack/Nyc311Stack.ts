@@ -562,6 +562,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       ordersTable,
       operatorsTable,
+      requestsTable,
       simulationTimeScale,
     });
     const orderExecutionStateMachine = new Nyc311OrderExecutionStateMachine(this, "Nyc311OrderExecutionStateMachine", {

@@ -9,14 +9,19 @@ import { GpsLocationSchema } from "./gpsLocation";
  * one other state-machine precedent in this codebase).
  */
 
-/** Started by orderSchedulingService right after claiming an idle Operator — computes and returns the scaled Wait durations for the two Wait states that follow. */
+/**
+ * Started by orderSchedulingService right after claiming an idle Operator —
+ * computes and returns the scaled Wait durations for the two Wait states
+ * that follow. Carries no timing estimate of its own — both transit and
+ * processing are re-estimated live at dispatch time
+ * (`transitTimeService.ts`/`processingTimeService.ts`), not carried over
+ * from the scheduling-time estimates.
+ */
 export const DispatchTaskSchema = z.object({
   phase: z.literal("DISPATCH"),
   order_id: z.string().min(1),
   operator_id: z.string().min(1),
   job_location: GpsLocationSchema,
-  transit_minutes: z.number().positive(),
-  processing_minutes: z.number().positive(),
 });
 export type DispatchTask = z.infer<typeof DispatchTaskSchema>;
 

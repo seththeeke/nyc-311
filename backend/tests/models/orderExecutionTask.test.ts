@@ -5,14 +5,7 @@ const JOB_LOCATION = { lat: 40.75, lng: -73.98 };
 
 describe("OrderExecutionTaskSchema", () => {
   it("accepts a well-formed DISPATCH task", () => {
-    const task = {
-      phase: "DISPATCH",
-      order_id: "01ORDER",
-      operator_id: "01OPERATOR",
-      job_location: JOB_LOCATION,
-      transit_minutes: 20,
-      processing_minutes: 30,
-    };
+    const task = { phase: "DISPATCH", order_id: "01ORDER", operator_id: "01OPERATOR", job_location: JOB_LOCATION };
     expect(OrderExecutionTaskSchema.parse(task)).toEqual(task);
   });
 
@@ -30,14 +23,12 @@ describe("OrderExecutionTaskSchema", () => {
     expect(OrderExecutionTaskSchema.safeParse({ phase: "PROCESS", order_id: "01ORDER" }).success).toBe(false);
   });
 
-  it("rejects a DISPATCH task missing transit_minutes", () => {
+  it("rejects a DISPATCH task missing job_location", () => {
     expect(
       OrderExecutionTaskSchema.safeParse({
         phase: "DISPATCH",
         order_id: "01ORDER",
         operator_id: "01OPERATOR",
-        job_location: JOB_LOCATION,
-        processing_minutes: 30,
       }).success
     ).toBe(false);
   });

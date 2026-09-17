@@ -24,7 +24,7 @@ export const orderExecutionController = async (event: unknown): Promise<Dispatch
   const task = parsed.data;
   switch (task.phase) {
     case "DISPATCH":
-      return dispatchOrder(task.order_id, task.transit_minutes, task.processing_minutes);
+      return dispatchOrder(task.order_id, task.operator_id, task.job_location);
     case "ARRIVE":
       await arriveAtJob(task.order_id, task.operator_id, task.job_location);
       return {};
