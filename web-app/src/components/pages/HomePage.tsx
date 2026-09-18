@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { FleetMap } from "../FleetMap";
+import { CapacityTile } from "../CapacityTile";
 import { useFleetLocations } from "../../hooks/useFleetLocations";
 import { SpinnerIcon } from "../icons";
 
@@ -18,6 +19,7 @@ export function HomePage(): ReactElement {
   return (
     <main className="relative h-[calc(100vh-3.5rem)] w-full">
       <FleetMap operators={locations?.operators ?? []} />
+      <CapacityTile count={locations ? locations.operators.length : null} />
 
       {isLoading && (
         <div className="pointer-events-none absolute top-4 left-4 z-[1000] flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-1.5 text-sm text-slate-300 shadow-lg">

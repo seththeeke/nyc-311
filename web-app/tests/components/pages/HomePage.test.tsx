@@ -44,6 +44,14 @@ describe("HomePage", () => {
     expect(screen.getByTestId("fleet-map")).toHaveTextContent("0 operators");
   });
 
+  it("shows the capacity tile's loading state before locations resolve", () => {
+    mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
+
+    renderHomePage();
+
+    expect(screen.getByRole("status")).toHaveAccessibleName("Total capacity: loading");
+  });
+
   it("overlays a loading indicator on top of the map, not in place of it", () => {
     mockedUseFleetLocations.mockReturnValue({ locations: undefined, isLoading: true, error: null });
 
@@ -72,5 +80,13 @@ describe("HomePage", () => {
     expect(screen.queryByText("Loading fleet…")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(container.querySelector("svg.animate-spin")).not.toBeInTheDocument();
+  });
+
+  it("shows the total operator count on the capacity tile once locations load", () => {
+    mockedUseFleetLocations.mockReturnValue({ locations, isLoading: false, error: null });
+
+    renderHomePage();
+
+    expect(screen.getByRole("status")).toHaveAccessibleName("Total capacity: 1 operators");
   });
 });
