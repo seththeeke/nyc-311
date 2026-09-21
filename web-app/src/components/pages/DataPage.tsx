@@ -1,38 +1,14 @@
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { useWarehouseSchema } from "../../hooks/useWarehouseSchema";
-import { useWarehouseJobRuns } from "../../hooks/useWarehouseJobRuns";
-import { useJobResult } from "../../hooks/useJobResult";
-import { WarehouseSchemaView } from "../data/WarehouseSchemaView";
-import { DataViewTabs, dataViewPanelId, dataViewTabId, type DataView } from "../data/DataViewTabs";
-import { JobsView } from "../data/JobsView";
-import { PerformanceView } from "../data/PerformanceView";
-import { ResultsView } from "../data/ResultsView";
+import { WarehouseSchemaSearch } from "../data/WarehouseSchemaSearch";
 
-const CARD_CLASSES =
-  "rounded-2xl border border-white/10 bg-white shadow-2xl shadow-cyan-950/20 ring-1 ring-black/5";
-
-/*
- * The job whose latest result the "Results" tab shows. One job today; a
- * job picker lands here when there are several (7-data-warehousing.md §12).
- */
-const RESULTS_JOB = "order_volume_by_stage_7d";
-
-function Section({ title, children }: { title: string; children: ReactElement }): ReactElement {
+/** Rendered only while the query is pending or errored — a not-pending state here is therefore an error. */
+function QueryState({ isPending, error }: { isPending: boolean; error: unknown }): ReactElement {
+  if (isPending) return <p className="text-slate-400">Loading…</p>;
   return (
-    <section className={`${CARD_CLASSES} p-4`}>
-      <h2 className="text-sm font-semibold tracking-wide text-slate-900 uppercase">{title}</h2>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-/** Rendered only while a query is pending or errored — a not-pending state here is therefore an error. */
-function QueryState({ isPending, error, label }: { isPending: boolean; error: unknown; label: string }): ReactElement {
-  if (isPending) return <p className="text-slate-500">Loading…</p>;
-  return (
-    <p role="alert" className="text-red-600">
-      Failed to load {label}
+    <p role="alert" className="text-red-400">
+      Failed to load warehouse schema
       {error instanceof Error ? `: ${error.message}` : "."}
     </p>
   );
@@ -40,21 +16,13 @@ function QueryState({ isPending, error, label }: { isPending: boolean; error: un
 
 /**
  * The data warehouse's public, read-only surface (7-data-warehousing.md
- * §12) — schema on the left; the job runner's history, its query
- * performance, or a job's latest resultset on the right. No write actions
- * exist here or on any route this page reaches. Only reachable today via
- * the Monitoring page's "Data Warehouse" tile, so its back link returns
- * there rather than to Home.
+ * §12) — just the schema, searchable client-side. No write actions exist
+ * here or on any route this page reaches. Only reachable today via the
+ * Monitoring page's "Data Warehouse" tile, so its back link returns there
+ * rather than to Home.
  */
 export function DataPage(): ReactElement {
   const schemaQuery = useWarehouseSchema();
-  const jobRunsQuery = useWarehouseJobRuns();
-  const jobResultQuery = useJobResult(RESULTS_JOB);
-  const [view, setView] = useState<DataView>("jobs");
-
-  const jobRuns = jobRunsQuery.data?.jobRuns ?? [];
-  const panelQuery = view === "results" ? jobResultQuery : jobRunsQuery;
-  const panelLabel = view === "results" ? `result for ${RESULTS_JOB}` : "job runs";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950">
@@ -67,45 +35,24 @@ export function DataPage(): ReactElement {
         className="bg-grid-glow pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_65%_45%_at_50%_0%,black,transparent)]"
       />
 
-      <main className="relative mx-auto max-w-7xl px-6 py-16">
+      <main className="relative mx-auto max-w-4xl px-6 py-16">
         <Link to="/monitoring" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
           &larr; Monitoring
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-cyan-300 via-blue-300 to-violet-300 bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Data
         </h1>
-        <p className="mt-2 text-slate-400">
-          The warehouse's schema, job history, and job results — read-only, refreshes every 30s.
-        </p>
+        <p className="mt-2 text-slate-400">The warehouse's schema — search by table or column name. Read-only.</p>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <Section title="Schema">
-              {schemaQuery.isPending || schemaQuery.isError ? (
-                <QueryState isPending={schemaQuery.isPending} error={schemaQuery.error} label="warehouse schema" />
-              ) : schemaQuery.data.tables.length === 0 ? (
-                <p className="text-slate-500">No warehouse tables catalogued yet.</p>
-              ) : (
-                <WarehouseSchemaView tables={schemaQuery.data.tables} />
-              )}
-            </Section>
-          </div>
-
-          <div className={`lg:col-span-3 ${CARD_CLASSES}`}>
-            <DataViewTabs view={view} onChange={setView} />
-            <div id={dataViewPanelId(view)} role="tabpanel" aria-labelledby={dataViewTabId(view)} className="p-4">
-              {panelQuery.isPending || panelQuery.isError ? (
-                <QueryState isPending={panelQuery.isPending} error={panelQuery.error} label={panelLabel} />
-              ) : view === "performance" ? (
-                <PerformanceView jobRuns={jobRuns} />
-              ) : view === "results" ? (
-                jobResultQuery.data ? <ResultsView result={jobResultQuery.data} /> : null
-              ) : (
-                <JobsView jobRuns={jobRuns} />
-              )}
-            </div>
-          </div>
-        </div>
+        <section aria-label="Warehouse schema" className="mt-6">
+          {schemaQuery.isPending || schemaQuery.isError ? (
+            <QueryState isPending={schemaQuery.isPending} error={schemaQuery.error} />
+          ) : schemaQuery.data.tables.length === 0 ? (
+            <p className="text-slate-400">No warehouse tables catalogued yet.</p>
+          ) : (
+            <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
+          )}
+        </section>
       </main>
     </div>
   );

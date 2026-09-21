@@ -62,4 +62,17 @@ describe("WarehouseSchemaSearch", () => {
     expect(screen.getByText('No tables or columns match "nonexistent".')).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
+
+  it("keeps tables collapsed until a search is active, then expands matches", async () => {
+    const { container } = render(<WarehouseSchemaSearch tables={[orderEvents, requests]} />);
+    const user = userEvent.setup();
+
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
+
+    await user.type(screen.getByLabelText("Search schema"), "order");
+    expect(container.querySelector("details")).toHaveAttribute("open");
+
+    await user.clear(screen.getByLabelText("Search schema"));
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
+  });
 });

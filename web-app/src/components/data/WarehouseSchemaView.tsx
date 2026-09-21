@@ -3,6 +3,8 @@ import type { WarehouseTable } from "../../models/warehouseSchema";
 
 export interface WarehouseSchemaViewProps {
   tables: WarehouseTable[];
+  /** Opens every table's column list — set while a search is active so matches are visible without a click. */
+  expanded?: boolean;
 }
 
 /*
@@ -12,9 +14,9 @@ export interface WarehouseSchemaViewProps {
  * stay visible, the ~15-column lists don't dominate the column until
  * expanded.
  */
-function TableSchema({ table }: { table: WarehouseTable }): ReactElement {
+function TableSchema({ table, expanded }: { table: WarehouseTable; expanded: boolean }): ReactElement {
   return (
-    <details className="rounded-xl border border-slate-200 bg-white p-3">
+    <details open={expanded} className="rounded-xl border border-slate-200 bg-white p-3">
       <summary className="cursor-pointer text-sm font-semibold text-slate-900">
         {table.table_name}
         <span className="ml-2 font-normal text-slate-500">({table.columns.length} columns)</span>
@@ -53,11 +55,11 @@ function TableSchema({ table }: { table: WarehouseTable }): ReactElement {
  * column this renders is exactly what Athena will actually query against
  * right now, not a checked-in copy that can drift.
  */
-export function WarehouseSchemaView({ tables }: WarehouseSchemaViewProps): ReactElement {
+export function WarehouseSchemaView({ tables, expanded = false }: WarehouseSchemaViewProps): ReactElement {
   return (
     <div className="flex flex-col gap-3">
       {tables.map((table) => (
-        <TableSchema key={table.table_name} table={table} />
+        <TableSchema key={table.table_name} table={table} expanded={expanded} />
       ))}
     </div>
   );
