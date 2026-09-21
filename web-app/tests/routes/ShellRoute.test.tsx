@@ -10,6 +10,9 @@ vi.mock("../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
+vi.mock("../../src/hooks/usePollerMetrics", () => ({
+  usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
 
 describe("ShellRoute", () => {
   it("renders the routed child inside the primary workspace, with the shell around it", () => {

@@ -69,7 +69,7 @@ describe("AdminPage", () => {
     expect(link).toHaveAttribute("href", "/admin/scheduling");
   });
 
-  it("renders the Warehouse tile, linking to /admin/warehouse", () => {
+  it("renders the Data Warehouse tile, linking to /admin/warehouse", () => {
     mockedUseAuth.mockReturnValue({
       user,
       isLoading: false,
@@ -84,7 +84,7 @@ describe("AdminPage", () => {
 
     renderAdminPage();
 
-    const link = screen.getByRole("link", { name: /Warehouse/ });
+    const link = screen.getByRole("link", { name: /Data Warehouse/ });
     expect(link).toHaveAttribute("href", "/admin/warehouse");
   });
 

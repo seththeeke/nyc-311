@@ -46,6 +46,8 @@ describe("Sidebar menu", () => {
     renderSidebar();
     const user = userEvent.setup();
     const monitoring = screen.getByRole("button", { name: "System Monitoring" });
+    await user.click(monitoring);
+    await user.click(screen.getByRole("button", { name: "Admin" }));
     expect(monitoring).toHaveAttribute("aria-expanded", "false");
 
     await user.click(screen.getByRole("link", { name: "external jump" }));
@@ -74,54 +76,56 @@ describe("Sidebar menu", () => {
     expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("starts with both accordions closed on the map", () => {
+  it("starts with both accordions expanded, even on the map", () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
-    expect(screen.getByRole("button", { name: "System Monitoring" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("link", { name: "Ingestion" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "System Monitoring" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Admin/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "311 Request Metrics" })).toBeInTheDocument();
   });
 
-  it("expands and collapses the monitoring accordion, listing its six items", async () => {
+  it("collapses and re-expands the monitoring accordion, listing its six items", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
     const user = userEvent.setup();
     const header = screen.getByRole("button", { name: "System Monitoring" });
 
-    await user.click(header);
-    expect(header).toHaveAttribute("aria-expanded", "true");
     const group = screen.getByRole("group", { name: "System Monitoring" });
     expect(within(group).getAllByRole("link")).toHaveLength(6);
-    expect(within(group).getByRole("link", { name: "Ingestion" })).toHaveAttribute("href", "/monitoring/ingestion");
+    expect(within(group).getByRole("link", { name: "311 Request Metrics" })).toHaveAttribute(
+      "href",
+      "/monitoring/ingestion",
+    );
     expect(within(group).getByRole("link", { name: "Data Modeling" })).toHaveAttribute("href", "/data");
 
     await user.click(header);
     expect(header).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("group", { name: "System Monitoring" })).not.toBeInTheDocument();
+
+    await user.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
   });
 
   it("opens Test Coverage in a new tab instead of routing", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
-    await userEvent.setup().click(screen.getByRole("button", { name: "System Monitoring" }));
     const link = screen.getByRole("link", { name: /Test Coverage/ });
     expect(link).toHaveAttribute("href", "/coverage/index.html");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
-  it("auto-expands the accordion the current route is inside, and highlights the item", () => {
+  it("highlights the item for the current route", () => {
     mockedUseAuth.mockReturnValue(authResult({ user: ADMIN_USER }));
     renderSidebar({ path: "/monitoring/pipeline" });
-    expect(screen.getByRole("button", { name: "System Monitoring" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Pipeline" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "Admin" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("link", { name: "Capacity" })).not.toHaveAttribute("aria-current");
   });
 
-  it("auto-expands when the route moves into a section after mount", async () => {
+  it("navigates within an open section and highlights the new item", async () => {
     mockedUseAuth.mockReturnValue(authResult({ user: ADMIN_USER }));
     renderSidebar();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Admin" }));
     await user.click(screen.getByRole("link", { name: "Capacity" }));
     expect(screen.getByTestId("path")).toHaveTextContent("/admin/capacity");
     expect(screen.getByRole("link", { name: "Capacity" })).toHaveAttribute("aria-current", "page");
@@ -145,7 +149,7 @@ describe("Sidebar Admin lock", () => {
     renderSidebar();
     const header = screen.getByRole("button", { name: /^Admin/ });
     expect(header).toHaveTextContent("locked");
-    await userEvent.setup().click(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
     const group = screen.getByRole("group", { name: "Admin" });
     const links = within(group).getAllByRole("link");
     expect(links).toHaveLength(3);
@@ -155,9 +159,7 @@ describe("Sidebar Admin lock", () => {
   it("signed out: clicking an item navigates to its admin path (AdminRoute then redirects to /login)", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Admin/ }));
-    await user.click(screen.getByRole("link", { name: /Warehouse/ }));
+    await userEvent.setup().click(screen.getByRole("link", { name: /Warehouse/ }));
     expect(screen.getByTestId("path")).toHaveTextContent("/admin/warehouse");
   });
 
@@ -166,7 +168,6 @@ describe("Sidebar Admin lock", () => {
     renderSidebar();
     const header = screen.getByRole("button", { name: "Admin" });
     expect(header).not.toHaveTextContent("locked");
-    await userEvent.setup().click(header);
     for (const link of within(screen.getByRole("group", { name: "Admin" })).getAllByRole("link")) {
       expect(link).not.toHaveTextContent("locked");
     }
@@ -223,3 +224,26 @@ describe("Sidebar collapse", () => {
     expect(screen.getByRole("group", { name: "Admin" })).toBeInTheDocument();
   });
 });
+
+describe("Sidebar brand", () => {
+  it("shows a large map-marker icon beside the BoroughSim name", () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderSidebar();
+    const brand = screen.getByRole("link", { name: "BoroughSim" });
+    const icon = brand.querySelector("svg");
+    expect(icon).toBeInTheDocument();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveClass("h-10", "w-10");
+    expect(brand).toHaveTextContent("BoroughSim");
+  });
+
+  it("collapsed rail: the marker alone stands in for the brand (still a named link home)", () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderSidebar({ collapsed: true });
+    const brand = screen.getByRole("link", { name: "BoroughSim" });
+    expect(brand.querySelector("svg")).toBeInTheDocument();
+    expect(brand).not.toHaveTextContent("BoroughSim");
+    expect(brand).toHaveAttribute("href", "/");
+  });
+});
+

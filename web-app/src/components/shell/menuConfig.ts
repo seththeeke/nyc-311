@@ -47,7 +47,7 @@ export const MENU: readonly MenuEntry[] = [
     basePath: "/monitoring",
     requiresAuth: false,
     items: [
-      { label: "Ingestion", to: "/monitoring/ingestion" },
+      { label: "311 Request Metrics", to: "/monitoring/ingestion" },
       { label: "Pipeline", to: "/monitoring/pipeline" },
       { label: "Lambda Health", to: "/monitoring/lambda-health" },
       { label: "Test Coverage", to: "/coverage/index.html", external: true },
@@ -65,7 +65,7 @@ export const MENU: readonly MenuEntry[] = [
     items: [
       { label: "Capacity", to: "/admin/capacity" },
       { label: "Scheduling", to: "/admin/scheduling" },
-      { label: "Warehouse", to: "/admin/warehouse" },
+      { label: "Data Warehouse", to: "/admin/warehouse" },
     ],
   },
 ];

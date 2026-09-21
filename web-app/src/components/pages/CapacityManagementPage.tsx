@@ -55,7 +55,7 @@ export function CapacityManagementPage(): ReactElement {
         )}
 
         {status && (
-          <div className="mt-8 space-y-8 rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-emerald-950/20">
+          <div className="mt-8 space-y-8 glass rounded-2xl p-6">
             <CapacityStatsPanel status={status} />
 
             <section>

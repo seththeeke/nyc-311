@@ -116,7 +116,7 @@ export function SqlQueryConsole({
       )}
 
       {result && !error && (
-        <div className="space-y-2 rounded-2xl bg-panel p-4">
+        <div className="glass space-y-2 rounded-2xl p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs text-fg-subtle">
               {result.row_count} row{result.row_count === 1 ? "" : "s"}

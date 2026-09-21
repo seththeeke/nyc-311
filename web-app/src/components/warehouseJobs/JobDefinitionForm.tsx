@@ -50,7 +50,7 @@ export function JobDefinitionForm({
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 rounded-xl border border-line bg-panel p-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 glass rounded-xl p-4">
       <div>
         <label htmlFor="job-definition-name" className="block text-sm font-medium text-fg-muted">
           Job name

@@ -10,7 +10,7 @@ const GITHUB_REPO_URL = "https://github.com/seththeeke/nyc-311";
 
 function Section({ title, children }: { title: string; children: ReactElement }): ReactElement {
   return (
-    <section className="rounded-2xl border border-line bg-panel p-4 shadow-2xl shadow-violet-950/20 ring-1 ring-line">
+    <section className="glass rounded-2xl p-4">
       <h2 className="text-sm font-semibold tracking-wide text-fg uppercase">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>

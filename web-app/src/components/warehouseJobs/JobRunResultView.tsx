@@ -56,7 +56,7 @@ export function JobRunResultView({ jobRuns }: JobRunResultViewProps): ReactEleme
             {selectedItem.error}
           </p>
         ) : selectedItem?.result ? (
-          <div className="rounded-2xl bg-panel p-4">
+          <div className="glass rounded-2xl p-4">
             <GenericResultTable result={selectedItem.result} />
           </div>
         ) : null}

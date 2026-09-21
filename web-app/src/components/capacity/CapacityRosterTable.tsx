@@ -14,7 +14,7 @@ export function CapacityRosterTable({ roster, onRemove, removingOperatorId }: Ca
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-line">
+    <div className="glass overflow-x-auto rounded-xl">
       <table className="min-w-full divide-y divide-line text-left text-sm">
         <thead className="bg-panel text-fg-subtle">
           <tr>

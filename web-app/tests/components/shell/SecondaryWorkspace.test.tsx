@@ -8,6 +8,9 @@ import type { WidgetId } from "../../../src/models/widget";
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [{}, {}, {}] }, isLoading: false, error: null }),
 }));
+vi.mock("../../../src/hooks/usePollerMetrics", () => ({
+  usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
 
 function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
   render(
@@ -19,7 +22,7 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
 }
 
 describe("SecondaryWorkspace", () => {
-  it("renders the default tiles top-to-bottom: live Capacity, then the five WIP mocks", () => {
+  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, then the two WIP charts", () => {
     renderPanel();
     const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(titles).toEqual([
@@ -29,16 +32,21 @@ describe("SecondaryWorkspace", () => {
       "Total Cost (Est.)",
       "Mean Time to Resolve",
       "Median Time to Resolve",
+      "Ingestion Volume",
+      "Orders by Status",
+      "Fleet Utilization",
     ]);
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getAllByText("WIP")).toHaveLength(5);
+    expect(screen.getAllByText("WIP")).toHaveLength(7);
   });
 
   it("lays tiles out two per row, compactly", () => {
     renderPanel();
     const grid = screen.getByRole("region", { name: "Capacity" }).parentElement;
     expect(grid).toHaveClass("grid", "grid-cols-2");
-    expect(screen.getByRole("region", { name: "Capacity" })).toHaveClass("p-3");
+    expect(screen.getByRole("region", { name: "Capacity" })).toHaveClass("p-3", "glass");
+    expect(screen.getByRole("region", { name: "Capacity" })).not.toHaveClass("col-span-2");
+    expect(screen.getByRole("region", { name: "Ingestion Volume" })).toHaveClass("col-span-2");
   });
 
   it("renders whatever ids workspace state holds, not a hard-coded list", () => {

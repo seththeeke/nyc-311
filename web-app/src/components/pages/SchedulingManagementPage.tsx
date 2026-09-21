@@ -43,7 +43,7 @@ export function SchedulingManagementPage(): ReactElement {
           every hour — use this to kick off a run on demand for testing.
         </p>
 
-        <div className="mt-8 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-emerald-950/20">
+        <div className="mt-8 space-y-4 glass rounded-2xl p-6">
           <button
             type="button"
             onClick={() => void handleRun()}

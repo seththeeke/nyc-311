@@ -13,7 +13,7 @@ describe("MENU", () => {
 
   it("lists the six monitoring items, with Test Coverage flagged external", () => {
     expect(monitoring.items.map((i) => i.label)).toEqual([
-      "Ingestion",
+      "311 Request Metrics",
       "Pipeline",
       "Lambda Health",
       "Test Coverage",

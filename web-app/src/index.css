@@ -39,18 +39,21 @@
   --iv-series-ingested: #3987e5;
   --iv-series-duplicates: #d95926;
   --iv-series-rejected: #199e70;
+  --iv-series-4: #c98500;
   --iv-status-good: #0ca30c;
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #898781;
   --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.7);
   --aurora-opacity: 1;
+  --t-glass-highlight: rgb(255 255 255 / 0.1);
+  --t-glass-shadow: rgb(0 0 0 / 0.3);
 }
 
 :root[data-theme="LIGHT"] {
   color-scheme: light;
   --t-surface: #f8fafc;
-  --t-panel: #ffffff;
+  --t-panel: rgb(255 255 255 / 0.6);
   --t-panel-hover: #f1f5f9;
   --t-panel-strong: #e2e8f0;
   --t-panel-sunken: #f1f5f9;
@@ -79,12 +82,15 @@
   --iv-series-ingested: #2a78d6;
   --iv-series-duplicates: #eb6834;
   --iv-series-rejected: #1baf7a;
+  --iv-series-4: #eda100;
   --iv-status-good: #0ca30c;
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #c3c2b7;
   --map-tile-filter: none;
   --aurora-opacity: 0.35;
+  --t-glass-highlight: rgb(255 255 255 / 0.9);
+  --t-glass-shadow: rgb(15 23 42 / 0.08);
 }
 
 @theme inline {
@@ -123,6 +129,24 @@ body {
   margin: 0;
   background-color: var(--t-surface);
   color: var(--t-fg);
+}
+
+/*
+ * The shared translucent "glass" card: token-driven fill (translucent in both
+ * themes so the aurora behind shows through), a backdrop blur, a hairline
+ * border, and a soft top-edge highlight + drop shadow. In the components
+ * layer so utilities (hover:border-*, p-*, rounded-*) can still override it.
+ */
+@layer components {
+  .glass {
+    background-color: var(--t-panel);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    backdrop-filter: blur(14px) saturate(1.3);
+    border: 1px solid var(--t-line);
+    box-shadow:
+      inset 0 1px 0 var(--t-glass-highlight),
+      0 8px 32px var(--t-glass-shadow);
+  }
 }
 
 /* Tailwind v4's preflight drops the pointer cursor from buttons; restore it for everything clickable. */

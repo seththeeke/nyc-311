@@ -21,7 +21,7 @@ interface MonitoringTileConfig {
 
 const MONITORING_TILES: MonitoringTileConfig[] = [
   {
-    title: "Ingestion",
+    title: "311 Request Metrics",
     description: "NYC 311 poller run history and status.",
     to: "/monitoring/ingestion",
     accent: "cyan",

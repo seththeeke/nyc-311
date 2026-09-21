@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { useWarehouseSchema } from "../../hooks/useWarehouseSchema";
+import { WarehouseRelationshipDiagram } from "../data/WarehouseRelationshipDiagram";
 import { WarehouseSchemaSearch } from "../data/WarehouseSchemaSearch";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
@@ -44,6 +45,15 @@ export function DataPage(): ReactElement {
           Data
         </h1>
         <p className="mt-2 text-fg-subtle">The warehouse's schema — search by table or column name. Read-only.</p>
+
+        {schemaQuery.data && schemaQuery.data.tables.length > 0 && (
+          <section aria-labelledby="relationships-heading" className="mt-6">
+            <h2 id="relationships-heading" className="mb-2 text-sm font-semibold text-fg-muted">
+              Relationships
+            </h2>
+            <WarehouseRelationshipDiagram tables={schemaQuery.data.tables} />
+          </section>
+        )}
 
         <section aria-label="Warehouse schema" className="mt-6">
           {schemaQuery.isPending || schemaQuery.isError ? (

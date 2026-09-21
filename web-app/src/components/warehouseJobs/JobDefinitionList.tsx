@@ -121,7 +121,7 @@ export function JobDefinitionList({
             )}
             {expandedName === job.job_name && (
               <div className="border-t border-line bg-surface p-3">
-                <div className="rounded-2xl bg-panel p-4">
+                <div className="glass rounded-2xl p-4">
                   <JobRunHistoryTable jobRuns={jobRuns.filter((run) => run.job_name === job.job_name)} />
                 </div>
               </div>

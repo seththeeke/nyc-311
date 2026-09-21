@@ -35,7 +35,7 @@ export function WidgetSlot({ widgetId, size }: WidgetSlotProps): ReactElement {
     );
   }
   return (
-    <WidgetCard title={widget.title} isWip={isWip}>
+    <WidgetCard title={widget.title} isWip={isWip} wide={widget.tileSpan === 2}>
       <Component size={size} />
     </WidgetCard>
   );

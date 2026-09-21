@@ -84,7 +84,7 @@ export function AdminWarehousePage(): ReactElement {
           &larr; Admin
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-hue-emerald via-hue-cyan to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
-          Warehouse
+          Data Warehouse
         </h1>
         <p className="mt-2 text-fg-subtle">Schema, ad-hoc queries, and self-service scheduled jobs, all in one place.</p>
 

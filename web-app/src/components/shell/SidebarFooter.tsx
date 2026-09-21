@@ -36,17 +36,19 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps): ReactElement {
 
   return (
     <div className="space-y-1 border-t border-line pt-3">
-      <button
-        type="button"
-        onClick={() => (aboutOpen ? closeAbout() : setAboutButtonOpen(true))}
-        aria-label="About"
-        aria-expanded={aboutOpen}
-        className={`${ROW_BASE_CLASSES} ${rowStateClasses(false)} ${layout}`}
-      >
-        <InfoIcon className="h-5 w-5 shrink-0" />
-        {!collapsed && <span>About</span>}
-      </button>
-      <ThemeToggle collapsed={collapsed} />
+      <div className={`flex ${collapsed ? "flex-col items-center gap-1" : "items-center gap-2"}`}>
+        <button
+          type="button"
+          onClick={() => (aboutOpen ? closeAbout() : setAboutButtonOpen(true))}
+          aria-label="About"
+          aria-expanded={aboutOpen}
+          className={`${ROW_BASE_CLASSES} ${rowStateClasses(false)} ${layout} ${collapsed ? "" : "min-w-0 flex-1"}`}
+        >
+          <InfoIcon className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>About</span>}
+        </button>
+        <ThemeToggle collapsed={collapsed} />
+      </div>
       {user && (
         <div className={`flex items-center gap-2 pt-1 ${collapsed ? "justify-center" : "px-3"}`}>
           {!collapsed && <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle">{user.email}</span>}

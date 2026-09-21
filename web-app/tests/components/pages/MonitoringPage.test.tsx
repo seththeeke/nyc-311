@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { MonitoringPage } from "../../../src/components/pages/MonitoringPage";
 
 describe("MonitoringPage", () => {
-  it("renders an Ingestion tile linking to /monitoring/ingestion", () => {
+  it("renders a 311 Request Metrics tile linking to /monitoring/ingestion", () => {
     render(
       <MemoryRouter>
         <MonitoringPage />
@@ -12,7 +12,7 @@ describe("MonitoringPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Monitoring" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /ingestion/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /311 Request Metrics/ })).toHaveAttribute(
       "href",
       "/monitoring/ingestion"
     );

@@ -13,6 +13,9 @@ vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
+vi.mock("../../../src/hooks/usePollerMetrics", () => ({
+  usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
 
 function renderShell() {
   vi.mocked(useAuth).mockReturnValue(authResult());

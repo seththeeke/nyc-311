@@ -1,6 +1,9 @@
 import type { WidgetId, WidgetSize } from "../../models/widget";
 import { CapacityWidget } from "./CapacityWidget";
 import { FleetMapWidget } from "./FleetMapWidget";
+import { IngestionVolumeWidget } from "./IngestionVolumeWidget";
+import { MockFleetUtilizationWidget } from "./mock/MockFleetUtilizationWidget";
+import { MockOrdersByStatusWidget } from "./mock/MockOrdersByStatusWidget";
 import {
   MeanTimeToResolveWidget,
   MedianTimeToResolveWidget,
@@ -43,6 +46,30 @@ const WIDGETS: Record<WidgetId, WidgetDefinition> = {
     sizes: ["TILE"],
     component: MedianTimeToResolveWidget,
   },
+  INGESTION_VOLUME: {
+    id: "INGESTION_VOLUME",
+    title: "Ingestion Volume",
+    status: "LIVE",
+    sizes: ["TILE"],
+    tileSpan: 2,
+    component: IngestionVolumeWidget,
+  },
+  ORDERS_BY_STATUS: {
+    id: "ORDERS_BY_STATUS",
+    title: "Orders by Status",
+    status: "WORK_IN_PROGRESS",
+    sizes: ["TILE"],
+    tileSpan: 2,
+    component: MockOrdersByStatusWidget,
+  },
+  FLEET_UTILIZATION: {
+    id: "FLEET_UTILIZATION",
+    title: "Fleet Utilization",
+    status: "WORK_IN_PROGRESS",
+    sizes: ["TILE"],
+    tileSpan: 2,
+    component: MockFleetUtilizationWidget,
+  },
 };
 
 /** The secondary workspace's initial contents, top to bottom (12-UX-workspace-refactor.md §6). */
@@ -53,6 +80,9 @@ export const DEFAULT_SECONDARY_WIDGET_IDS: readonly WidgetId[] = [
   "TOTAL_COST_EST",
   "MEAN_TIME_TO_RESOLVE",
   "MEDIAN_TIME_TO_RESOLVE",
+  "INGESTION_VOLUME",
+  "ORDERS_BY_STATUS",
+  "FLEET_UTILIZATION",
 ];
 
 /** Throws on an unknown id — fail loudly rather than render a silent blank tile. */

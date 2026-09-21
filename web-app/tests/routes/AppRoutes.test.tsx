@@ -10,6 +10,9 @@ import { ThemeProvider } from "../../src/components/shell/ThemeProvider";
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
+vi.mock("../../src/hooks/usePollerMetrics", () => ({
+  usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({
@@ -109,8 +112,7 @@ describe("AppRoutes", () => {
   it("locked Admin flow: clicking an admin item while signed out lands on /login inside the shell", async () => {
     renderAt("/");
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: /^Admin/ }));
-    await user.click(screen.getByRole("link", { name: /Capacity/ }));
+    await user.click(await screen.findByRole("link", { name: /Capacity/ }));
     const primary = screen.getByRole("region", { name: "Primary workspace" });
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
     expect(primary).toContainElement(screen.getByRole("heading", { name: "Admin sign in" }));

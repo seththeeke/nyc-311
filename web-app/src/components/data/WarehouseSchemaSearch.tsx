@@ -46,7 +46,7 @@ export function WarehouseSchemaSearch({ tables }: WarehouseSchemaSearchProps): R
       {filtered.length === 0 ? (
         <p className="text-sm text-fg-subtle">No tables or columns match "{query}".</p>
       ) : (
-        <div className="rounded-xl bg-panel p-3">
+        <div className="glass rounded-xl p-3">
           <WarehouseSchemaView tables={filtered} expanded={trimmed !== ""} />
         </div>
       )}

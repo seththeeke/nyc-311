@@ -101,4 +101,26 @@ describe("DataPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load warehouse schema.");
   });
+
+  it("renders the relationship diagram above the schema list, from the same single schema fetch", async () => {
+    mockedGetSchema.mockResolvedValue({
+      tables: [
+        { table_name: "order_snapshots", columns: [{ name: "order_id", type: "string", comment: null }, { name: "request_id", type: "string", comment: null }] },
+        { table_name: "requests", columns: [{ name: "request_id", type: "string", comment: null }] },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    expect(screen.getByRole("img")).toHaveAccessibleName("Relationship diagram: 2 tables, 1 foreign-key relationships");
+    expect(screen.getByRole("region", { name: "Warehouse schema" })).toBeInTheDocument();
+    expect(mockedGetSchema).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no relationships section while loading, on error, or with no tables", async () => {
+    mockedGetSchema.mockResolvedValue({ tables: [] });
+    renderPage();
+    expect(await screen.findByText("No warehouse tables catalogued yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Relationships" })).not.toBeInTheDocument();
+  });
 });

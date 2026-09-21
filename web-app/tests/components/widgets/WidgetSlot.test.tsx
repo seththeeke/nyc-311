@@ -7,6 +7,9 @@ import { getWidget } from "../../../src/components/widgets/widgetRegistry";
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
+vi.mock("../../../src/hooks/usePollerMetrics", () => ({
+  usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
 vi.mock("../../../src/components/FleetMap", () => ({ FleetMap: () => <div data-testid="fleet-map" /> }));
 
 describe("WidgetSlot", () => {
@@ -30,7 +33,7 @@ describe("WidgetSlot", () => {
 
   it("badges every WORK_IN_PROGRESS widget so no mock tile can go unmarked", () => {
     const wip = WIDGET_IDS.filter((id) => getWidget(id).status === "WORK_IN_PROGRESS");
-    expect(wip).toHaveLength(5);
+    expect(wip).toHaveLength(7);
     for (const id of wip) {
       const { unmount } = render(<WidgetSlot widgetId={id} size="TILE" />);
       expect(screen.getByText("WIP")).toBeInTheDocument();

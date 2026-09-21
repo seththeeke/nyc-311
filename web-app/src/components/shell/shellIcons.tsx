@@ -109,3 +109,14 @@ export const ExternalLinkIcon = (p: IconProps): ReactElement => (
     <path d="M14 4h6v6m0-6-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
   </StrokeIcon>
 );
+
+/** A solid map pin — the BoroughSim brand mark. Filled (not stroked) so it holds its shape at larger sizes. */
+export const MapMarkerIcon = ({ className = "h-9 w-9" }: IconProps): ReactElement => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path
+      fill="currentColor"
+      d="M12 1.5C7.86 1.5 4.5 4.86 4.5 9c0 5.6 6.1 11.7 7.05 12.6a.6.6 0 0 0 .9 0C13.4 20.7 19.5 14.6 19.5 9c0-4.14-3.36-7.5-7.5-7.5Z"
+    />
+    <circle cx="12" cy="9" r="3" className="fill-surface" />
+  </svg>
+);

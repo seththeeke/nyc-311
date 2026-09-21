@@ -14,6 +14,9 @@ export const WIDGET_IDS = [
   "TOTAL_COST_EST",
   "MEAN_TIME_TO_RESOLVE",
   "MEDIAN_TIME_TO_RESOLVE",
+  "INGESTION_VOLUME",
+  "ORDERS_BY_STATUS",
+  "FLEET_UTILIZATION",
 ] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
 export const WidgetIdSchema = z.enum(WIDGET_IDS);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { SidebarFooter } from "../../../src/components/shell/SidebarFooter";
@@ -92,25 +92,52 @@ describe("SidebarFooter — About", () => {
   });
 });
 
+describe("SidebarFooter — layout", () => {
+  it("puts About and the theme switch side by side on a single line", () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter();
+    const row = screen.getByRole("button", { name: "About" }).parentElement!;
+    expect(row).toContainElement(screen.getByRole("radiogroup", { name: "Theme" }));
+    expect(row).toHaveClass("flex", "items-center");
+    expect(row).not.toHaveClass("flex-col");
+    expect(screen.getByRole("button", { name: "About" })).toHaveClass("flex-1");
+  });
+
+  it("collapsed rail: the same two controls stack, since the rail is too narrow for one line", () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter("/", true);
+    const row = screen.getByRole("button", { name: "About" }).parentElement!;
+    expect(row).toContainElement(screen.getByRole("radiogroup", { name: "Theme" }));
+    expect(row).toHaveClass("flex-col");
+  });
+});
+
 describe("SidebarFooter — theme toggle", () => {
-  it("toggles between dark and light, updating <html> and localStorage", async () => {
+  it("is a two-option radio group with sun (light) on the left and moon (dark) on the right", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter();
+    const group = screen.getByRole("radiogroup", { name: "Theme" });
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("aria-label"))).toEqual(["Light theme", "Dark theme"]);
+    expect(screen.getByRole("radio", { name: "Dark theme" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Light theme" })).not.toBeChecked();
+  });
+
+  it("switches between dark and light, updating <html> and localStorage", async () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false }));
     mockedUseAuth.mockReturnValue(authResult());
     renderFooter();
     const user = userEvent.setup();
-    const toggle = screen.getByRole("button", { name: "Dark theme" });
-
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(toggle).toHaveTextContent("Dark theme");
     expect(document.documentElement.getAttribute("data-theme")).toBe("DARK");
 
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(toggle).toHaveTextContent("Light theme");
+    await user.click(screen.getByRole("radio", { name: "Light theme" }));
+    expect(screen.getByRole("radio", { name: "Light theme" })).toBeChecked();
     expect(document.documentElement.getAttribute("data-theme")).toBe("LIGHT");
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("LIGHT");
 
-    await user.click(toggle);
+    await user.click(screen.getByRole("radio", { name: "Dark theme" }));
+    expect(screen.getByRole("radio", { name: "Dark theme" })).toBeChecked();
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("DARK");
   });
 
@@ -118,13 +145,24 @@ describe("SidebarFooter — theme toggle", () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, "LIGHT");
     mockedUseAuth.mockReturnValue(authResult());
     renderFooter();
-    expect(screen.getByRole("button", { name: "Dark theme" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("radio", { name: "Light theme" })).toBeChecked();
   });
 
-  it("collapsed: icon-only, still named and pressable", () => {
+  it("supports keyboard selection with the arrow keys", async () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter();
+    const user = userEvent.setup();
+    screen.getByRole("radio", { name: "Dark theme" }).focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("radio", { name: "Light theme" })).toBeChecked();
+  });
+
+  it("collapsed rail: the same radios, stacked vertically", () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderFooter("/", true);
-    expect(screen.getByRole("button", { name: "Dark theme" })).not.toHaveTextContent("theme");
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toHaveClass("flex-col");
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 });
 

@@ -28,7 +28,7 @@ const ADMIN_TILES: AdminTileConfig[] = [
     icon: <SchedulingIcon />,
   },
   {
-    title: "Warehouse",
+    title: "Data Warehouse",
     description: "Browse the schema, run ad-hoc queries, and manage self-service scheduled jobs.",
     to: "/admin/warehouse",
     accent: "violet",

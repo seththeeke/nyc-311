@@ -4,7 +4,7 @@ const SHOW_DELAY_MS = 350;
 const EDGE_MARGIN = 8;
 const ANCHOR_GAP = 8;
 const MAX_TEXT_LENGTH = 80;
-const CLICKABLE_SELECTOR = "button, a[href], [role='button'], [role='tab'], summary";
+const CLICKABLE_SELECTOR = "button, a[href], [role='button'], [role='tab'], summary, [data-tooltip]";
 
 interface ActiveTooltip {
   text: string;

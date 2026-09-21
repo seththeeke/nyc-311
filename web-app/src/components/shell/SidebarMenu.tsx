@@ -12,16 +12,16 @@ interface SidebarMenuProps {
 }
 
 /**
- * The three primary entries. Accordion open-state lives here: a section
- * auto-opens when the route moves inside it (a route change is the only
- * thing that force-opens one; the user can still close it afterwards).
+ * The three primary entries. Accordion open-state lives here: every section
+ * starts expanded (plenty of room), and a section also re-opens when the route
+ * moves inside it; the user can still close any of them.
  * The Admin lock is a UI cue only — `AdminRoute` and the API's JWT
  * authorizer remain the real enforcement.
  */
 export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProps): ReactElement {
   const { pathname } = useLocation();
   const { user, isLoading } = useAuth();
-  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => initiallyOpen(pathname));
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => allSectionIds());
   const [seenPathname, setSeenPathname] = useState(pathname);
 
   if (seenPathname !== pathname) {
@@ -77,10 +77,6 @@ export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProp
   );
 }
 
-function initiallyOpen(pathname: string): ReadonlySet<string> {
-  return new Set(
-    MENU.filter((entry): entry is MenuSectionEntry => entry.kind === "SECTION" && sectionContainsPath(entry, pathname)).map(
-      (section) => section.id,
-    ),
-  );
+function allSectionIds(): ReadonlySet<string> {
+  return new Set(MENU.filter((entry) => entry.kind === "SECTION").map((entry) => entry.id));
 }

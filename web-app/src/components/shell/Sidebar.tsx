@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarMenu } from "./SidebarMenu";
-import { SidebarToggleIcon } from "./shellIcons";
+import { MapMarkerIcon, SidebarToggleIcon } from "./shellIcons";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -29,9 +29,10 @@ export function Sidebar({ collapsed, onToggleCollapse, onExpand, onNavigate }: S
           to="/"
           onClick={onNavigate}
           aria-label="BoroughSim"
-          className="truncate rounded-lg px-2 py-1 text-lg font-bold tracking-tight text-fg"
+          className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-xl font-bold tracking-tight text-fg"
         >
-          {collapsed ? "B" : "BoroughSim"}
+          <MapMarkerIcon className="h-10 w-10 shrink-0 text-hue-cyan" />
+          {!collapsed && <span className="truncate">BoroughSim</span>}
         </Link>
         <button
           type="button"

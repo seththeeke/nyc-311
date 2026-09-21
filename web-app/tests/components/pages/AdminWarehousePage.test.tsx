@@ -96,7 +96,7 @@ describe("AdminWarehousePage", () => {
   it("shows the heading and a link back to Admin", () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Warehouse" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data Warehouse" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Admin/ })).toHaveAttribute("href", "/admin");
   });
 

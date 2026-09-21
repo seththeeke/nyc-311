@@ -1,7 +1,7 @@
 # UX Workspace Refactor — 3-Panel Shell, Widget Registry, Themes
 
-> **Status (2026-09-21): built, uncommitted, pending visual review** — see the Build
-> Checklist at the bottom. Negotiated
+> **Status (2026-09-21): done, with known follow-ups** (see the last section) —
+> the Build Checklist and three rounds of follow-ups are all landed. Negotiated
 > question by question, same progressive style as `9-admin-auth-integration.md`
 > and `11-street-condition-implementation.md`. `web-app/` is already unlocked
 > (`CLAUDE.md` §5.1); this doc is the design plus a build checklist.
@@ -92,7 +92,7 @@ Three primary items:
 
    | Item | Route |
    |---|---|
-   | Ingestion | `/monitoring/ingestion` |
+   | 311 Request Metrics | `/monitoring/ingestion` |
    | Pipeline | `/monitoring/pipeline` |
    | Lambda Health | `/monitoring/lambda-health` |
    | Test Coverage | `/coverage/index.html` (external — not an SPA route; see Open Item B) |
@@ -106,7 +106,7 @@ Three primary items:
    |---|---|
    | Capacity | `/admin/capacity` |
    | Scheduling | `/admin/scheduling` |
-   | Warehouse | `/admin/warehouse` |
+   | Data Warehouse | `/admin/warehouse` |
 
 Active state: the current item is highlighted; an accordion auto-expands when
 the current route is inside it. Accordions are independent (both can be open).
@@ -454,3 +454,94 @@ Five housekeeping changes from the first look at the running app:
    (menu and the matching tile on `/monitoring`). Admin's "Warehouse" is unchanged.
 5. **Compact secondary tiles.** Tiles are smaller and sit **two per row**
    (`grid-cols-2`); the badge reads **WIP**.
+
+## Follow-ups, round 2 (2026-09-21)
+
+1. **Menus start expanded.** Both accordions open on load (room to spare); the
+   user can still collapse either, and a route change into a section re-opens it.
+2. **Rename:** the Ingestion menu item and its `/monitoring` tile are now
+   **NYC 311 Ingestion Metrics** (the page heading is unchanged).
+3. **Relationship diagram on Data Modeling.** `/data` shows a "Relationships"
+   section above the schema list: an SVG diagram built on the fly from the same
+   `GET /data/schema` response (no extra call), so it tracks the catalog.
+   **The Glue catalog declares no foreign keys**, so they're *inferred* from
+   `*_id` naming (`schemaRelationships.ts`): a table's entity is its name minus
+   `_events`/`_snapshots` and a plural "s"; the non-events table owns
+   `<entity>_id`; any other `*_id` column ending in a known entity is an FK to
+   it (`assigned_operator_id` → `operator_snapshots.operator_id`). Ids with no
+   matching table (`case_id` today) are skipped. Children sit left of the tables
+   they reference; a toggle switches key-columns-only / all columns. Not fancy:
+   no drag, no edge routing around boxes. If real FKs are ever declared (e.g. in
+   column comments), only `inferRelationships` needs to change.
+4. **Theme switch** is a two-option radio group — sun (light) on the left, moon
+   (dark) on the right, active side highlighted; vertical in the collapsed rail.
+5. **One "glass" look.** A shared `.glass` class (translucent fill, backdrop
+   blur, hairline border, edge highlight; token-driven so it works in both
+   themes — the light theme's panel fill is now translucent too) now styles the
+   Admin cards (Capacity, Scheduling, Warehouse: query workspace, forms, results,
+   roster), the Data-page schema panels, the monitoring page sections and tiles,
+   and the secondary-workspace widgets.
+6. **Ingestion Volume widget** in the secondary workspace: a compact,
+   label-free version of the volume chart (last 24 runs, same three series
+   colors). It calls the same `usePollerMetrics` hook — same TanStack Query key —
+   as the Ingestion page, so they share one cached response and one refetch
+   timer (a test renders both and asserts a single fetch). Tiles can now declare
+   `tileSpan: 2`; this one spans both columns. **Side effect:** the widget lives
+   in the always-present right panel, so the poller-metrics query (60s refetch)
+   now runs on every page while the panel is open, not just on the Ingestion page.
+
+## Follow-ups, round 3 (2026-09-21)
+
+1. **About + theme on one line.** In the sidebar footer the About button and the
+   sun/moon switch share a single row (About takes the remaining width). The
+   collapsed rail is too narrow for that, so there they stack.
+2. **Fleet map legend.** A small floating key under the map's +/- controls: a
+   truck in each marker colour with what it means (Idle — available, In transit —
+   heading to a job, Working — on a job). Colours come from one shared
+   `fleetActivityStyle.ts`, so the legend and the markers can't drift.
+3. **Two more WIP widgets** (mock data, `WIP` badge, both span the panel width):
+   **Orders by Status** (pie: Completed / Scheduled / In progress / Rejected) and,
+   below it, **Fleet Utilization** (left-to-right stacked bar: Working / In
+   transit / Idle). Both use the validated categorical palette (a fourth slot was
+   added for the pie; `IV_COLORS.seriesFourth`) with a legend of names and
+   percents, so nothing is colour-only. *Why not the map's truck colours for the
+   bar:* they fail the validator's dark-mode lightness band, so the bar uses the
+   validated series colours instead — it's a one-line swap if that trade-off
+   should go the other way. Logged with the other WIP tiles in #41.
+4. **Loading state.** "Loading fleet…" is now a large (3xl) message with a bigger
+   spinner, centered over the map. The error message moved to top-center so it
+   no longer sits on the zoom controls or legend.
+5. **Brand mark.** A large solid map-marker icon beside "BoroughSim" in the
+   sidebar header; it stands alone in the collapsed rail.
+6. **Rename:** Admin's "Warehouse" is now **Data Warehouse** (menu, tile, and
+   page heading).
+7. **Rename:** "NYC 311 Ingestion Metrics" is now **311 Request Metrics** (menu
+   and tile; the page heading is still "Ingestion").
+
+## Known follow-ups
+
+The refactor is considered done; these are the things deliberately left open.
+
+- **Replace the seven WIP mock tiles with real data** — tracked in
+  [#41](https://github.com/seththeeke/nyc-311/issues/41). Includes deciding what
+  "resolved" means for the time-to-resolve tiles.
+- **Visual review in a real browser.** All checks so far were automated (build,
+  lint, tests, coverage) plus your own look at the dev server; nothing was
+  screenshot-verified. Worth a deliberate pass over: light theme with the
+  now-translucent panels, the relationship diagram's layout, the collapsed rail,
+  the narrow-width overlay, and the dark map tiles.
+- **Relationship diagram uses inferred keys.** The Glue catalog declares no
+  foreign keys; the diagram infers them from `*_id` names. If real keys are ever
+  declared (e.g. in column comments), only `inferRelationships` changes.
+- **Fleet Utilization bar doesn't match the map's truck colours.** Those colours
+  fail the palette validator's dark-mode lightness band, so the bar uses the
+  validated series colours. Revisit if the map colours are ever themed.
+- **Poller-metrics query now runs on every page** while the right panel is open
+  (the Ingestion Volume widget shares the Ingestion page's cache key, so it is
+  still one call and one 60s refetch timer, just no longer confined to one page).
+- **Open Item A still stands:** `/monitoring` and `/admin` tile-grid pages are
+  redundant with the menu accordions but kept as routes.
+- **Naming drift:** the menu item is "311 Request Metrics" but its page heading
+  is still "Ingestion".
+- **Secondary workspace is static.** Widget add/remove/reorder setters exist in
+  workspace state but no UI is wired to them, by design.

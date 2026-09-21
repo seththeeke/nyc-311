@@ -55,7 +55,7 @@ export function QueryWorkspace({
   }
 
   return (
-    <div className="min-w-0 flex-1 space-y-4 rounded-2xl border border-line bg-surface p-6">
+    <div className="min-w-0 flex-1 space-y-4 glass rounded-2xl p-6">
       <QueryTabBar tabs={tabs} activeTabId={activeTabId} onSelect={setActiveTabId} onClose={closeTab} onAdd={addTab} />
       {tabs.map((tab) => (
         <div key={tab.id} className={tab.id === activeTabId ? "space-y-4" : "hidden"}>

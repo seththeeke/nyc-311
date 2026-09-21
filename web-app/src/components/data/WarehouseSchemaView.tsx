@@ -16,7 +16,7 @@ export interface WarehouseSchemaViewProps {
  */
 function TableSchema({ table, expanded }: { table: WarehouseTable; expanded: boolean }): ReactElement {
   return (
-    <details open={expanded} className="rounded-xl border border-line bg-panel p-3">
+    <details open={expanded} className="glass rounded-xl p-3">
       <summary className="cursor-pointer text-sm font-semibold text-fg">
         {table.table_name}
         <span className="ml-2 font-normal text-fg-subtle">({table.columns.length} columns)</span>

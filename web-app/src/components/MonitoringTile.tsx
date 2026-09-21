@@ -90,7 +90,7 @@ export function MonitoringTile({
     </>
   );
 
-  const className = `group relative block overflow-hidden rounded-2xl border border-line bg-panel p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-line-strong hover:bg-panel-hover hover:shadow-2xl ${styles.shadow}`;
+  const className = `group relative block overflow-hidden glass rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:border-line-strong hover:bg-panel-hover hover:shadow-2xl ${styles.shadow}`;
 
   if (external) {
     return (

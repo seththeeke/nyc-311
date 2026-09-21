@@ -38,7 +38,7 @@ export function SaveQueryForm({ initialSql, onCreate, isCreating, error, onCreat
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 rounded-xl border border-line bg-panel p-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 glass rounded-xl p-4">
       <div>
         <label htmlFor="save-query-name" className="block text-sm font-medium text-fg-muted">
           Query name

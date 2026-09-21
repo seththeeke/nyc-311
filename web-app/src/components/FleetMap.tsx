@@ -1,7 +1,8 @@
 import { useState, type ReactElement } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import type { FleetOperatorLocation, GpsLocation, OperatorActivity } from "../models/fleetLocation";
+import type { FleetOperatorLocation, GpsLocation } from "../models/fleetLocation";
+import { ACTIVITY_COLOR } from "./fleetActivityStyle";
 import { OperatorTrail } from "./OperatorTrail";
 
 interface FleetMapProps {
@@ -13,13 +14,6 @@ type PlottableOperator = FleetOperatorLocation & { current_location: GpsLocation
 function isPlottable(operator: FleetOperatorLocation): operator is PlottableOperator {
   return operator.current_location !== null;
 }
-
-/* Literal strings, not built from a template — see MonitoringTile.tsx's identical note on Tailwind's static scanner. */
-const ACTIVITY_COLOR: Record<OperatorActivity, string> = {
-  IDLE: "#10b981",
-  TRANSIT: "#f59e0b",
-  WORKING: "#3b82f6",
-};
 
 const NYC_CENTER: [number, number] = [40.7128, -74.006];
 const DEFAULT_ZOOM = 11;

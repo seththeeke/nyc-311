@@ -11,5 +11,7 @@ export interface WidgetDefinition {
   title: string;
   status: WidgetStatus;
   sizes: readonly WidgetSize[];
+  /* How many columns of the secondary workspace's 2-column tile grid a TILE spans; defaults to 1. */
+  tileSpan?: 1 | 2;
   component: ComponentType<WidgetProps>;
 }
