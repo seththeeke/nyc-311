@@ -46,3 +46,12 @@ export function SpinnerIcon({ className = DEFAULT_CLASS }: IconProps): ReactElem
     </svg>
   );
 }
+
+export function ConstructionIcon({ className = DEFAULT_CLASS }: IconProps): ReactElement {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <path strokeLinejoin="round" d="M8.2 3h3.6l3.4 12H4.8L8.2 3Z" />
+      <path strokeLinecap="round" d="M6.6 9h6.8M3 17h14" />
+    </svg>
+  );
+}

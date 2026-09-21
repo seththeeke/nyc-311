@@ -1,7 +1,5 @@
-# Borough Sim
+# BoroughSim
 
-A basic simulation of street condition NYC 311 resolution 
+A simulation of NYC 311 street-condition resolution. It ingests real 311 requests and models planning, scheduling, execution, and cost for dispatching crews to resolve them, as a way to build out the components of a real field-service business.
 
-# What is this
-
-This project consumes NYC 311 requests and simulates planning, execution, and cost problems with dispatching humans to resolve requests as a project to build out several components of a real business. 
+**Learn more: [boroughsim.com/about](https://boroughsim.com/about)**

@@ -27,6 +27,14 @@ export function AppRoutes(): ReactElement {
         }
       />
       <Route
+        path="/about"
+        element={
+          <PublicRoute>
+            <HomePage />
+          </PublicRoute>
+        }
+      />
+      <Route
         path="/data"
         element={
           <PublicRoute>

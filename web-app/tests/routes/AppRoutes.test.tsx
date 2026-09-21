@@ -23,6 +23,11 @@ describe("AppRoutes", () => {
     expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
+  it("renders HomePage underneath at /about (the About drawer itself lives in the Header)", () => {
+    renderAt("/about");
+    expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
+  });
+
   it("renders DataPage at /data", () => {
     renderAt("/data");
     expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
