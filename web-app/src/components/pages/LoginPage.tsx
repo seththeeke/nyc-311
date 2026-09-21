@@ -61,12 +61,12 @@ export function LoginPage(): ReactElement {
 
   if (stage === "newPassword") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Set a new password</h1>
-        <p className="mt-2 text-sm text-slate-600">This account needs a new password before you can sign in.</p>
+      <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center px-6">
+        <h1 className="text-2xl font-semibold text-fg">Set a new password</h1>
+        <p className="mt-2 text-sm text-fg-muted">This account needs a new password before you can sign in.</p>
         <form onSubmit={handleNewPasswordSubmit} className="mt-6 flex flex-col gap-4">
           <div>
-            <label htmlFor="new-password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="new-password" className="block text-sm font-medium text-fg-muted">
               New password
             </label>
             <input
@@ -77,11 +77,11 @@ export function LoginPage(): ReactElement {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+              className="mt-1 w-full rounded border border-line-strong px-3 py-2"
             />
           </div>
           <div>
-            <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="confirm-password" className="block text-sm font-medium text-fg-muted">
               Confirm new password
             </label>
             <input
@@ -92,23 +92,23 @@ export function LoginPage(): ReactElement {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+              className="mt-1 w-full rounded border border-line-strong px-3 py-2"
             />
           </div>
           {passwordMismatch && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               Passwords don&apos;t match.
             </p>
           )}
           {completeNewPasswordError && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {completeNewPasswordError.message}
             </p>
           )}
           <button
             type="submit"
             disabled={isCompletingNewPassword}
-            className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+            className="rounded bg-blue-600 px-4 py-2 text-on-accent disabled:opacity-50"
           >
             {isCompletingNewPassword ? "Setting password…" : "Set password"}
           </button>
@@ -118,11 +118,11 @@ export function LoginPage(): ReactElement {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Admin sign in</h1>
+    <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center px-6">
+      <h1 className="text-2xl font-semibold text-fg">Admin sign in</h1>
       <form onSubmit={handleCredentialsSubmit} className="mt-6 flex flex-col gap-4">
         <div>
-          <label htmlFor="login-email" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="login-email" className="block text-sm font-medium text-fg-muted">
             Email
           </label>
           <input
@@ -133,11 +133,11 @@ export function LoginPage(): ReactElement {
             autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded border border-line-strong px-3 py-2"
           />
         </div>
         <div>
-          <label htmlFor="login-password" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="login-password" className="block text-sm font-medium text-fg-muted">
             Password
           </label>
           <input
@@ -148,18 +148,18 @@ export function LoginPage(): ReactElement {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+            className="mt-1 w-full rounded border border-line-strong px-3 py-2"
           />
         </div>
         {signInError && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {signInError.message}
           </p>
         )}
         <button
           type="submit"
           disabled={isSigningIn}
-          className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+          className="rounded bg-blue-600 px-4 py-2 text-on-accent disabled:opacity-50"
         >
           {isSigningIn ? "Signing in…" : "Sign in"}
         </button>

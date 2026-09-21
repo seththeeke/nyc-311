@@ -25,16 +25,16 @@ export function CollapsiblePanel({
 }: CollapsiblePanelProps): ReactElement {
   return (
     <div
-      className={`flex min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950 ${collapsed ? "w-12" : expandedClassName}`}
+      className={`flex min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface ${collapsed ? "w-12" : expandedClassName}`}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 p-2">
-        {!collapsed && <h2 className="truncate px-1 text-sm font-semibold text-white">{title}</h2>}
+      <div className="flex items-center justify-between gap-2 border-b border-line p-2">
+        {!collapsed && <h2 className="truncate px-1 text-sm font-semibold text-fg">{title}</h2>}
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Show ${title}` : `Hide ${title}`}
-          className="ml-auto shrink-0 rounded p-1.5 text-slate-300 hover:bg-white/10"
+          className="ml-auto shrink-0 rounded p-1.5 text-fg-muted hover:bg-panel-hover"
         >
           {collapsed ? "»" : "«"}
         </button>

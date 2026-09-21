@@ -34,7 +34,7 @@ export function JobRunResultView({ jobRuns }: JobRunResultViewProps): ReactEleme
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
       <div className="lg:col-span-2">
-        <h2 className="mb-2 text-sm font-semibold tracking-wide text-slate-300 uppercase">Job runs</h2>
+        <h2 className="mb-2 text-sm font-semibold tracking-wide text-fg-muted uppercase">Job runs</h2>
         <WarehouseJobRunPicker
           jobRuns={jobRuns}
           selectedJobRunId={selectedJobRunId}
@@ -42,21 +42,21 @@ export function JobRunResultView({ jobRuns }: JobRunResultViewProps): ReactEleme
         />
       </div>
       <div className="lg:col-span-3">
-        <h2 className="mb-2 text-sm font-semibold tracking-wide text-slate-300 uppercase">Result</h2>
+        <h2 className="mb-2 text-sm font-semibold tracking-wide text-fg-muted uppercase">Result</h2>
         {selectedJobRunId === null ? (
-          <p className="text-sm text-slate-400">Select a job run to see its raw result.</p>
+          <p className="text-sm text-fg-subtle">Select a job run to see its raw result.</p>
         ) : isLoading ? (
-          <p className="text-sm text-slate-400">Loading…</p>
+          <p className="text-sm text-fg-subtle">Loading…</p>
         ) : error ? (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-danger">
             Failed to load result{error instanceof Error ? `: ${error.message}` : "."}
           </p>
         ) : selectedItem?.error ? (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-danger">
             {selectedItem.error}
           </p>
         ) : selectedItem?.result ? (
-          <div className="rounded-2xl bg-white p-4">
+          <div className="rounded-2xl bg-panel p-4">
             <GenericResultTable result={selectedItem.result} />
           </div>
         ) : null}

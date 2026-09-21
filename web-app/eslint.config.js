@@ -111,6 +111,42 @@ const commentFormatRule = {
   },
 };
 
+/* 12-UX-workspace-refactor.md §7.4: neutral colours must come from the theme
+   tokens (bg-surface, text-fg, border-line, ...), never raw palette classes,
+   so every component follows the active theme. Hue tints (bg-cyan-500/10,
+   ...) stay allowed — they read on both themes. */
+const RAW_NEUTRAL_CLASS =
+  /(?:^|[\s"'`])(?:[\w[\]-]+:)*(?:bg|text|border|divide|ring|from|via|to|placeholder|fill|stroke|outline|decoration|caret|accent)-(?:slate|gray|zinc|neutral|stone|white|black)(?:-\d+)?(?:\/[\d.[\]]+)?(?![\w-])/;
+
+/** @type {import("eslint").Rule.RuleModule} */
+const noRawPaletteRule = {
+  meta: {
+    type: "problem",
+    docs: { description: "Use semantic theme tokens instead of raw neutral palette classes." },
+    schema: [],
+    messages: {
+      rawNeutral:
+        "Raw neutral palette class in \"{{snippet}}\" — use a theme token (bg-surface, bg-panel, text-fg, text-fg-muted, border-line, ...) so the class follows the active theme.",
+    },
+  },
+  create(context) {
+    const check = (node, text) => {
+      const match = RAW_NEUTRAL_CLASS.exec(text);
+      if (match) {
+        context.report({ node, messageId: "rawNeutral", data: { snippet: match[0].trim() } });
+      }
+    };
+    return {
+      Literal(node) {
+        if (typeof node.value === "string") check(node, node.value);
+      },
+      TemplateElement(node) {
+        check(node, node.value.raw);
+      },
+    };
+  },
+};
+
 export default tseslint.config(
   {
     ignores: ["node_modules", "coverage", "dist", "eslint.config.js"],
@@ -119,7 +155,7 @@ export default tseslint.config(
   reactHooks.configs["recommended-latest"],
   jsxA11y.flatConfigs.recommended,
   {
-    plugins: { local: { rules: { "comment-format": commentFormatRule } } },
+    plugins: { local: { rules: { "comment-format": commentFormatRule, "no-raw-palette": noRawPaletteRule } } },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "local/comment-format": "error",
@@ -130,5 +166,9 @@ export default tseslint.config(
     rules: {
       "max-lines": ["error", { max: 200, skipBlankLines: true, skipComments: true }],
     },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: { "local/no-raw-palette": "error" },
   }
 );

@@ -1,40 +1,16 @@
 import type { ReactElement } from "react";
-import { FleetMap } from "../FleetMap";
-import { CapacityTile } from "../CapacityTile";
-import { useFleetLocations } from "../../hooks/useFleetLocations";
-import { SpinnerIcon } from "../icons";
+import { WidgetSlot } from "../widgets/WidgetSlot";
 
 /**
- * The public landing page — the fleet map
- * (`10-capacity-modeling-and-integration.md` §6.1), full-bleed under the
- * global header (`Header.tsx`'s `h-14`), Google-Maps-style: no title/nav
- * of its own, since the header already carries the app name and links.
- * The map always renders, even before locations resolve or if fetching
- * them fails — loading/error state overlays on top instead of replacing
- * it, so a transient fetch failure never blanks the whole view.
+ * The public landing page — the fleet map, rendered through the widget
+ * registry at FULL size (`12-UX-workspace-refactor.md` §4.3) so the same
+ * widget system serves both workspaces. Title/nav live in the sidebar;
+ * loading/error state overlays the map inside `FleetMapWidget`.
  */
 export function HomePage(): ReactElement {
-  const { locations, isLoading, error } = useFleetLocations();
-
   return (
-    <main className="relative h-[calc(100vh-3.5rem)] w-full">
-      <FleetMap operators={locations?.operators ?? []} />
-      <CapacityTile count={locations ? locations.operators.length : null} />
-
-      {isLoading && (
-        <div className="pointer-events-none absolute top-4 left-4 z-[1000] flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-1.5 text-sm text-slate-300 shadow-lg">
-          <SpinnerIcon className="h-4 w-4" />
-          Loading fleet…
-        </div>
-      )}
-      {error && (
-        <div
-          role="alert"
-          className="absolute top-4 left-4 z-[1000] rounded-lg bg-red-950/95 px-3 py-1.5 text-sm text-red-200 shadow-lg"
-        >
-          Couldn&apos;t load the fleet: {error.message}
-        </div>
-      )}
+    <main className="relative h-full w-full">
+      <WidgetSlot widgetId="FLEET_MAP" size="FULL" />
     </main>
   );
 }

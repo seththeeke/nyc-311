@@ -38,9 +38,9 @@ export function SaveQueryForm({ initialSql, onCreate, isCreating, error, onCreat
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 rounded-xl border border-line bg-panel p-4">
       <div>
-        <label htmlFor="save-query-name" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="save-query-name" className="block text-sm font-medium text-fg-muted">
           Query name
         </label>
         <input
@@ -49,10 +49,10 @@ export function SaveQueryForm({ initialSql, onCreate, isCreating, error, onCreat
           placeholder="e.g. top_zips_by_open_orders"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white"
+          className="mt-1 w-full rounded border border-line bg-panel px-3 py-2 font-mono text-sm text-fg"
         />
         {nameError && (
-          <p role="alert" className="mt-1 text-sm text-red-400">
+          <p role="alert" className="mt-1 text-sm text-danger">
             {nameError}
           </p>
         )}
@@ -62,17 +62,17 @@ export function SaveQueryForm({ initialSql, onCreate, isCreating, error, onCreat
         <button
           type="submit"
           disabled={isCreating || name.trim() === ""}
-          className="rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-50"
+          className="rounded bg-emerald-600 px-4 py-2 text-on-accent disabled:opacity-50"
         >
           {isCreating ? "Saving…" : "Save query"}
         </button>
-        <button type="button" onClick={onCancel} className="rounded bg-white/10 px-4 py-2 text-slate-200">
+        <button type="button" onClick={onCancel} className="rounded bg-panel-hover px-4 py-2 text-fg">
           Cancel
         </button>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error.message}
         </p>
       )}

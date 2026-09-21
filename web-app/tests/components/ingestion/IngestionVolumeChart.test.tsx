@@ -59,11 +59,11 @@ describe("IngestionVolumeChart", () => {
 
   it("marks a failed run with the critical-status color, not a stacked segment", () => {
     const { container } = render(<IngestionVolumeChart metrics={[metrics[1]]} />);
-    /* the failed-run overlay is the only 3px-tall bar; assert its colour via
-       toHaveStyle (hex/rgb-agnostic) rather than a serialized-style substring
-       match, whose formatting differs between DOM implementations. */
+    /* the failed-run overlay is the only 3px-tall bar. The colour is a CSS
+       variable (theme-aware), which happy-dom's toHaveStyle can't resolve, so
+       assert the serialized inline style instead. */
     const marker = container.querySelector(".h-\\[3px\\]");
-    expect(marker).toHaveStyle({ backgroundColor: IV_COLORS.statusCritical });
+    expect(marker?.getAttribute("style")).toContain(IV_COLORS.statusCritical);
   });
 
   it("shows a bare 'Failed' tooltip line when a failed run has no error message", () => {

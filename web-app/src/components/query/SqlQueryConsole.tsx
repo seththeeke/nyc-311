@@ -72,11 +72,11 @@ export function SqlQueryConsole({
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label htmlFor={sqlTextareaId} className="block text-sm font-medium text-slate-300">
+          <label htmlFor={sqlTextareaId} className="block text-sm font-medium text-fg-muted">
             SQL query
           </label>
           {activeJobName && (
-            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-cyan-300">
+            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-hue-cyan">
               Editing job: <span className="font-mono">{activeJobName}</span>
             </span>
           )}
@@ -93,7 +93,7 @@ export function SqlQueryConsole({
           rows={6}
           spellCheck={false}
           placeholder="SELECT borough, COUNT(*) FROM locations GROUP BY borough"
-          className="w-full rounded-lg border border-white/10 bg-slate-950 p-3 font-mono text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+          className="w-full rounded-lg border border-line bg-surface p-3 font-mono text-sm text-fg focus:border-emerald-500 focus:outline-none"
         />
         {suggestions.length > 0 && (
           <SqlAutocompleteMenu suggestions={suggestions} activeIndex={activeIndex} onSelect={handleSelect} />
@@ -104,21 +104,21 @@ export function SqlQueryConsole({
         type="button"
         onClick={() => void handleRun()}
         disabled={isRunning || !sql.trim()}
-        className="rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-50"
+        className="rounded bg-emerald-600 px-4 py-2 text-on-accent disabled:opacity-50"
       >
         {isRunning ? "Running…" : "Run query"}
       </button>
 
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error.message}
         </p>
       )}
 
       {result && !error && (
-        <div className="space-y-2 rounded-2xl bg-white p-4">
+        <div className="space-y-2 rounded-2xl bg-panel p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-fg-subtle">
               {result.row_count} row{result.row_count === 1 ? "" : "s"}
               {result.truncated && " (truncated at 500 — narrow the query to see more)"}
               {result.engine_execution_time_ms !== null && ` · ${result.engine_execution_time_ms}ms`}
@@ -129,7 +129,7 @@ export function SqlQueryConsole({
                   type="button"
                   onClick={() => onUpdateJob(sql)}
                   disabled={isUpdating}
-                  className="rounded bg-cyan-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                  className="rounded bg-cyan-600 px-3 py-1 text-sm text-on-accent disabled:opacity-50"
                 >
                   {isUpdating ? "Saving…" : `Save to ${activeJobName}`}
                 </button>
@@ -138,7 +138,7 @@ export function SqlQueryConsole({
                 <button
                   type="button"
                   onClick={() => onSaveAsQuery(sql)}
-                  className="rounded bg-white/10 px-3 py-1 text-sm text-slate-100 hover:bg-white/20"
+                  className="rounded bg-panel-hover px-3 py-1 text-sm text-fg hover:bg-panel-strong"
                 >
                   Save as query
                 </button>
@@ -147,7 +147,7 @@ export function SqlQueryConsole({
                 <button
                   type="button"
                   onClick={() => onSaveAsJob(sql)}
-                  className="rounded bg-white/10 px-3 py-1 text-sm text-slate-100 hover:bg-white/20"
+                  className="rounded bg-panel-hover px-3 py-1 text-sm text-fg hover:bg-panel-strong"
                 >
                   Save as job
                 </button>
@@ -155,7 +155,7 @@ export function SqlQueryConsole({
             </div>
           </div>
           {updateError && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {updateError.message}
             </p>
           )}

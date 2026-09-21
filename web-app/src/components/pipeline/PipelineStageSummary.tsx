@@ -41,13 +41,13 @@ function categoryLabel(category: StatusCategory): string {
  */
 export function PipelineStageSummary({ stages }: PipelineStageSummaryProps): ReactElement {
   return (
-    <ol className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+    <ol className="inline-flex items-center gap-1 rounded-full border border-line bg-panel px-2.5 py-1.5 shadow-sm">
       {stages.map((stage, index) => {
         const category = aggregateStageCategory(stage);
         return (
           <li key={stage.stageName} className="flex items-center gap-1">
             {index > 0 && (
-              <span aria-hidden="true" className="text-[10px] text-slate-300">
+              <span aria-hidden="true" className="text-[10px] text-fg-muted">
                 →
               </span>
             )}

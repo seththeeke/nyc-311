@@ -20,38 +20,38 @@ export interface MonitoringTileProps {
 const ACCENT_STYLES: Record<MonitoringTileAccent, { glow: string; badge: string; link: string; shadow: string }> = {
   cyan: {
     glow: "bg-cyan-500/20",
-    badge: "bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30",
-    link: "text-cyan-300",
+    badge: "bg-cyan-500/10 text-hue-cyan ring-1 ring-cyan-400/30",
+    link: "text-hue-cyan",
     shadow: "hover:shadow-cyan-500/10",
   },
   violet: {
     glow: "bg-violet-500/20",
-    badge: "bg-violet-500/10 text-violet-300 ring-1 ring-violet-400/30",
-    link: "text-violet-300",
+    badge: "bg-violet-500/10 text-hue-violet ring-1 ring-violet-400/30",
+    link: "text-hue-violet",
     shadow: "hover:shadow-violet-500/10",
   },
   emerald: {
     glow: "bg-emerald-500/20",
-    badge: "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30",
-    link: "text-emerald-300",
+    badge: "bg-emerald-500/10 text-hue-emerald ring-1 ring-emerald-400/30",
+    link: "text-hue-emerald",
     shadow: "hover:shadow-emerald-500/10",
   },
   amber: {
     glow: "bg-amber-500/20",
-    badge: "bg-amber-500/10 text-amber-300 ring-1 ring-amber-400/30",
-    link: "text-amber-300",
+    badge: "bg-amber-500/10 text-hue-amber ring-1 ring-amber-400/30",
+    link: "text-hue-amber",
     shadow: "hover:shadow-amber-500/10",
   },
   rose: {
     glow: "bg-rose-500/20",
-    badge: "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30",
-    link: "text-rose-300",
+    badge: "bg-rose-500/10 text-hue-rose ring-1 ring-rose-400/30",
+    link: "text-hue-rose",
     shadow: "hover:shadow-rose-500/10",
   },
   indigo: {
     glow: "bg-indigo-500/20",
-    badge: "bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-400/30",
-    link: "text-indigo-300",
+    badge: "bg-indigo-500/10 text-hue-indigo ring-1 ring-indigo-400/30",
+    link: "text-hue-indigo",
     shadow: "hover:shadow-indigo-500/10",
   },
 };
@@ -78,8 +78,8 @@ export function MonitoringTile({
             {icon}
           </div>
         )}
-        <h2 className="mt-4 text-xl font-semibold text-white">{title}</h2>
-        <p className="mt-1.5 text-sm text-slate-400">{description}</p>
+        <h2 className="mt-4 text-xl font-semibold text-fg">{title}</h2>
+        <p className="mt-1.5 text-sm text-fg-subtle">{description}</p>
         <span
           className={`mt-4 flex items-center gap-1 text-sm font-medium opacity-0 transition-all duration-300 group-hover:gap-2 group-hover:opacity-100 ${styles.link}`}
         >
@@ -90,7 +90,7 @@ export function MonitoringTile({
     </>
   );
 
-  const className = `group relative block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl ${styles.shadow}`;
+  const className = `group relative block overflow-hidden rounded-2xl border border-line bg-panel p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-line-strong hover:bg-panel-hover hover:shadow-2xl ${styles.shadow}`;
 
   if (external) {
     return (

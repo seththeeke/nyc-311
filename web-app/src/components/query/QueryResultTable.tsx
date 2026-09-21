@@ -14,14 +14,14 @@ const NUMERIC_TYPES = new Set(["bigint", "integer", "int", "smallint", "tinyint"
  */
 export function QueryResultTable({ result }: QueryResultTableProps): ReactElement {
   if (result.rows.length === 0) {
-    return <p className="text-slate-500">The query returned no rows.</p>;
+    return <p className="text-fg-subtle">The query returned no rows.</p>;
   }
 
   return (
-    <div className="max-h-[28rem] overflow-auto rounded-md border border-slate-100">
+    <div className="max-h-[28rem] overflow-auto rounded-md border border-line-soft">
       <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 bg-white/95 backdrop-blur-sm">
-          <tr className="border-b border-slate-200 text-left text-slate-500">
+        <thead className="sticky top-0 bg-popover/95 backdrop-blur-sm">
+          <tr className="border-b border-line text-left text-fg-subtle">
             {result.columns.map((col) => (
               <th
                 key={col.name}
@@ -35,13 +35,13 @@ export function QueryResultTable({ result }: QueryResultTableProps): ReactElemen
         </thead>
         <tbody>
           {result.rows.map((r, i) => (
-            <tr key={i} className="border-b border-slate-100 last:border-b-0">
+            <tr key={i} className="border-b border-line-soft last:border-b-0">
               {result.columns.map((col) => {
                 const isNumeric = NUMERIC_TYPES.has(col.type);
                 return (
                   <td
                     key={col.name}
-                    className={`py-2 pr-4 text-slate-700 ${isNumeric ? "text-right tabular-nums" : "font-mono text-xs"}`}
+                    className={`py-2 pr-4 text-fg-muted ${isNumeric ? "text-right tabular-nums" : "font-mono text-xs"}`}
                   >
                     {r[col.name] ?? ""}
                   </td>

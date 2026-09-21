@@ -16,32 +16,32 @@ function firstLine(message: string): string {
 
 function ExecutionDetailRow({ execution, detailId }: { execution: PipelineExecution; detailId: string }): ReactElement {
   return (
-    <tr id={detailId} className="border-b border-slate-100 bg-slate-50">
-      <td colSpan={5} className="px-4 py-3 text-sm text-slate-600">
+    <tr id={detailId} className="border-b border-line-soft bg-panel-sunken">
+      <td colSpan={5} className="px-4 py-3 text-sm text-fg-muted">
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Commit message</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-slate-700">
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Commit message</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-fg-muted">
               {execution.commitMessage ?? "Pipeline restart (no commit)"}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Commit ID</dt>
-            <dd className="mt-0.5 text-slate-700">{execution.commitId ?? "—"}</dd>
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Commit ID</dt>
+            <dd className="mt-0.5 text-fg-muted">{execution.commitId ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Execution ID</dt>
-            <dd className="mt-0.5 text-slate-700">{execution.executionId}</dd>
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Execution ID</dt>
+            <dd className="mt-0.5 text-fg-muted">{execution.executionId}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Started</dt>
-            <dd className="mt-0.5 text-slate-700">
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Started</dt>
+            <dd className="mt-0.5 text-fg-muted">
               {execution.startTime ? formatAbsoluteDateTime(execution.startTime) : "—"}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Last update</dt>
-            <dd className="mt-0.5 text-slate-700">
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Last update</dt>
+            <dd className="mt-0.5 text-fg-muted">
               {execution.lastUpdateTime ? formatAbsoluteDateTime(execution.lastUpdateTime) : "—"}
             </dd>
           </div>
@@ -65,7 +65,7 @@ function ExecutionRow({
 
   return (
     <>
-      <tr className="border-b border-slate-100">
+      <tr className="border-b border-line-soft">
         <td className="py-2 pr-1 pl-2">
           <button
             type="button"
@@ -73,20 +73,20 @@ function ExecutionRow({
             aria-expanded={expanded}
             aria-controls={detailId}
             aria-label={expanded ? "Hide execution details" : "Show execution details"}
-            className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-panel-hover hover:text-fg-muted"
           >
             <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
           </button>
         </td>
         <td className="max-w-xs truncate py-2 pr-4">
           {execution.commitMessage ? (
-            <span className="text-slate-700">{firstLine(execution.commitMessage)}</span>
+            <span className="text-fg-muted">{firstLine(execution.commitMessage)}</span>
           ) : (
             /*
              * A StartPipelineExecution-triggered restart (self-mutation),
              * not a push — genuinely has no commit to show, not a data gap.
              */
-            <span className="text-slate-400 italic">Pipeline restart (no commit)</span>
+            <span className="text-fg-subtle italic">Pipeline restart (no commit)</span>
           )}
         </td>
         <td className="py-2 pr-4">
@@ -99,10 +99,10 @@ function ExecutionRow({
             <span className="sr-only">{visual.label}</span>
           </span>
         </td>
-        <td className="py-2 pr-4 text-slate-500">
+        <td className="py-2 pr-4 text-fg-subtle">
           {execution.startTime ? formatRelativeTime(execution.startTime) : "—"}
         </td>
-        <td className="py-2 text-right tabular-nums text-slate-500">
+        <td className="py-2 text-right tabular-nums text-fg-subtle">
           {execution.startTime ? formatDuration(execution.startTime, execution.lastUpdateTime) : "—"}
         </td>
       </tr>
@@ -132,11 +132,11 @@ export function PipelineExecutionHistory({ executions }: PipelineExecutionHistor
   }
 
   return (
-    <div data-testid="execution-history-scroll" className="max-h-[26rem] overflow-y-auto rounded-md border border-slate-100">
+    <div data-testid="execution-history-scroll" className="max-h-[26rem] overflow-y-auto rounded-md border border-line-soft">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Nyc311Pipeline execution history, most recent first</caption>
-        <thead className="sticky top-0 bg-white/95 backdrop-blur-sm">
-          <tr className="border-b border-slate-200 text-left text-slate-500">
+        <thead className="sticky top-0 bg-popover/95 backdrop-blur-sm">
+          <tr className="border-b border-line text-left text-fg-subtle">
             <th scope="col" className="py-2 pr-1 pl-2">
               <span className="sr-only">Expand row</span>
             </th>

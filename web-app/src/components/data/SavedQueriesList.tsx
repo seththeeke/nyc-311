@@ -12,7 +12,7 @@ export interface SavedQueriesListProps {
 }
 
 const ICON_BUTTON =
-  "rounded p-1.5 text-slate-500 transition-transform transition-colors hover:scale-110 hover:text-slate-900 disabled:opacity-50 disabled:hover:scale-100";
+  "rounded p-1.5 text-fg-subtle transition-transform transition-colors hover:scale-110 hover:text-fg disabled:opacity-50 disabled:hover:scale-100";
 
 /**
  * The Schema panel's "Saved queries" view (admin warehouse query-tabs
@@ -34,23 +34,23 @@ export function SavedQueriesList({ queries, onDelete, isDeleting, deleteError, o
   }
 
   if (queries.length === 0) {
-    return <p className="text-sm text-slate-500">No saved queries yet — save one from the query console.</p>;
+    return <p className="text-sm text-fg-subtle">No saved queries yet — save one from the query console.</p>;
   }
 
   return (
     <div className="space-y-2">
       {deleteError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {deleteError.message}
         </p>
       )}
       <ul className="space-y-1">
         {queries.map((query) => (
-          <li key={query.job_name} className="rounded-lg border border-slate-200">
+          <li key={query.job_name} className="rounded-lg border border-line">
             <div className="flex items-center justify-between gap-2 px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate font-mono text-sm text-slate-800">{query.job_name}</p>
-                <p className="truncate text-xs text-slate-500">Saved {new Date(query.created_at).toLocaleDateString()}</p>
+                <p className="truncate font-mono text-sm text-fg">{query.job_name}</p>
+                <p className="truncate text-xs text-fg-subtle">Saved {new Date(query.created_at).toLocaleDateString()}</p>
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
                 <button
@@ -68,24 +68,24 @@ export function SavedQueriesList({ queries, onDelete, isDeleting, deleteError, o
                   onClick={() => setConfirmingName(query.job_name)}
                   aria-label={`Delete query ${query.job_name}`}
                   title="Delete"
-                  className={`${ICON_BUTTON} hover:text-rose-600`}
+                  className={`${ICON_BUTTON} hover:text-hue-rose`}
                 >
                   <DeleteIcon />
                 </button>
               </div>
             </div>
             {confirmingName === query.job_name && (
-              <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                <span className="text-amber-600">Delete {query.job_name}?</span>
+              <div className="flex items-center gap-2 border-t border-line bg-panel-sunken px-3 py-2 text-xs">
+                <span className="text-hue-amber">Delete {query.job_name}?</span>
                 <button
                   type="button"
                   onClick={() => void handleConfirmDelete(query.job_name)}
                   disabled={isDeleting}
-                  className="rounded bg-rose-600 px-2 py-1 text-white disabled:opacity-50"
+                  className="rounded bg-rose-600 px-2 py-1 text-on-accent disabled:opacity-50"
                 >
                   {isDeleting ? "Deleting…" : "Confirm"}
                 </button>
-                <button type="button" onClick={() => setConfirmingName(null)} className="rounded bg-slate-200 px-2 py-1 text-slate-700">
+                <button type="button" onClick={() => setConfirmingName(null)} className="rounded bg-panel-hover px-2 py-1 text-fg-muted">
                   Cancel
                 </button>
               </div>

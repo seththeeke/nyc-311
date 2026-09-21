@@ -16,15 +16,15 @@ export interface WarehouseSchemaViewProps {
  */
 function TableSchema({ table, expanded }: { table: WarehouseTable; expanded: boolean }): ReactElement {
   return (
-    <details open={expanded} className="rounded-xl border border-slate-200 bg-white p-3">
-      <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+    <details open={expanded} className="rounded-xl border border-line bg-panel p-3">
+      <summary className="cursor-pointer text-sm font-semibold text-fg">
         {table.table_name}
-        <span className="ml-2 font-normal text-slate-500">({table.columns.length} columns)</span>
+        <span className="ml-2 font-normal text-fg-subtle">({table.columns.length} columns)</span>
       </summary>
       <table className="mt-3 w-full table-fixed border-collapse text-xs">
         <caption className="sr-only">Columns of the {table.table_name} warehouse table</caption>
         <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500">
+          <tr className="border-b border-line text-left text-fg-subtle">
             <th scope="col" className="w-[38%] py-2 pr-2 font-medium">
               Column
             </th>
@@ -38,10 +38,10 @@ function TableSchema({ table, expanded }: { table: WarehouseTable; expanded: boo
         </thead>
         <tbody>
           {table.columns.map((column) => (
-            <tr key={column.name} className="border-b border-slate-100">
-              <td className="py-2 pr-2 font-mono break-words text-slate-700">{column.name}</td>
-              <td className="py-2 pr-2 break-words text-slate-500">{column.type}</td>
-              <td className="py-2 break-words text-slate-500">{column.comment ?? ""}</td>
+            <tr key={column.name} className="border-b border-line-soft">
+              <td className="py-2 pr-2 font-mono break-words text-fg-muted">{column.name}</td>
+              <td className="py-2 pr-2 break-words text-fg-subtle">{column.type}</td>
+              <td className="py-2 break-words text-fg-subtle">{column.comment ?? ""}</td>
             </tr>
           ))}
         </tbody>

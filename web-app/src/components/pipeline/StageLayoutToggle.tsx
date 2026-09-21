@@ -17,7 +17,7 @@ export function StageLayoutToggle({ layout, onChange }: StageLayoutToggleProps):
     <div
       role="group"
       aria-label="Stage layout"
-      className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs"
+      className="inline-flex rounded-md border border-line bg-panel p-0.5 text-xs"
     >
       {OPTIONS.map((option) => {
         const isActive = option.value === layout;
@@ -28,7 +28,7 @@ export function StageLayoutToggle({ layout, onChange }: StageLayoutToggleProps):
             aria-pressed={isActive}
             onClick={() => onChange(option.value)}
             className={`rounded px-2.5 py-1 font-medium transition-colors ${
-              isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              isActive ? "bg-fg text-surface" : "text-fg-muted hover:bg-panel-hover"
             }`}
           >
             {option.label}

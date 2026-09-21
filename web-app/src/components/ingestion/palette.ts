@@ -1,18 +1,15 @@
 /*
- * Validated data-encoding colors for the ingestion-metrics dashboard only
- * (dataviz skill's references/palette.md, validated via
- * scripts/validate_palette.js). Light-mode only — the app has no dark
- * mode, so a dark-aware chart would be inconsistent, not more accessible.
- * Scoped to data-encoding colors; page chrome stays on the app's existing
- * Tailwind slate tokens. Categorical slots 1-3 validated
- * all-pairs-distinguishable (CVD ΔE 9.2, normal-vision ΔE 24.0).
+ * Chart data-encoding colors as CSS variables (index.css), so charts re-color
+ * with the active theme. Both sets pass the dataviz validator: light slots
+ * 1-3 against #ffffff, stepped dark slots (>= 3:1) against the dark panel
+ * #0c1222. Status colors are fixed across themes; chrome uses semantic tokens.
  */
 export const IV_COLORS = {
-  seriesIngested: "#2a78d6", /* blue — slot 1 */
-  seriesDuplicates: "#eb6834", /* orange — slot 2 */
-  seriesRejected: "#1baf7a", /* aqua — slot 3 */
-  statusGood: "#0ca30c",
-  statusWarning: "#fab219",
-  statusCritical: "#d03b3b",
-  sparklineTrack: "#c3c2b7", /* de-emphasis / muted — palette.md's mode-invariant muted token */
+  seriesIngested: "var(--iv-series-ingested)",
+  seriesDuplicates: "var(--iv-series-duplicates)",
+  seriesRejected: "var(--iv-series-rejected)",
+  statusGood: "var(--iv-status-good)",
+  statusWarning: "var(--iv-status-warning)",
+  statusCritical: "var(--iv-status-critical)",
+  sparklineTrack: "var(--iv-sparkline-track)",
 } as const;

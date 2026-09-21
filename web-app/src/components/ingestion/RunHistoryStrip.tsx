@@ -25,7 +25,7 @@ function LegendSwatch({ success, label }: { success: boolean; label: string }): 
         className="flex h-4 w-4 items-center justify-center rounded"
         style={{ backgroundColor: success ? IV_COLORS.statusGood : IV_COLORS.statusCritical }}
       >
-        <StatusIcon success={success} className="h-2.5 w-2.5 text-white" />
+        <StatusIcon success={success} className="h-2.5 w-2.5 text-fg" />
       </span>
       {label}
     </span>
@@ -52,24 +52,24 @@ export function RunHistoryStrip({ metrics }: RunHistoryStripProps): ReactElement
             className="group relative flex h-7 w-3.5 shrink-0 items-center justify-center rounded transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1"
             style={{ backgroundColor: run.success ? IV_COLORS.statusGood : IV_COLORS.statusCritical }}
           >
-            <StatusIcon success={run.success} className="h-3 w-3 text-white" />
+            <StatusIcon success={run.success} className="h-3 w-3 text-fg" />
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
+              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-tooltip px-2.5 py-1.5 text-xs text-tooltip-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
               <span className="block font-medium">{run.success ? "Succeeded" : "Failed"}</span>
-              <span className="block text-slate-300">{formatAbsoluteDateTime(run.ran_at)}</span>
+              <span className="block text-fg-muted">{formatAbsoluteDateTime(run.ran_at)}</span>
               {run.success ? (
-                <span className="block text-slate-300">
+                <span className="block text-fg-muted">
                   {run.records_ingested} ingested · {run.duplicates_skipped} duplicates
                 </span>
               ) : (
-                run.error_message && <span className="block text-slate-300">{run.error_message}</span>
+                run.error_message && <span className="block text-fg-muted">{run.error_message}</span>
               )}
             </span>
           </button>
         ))}
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+      <div className="mt-3 flex items-center gap-4 text-xs text-fg-subtle">
         <LegendSwatch success label="Succeeded" />
         <LegendSwatch success={false} label="Failed" />
       </div>

@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
 import { CapacityIcon, SchedulingIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
+import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 interface AdminTileConfig {
   title: string;
@@ -45,8 +46,8 @@ export function AdminPage(): ReactElement {
   const { user, signOut } = useAuth();
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-950">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+    <main className="relative min-h-full overflow-hidden bg-surface">
+      <div aria-hidden="true" className="theme-aurora pointer-events-none absolute inset-0 overflow-hidden">
         <div className="animate-aurora-1 absolute -top-32 -left-32 h-[32rem] w-[32rem] rounded-full bg-emerald-600/30 blur-3xl" />
         <div className="animate-aurora-2 absolute top-1/3 -right-24 h-[28rem] w-[28rem] rounded-full bg-cyan-600/30 blur-3xl" />
       </div>
@@ -55,9 +56,9 @@ export function AdminPage(): ReactElement {
         className="bg-grid-glow pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_65%_55%_at_50%_0%,black,transparent)]"
       />
 
-      <div className="relative mx-auto max-w-5xl px-6 py-20 sm:py-28">
+      <div className={PAGE_CONTENT_CLASSES}>
         <div className="flex items-center justify-between">
-          <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
+          <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1 text-xs font-medium text-fg-muted backdrop-blur">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -65,12 +66,12 @@ export function AdminPage(): ReactElement {
             Admin &middot; BoroughSim
           </div>
           {user && (
-            <div className="flex items-center gap-3 text-sm text-slate-400">
+            <div className="flex items-center gap-3 text-sm text-fg-subtle">
               <span>{user.email}</span>
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-300 hover:bg-white/10"
+                className="rounded-full border border-line bg-panel px-3 py-1 text-fg-muted hover:bg-panel-hover"
               >
                 Sign out
               </button>
@@ -79,12 +80,12 @@ export function AdminPage(): ReactElement {
         </div>
 
         <h1
-          className="animate-fade-in-up mt-6 bg-gradient-to-r from-emerald-300 via-cyan-300 to-violet-300 bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl"
+          className="animate-fade-in-up mt-6 bg-gradient-to-r from-hue-emerald via-hue-cyan to-hue-violet bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl"
           style={{ animationDelay: "80ms" }}
         >
           Admin
         </h1>
-        <p className="animate-fade-in-up mt-4 max-w-xl text-lg text-slate-400" style={{ animationDelay: "150ms" }}>
+        <p className="animate-fade-in-up mt-4 max-w-xl text-lg text-fg-subtle" style={{ animationDelay: "150ms" }}>
           Management tools — signed in, mutating actions live here.
         </p>
 

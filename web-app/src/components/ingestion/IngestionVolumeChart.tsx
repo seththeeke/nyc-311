@@ -85,7 +85,7 @@ function VolumeBar({ run, axisMax, isFirst, isLast }: VolumeBarProps): ReactElem
       )}
       {isLast && total > 0 && (
         <span
-          className="pointer-events-none absolute right-0 text-[10px] font-medium whitespace-nowrap text-slate-600"
+          className="pointer-events-none absolute right-0 text-[10px] font-medium whitespace-nowrap text-fg-muted"
           style={{ bottom: `calc(${totalPct}% + ${LABEL_GAP_PX}px)` }}
         >
           {formatCompactNumber(total)}
@@ -93,18 +93,18 @@ function VolumeBar({ run, axisMax, isFirst, isLast }: VolumeBarProps): ReactElem
       )}
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute z-10 w-max max-w-56 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipAlignClass(isFirst, isLast)}`}
+        className={`pointer-events-none absolute z-10 w-max max-w-56 rounded-md bg-tooltip px-2.5 py-1.5 text-xs text-tooltip-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipAlignClass(isFirst, isLast)}`}
         style={{ bottom: `calc(${totalPct}% + ${TOOLTIP_GAP_PX}px)` }}
       >
         <span className="block font-medium">{formatAbsoluteDateTime(run.ran_at)}</span>
         {run.success ? (
           <>
-            <span className="block text-slate-300">{run.records_ingested} ingested</span>
-            <span className="block text-slate-300">{run.duplicates_skipped} duplicates</span>
-            <span className="block text-slate-300">{run.records_rejected} rejected</span>
+            <span className="block text-fg-muted">{run.records_ingested} ingested</span>
+            <span className="block text-fg-muted">{run.duplicates_skipped} duplicates</span>
+            <span className="block text-fg-muted">{run.records_rejected} rejected</span>
           </>
         ) : (
-          <span className="block text-slate-300">Failed{run.error_message ? `: ${run.error_message}` : ""}</span>
+          <span className="block text-fg-muted">Failed{run.error_message ? `: ${run.error_message}` : ""}</span>
         )}
       </span>
       <button
@@ -129,7 +129,7 @@ export function IngestionVolumeChart({ metrics }: IngestionVolumeChartProps): Re
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-fg-subtle">
         <LegendItem color={IV_COLORS.seriesIngested} label="Ingested" />
         <LegendItem color={IV_COLORS.seriesDuplicates} label="Duplicates skipped" />
         <LegendItem color={IV_COLORS.seriesRejected} label="Rejected" />
@@ -143,7 +143,7 @@ export function IngestionVolumeChart({ metrics }: IngestionVolumeChartProps): Re
           overflow-y non-visible too, per the CSS overflow spec). */}
       <div className="mt-4 flex gap-3 overflow-x-auto pt-16 pb-1">
         <div
-          className="flex flex-col justify-between text-right text-[10px] text-slate-400"
+          className="flex flex-col justify-between text-right text-[10px] text-fg-subtle"
           style={{ height: CHART_HEIGHT_PX }}
         >
           <span>{formatCompactNumber(axisMax)}</span>
@@ -152,10 +152,10 @@ export function IngestionVolumeChart({ metrics }: IngestionVolumeChartProps): Re
         </div>
 
         <div
-          className="relative flex flex-1 items-end gap-1 border-b border-l border-slate-200"
+          className="relative flex flex-1 items-end gap-1 border-b border-l border-line"
           style={{ height: CHART_HEIGHT_PX }}
         >
-          <div className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-slate-100" />
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-line-soft" />
           {chronological.map((run, index) => (
             <VolumeBar
               key={run.ran_at}
@@ -169,7 +169,7 @@ export function IngestionVolumeChart({ metrics }: IngestionVolumeChartProps): Re
       </div>
 
       {chronological.length > 0 && (
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-fg-subtle">
           {formatAbsoluteDateTime(chronological[0].ran_at).split(",")[0]} –{" "}
           {formatAbsoluteDateTime(chronological[chronological.length - 1].ran_at).split(",")[0]}
         </p>

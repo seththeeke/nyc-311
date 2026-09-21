@@ -21,9 +21,9 @@ export function CapacityStatsPanel({ status }: CapacityStatsPanelProps): ReactEl
   return (
     <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {tiles.map((tile) => (
-        <div key={tile.label} className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
-          <dt className="text-sm text-slate-400">{tile.label}</dt>
-          <dd className="mt-1 text-3xl font-semibold text-white">{tile.value}</dd>
+        <div key={tile.label} className="rounded-xl border border-line bg-panel p-5">
+          <dt className="text-sm text-fg-subtle">{tile.label}</dt>
+          <dd className="mt-1 text-3xl font-semibold text-fg">{tile.value}</dd>
         </div>
       ))}
     </dl>

@@ -22,7 +22,7 @@ const PRESET_LABELS: Record<CronPresetKind, string> = {
 };
 
 const FIELD_CLASSES =
-  "rounded border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-100 focus:border-cyan-400/50 focus:outline-none";
+  "rounded border border-line bg-panel px-2 py-1 text-sm text-fg focus:border-cyan-400/50 focus:outline-none";
 
 /**
  * A human-friendly front end over the one thing the backend actually
@@ -65,7 +65,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor="cron-preset-kind" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="cron-preset-kind" className="block text-sm font-medium text-fg-muted">
           Cadence
         </label>
         <select id="cron-preset-kind" value={preset.kind} onChange={handleKindChange} className={`${FIELD_CLASSES} mt-1`}>
@@ -81,7 +81,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
         <div className="flex flex-wrap items-end gap-3">
           {preset.kind === "weekly" && (
             <div>
-              <label htmlFor="cron-day-of-week" className="block text-xs font-medium text-slate-400">
+              <label htmlFor="cron-day-of-week" className="block text-xs font-medium text-fg-subtle">
                 Day
               </label>
               <select
@@ -99,7 +99,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
             </div>
           )}
           <div>
-            <label htmlFor="cron-hour" className="block text-xs font-medium text-slate-400">
+            <label htmlFor="cron-hour" className="block text-xs font-medium text-fg-subtle">
               Hour (UTC)
             </label>
             <input
@@ -113,7 +113,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
             />
           </div>
           <div>
-            <label htmlFor="cron-minute" className="block text-xs font-medium text-slate-400">
+            <label htmlFor="cron-minute" className="block text-xs font-medium text-fg-subtle">
               Minute
             </label>
             <input
@@ -131,7 +131,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
 
       {preset.kind === "hourly" && (
         <div>
-          <label htmlFor="cron-minute-hourly" className="block text-xs font-medium text-slate-400">
+          <label htmlFor="cron-minute-hourly" className="block text-xs font-medium text-fg-subtle">
             Minute past the hour
           </label>
           <input
@@ -148,7 +148,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
 
       {preset.kind === "custom" && (
         <div>
-          <label htmlFor="cron-raw" className="block text-xs font-medium text-slate-400">
+          <label htmlFor="cron-raw" className="block text-xs font-medium text-fg-subtle">
             Raw cron expression
           </label>
           <input
@@ -162,7 +162,7 @@ export function CronScheduleBuilder({ onChange }: CronScheduleBuilderProps): Rea
         </div>
       )}
 
-      <p className="font-mono text-xs text-slate-400">{cronExpression || "cron(...)"}</p>
+      <p className="font-mono text-xs text-fg-subtle">{cronExpression || "cron(...)"}</p>
     </div>
   );
 }

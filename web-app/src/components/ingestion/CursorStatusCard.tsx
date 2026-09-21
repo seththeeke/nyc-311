@@ -22,9 +22,9 @@ interface CursorTileProps {
 
 function CursorTile({ label, value, title, color, dot }: CursorTileProps): ReactElement {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">{label}</p>
-      <p className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-slate-900" style={color ? { color } : undefined} title={title}>
+    <div className="rounded-lg border border-line bg-panel p-4">
+      <p className="text-xs font-medium tracking-wide text-fg-subtle uppercase">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-fg" style={color ? { color } : undefined} title={title}>
         {dot && <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />}
         {value}
       </p>
@@ -40,7 +40,7 @@ function CursorTile({ label, value, title, color, dot }: CursorTileProps): React
  */
 export function CursorStatusCard({ cursor }: CursorStatusCardProps): ReactElement {
   if (!cursor) {
-    return <p className="text-sm text-slate-500">No ingestion cursor yet — the poller hasn't completed a run.</p>;
+    return <p className="text-sm text-fg-subtle">No ingestion cursor yet — the poller hasn't completed a run.</p>;
   }
 
   const statusColor = cursor.is_stale ? IV_COLORS.statusCritical : IV_COLORS.statusGood;

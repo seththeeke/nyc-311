@@ -59,7 +59,7 @@ export function AddCapacityForm({ roster, onAdd, isAdding, error }: AddCapacityF
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
       <div>
-        <label htmlFor="add-capacity-name" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="add-capacity-name" className="block text-sm font-medium text-fg-muted">
           Name (optional)
         </label>
         <input
@@ -68,11 +68,11 @@ export function AddCapacityForm({ roster, onAdd, isAdding, error }: AddCapacityF
           placeholder={defaultName}
           value={nameInput}
           onChange={(e) => setNameInput(e.target.value)}
-          className="mt-1 w-40 rounded border border-white/10 bg-white/5 px-3 py-2 text-white"
+          className="mt-1 w-40 rounded border border-line bg-panel px-3 py-2 text-fg"
         />
       </div>
       <div>
-        <label htmlFor="add-capacity-rate" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="add-capacity-rate" className="block text-sm font-medium text-fg-muted">
           Rate per hour (optional)
         </label>
         <input
@@ -82,23 +82,23 @@ export function AddCapacityForm({ roster, onAdd, isAdding, error }: AddCapacityF
           placeholder="Default"
           value={rateInput}
           onChange={(e) => setRateInput(e.target.value)}
-          className="mt-1 w-40 rounded border border-white/10 bg-white/5 px-3 py-2 text-white"
+          className="mt-1 w-40 rounded border border-line bg-panel px-3 py-2 text-fg"
         />
       </div>
       <button
         type="submit"
         disabled={isAdding}
-        className="rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-50"
+        className="rounded bg-emerald-600 px-4 py-2 text-on-accent disabled:opacity-50"
       >
         {isAdding ? "Adding…" : "Add vehicle"}
       </button>
       {rateError && (
-        <p role="alert" className="w-full text-sm text-red-400">
+        <p role="alert" className="w-full text-sm text-danger">
           {rateError}
         </p>
       )}
       {error && (
-        <p role="alert" className="w-full text-sm text-red-400">
+        <p role="alert" className="w-full text-sm text-danger">
           {error.message}
         </p>
       )}

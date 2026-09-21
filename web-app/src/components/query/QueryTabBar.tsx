@@ -18,7 +18,7 @@ export interface QueryTabBarProps {
  */
 export function QueryTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: QueryTabBarProps): ReactElement {
   return (
-    <div role="tablist" aria-label="Open queries" className="flex flex-wrap items-center gap-1 border-b border-white/10 pb-2">
+    <div role="tablist" aria-label="Open queries" className="flex flex-wrap items-center gap-1 border-b border-line pb-2">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         return (
@@ -27,7 +27,7 @@ export function QueryTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: Que
             role="tab"
             aria-selected={isActive}
             className={`group flex items-center gap-1.5 rounded-t-lg px-3 py-1.5 text-sm ${
-              isActive ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              isActive ? "bg-panel-hover text-fg" : "text-fg-subtle hover:bg-panel hover:text-fg"
             }`}
           >
             <button type="button" onClick={() => onSelect(tab.id)} className="max-w-[10rem] truncate">
@@ -37,7 +37,7 @@ export function QueryTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: Que
               type="button"
               onClick={() => onClose(tab.id)}
               aria-label={`Close ${tab.label}`}
-              className="rounded text-slate-500 transition-colors hover:text-white"
+              className="rounded text-fg-subtle transition-colors hover:text-fg"
             >
               ×
             </button>
@@ -48,7 +48,7 @@ export function QueryTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: Que
         type="button"
         onClick={onAdd}
         aria-label="New query tab"
-        className="ml-1 rounded px-2 py-1 text-slate-400 transition-transform hover:scale-110 hover:text-white"
+        className="ml-1 rounded px-2 py-1 text-fg-subtle transition-transform hover:scale-110 hover:text-fg"
       >
         +
       </button>

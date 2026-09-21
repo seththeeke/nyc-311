@@ -18,7 +18,7 @@ export function SqlAutocompleteMenu({ suggestions, activeIndex, onSelect }: SqlA
     <ul
       role="listbox"
       aria-label="SQL suggestions"
-      className="max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-slate-900 text-sm shadow-xl"
+      className="max-h-48 overflow-y-auto rounded-lg border border-line bg-popover text-sm shadow-xl"
     >
       {suggestions.map((suggestion, index) => (
         <li key={suggestion}>
@@ -32,7 +32,7 @@ export function SqlAutocompleteMenu({ suggestions, activeIndex, onSelect }: SqlA
               onSelect(suggestion);
             }}
             className={`block w-full px-3 py-1.5 text-left font-mono ${
-              index === activeIndex ? "bg-cyan-600 text-white" : "text-slate-200 hover:bg-white/10"
+              index === activeIndex ? "bg-cyan-600 text-on-accent" : "text-fg hover:bg-panel-hover"
             }`}
           >
             {suggestion}

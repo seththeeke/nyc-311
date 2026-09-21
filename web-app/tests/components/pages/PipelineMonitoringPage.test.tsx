@@ -47,11 +47,12 @@ describe("PipelineMonitoringPage", () => {
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
-  it("widens the page well past the old, too-narrow container", () => {
+  it("fills the workspace with the shared page wrapper, not a per-page max-width column", () => {
     mockedGetPipelineStatus.mockResolvedValue({ pipelineName: "Nyc311Pipeline", stages: [], executions: [] });
     const { container } = renderPage();
 
-    expect(container.querySelector("main")).toHaveClass("max-w-7xl");
+    expect(container.querySelector("main")).toHaveClass("w-full", "px-6", "py-10");
+    expect(container.querySelector("main")?.className).not.toMatch(/max-w-/);
   });
 
   it("renders stages (with its embedded at-a-glance summary) and execution history once data resolves", async () => {

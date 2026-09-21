@@ -10,9 +10,9 @@ export interface JobRunHistoryTableProps {
 }
 
 const TRIGGER_BADGE_CLASSES: Record<WarehouseJobRun["trigger"], string> = {
-  SCHEDULED: "bg-cyan-100 text-cyan-800",
-  RETRY: "bg-amber-100 text-amber-800",
-  MANUAL: "bg-violet-100 text-violet-800",
+  SCHEDULED: "bg-cyan-100 text-hue-cyan",
+  RETRY: "bg-amber-100 text-hue-amber",
+  MANUAL: "bg-violet-100 text-hue-violet",
 };
 
 function TriggerBadge({ trigger }: { trigger: WarehouseJobRun["trigger"] }): ReactElement {
@@ -31,30 +31,30 @@ function JobRunDetailRow({ jobRun, detailId }: { jobRun: WarehouseJobRun; detail
   const retriesExhausted = jobRun.status === "FAILED" && jobRun.retry_count >= MAX_JOB_RETRIES;
 
   return (
-    <tr id={detailId} className="border-b border-slate-100 bg-slate-50">
-      <td colSpan={6} className="px-4 py-3 text-sm text-slate-600">
+    <tr id={detailId} className="border-b border-line-soft bg-panel-sunken">
+      <td colSpan={6} className="px-4 py-3 text-sm text-fg-muted">
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Run ID</dt>
-            <dd className="mt-0.5 font-mono text-xs text-slate-700">{jobRun.job_run_id}</dd>
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Run ID</dt>
+            <dd className="mt-0.5 font-mono text-xs text-fg-muted">{jobRun.job_run_id}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Execution ref</dt>
-            <dd className="mt-0.5 font-mono text-xs break-all text-slate-700">{jobRun.execution_ref ?? "—"}</dd>
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Execution ref</dt>
+            <dd className="mt-0.5 font-mono text-xs break-all text-fg-muted">{jobRun.execution_ref ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Retries</dt>
-            <dd className="mt-0.5 text-slate-700">
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Retries</dt>
+            <dd className="mt-0.5 text-fg-muted">
               {jobRun.retried_from_job_run_id ? `↻ retry of ${shortId(jobRun.retried_from_job_run_id)}, ` : ""}
               attempt {jobRun.retry_count + 1}
               {retriesExhausted && (
-                <span className="ml-1 font-medium text-rose-700">— retries exhausted (max {MAX_JOB_RETRIES})</span>
+                <span className="ml-1 font-medium text-hue-rose">— retries exhausted (max {MAX_JOB_RETRIES})</span>
               )}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Query performance</dt>
-            <dd className="mt-0.5 text-slate-700">
+            <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Query performance</dt>
+            <dd className="mt-0.5 text-fg-muted">
               {jobRun.data_scanned_bytes !== null ? formatBytes(jobRun.data_scanned_bytes) : "—"} scanned,{" "}
               {jobRun.engine_execution_time_ms !== null ? formatMillis(jobRun.engine_execution_time_ms) : "—"} engine
               time, {jobRun.query_queue_time_ms !== null ? formatMillis(jobRun.query_queue_time_ms) : "—"} queued
@@ -62,8 +62,8 @@ function JobRunDetailRow({ jobRun, detailId }: { jobRun: WarehouseJobRun; detail
           </div>
           {jobRun.error_message && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium tracking-wide text-slate-400 uppercase">Error</dt>
-              <dd className="mt-0.5 text-rose-700">{jobRun.error_message}</dd>
+              <dt className="text-xs font-medium tracking-wide text-fg-subtle uppercase">Error</dt>
+              <dd className="mt-0.5 text-hue-rose">{jobRun.error_message}</dd>
             </div>
           )}
         </dl>
@@ -86,7 +86,7 @@ function JobRunRow({
 
   return (
     <>
-      <tr className="border-b border-slate-100">
+      <tr className="border-b border-line-soft">
         <td className="py-2 pr-1 pl-2">
           <button
             type="button"
@@ -94,12 +94,12 @@ function JobRunRow({
             aria-expanded={expanded}
             aria-controls={detailId}
             aria-label={expanded ? "Hide run details" : "Show run details"}
-            className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-5 w-5 items-center justify-center rounded text-fg-subtle hover:bg-panel-hover hover:text-fg-muted"
           >
             <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
           </button>
         </td>
-        <td className="py-2 pr-4 font-mono text-xs text-slate-700">{jobRun.job_name}</td>
+        <td className="py-2 pr-4 font-mono text-xs text-fg-muted">{jobRun.job_name}</td>
         <td className="py-2 pr-4">
           <span className="inline-flex items-center" title={visual.label}>
             <PipelineStatusIcon category={visual.category} className="h-4 w-4" style={{ color: visual.color }} />
@@ -109,8 +109,8 @@ function JobRunRow({
         <td className="py-2 pr-4">
           <TriggerBadge trigger={jobRun.trigger} />
         </td>
-        <td className="py-2 pr-4 text-slate-500">{formatAbsoluteDateTime(jobRun.started_at)}</td>
-        <td className="py-2 text-right tabular-nums text-slate-500">
+        <td className="py-2 pr-4 text-fg-subtle">{formatAbsoluteDateTime(jobRun.started_at)}</td>
+        <td className="py-2 text-right tabular-nums text-fg-subtle">
           {formatDuration(jobRun.started_at, jobRun.completed_at)}
         </td>
       </tr>
@@ -136,11 +136,11 @@ export function JobRunHistoryTable({ jobRuns }: JobRunHistoryTableProps): ReactE
   }
 
   return (
-    <div className="max-h-[28rem] overflow-y-auto rounded-md border border-slate-100">
+    <div className="max-h-[28rem] overflow-y-auto rounded-md border border-line-soft">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Warehouse job run history matching the current filters, most recent first</caption>
-        <thead className="sticky top-0 bg-white/95 backdrop-blur-sm">
-          <tr className="border-b border-slate-200 text-left text-slate-500">
+        <thead className="sticky top-0 bg-popover/95 backdrop-blur-sm">
+          <tr className="border-b border-line text-left text-fg-subtle">
             <th scope="col" className="py-2 pr-1 pl-2">
               <span className="sr-only">Expand row</span>
             </th>

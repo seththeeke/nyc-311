@@ -42,8 +42,8 @@ export function WarehouseJobsPanel({
 }: WarehouseJobsPanelProps): ReactElement {
   const [showNewJobForm, setShowNewJobForm] = useState(false);
 
-  if (jobsLoading) return <p className="text-sm text-slate-400">Loading…</p>;
-  if (jobsError) return <p className="text-sm text-red-400">Failed to load jobs.</p>;
+  if (jobsLoading) return <p className="text-sm text-fg-subtle">Loading…</p>;
+  if (jobsError) return <p className="text-sm text-danger">Failed to load jobs.</p>;
 
   return (
     <div className="space-y-4">
@@ -56,7 +56,7 @@ export function WarehouseJobsPanel({
           onCancel={() => setShowNewJobForm(false)}
         />
       ) : (
-        <button type="button" onClick={() => setShowNewJobForm(true)} className="rounded bg-emerald-600 px-4 py-2 text-white">
+        <button type="button" onClick={() => setShowNewJobForm(true)} className="rounded bg-emerald-600 px-4 py-2 text-on-accent">
           New job
         </button>
       )}

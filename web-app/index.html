@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BoroughSim</title>
+    <script>
+      /* Applies the stored/OS theme before first paint (no flash); mirrors hooks/useTheme.ts. */
+      (function () {
+        var theme;
+        try { theme = window.localStorage.getItem("nyc311.theme"); } catch (e) { theme = null; }
+        if (theme !== "DARK" && theme !== "LIGHT") {
+          theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "LIGHT" : "DARK";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

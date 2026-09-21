@@ -1,19 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppRoutes } from "../../src/routes/AppRoutes";
+import { ThemeProvider } from "../../src/components/shell/ThemeProvider";
+
+/* The secondary workspace mounts CapacityWidget on every route; keep it off the network. */
+vi.mock("../../src/hooks/useFleetLocations", () => ({
+  useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
+}));
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchInterval: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <AppRoutes />
-      </MemoryRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[path]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
@@ -23,7 +32,7 @@ describe("AppRoutes", () => {
     expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
-  it("renders HomePage underneath at /about (the About drawer itself lives in the Header)", () => {
+  it("renders HomePage underneath at /about (the About drawer itself lives in the sidebar footer)", () => {
     renderAt("/about");
     expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
   });
@@ -81,5 +90,30 @@ describe("AppRoutes", () => {
   it("redirects /admin/warehouse to /login when logged out", async () => {
     renderAt("/admin/warehouse");
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+  });
+
+  it("wraps every page in the 3-panel shell: menu, primary workspace, and the secondary workspace", () => {
+    renderAt("/monitoring/pipeline");
+    expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Primary workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
+  });
+
+  it("keeps the shell around the login page (renders inside the primary workspace)", () => {
+    renderAt("/login");
+    const primary = screen.getByRole("region", { name: "Primary workspace" });
+    expect(primary).toContainElement(screen.getByRole("heading", { name: "Admin sign in" }));
+    expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();
+  });
+
+  it("locked Admin flow: clicking an admin item while signed out lands on /login inside the shell", async () => {
+    renderAt("/");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Admin/ }));
+    await user.click(screen.getByRole("link", { name: /Capacity/ }));
+    const primary = screen.getByRole("region", { name: "Primary workspace" });
+    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+    expect(primary).toContainElement(screen.getByRole("heading", { name: "Admin sign in" }));
+    expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 });

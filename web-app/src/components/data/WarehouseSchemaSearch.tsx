@@ -41,12 +41,12 @@ export function WarehouseSchemaSearch({ tables }: WarehouseSchemaSearchProps): R
         placeholder="Search tables or columns…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+        className="w-full rounded border border-line bg-panel px-3 py-2 text-sm text-fg placeholder:text-fg-subtle"
       />
       {filtered.length === 0 ? (
-        <p className="text-sm text-slate-400">No tables or columns match "{query}".</p>
+        <p className="text-sm text-fg-subtle">No tables or columns match "{query}".</p>
       ) : (
-        <div className="rounded-xl bg-white p-3">
+        <div className="rounded-xl bg-panel p-3">
           <WarehouseSchemaView tables={filtered} expanded={trimmed !== ""} />
         </div>
       )}

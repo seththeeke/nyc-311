@@ -30,21 +30,21 @@ export function LambdaHealthChart({ lambda }: LambdaHealthChartProps): ReactElem
   const totalErrors = lambda.points.reduce((sum, p) => sum + p.errors, 0);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="rounded-lg border border-line bg-panel p-4">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-900">{lambda.logicalName}</h3>
-        <span className="text-xs text-slate-500">
+        <h3 className="text-sm font-semibold text-fg">{lambda.logicalName}</h3>
+        <span className="text-xs text-fg-subtle">
           {formatCompactNumber(totalInvocations)} invocations · {formatCompactNumber(totalErrors)} errors (7d)
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-fg-subtle">
         <LegendItem color={IV_COLORS.statusGood} label="Successes" />
         <LegendItem color={IV_COLORS.statusCritical} label="Errors" />
       </div>
 
       {lambda.points.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-400">No invocations in the last 7 days.</p>
+        <p className="mt-4 text-sm text-fg-subtle">No invocations in the last 7 days.</p>
       ) : (
         /* pt-14 on the outer wrapper reserves headroom for the hover tooltip
            (grows upward from inside each bar) without shrinking the
@@ -66,12 +66,12 @@ export function LambdaHealthChart({ lambda }: LambdaHealthChartProps): ReactElem
                 />
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-max -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-[10px] text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                  className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-max -translate-x-1/2 rounded-md bg-tooltip px-2.5 py-1.5 text-[10px] text-tooltip-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <span className="block font-medium">{point.date}</span>
-                  <span className="block text-slate-300">{point.invocations} invocations</span>
-                  <span className="block text-slate-300">{point.successes} successes</span>
-                  <span className="block text-slate-300">{point.errors} errors</span>
+                  <span className="block text-fg-muted">{point.invocations} invocations</span>
+                  <span className="block text-fg-muted">{point.successes} successes</span>
+                  <span className="block text-fg-muted">{point.errors} errors</span>
                 </span>
                 <button
                   type="button"

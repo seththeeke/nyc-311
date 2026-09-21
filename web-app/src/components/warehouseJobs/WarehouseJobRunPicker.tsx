@@ -26,7 +26,7 @@ function isPickable(jobRun: WarehouseJobRun): boolean {
  */
 export function WarehouseJobRunPicker({ jobRuns, selectedJobRunId, onSelect }: WarehouseJobRunPickerProps): ReactElement {
   if (jobRuns.length === 0) {
-    return <p className="text-sm text-slate-400">No job runs yet.</p>;
+    return <p className="text-sm text-fg-subtle">No job runs yet.</p>;
   }
 
   return (
@@ -47,13 +47,13 @@ export function WarehouseJobRunPicker({ jobRuns, selectedJobRunId, onSelect }: W
                 selected
                   ? "border-cyan-400/50 bg-cyan-400/10"
                   : pickable
-                    ? "border-white/10 hover:bg-white/5"
-                    : "cursor-not-allowed border-white/5 opacity-50"
+                    ? "border-line hover:bg-panel"
+                    : "cursor-not-allowed border-line-soft opacity-50"
               }`}
             >
               <span className="min-w-0">
-                <span className="block truncate font-mono text-slate-200">{jobRun.job_name}</span>
-                <span className="block text-xs text-slate-500">{formatAbsoluteDateTime(jobRun.started_at)}</span>
+                <span className="block truncate font-mono text-fg">{jobRun.job_name}</span>
+                <span className="block text-xs text-fg-subtle">{formatAbsoluteDateTime(jobRun.started_at)}</span>
               </span>
               <span className="inline-flex shrink-0 items-center" title={visual.label}>
                 <PipelineStatusIcon category={visual.category} className="h-4 w-4" style={{ color: visual.color }} />

@@ -14,7 +14,7 @@ function ActionRow({ action }: { action: PipelineAction }): ReactElement {
   return (
     <li className="flex min-w-0 items-center gap-1.5 text-xs">
       <PipelineStatusIcon category={visual.category} className="h-3 w-3 shrink-0" style={{ color: visual.color }} />
-      <span className="min-w-0 flex-1 truncate text-slate-700" title={action.actionName}>
+      <span className="min-w-0 flex-1 truncate text-fg-muted" title={action.actionName}>
         {action.actionName}
       </span>
       {/* The icon (a distinct glyph shape per category, not just a color)
@@ -27,8 +27,8 @@ function ActionRow({ action }: { action: PipelineAction }): ReactElement {
 
 function StageCard({ stage }: { stage: PipelineStage }): ReactElement {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-shadow hover:shadow-md">
-      <h3 className="truncate text-[0.65rem] font-semibold tracking-wide text-slate-500 uppercase">
+    <div className="min-w-0 rounded-lg border border-line bg-panel p-2 shadow-sm transition-shadow hover:shadow-md">
+      <h3 className="truncate text-[0.65rem] font-semibold tracking-wide text-fg-subtle uppercase">
         {stage.stageName}
       </h3>
       <ul className="mt-1.5 flex flex-col gap-1">
@@ -46,7 +46,7 @@ function HorizontalStageList({ stages }: { stages: PipelineStage[] }): ReactElem
       {stages.map((stage, index) => (
         <div key={stage.stageName} className="flex items-center gap-2">
           {index > 0 && (
-            <span aria-hidden="true" className="shrink-0 text-slate-300">
+            <span aria-hidden="true" className="shrink-0 text-fg-muted">
               →
             </span>
           )}
@@ -65,7 +65,7 @@ function VerticalStageList({ stages }: { stages: PipelineStage[] }): ReactElemen
       {stages.map((stage, index) => (
         <div key={stage.stageName} className="flex flex-col gap-2">
           {index > 0 && (
-            <span aria-hidden="true" className="text-slate-300">
+            <span aria-hidden="true" className="text-fg-muted">
               ↓
             </span>
           )}

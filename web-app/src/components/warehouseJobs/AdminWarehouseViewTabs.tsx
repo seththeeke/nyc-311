@@ -30,7 +30,7 @@ export function adminWarehouseViewPanelId(view: AdminWarehouseView): string {
  */
 export function AdminWarehouseViewTabs({ view, onChange }: AdminWarehouseViewTabsProps): ReactElement {
   return (
-    <div role="tablist" aria-label="Admin warehouse view" className="flex border-b border-white/10 px-1 text-sm">
+    <div role="tablist" aria-label="Admin warehouse view" className="flex border-b border-line px-1 text-sm">
       {OPTIONS.map((option, index) => {
         const isActive = option.value === view;
         return (
@@ -43,11 +43,11 @@ export function AdminWarehouseViewTabs({ view, onChange }: AdminWarehouseViewTab
             aria-controls={adminWarehouseViewPanelId(option.value)}
             onClick={() => onChange(option.value)}
             className={`relative px-3 py-2.5 font-medium transition-colors ${
-              index > 0 ? "border-l border-white/10" : ""
+              index > 0 ? "border-l border-line" : ""
             } ${
               isActive
-                ? "text-white after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-cyan-400"
-                : "text-slate-400 hover:text-slate-200"
+                ? "text-fg after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-cyan-400"
+                : "text-fg-subtle hover:text-fg"
             }`}
           >
             {option.label}

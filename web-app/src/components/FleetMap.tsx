@@ -37,7 +37,13 @@ export function FleetMap({ operators }: FleetMapProps): ReactElement {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
 
   return (
-    <MapContainer center={NYC_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+    <MapContainer
+      center={NYC_CENTER}
+      zoom={DEFAULT_ZOOM}
+      scrollWheelZoom
+      className="theme-map-tiles"
+      style={{ height: "100%", width: "100%" }}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

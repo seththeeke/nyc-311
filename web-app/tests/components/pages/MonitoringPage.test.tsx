@@ -68,14 +68,14 @@ describe("MonitoringPage", () => {
     expect(link).not.toHaveAttribute("target");
   });
 
-  it("renders a Data Warehouse tile linking to /data (moved here from the home page)", () => {
+  it("renders a Data Modeling tile linking to /data (moved here from the home page)", () => {
     render(
       <MemoryRouter>
         <MonitoringPage />
       </MemoryRouter>
     );
 
-    const link = screen.getByRole("link", { name: /data warehouse/i });
+    const link = screen.getByRole("link", { name: /data modeling/i });
     expect(link).toHaveAttribute("href", "/data");
     expect(link).not.toHaveAttribute("target");
   });

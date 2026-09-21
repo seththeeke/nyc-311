@@ -21,6 +21,7 @@ import {
   type AdminWarehouseView,
 } from "../warehouseJobs/AdminWarehouseViewTabs";
 import { JobRunResultView } from "../warehouseJobs/JobRunResultView";
+import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 type SchemaPanelView = "SCHEMA" | "SAVED_QUERIES";
 
@@ -68,8 +69,8 @@ export function AdminWarehousePage(): ReactElement {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="relative min-h-full overflow-hidden bg-surface">
+      <div aria-hidden="true" className="theme-aurora pointer-events-none absolute inset-0 overflow-hidden">
         <div className="animate-aurora-1 absolute -top-32 -left-32 h-[32rem] w-[32rem] rounded-full bg-emerald-600/30 blur-3xl" />
         <div className="animate-aurora-2 absolute top-1/3 -right-24 h-[28rem] w-[28rem] rounded-full bg-cyan-600/30 blur-3xl" />
       </div>
@@ -78,14 +79,14 @@ export function AdminWarehousePage(): ReactElement {
         className="bg-grid-glow pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_65%_55%_at_50%_0%,black,transparent)]"
       />
 
-      <main className="relative mx-auto max-w-[100rem] px-6 py-16">
-        <Link to="/admin" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
+      <main className={PAGE_CONTENT_CLASSES}>
+        <Link to="/admin" className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
           &larr; Admin
         </Link>
-        <h1 className="mt-4 bg-gradient-to-r from-emerald-300 via-cyan-300 to-violet-300 bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
+        <h1 className="mt-4 bg-gradient-to-r from-hue-emerald via-hue-cyan to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Warehouse
         </h1>
-        <p className="mt-2 text-slate-400">Schema, ad-hoc queries, and self-service scheduled jobs, all in one place.</p>
+        <p className="mt-2 text-fg-subtle">Schema, ad-hoc queries, and self-service scheduled jobs, all in one place.</p>
 
         <div className="mt-6">
           <AdminWarehouseViewTabs view={view} onChange={setView} />
@@ -108,7 +109,7 @@ export function AdminWarehousePage(): ReactElement {
                     role="tab"
                     aria-selected={schemaPanelView === "SCHEMA"}
                     onClick={() => setSchemaPanelView("SCHEMA")}
-                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SCHEMA" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SCHEMA" ? "bg-panel-hover text-fg" : "text-fg-subtle hover:text-fg"}`}
                   >
                     Schema
                   </button>
@@ -117,7 +118,7 @@ export function AdminWarehousePage(): ReactElement {
                     role="tab"
                     aria-selected={schemaPanelView === "SAVED_QUERIES"}
                     onClick={() => setSchemaPanelView("SAVED_QUERIES")}
-                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SAVED_QUERIES" ? "bg-white/10 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                    className={`${SCHEMA_TAB_CLASS} ${schemaPanelView === "SAVED_QUERIES" ? "bg-panel-hover text-fg" : "text-fg-subtle hover:text-fg"}`}
                   >
                     Saved queries
                   </button>
@@ -125,7 +126,7 @@ export function AdminWarehousePage(): ReactElement {
 
                 {schemaPanelView === "SCHEMA" ? (
                   schemaQuery.isPending || schemaQuery.isError ? (
-                    <p className={schemaQuery.isError ? "text-red-400" : "text-slate-400"}>
+                    <p className={schemaQuery.isError ? "text-danger" : "text-fg-subtle"}>
                       {schemaQuery.isError ? "Failed to load warehouse schema." : "Loading…"}
                     </p>
                   ) : (

@@ -190,3 +190,9 @@ DynamoDB was correct, the warehouse query picked a stale row due to a
 `warehouse_ingested_at` tie. See [#40](https://github.com/seththeeke/nyc-311/issues/40).
 
 ---
+
+## Replace the five WIP mock metric tiles in the secondary workspace with real data
+
+The right-panel tiles Total Requests, Serviced, Total Cost (Est.), Mean and Median Time to Resolve shipped as badged mock data in `12-UX-workspace-refactor.md`. See [#41](https://github.com/seththeeke/nyc-311/issues/41).
+
+---

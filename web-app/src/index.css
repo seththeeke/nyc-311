@@ -1,7 +1,146 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens (12-UX-workspace-refactor.md §7). A theme is one named block of
+ * CSS variables selected by data-theme on <html>; components use the semantic
+ * utilities below (bg-surface, text-fg, border-line, ...) and never raw
+ * palette classes. Adding a theme = one new block here + one ThemeName value.
+ */
+:root,
+:root[data-theme="DARK"] {
+  color-scheme: dark;
+  --t-surface: #020617;
+  --t-panel: rgb(255 255 255 / 0.05);
+  --t-panel-hover: rgb(255 255 255 / 0.1);
+  --t-panel-strong: rgb(255 255 255 / 0.2);
+  --t-panel-sunken: rgb(0 0 0 / 0.25);
+  --t-popover: #0f172a;
+  --t-tooltip: #334155;
+  --t-tooltip-fg: #ffffff;
+  --t-line-soft: rgb(255 255 255 / 0.05);
+  --t-line: rgb(255 255 255 / 0.1);
+  --t-line-strong: rgb(255 255 255 / 0.2);
+  --t-fg: #ffffff;
+  --t-fg-muted: #cbd5e1;
+  --t-fg-subtle: #94a3b8;
+  --t-danger: #f87171;
+  --t-danger-soft: rgb(239 68 68 / 0.12);
+  --t-success-soft: rgb(16 185 129 / 0.12);
+  --t-hue-cyan: #67e8f9;
+  --t-hue-emerald: #6ee7b7;
+  --t-hue-amber: #fcd34d;
+  --t-hue-violet: #c4b5fd;
+  --t-hue-rose: #fda4af;
+  --t-hue-indigo: #a5b4fc;
+  --t-hue-sky: #7dd3fc;
+  --t-hue-orange: #fdba74;
+  --t-hue-blue: #93c5fd;
+  --t-hue-red: #fca5a5;
+  --iv-series-ingested: #3987e5;
+  --iv-series-duplicates: #d95926;
+  --iv-series-rejected: #199e70;
+  --iv-status-good: #0ca30c;
+  --iv-status-warning: #fab219;
+  --iv-status-critical: #d03b3b;
+  --iv-sparkline-track: #898781;
+  --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.7);
+  --aurora-opacity: 1;
+}
+
+:root[data-theme="LIGHT"] {
+  color-scheme: light;
+  --t-surface: #f8fafc;
+  --t-panel: #ffffff;
+  --t-panel-hover: #f1f5f9;
+  --t-panel-strong: #e2e8f0;
+  --t-panel-sunken: #f1f5f9;
+  --t-popover: #ffffff;
+  --t-tooltip: #0f172a;
+  --t-tooltip-fg: #ffffff;
+  --t-line-soft: #f1f5f9;
+  --t-line: #e2e8f0;
+  --t-line-strong: #cbd5e1;
+  --t-fg: #0f172a;
+  --t-fg-muted: #475569;
+  --t-fg-subtle: #64748b;
+  --t-danger: #dc2626;
+  --t-danger-soft: #fee2e2;
+  --t-success-soft: #dcfce7;
+  --t-hue-cyan: #0e7490;
+  --t-hue-emerald: #047857;
+  --t-hue-amber: #b45309;
+  --t-hue-violet: #6d28d9;
+  --t-hue-rose: #be123c;
+  --t-hue-indigo: #4338ca;
+  --t-hue-sky: #0369a1;
+  --t-hue-orange: #c2410c;
+  --t-hue-blue: #1d4ed8;
+  --t-hue-red: #b91c1c;
+  --iv-series-ingested: #2a78d6;
+  --iv-series-duplicates: #eb6834;
+  --iv-series-rejected: #1baf7a;
+  --iv-status-good: #0ca30c;
+  --iv-status-warning: #fab219;
+  --iv-status-critical: #d03b3b;
+  --iv-sparkline-track: #c3c2b7;
+  --map-tile-filter: none;
+  --aurora-opacity: 0.35;
+}
+
+@theme inline {
+  --color-surface: var(--t-surface);
+  --color-panel: var(--t-panel);
+  --color-panel-hover: var(--t-panel-hover);
+  --color-panel-strong: var(--t-panel-strong);
+  --color-panel-sunken: var(--t-panel-sunken);
+  --color-popover: var(--t-popover);
+  --color-tooltip: var(--t-tooltip);
+  --color-tooltip-fg: var(--t-tooltip-fg);
+  --color-line-soft: var(--t-line-soft);
+  --color-line: var(--t-line);
+  --color-line-strong: var(--t-line-strong);
+  --color-fg: var(--t-fg);
+  --color-fg-muted: var(--t-fg-muted);
+  --color-fg-subtle: var(--t-fg-subtle);
+  --color-on-accent: #ffffff;
+  --color-scrim: rgb(0 0 0 / 0.5);
+  --color-danger: var(--t-danger);
+  --color-danger-soft: var(--t-danger-soft);
+  --color-success-soft: var(--t-success-soft);
+  --color-hue-cyan: var(--t-hue-cyan);
+  --color-hue-emerald: var(--t-hue-emerald);
+  --color-hue-amber: var(--t-hue-amber);
+  --color-hue-violet: var(--t-hue-violet);
+  --color-hue-rose: var(--t-hue-rose);
+  --color-hue-indigo: var(--t-hue-indigo);
+  --color-hue-sky: var(--t-hue-sky);
+  --color-hue-orange: var(--t-hue-orange);
+  --color-hue-blue: var(--t-hue-blue);
+  --color-hue-red: var(--t-hue-red);
+}
+
 body {
   margin: 0;
+  background-color: var(--t-surface);
+  color: var(--t-fg);
+}
+
+/* Tailwind v4's preflight drops the pointer cursor from buttons; restore it for everything clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.theme-aurora {
+  opacity: var(--aurora-opacity);
+}
+
+.theme-map-tiles .leaflet-tile-pane {
+  filter: var(--map-tile-filter);
 }
 
 @keyframes aurora-drift-1 {
