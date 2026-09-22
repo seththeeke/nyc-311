@@ -6,7 +6,11 @@ import { WorkspaceProvider } from "../../../src/components/shell/WorkspaceProvid
 import type { WidgetId } from "../../../src/models/widget";
 
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
-  useFleetLocations: () => ({ locations: { operators: [{}, {}, {}] }, isLoading: false, error: null }),
+  useFleetLocations: () => ({
+    locations: { operators: [{ current_activity: "WORKING" }, { current_activity: "WORKING" }, { current_activity: "IDLE" }] },
+    isLoading: false,
+    error: null,
+  }),
 }));
 vi.mock("../../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
@@ -22,7 +26,7 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
 }
 
 describe("SecondaryWorkspace", () => {
-  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, then the two WIP charts", () => {
+  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, Orders by Status (WIP), then live Fleet Utilization", () => {
     renderPanel();
     const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(titles).toEqual([
@@ -37,7 +41,8 @@ describe("SecondaryWorkspace", () => {
       "Fleet Utilization",
     ]);
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getAllByText("WIP")).toHaveLength(7);
+    expect(screen.getAllByText("WIP")).toHaveLength(6);
+    expect(screen.getByRole("img", { name: /Fleet utilization: Working 67%/ })).toBeInTheDocument();
   });
 
   it("lays tiles out two per row, compactly", () => {

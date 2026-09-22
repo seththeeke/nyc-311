@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeShares, SERIES_COLORS, slicePath, toShares } from "../../../../src/components/widgets/mock/chartShares";
+import { describeShares, SERIES_COLORS, slicePath, toShares } from "../../../src/components/widgets/chartShares";
 
 describe("toShares", () => {
   it("normalizes values to percentages that sum to 100", () => {

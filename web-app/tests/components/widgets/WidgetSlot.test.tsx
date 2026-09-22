@@ -33,7 +33,7 @@ describe("WidgetSlot", () => {
 
   it("badges every WORK_IN_PROGRESS widget so no mock tile can go unmarked", () => {
     const wip = WIDGET_IDS.filter((id) => getWidget(id).status === "WORK_IN_PROGRESS");
-    expect(wip).toHaveLength(7);
+    expect(wip).toHaveLength(6);
     for (const id of wip) {
       const { unmount } = render(<WidgetSlot widgetId={id} size="TILE" />);
       expect(screen.getByText("WIP")).toBeInTheDocument();

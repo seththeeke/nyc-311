@@ -1,8 +1,8 @@
 import type { WidgetId, WidgetSize } from "../../models/widget";
 import { CapacityWidget } from "./CapacityWidget";
+import { FleetUtilizationWidget } from "./FleetUtilizationWidget";
 import { FleetMapWidget } from "./FleetMapWidget";
 import { IngestionVolumeWidget } from "./IngestionVolumeWidget";
-import { MockFleetUtilizationWidget } from "./mock/MockFleetUtilizationWidget";
 import { MockOrdersByStatusWidget } from "./mock/MockOrdersByStatusWidget";
 import {
   MeanTimeToResolveWidget,
@@ -65,10 +65,10 @@ const WIDGETS: Record<WidgetId, WidgetDefinition> = {
   FLEET_UTILIZATION: {
     id: "FLEET_UTILIZATION",
     title: "Fleet Utilization",
-    status: "WORK_IN_PROGRESS",
+    status: "LIVE",
     sizes: ["TILE"],
     tileSpan: 2,
-    component: MockFleetUtilizationWidget,
+    component: FleetUtilizationWidget,
   },
 };
 

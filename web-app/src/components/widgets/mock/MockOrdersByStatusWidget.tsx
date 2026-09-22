@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
-import { describeShares, slicePath, toShares } from "./chartShares";
+import { describeShares, slicePath, toShares } from "../chartShares";
 import { MOCK_ORDERS_BY_STATUS } from "./mockChartData";
-import { ShareLegend } from "./ShareLegend";
+import { ShareLegend } from "../ShareLegend";
 
 const SIZE = 104;
 const RADIUS = SIZE / 2 - 2;

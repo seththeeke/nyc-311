@@ -533,9 +533,10 @@ The refactor is considered done; these are the things deliberately left open.
 - **Relationship diagram uses inferred keys.** The Glue catalog declares no
   foreign keys; the diagram infers them from `*_id` names. If real keys are ever
   declared (e.g. in column comments), only `inferRelationships` changes.
-- **Fleet Utilization bar doesn't match the map's truck colours.** Those colours
-  fail the palette validator's dark-mode lightness band, so the bar uses the
-  validated series colours. Revisit if the map colours are ever themed.
+- **Fleet Utilization bar doesn't match the map's truck colours** (now live —
+  see round 4 below). Those colours fail the palette validator's dark-mode
+  lightness band, so the bar uses the validated series colours instead. Revisit
+  if the map colours are ever themed.
 - **Poller-metrics query now runs on every page** while the right panel is open
   (the Ingestion Volume widget shares the Ingestion page's cache key, so it is
   still one call and one 60s refetch timer, just no longer confined to one page).
@@ -545,3 +546,18 @@ The refactor is considered done; these are the things deliberately left open.
   is still "Ingestion".
 - **Secondary workspace is static.** Widget add/remove/reorder setters exist in
   workspace state but no UI is wired to them, by design.
+
+## Follow-ups, round 4 (2026-09-22)
+
+**Fleet Utilization is now LIVE**, not mock. It's computed entirely from
+`useFleetLocations` — the same query (and cache) the map, its legend, and
+`CapacityWidget` already use — counting each Operator's `current_activity`
+(`WORKING`/`TRANSIT`/`IDLE`) and turning the counts into shares with the same
+`chartShares.ts` math the Orders-by-Status pie uses. No new backend call, no
+new hook. All three activities always show, even at 0%, so the legend doesn't
+reshuffle as the fleet moves. `chartShares.ts` and `ShareLegend.tsx` moved out
+of `widgets/mock/` to `widgets/` (shared by a mock and a live widget now,
+so "mock" no longer described them); `mockChartData.ts` keeps only the
+Orders-by-Status sample data. Six of the original nine secondary-workspace
+tiles remain WIP (tracked in #41): Total Requests, Serviced, Total Cost
+(Est.), Mean/Median Time to Resolve, and Orders by Status.

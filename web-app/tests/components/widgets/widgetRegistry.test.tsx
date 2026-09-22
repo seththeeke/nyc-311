@@ -9,9 +9,9 @@ describe("widgetRegistry", () => {
     }
   });
 
-  it("marks the map, Capacity, and Ingestion Volume as LIVE; the metric mocks are WORK_IN_PROGRESS", () => {
+  it("marks the map, Capacity, Ingestion Volume, and Fleet Utilization as LIVE; the remaining mocks are WORK_IN_PROGRESS", () => {
     const live = WIDGET_IDS.filter((id) => getWidget(id).status === "LIVE");
-    expect(live).toEqual(["FLEET_MAP", "CAPACITY", "INGESTION_VOLUME"]);
+    expect(live).toEqual(["FLEET_MAP", "CAPACITY", "INGESTION_VOLUME", "FLEET_UTILIZATION"]);
   });
 
   it("the chart widgets span both columns of the tile grid; the number tiles don't", () => {
