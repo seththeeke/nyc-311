@@ -10,6 +10,35 @@ import type { TransitTimeEstimator } from "../../../service/scheduling/transitTi
 import type { ProcessingTimeEstimator } from "../../../service/scheduling/processingTimeService";
 import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
+/*
+ * Hoisted DAO stubs so the default (no-deps) construction path can run
+ * without touching AWS — records each constructor's table-name argument.
+ */
+const daoCtorCalls = vi.hoisted(() => ({ order: [] as string[], operator: [] as string[], request: [] as string[] }));
+vi.mock("../../../dao/order/orderDao", () => ({
+  OrderDao: class {
+    constructor(_client: unknown, tableName: string) {
+      daoCtorCalls.order.push(tableName);
+    }
+    recordResolved = vi.fn().mockResolvedValue(undefined);
+  },
+}));
+vi.mock("../../../dao/operator/operatorDao", () => ({
+  OperatorDao: class {
+    constructor(_client: unknown, tableName: string) {
+      daoCtorCalls.operator.push(tableName);
+    }
+    completeWork = vi.fn().mockResolvedValue({ removal_requested_at: null });
+  },
+}));
+vi.mock("../../../dao/request/requestDao", () => ({
+  RequestDao: class {
+    constructor(_client: unknown, tableName: string) {
+      daoCtorCalls.request.push(tableName);
+    }
+  },
+}));
+
 const JOB_LOCATION = { lat: 40.75, lng: -73.98 };
 
 function makeOperator(overrides: Partial<Operator> = {}): Operator {
@@ -284,6 +313,22 @@ describe("arriveAtJob", () => {
   });
 });
 
+describe("arriveAtJob default operator DAO", () => {
+  it("throws when deps.operatorDao is omitted and OPERATORS_TABLE_NAME isn't set", async () => {
+    const previous = process.env.OPERATORS_TABLE_NAME;
+    delete process.env.OPERATORS_TABLE_NAME;
+    const orderDao = {} as unknown as OrderDao;
+
+    try {
+      await expect(arriveAtJob("01ORDER", "01OPERATOR", JOB_LOCATION, { orderDao })).rejects.toThrow(
+        "Missing required environment variable: OPERATORS_TABLE_NAME"
+      );
+    } finally {
+      if (previous !== undefined) process.env.OPERATORS_TABLE_NAME = previous;
+    }
+  });
+});
+
 describe("resolveOrder", () => {
   it("records ORDER_RESOLVED and completes the Operator's work", async () => {
     const recordResolved = vi.fn().mockResolvedValue(undefined);
@@ -323,6 +368,38 @@ describe("resolveOrder", () => {
     } finally {
       if (previous !== undefined) process.env.ORDERS_TABLE_NAME = previous;
     }
+  });
+
+  it("constructs the default Order and Operator DAOs from the table-name env vars when deps are omitted", async () => {
+    vi.stubEnv("ORDERS_TABLE_NAME", "OrdersTbl");
+    vi.stubEnv("OPERATORS_TABLE_NAME", "OperatorsTbl");
+    daoCtorCalls.order.length = 0;
+    daoCtorCalls.operator.length = 0;
+
+    try {
+      await resolveOrder("01ORDER", "01OPERATOR");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(daoCtorCalls.order).toEqual(["OrdersTbl"]);
+    expect(daoCtorCalls.operator).toEqual(["OperatorsTbl"]);
+  });
+
+  it("constructs the default Request DAO from REQUESTS_TABLE_NAME when deps.requestDao is omitted", async () => {
+    vi.stubEnv("REQUESTS_TABLE_NAME", "RequestsTbl");
+    daoCtorCalls.request.length = 0;
+    const orderDao = { recordDispatched: vi.fn().mockResolvedValue(makeOrder()) } as unknown as OrderDao;
+    const operatorDao = { getOperator: vi.fn().mockResolvedValue(makeOperator()) } as unknown as OperatorDao;
+
+    try {
+      /* The stub RequestDao has no getRequestById, so dispatch fails after construction — enough to prove the env var was read. */
+      await expect(dispatchOrder("01ORDER", "01OPERATOR", JOB_LOCATION, { orderDao, operatorDao })).rejects.toThrow();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(daoCtorCalls.request).toEqual(["RequestsTbl"]);
   });
 
   it("throws when deps.operatorDao is omitted and OPERATORS_TABLE_NAME isn't set", async () => {
