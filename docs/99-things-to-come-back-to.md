@@ -196,3 +196,9 @@ DynamoDB was correct, the warehouse query picked a stale row due to a
 The right-panel tiles Total Requests, Serviced, Total Cost (Est.), Mean and Median Time to Resolve, and the Orders by Status pie, remain badged mock data (Fleet Utilization is now live) in `12-UX-workspace-refactor.md`. See [#41](https://github.com/seththeeke/nyc-311/issues/41).
 
 ---
+
+## Cover default-DAO happy path in orderExecutionService (98.21% -> 100%)
+
+See [#42](https://github.com/seththeeke/nyc-311/issues/42).
+
+---
