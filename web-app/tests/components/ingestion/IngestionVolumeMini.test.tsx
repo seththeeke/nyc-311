@@ -44,6 +44,12 @@ describe("IngestionVolumeMini", () => {
     expect(screen.getByRole("img")).toHaveAttribute("data-tooltip", expect.stringContaining("failed"));
   });
 
+  it("shows a small legend naming the ingested and duplicates series", () => {
+    render(<IngestionVolumeMini metrics={[run()]} />);
+    const items = screen.getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual(["Ingested", "Duplicates"]);
+  });
+
   it("reports the peak on the axis and copes with all-zero runs", () => {
     render(<IngestionVolumeMini metrics={[run({ records_ingested: 0, duplicates_skipped: 0, records_rejected: 0 })]} />);
     expect(screen.getByText(/^peak/)).toBeInTheDocument();

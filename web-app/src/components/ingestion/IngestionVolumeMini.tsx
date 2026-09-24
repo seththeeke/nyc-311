@@ -26,6 +26,17 @@ export function IngestionVolumeMini({ metrics }: IngestionVolumeMiniProps): Reac
 
   return (
     <div>
+      <ul className="mb-1 flex gap-3 text-[10px] text-fg-subtle">
+        {[
+          { label: "Ingested", color: IV_COLORS.seriesIngested },
+          { label: "Duplicates", color: IV_COLORS.seriesDuplicates },
+        ].map((item) => (
+          <li key={item.label} className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: item.color }} />
+            {item.label}
+          </li>
+        ))}
+      </ul>
       <div className="flex items-end gap-px border-b border-line" style={{ height: MINI_HEIGHT_PX }}>
         {chronological.map((run) => (
           <div
