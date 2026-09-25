@@ -3,7 +3,6 @@ import { CapacityWidget } from "./CapacityWidget";
 import { FleetUtilizationWidget } from "./FleetUtilizationWidget";
 import { FleetMapWidget } from "./FleetMapWidget";
 import { IngestionVolumeWidget } from "./IngestionVolumeWidget";
-import { MockOrdersByStatusWidget } from "./mock/MockOrdersByStatusWidget";
 import {
   MeanTimeToResolveWidget,
   MedianTimeToResolveWidget,
@@ -54,14 +53,6 @@ const WIDGETS: Record<WidgetId, WidgetDefinition> = {
     tileSpan: 2,
     component: IngestionVolumeWidget,
   },
-  ORDERS_BY_STATUS: {
-    id: "ORDERS_BY_STATUS",
-    title: "Orders by Status",
-    status: "WORK_IN_PROGRESS",
-    sizes: ["TILE"],
-    tileSpan: 2,
-    component: MockOrdersByStatusWidget,
-  },
   FLEET_UTILIZATION: {
     id: "FLEET_UTILIZATION",
     title: "Fleet Utilization",
@@ -81,7 +72,6 @@ export const DEFAULT_SECONDARY_WIDGET_IDS: readonly WidgetId[] = [
   "MEAN_TIME_TO_RESOLVE",
   "MEDIAN_TIME_TO_RESOLVE",
   "INGESTION_VOLUME",
-  "ORDERS_BY_STATUS",
   "FLEET_UTILIZATION",
 ];
 

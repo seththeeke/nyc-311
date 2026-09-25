@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeShares, SERIES_COLORS, slicePath, toShares } from "../../../src/components/widgets/chartShares";
+import { describeShares, SERIES_COLORS, toShares } from "../../../src/components/widgets/chartShares";
 
 describe("toShares", () => {
   it("normalizes values to percentages that sum to 100", () => {
@@ -26,21 +26,5 @@ describe("toShares", () => {
 describe("describeShares", () => {
   it("reads as a comma-separated rounded list", () => {
     expect(describeShares(toShares([{ label: "Done", value: 2 }, { label: "Open", value: 1 }]))).toBe("Done 67%, Open 33%");
-  });
-});
-
-describe("slicePath", () => {
-  it("draws a wedge from the centre to an arc, using the small-arc flag under half", () => {
-    expect(slicePath(50, 50, 40, 0, 0.25)).toMatch(/^M 50 50 L 50 10 A 40 40 0 0 1 90 50/);
-  });
-
-  it("uses the large-arc flag past half", () => {
-    expect(slicePath(50, 50, 40, 0, 0.75)).toContain("A 40 40 0 1 1");
-  });
-
-  it("draws a full circle for a single 100% slice (a wedge can't span 360deg)", () => {
-    const path = slicePath(50, 50, 40, 0, 1);
-    expect(path.match(/A /g)).toHaveLength(2);
-    expect(path).not.toContain("L ");
   });
 });

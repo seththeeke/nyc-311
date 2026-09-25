@@ -193,7 +193,7 @@ DynamoDB was correct, the warehouse query picked a stale row due to a
 
 ## Replace the five WIP mock metric tiles in the secondary workspace with real data
 
-The right-panel tiles Total Requests, Serviced, Total Cost (Est.), Mean and Median Time to Resolve, and the Orders by Status pie, remain badged mock data (Fleet Utilization is now live) in `12-UX-workspace-refactor.md`. See [#41](https://github.com/seththeeke/nyc-311/issues/41).
+The right-panel tiles Total Requests, Serviced, Total Cost (Est.), Mean and Median Time to Resolve remain badged mock data (Fleet Utilization is now live) in `12-UX-workspace-refactor.md`. See [#41](https://github.com/seththeeke/nyc-311/issues/41).
 
 ---
 

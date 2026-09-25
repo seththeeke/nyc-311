@@ -16,7 +16,7 @@ describe("widgetRegistry", () => {
 
   it("the chart widgets span both columns of the tile grid; the number tiles don't", () => {
     const wide = WIDGET_IDS.filter((id) => getWidget(id).tileSpan === 2);
-    expect(wide).toEqual(["INGESTION_VOLUME", "ORDERS_BY_STATUS", "FLEET_UTILIZATION"]);
+    expect(wide).toEqual(["INGESTION_VOLUME", "FLEET_UTILIZATION"]);
   });
 
   it("throws on an unknown id instead of returning nothing", () => {
@@ -29,7 +29,7 @@ describe("widgetRegistry", () => {
     expect(widgetSupportsSize(getWidget("CAPACITY"), "TILE")).toBe(true);
   });
 
-  it("defaults the secondary workspace to Capacity, the five mock tiles, then the three wide charts, all TILE", () => {
+  it("defaults the secondary workspace to Capacity, the five mock tiles, then the two wide charts, all TILE", () => {
     expect(DEFAULT_SECONDARY_WIDGET_IDS).toEqual([
       "CAPACITY",
       "TOTAL_REQUESTS",
@@ -38,7 +38,6 @@ describe("widgetRegistry", () => {
       "MEAN_TIME_TO_RESOLVE",
       "MEDIAN_TIME_TO_RESOLVE",
       "INGESTION_VOLUME",
-      "ORDERS_BY_STATUS",
       "FLEET_UTILIZATION",
     ]);
     for (const id of DEFAULT_SECONDARY_WIDGET_IDS) {

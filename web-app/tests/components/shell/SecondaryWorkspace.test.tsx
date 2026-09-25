@@ -26,7 +26,7 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
 }
 
 describe("SecondaryWorkspace", () => {
-  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, Orders by Status (WIP), then live Fleet Utilization", () => {
+  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, then live Fleet Utilization", () => {
     renderPanel();
     const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(titles).toEqual([
@@ -37,11 +37,10 @@ describe("SecondaryWorkspace", () => {
       "Mean Time to Resolve",
       "Median Time to Resolve",
       "Ingestion Volume",
-      "Orders by Status",
       "Fleet Utilization",
     ]);
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getAllByText("WIP")).toHaveLength(6);
+    expect(screen.getAllByText("WIP")).toHaveLength(5);
     expect(screen.getByRole("img", { name: /Fleet utilization: Working 67%/ })).toBeInTheDocument();
   });
 

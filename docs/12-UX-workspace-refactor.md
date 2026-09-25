@@ -561,3 +561,8 @@ so "mock" no longer described them); `mockChartData.ts` keeps only the
 Orders-by-Status sample data. Six of the original nine secondary-workspace
 tiles remain WIP (tracked in #41): Total Requests, Serviced, Total Cost
 (Est.), Mean/Median Time to Resolve, and Orders by Status.
+
+**Orders by Status removed (2026-09-25).** The WIP pie tile is gone from the
+secondary workspace, along with its mock data (`mockChartData.ts`), its
+`ORDERS_BY_STATUS` widget id, and the now-unused `slicePath` pie helper in
+`chartShares.ts`. Five WIP tiles remain (#41).

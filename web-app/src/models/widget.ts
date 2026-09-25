@@ -15,7 +15,6 @@ export const WIDGET_IDS = [
   "MEAN_TIME_TO_RESOLVE",
   "MEDIAN_TIME_TO_RESOLVE",
   "INGESTION_VOLUME",
-  "ORDERS_BY_STATUS",
   "FLEET_UTILIZATION",
 ] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
