@@ -9,9 +9,19 @@ describe("widgetRegistry", () => {
     }
   });
 
-  it("marks the map, Capacity, Ingestion Volume, and Fleet Utilization as LIVE; the remaining mocks are WORK_IN_PROGRESS", () => {
+  it("marks every widget LIVE", () => {
     const live = WIDGET_IDS.filter((id) => getWidget(id).status === "LIVE");
-    expect(live).toEqual(["FLEET_MAP", "CAPACITY", "INGESTION_VOLUME", "FLEET_UTILIZATION"]);
+    expect(live).toEqual([
+      "FLEET_MAP",
+      "CAPACITY",
+      "REQUESTS_ACCEPTED",
+      "SERVICED",
+      "TOTAL_COST_EST",
+      "MEAN_TIME_TO_RESOLVE",
+      "MEDIAN_TIME_TO_RESOLVE",
+      "INGESTION_VOLUME",
+      "FLEET_UTILIZATION",
+    ]);
   });
 
   it("the chart widgets span both columns of the tile grid; the number tiles don't", () => {
@@ -32,7 +42,7 @@ describe("widgetRegistry", () => {
   it("defaults the secondary workspace to Capacity, the five mock tiles, then the two wide charts, all TILE", () => {
     expect(DEFAULT_SECONDARY_WIDGET_IDS).toEqual([
       "CAPACITY",
-      "TOTAL_REQUESTS",
+      "REQUESTS_ACCEPTED",
       "SERVICED",
       "TOTAL_COST_EST",
       "MEAN_TIME_TO_RESOLVE",

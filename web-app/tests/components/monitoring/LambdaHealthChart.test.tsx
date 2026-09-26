@@ -9,21 +9,22 @@ describe("LambdaHealthChart", () => {
       logicalName: "Poller",
       functionName: "Nyc311Poller-Test",
       points: [
-        { date: "2026-08-21", invocations: 4, errors: 0, successes: 4 },
-        { date: "2026-08-22", invocations: 3, errors: 0, successes: 3 },
+        { date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: 40, maxDurationMs: 90 },
+        { date: "2026-08-22", invocations: 3, errors: 0, successes: 3, avgDurationMs: 60, maxDurationMs: 120 },
       ],
     };
     render(<LambdaHealthChart lambda={lambda} />);
 
     expect(screen.getByRole("heading", { name: "Poller" })).toBeInTheDocument();
     expect(screen.getByText("7 invocations · 0 errors (7d)")).toBeInTheDocument();
+    expect(screen.getByText("49 ms avg · 120 ms max (7d)")).toBeInTheDocument();
   });
 
   it("renders one accessible bar per data point with a descriptive label", () => {
     const lambda: LambdaHealth = {
       logicalName: "RequestsFanOut",
       functionName: "Nyc311RequestsFanOut-Test",
-      points: [{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0 }],
+      points: [{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0, avgDurationMs: null, maxDurationMs: null }],
     };
     render(<LambdaHealthChart lambda={lambda} />);
 

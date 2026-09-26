@@ -3,45 +3,43 @@ import { CapacityWidget } from "./CapacityWidget";
 import { FleetUtilizationWidget } from "./FleetUtilizationWidget";
 import { FleetMapWidget } from "./FleetMapWidget";
 import { IngestionVolumeWidget } from "./IngestionVolumeWidget";
-import {
-  MeanTimeToResolveWidget,
-  MedianTimeToResolveWidget,
-  ServicedWidget,
-  TotalCostEstWidget,
-  TotalRequestsWidget,
-} from "./mock/MockMetricWidgets";
+import { MeanTimeToResolveWidget } from "./MeanTimeToResolveWidget";
+import { MedianTimeToResolveWidget } from "./MedianTimeToResolveWidget";
+import { ServicedWidget } from "./ServicedWidget";
+import { RequestsAcceptedWidget } from "./RequestsAcceptedWidget";
+import { TotalCostWidget } from "./TotalCostWidget";
 import type { WidgetDefinition } from "./widgetTypes";
 
 /** The single place a widget is registered. */
 const WIDGETS: Record<WidgetId, WidgetDefinition> = {
   FLEET_MAP: { id: "FLEET_MAP", title: "Fleet Map", status: "LIVE", sizes: ["FULL"], component: FleetMapWidget },
   CAPACITY: { id: "CAPACITY", title: "Capacity", status: "LIVE", sizes: ["TILE"], component: CapacityWidget },
-  TOTAL_REQUESTS: {
-    id: "TOTAL_REQUESTS",
-    title: "Total Requests",
-    status: "WORK_IN_PROGRESS",
+  REQUESTS_ACCEPTED: {
+    id: "REQUESTS_ACCEPTED",
+    title: "Requests Accepted",
+    status: "LIVE",
     sizes: ["TILE"],
-    component: TotalRequestsWidget,
+    component: RequestsAcceptedWidget,
   },
-  SERVICED: { id: "SERVICED", title: "Serviced", status: "WORK_IN_PROGRESS", sizes: ["TILE"], component: ServicedWidget },
+  SERVICED: { id: "SERVICED", title: "Serviced", status: "LIVE", sizes: ["TILE"], component: ServicedWidget },
   TOTAL_COST_EST: {
     id: "TOTAL_COST_EST",
     title: "Total Cost (Est.)",
-    status: "WORK_IN_PROGRESS",
+    status: "LIVE",
     sizes: ["TILE"],
-    component: TotalCostEstWidget,
+    component: TotalCostWidget,
   },
   MEAN_TIME_TO_RESOLVE: {
     id: "MEAN_TIME_TO_RESOLVE",
     title: "Mean Time to Resolve",
-    status: "WORK_IN_PROGRESS",
+    status: "LIVE",
     sizes: ["TILE"],
     component: MeanTimeToResolveWidget,
   },
   MEDIAN_TIME_TO_RESOLVE: {
     id: "MEDIAN_TIME_TO_RESOLVE",
     title: "Median Time to Resolve",
-    status: "WORK_IN_PROGRESS",
+    status: "LIVE",
     sizes: ["TILE"],
     component: MedianTimeToResolveWidget,
   },
@@ -66,7 +64,7 @@ const WIDGETS: Record<WidgetId, WidgetDefinition> = {
 /** The secondary workspace's initial contents, top to bottom (12-UX-workspace-refactor.md §6). */
 export const DEFAULT_SECONDARY_WIDGET_IDS: readonly WidgetId[] = [
   "CAPACITY",
-  "TOTAL_REQUESTS",
+  "REQUESTS_ACCEPTED",
   "SERVICED",
   "TOTAL_COST_EST",
   "MEAN_TIME_TO_RESOLVE",

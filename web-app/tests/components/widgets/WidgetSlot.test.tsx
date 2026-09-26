@@ -10,6 +10,10 @@ vi.mock("../../../src/hooks/useFleetLocations", () => ({
 vi.mock("../../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
 }));
+vi.mock("../../../src/hooks/useWorkspaceMetrics", async () => {
+  const { MOCK_WORKSPACE_METRICS } = await import("../../../src/test-data/workspaceMetrics");
+  return { useWorkspaceMetrics: () => ({ data: MOCK_WORKSPACE_METRICS, isPending: false, isError: false }) };
+});
 vi.mock("../../../src/components/FleetMap", () => ({ FleetMap: () => <div data-testid="fleet-map" /> }));
 
 describe("WidgetSlot", () => {
@@ -31,14 +35,21 @@ describe("WidgetSlot", () => {
     expect(() => render(<WidgetSlot widgetId="CAPACITY" size="FULL" />)).toThrow(/does not support size FULL/);
   });
 
-  it("badges every WORK_IN_PROGRESS widget so no mock tile can go unmarked", () => {
-    const wip = WIDGET_IDS.filter((id) => getWidget(id).status === "WORK_IN_PROGRESS");
-    expect(wip).toHaveLength(5);
-    for (const id of wip) {
-      const { unmount } = render(<WidgetSlot widgetId={id} size="TILE" />);
+  it("has no WORK_IN_PROGRESS widgets today", () => {
+    expect(WIDGET_IDS.filter((id) => getWidget(id).status === "WORK_IN_PROGRESS")).toEqual([]);
+  });
+
+  it("badges a WORK_IN_PROGRESS TILE widget", () => {
+    /* No widget is WIP today; exercise the badge through a temporary registry entry. */
+    const widget = getWidget("CAPACITY");
+    const original = { status: widget.status };
+    widget.status = "WORK_IN_PROGRESS";
+    try {
+      render(<WidgetSlot widgetId="CAPACITY" size="TILE" />);
       expect(screen.getByText("WIP")).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: getWidget(id).title })).toBeInTheDocument();
-      unmount();
+      expect(screen.getByRole("region", { name: "Capacity" })).toBeInTheDocument();
+    } finally {
+      widget.status = original.status;
     }
   });
 

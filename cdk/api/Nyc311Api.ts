@@ -15,6 +15,7 @@ import type { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetL
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
+import type { Nyc311WorkspaceMetricsApiLambda } from "../warehouse/Nyc311WorkspaceMetricsApiLambda";
 import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import type { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
 import type { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWarehouseJobApiLambda";
@@ -30,6 +31,8 @@ export interface Nyc311ApiProps {
   warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
   warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
   jobResultApiLambda: Nyc311JobResultApiLambda;
+  /** The secondary workspace's metric tiles — public, read-only. */
+  workspaceMetricsApiLambda: Nyc311WorkspaceMetricsApiLambda;
   /** `9-admin-auth-integration.md` §8 — the first route behind the admin JWT authorizer. */
   adminWhoamiApiLambda: Nyc311AdminWhoamiApiLambda;
   /** `10-capacity-modeling-and-integration.md` §2.1 — admin-only capacity CRUD, same authorizer. */
@@ -123,6 +126,12 @@ export class Nyc311Api extends HttpApi {
       path: "/data/jobs/{name}/result",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetJobResultIntegration", props.jobResultApiLambda),
+    });
+
+    this.addRoutes({
+      path: "/workspace/metrics",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration("GetWorkspaceMetricsIntegration", props.workspaceMetricsApiLambda),
     });
 
     this.addRoutes({

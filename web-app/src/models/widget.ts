@@ -9,7 +9,7 @@ import { z } from "zod";
 export const WIDGET_IDS = [
   "FLEET_MAP",
   "CAPACITY",
-  "TOTAL_REQUESTS",
+  "REQUESTS_ACCEPTED",
   "SERVICED",
   "TOTAL_COST_EST",
   "MEAN_TIME_TO_RESOLVE",

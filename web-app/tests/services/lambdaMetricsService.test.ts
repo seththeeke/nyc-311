@@ -22,7 +22,11 @@ describe("lambdaMetricsService", () => {
       {
         logicalName: "Poller",
         functionName: "Nyc311Poller-Test",
-        points: [{ date: "2026-08-21", invocations: 4, errors: 0, successes: 4 }],
+        points: [
+          { date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: 40, maxDurationMs: 90 },
+          /* A pre-latency backend omits the duration fields — they default to null. */
+          { date: "2026-08-22", invocations: 2, errors: 0, successes: 2 },
+        ],
       },
     ];
     vi.stubGlobal(
@@ -32,7 +36,11 @@ describe("lambdaMetricsService", () => {
 
     const { lambdaMetricsService } = await import("../../src/services/lambdaMetricsService");
 
-    await expect(lambdaMetricsService.listLambdaHealth()).resolves.toEqual(lambdas);
+    const [lambda] = await lambdaMetricsService.listLambdaHealth();
+    expect(lambda.points).toEqual([
+      { date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: 40, maxDurationMs: 90 },
+      { date: "2026-08-22", invocations: 2, errors: 0, successes: 2, avgDurationMs: null, maxDurationMs: null },
+    ]);
     expect(fetch).toHaveBeenCalledWith("https://api.example.com/lambda-metrics");
   });
 

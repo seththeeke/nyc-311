@@ -19,7 +19,7 @@ const lambdas: LambdaHealth[] = [
   {
     logicalName: "Poller",
     functionName: "Nyc311Poller-Test",
-    points: [{ date: "2026-08-21", invocations: 4, errors: 0, successes: 4 }],
+    points: [{ date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: 40, maxDurationMs: 120 }],
   },
 ];
 

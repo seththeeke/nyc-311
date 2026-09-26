@@ -15,6 +15,10 @@ vi.mock("../../../src/hooks/useFleetLocations", () => ({
 vi.mock("../../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
 }));
+vi.mock("../../../src/hooks/useWorkspaceMetrics", async () => {
+  const { MOCK_WORKSPACE_METRICS } = await import("../../../src/test-data/workspaceMetrics");
+  return { useWorkspaceMetrics: () => ({ data: MOCK_WORKSPACE_METRICS, isPending: false, isError: false }) };
+});
 
 function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
   render(
@@ -26,12 +30,12 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
 }
 
 describe("SecondaryWorkspace", () => {
-  it("renders the default tiles top-to-bottom: live Capacity, the five WIP mocks, Ingestion Volume, then live Fleet Utilization", () => {
+  it("renders the default tiles top-to-bottom: live Capacity, the live metric tiles, Ingestion Volume, then live Fleet Utilization", () => {
     renderPanel();
     const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(titles).toEqual([
       "Capacity",
-      "Total Requests",
+      "Requests Accepted",
       "Serviced",
       "Total Cost (Est.)",
       "Mean Time to Resolve",
@@ -40,7 +44,8 @@ describe("SecondaryWorkspace", () => {
       "Fleet Utilization",
     ]);
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getAllByText("WIP")).toHaveLength(5);
+    expect(screen.queryByText("WIP")).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: /^Serviced: 411/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Fleet utilization: Working 67%/ })).toBeInTheDocument();
   });
 

@@ -4,7 +4,7 @@ import { z } from "zod";
  * Mirrors backend/models/lambdaMetrics.ts — one entry per monitored
  * Lambda (backend/service/monitoring/lambdaMetricsService.ts's static
  * MONITORED_LAMBDAS list), each with a 7-day, daily-bucketed series of
- * invocation/success/error counts. Every service response is parsed
+ * invocation/success/error counts and latency. Every service response is parsed
  * through this schema before it reaches a component (CLAUDE.md §5.1).
  */
 
@@ -13,6 +13,9 @@ export const LambdaHealthPointSchema = z.object({
   invocations: z.number().int().nonnegative(),
   errors: z.number().int().nonnegative(),
   successes: z.number().int(),
+  /* Daily average / maximum Lambda Duration (ms); null on a day with no datapoint, and defaulted for a pre-latency backend. */
+  avgDurationMs: z.number().nonnegative().nullable().default(null),
+  maxDurationMs: z.number().nonnegative().nullable().default(null),
 });
 export type LambdaHealthPoint = z.infer<typeof LambdaHealthPointSchema>;
 

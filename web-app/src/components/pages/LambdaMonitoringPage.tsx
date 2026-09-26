@@ -31,7 +31,7 @@ export function LambdaMonitoringPage(): ReactElement {
         <h1 className="mt-4 bg-gradient-to-r from-hue-amber via-hue-orange to-hue-red bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Lambda Health
         </h1>
-        <p className="mt-2 text-fg-subtle">Invocations, successes, and errors per Lambda over the last 7 days.</p>
+        <p className="mt-2 text-fg-subtle">Invocations, successes, errors, and latency per Lambda over the last 7 days.</p>
 
         {isPending && <p className="mt-6 text-fg-subtle">Loading…</p>}
 

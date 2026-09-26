@@ -35,6 +35,7 @@ import { Nyc311WarehouseJobScheduleGroup } from "../warehouse/Nyc311WarehouseJob
 import { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
+import { Nyc311WorkspaceMetricsApiLambda } from "../warehouse/Nyc311WorkspaceMetricsApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
 import { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
@@ -532,6 +533,12 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
     });
 
+    const workspaceMetricsApiLambda = new Nyc311WorkspaceMetricsApiLambda(this, "Nyc311WorkspaceMetricsApiLambda", {
+      envName: props.envName,
+      jobRunsTable: warehouseJobRunsTable,
+      warehouseBucket,
+    });
+
     /*
      * 7-data-warehousing.md §12a (Leg 7) — the admin ad-hoc SQL console: a
      * dedicated Athena workgroup (separate from the scheduled job
@@ -639,6 +646,7 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiFunctionName: warehouseSchemaApiLambda.functionName,
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
       jobResultApiFunctionName: jobResultApiLambda.functionName,
+      workspaceMetricsApiFunctionName: workspaceMetricsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -648,6 +656,7 @@ export class Nyc311Stack extends Stack {
       warehouseSchemaApiLambda,
       warehouseJobsApiLambda,
       jobResultApiLambda,
+      workspaceMetricsApiLambda,
       adminWhoamiApiLambda,
       addCapacityApiLambda,
       removeCapacityApiLambda,

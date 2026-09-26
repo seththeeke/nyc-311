@@ -566,3 +566,23 @@ tiles remain WIP (tracked in #41): Total Requests, Serviced, Total Cost
 secondary workspace, along with its mock data (`mockChartData.ts`), its
 `ORDERS_BY_STATUS` widget id, and the now-unused `slicePath` pie helper in
 `chartShares.ts`. Five WIP tiles remain (#41).
+
+**Requests Accepted, Serviced, Mean and Median Time to Resolve are LIVE (2026-09-26).** They
+read a new public `GET /workspace/metrics` endpoint rather than parsing a
+job result in the browser. The backend reads the latest `wbr` (weekly
+business report) warehouse job run, takes its newest `week_start` row and
+the one before it, and returns `{ current, previous }` per metric;
+`METRIC_COLUMNS` in `workspaceMetricsService.ts` maps each metric to its
+report column, so the remaining tiles can join by extending the job's SQL
+plus one entry there. Tiles show the latest week, captioned with the change
+against the previous week. The endpoint has its own Lambda
+(`Nyc311WorkspaceMetricsApi-<env>`), so Lambda Health's new daily
+average/max `Duration` row is this endpoint's server-side latency. The
+Prod `wbr` job doesn't exist yet (#44); until it does, Prod returns
+all-null values and the tiles say "no data yet". Total Requests became
+**Requests Accepted** (widget id `REQUESTS_ACCEPTED`, `wbr`'s
+`orders_accepted` column). Total Cost (Est.) maps to a `total_cost` column
+the report doesn't have yet: a missing column makes only that metric
+`null` (plus a `WorkspaceMetricsColumnsMissing` warning log), so the tile
+says "no data yet" while the rest render. **No WIP tiles remain**; the
+`WORK_IN_PROGRESS` status and badge stay in place for future tiles.

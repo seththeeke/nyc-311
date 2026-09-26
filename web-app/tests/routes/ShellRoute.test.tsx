@@ -13,6 +13,10 @@ vi.mock("../../src/hooks/useFleetLocations", () => ({
 vi.mock("../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
 }));
+vi.mock("../../src/hooks/useWorkspaceMetrics", async () => {
+  const { MOCK_WORKSPACE_METRICS } = await import("../../src/test-data/workspaceMetrics");
+  return { useWorkspaceMetrics: () => ({ data: MOCK_WORKSPACE_METRICS, isPending: false, isError: false }) };
+});
 
 describe("ShellRoute", () => {
   it("renders the routed child inside the primary workspace, with the shell around it", () => {

@@ -14,6 +14,7 @@ import { Nyc311WarehouseCatalog } from "../../warehouse/Nyc311WarehouseCatalog";
 import { Nyc311WarehouseSchemaApiLambda } from "../../warehouse/Nyc311WarehouseSchemaApiLambda";
 import { Nyc311WarehouseJobsApiLambda } from "../../warehouse/Nyc311WarehouseJobsApiLambda";
 import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLambda";
+import { Nyc311WorkspaceMetricsApiLambda } from "../../warehouse/Nyc311WorkspaceMetricsApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AdHocQueryApiLambda } from "../../warehouse/Nyc311AdHocQueryApiLambda";
 import { Nyc311AnalyticsWorkgroup } from "../../warehouse/Nyc311AnalyticsWorkgroup";
@@ -60,6 +61,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
     warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
     jobResultApiFunctionName: "Nyc311JobResultApi-Test",
+    workspaceMetricsApiFunctionName: "Nyc311WorkspaceMetricsApi-Test",
   });
   const warehouseJobRunsTable = new WarehouseJobRunsTable(stack, "WarehouseJobRunsTable", { envName });
   const warehouseBucket = new Nyc311WarehouseBucket(stack, "Nyc311WarehouseBucket", { envName });
@@ -73,6 +75,11 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunsTable: warehouseJobRunsTable,
   });
   const jobResultApiLambda = new Nyc311JobResultApiLambda(stack, "Nyc311JobResultApiLambda", {
+    envName,
+    jobRunsTable: warehouseJobRunsTable,
+    warehouseBucket,
+  });
+  const workspaceMetricsApiLambda = new Nyc311WorkspaceMetricsApiLambda(stack, "Nyc311WorkspaceMetricsApiLambda", {
     envName,
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
@@ -214,6 +221,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseSchemaApiLambda,
     warehouseJobsApiLambda,
     jobResultApiLambda,
+    workspaceMetricsApiLambda,
     adminWhoamiApiLambda,
     addCapacityApiLambda,
     removeCapacityApiLambda,
@@ -279,7 +287,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 18);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 19);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -292,8 +300,8 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("wires the three GET /data/* warehouse routes", () => {
-    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result"]) {
+  it("wires the three GET /data/* warehouse routes and GET /workspace/metrics", () => {
+    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result", "GET /workspace/metrics"]) {
       testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
     }
   });
@@ -386,7 +394,7 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly eighteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 18);
+  it("declares exactly nineteen routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 19);
   });
 });

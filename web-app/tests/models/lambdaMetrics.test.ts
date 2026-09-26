@@ -5,7 +5,7 @@ import {
   LambdaMetricsResponseSchema,
 } from "../../src/models/lambdaMetrics";
 
-const validPoint = { date: "2026-08-21", invocations: 4, errors: 0, successes: 4 };
+const validPoint = { date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: 40, maxDurationMs: 90 };
 const validLambda = { logicalName: "Poller", functionName: "Nyc311Poller-Test", points: [validPoint] };
 
 describe("LambdaHealthPointSchema", () => {

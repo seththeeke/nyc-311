@@ -36,7 +36,7 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
   },
   {
     title: "Lambda Health",
-    description: "Invocations, successes, and errors per Lambda, over the last 7 days.",
+    description: "Invocations, successes, errors, and latency per Lambda, over the last 7 days.",
     to: "/monitoring/lambda-health",
     accent: "amber",
     icon: <LambdaHealthIcon />,

@@ -21,6 +21,7 @@ export const KNOWN_ROUTES = [
   "/data/schema",
   "/data/jobs",
   "/data/jobs/{name}/result",
+  "/workspace/metrics",
   "/admin/whoami",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];

@@ -17,6 +17,8 @@ const LambdaHealthPointSchema = z.object({
   invocations: z.number().int().nonnegative(),
   errors: z.number().int().nonnegative(),
   successes: z.number().int(),
+  avgDurationMs: z.number().nonnegative().nullable(),
+  maxDurationMs: z.number().nonnegative().nullable(),
 });
 
 const LambdaHealthSchema = z.object({

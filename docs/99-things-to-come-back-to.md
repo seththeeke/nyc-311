@@ -193,12 +193,18 @@ DynamoDB was correct, the warehouse query picked a stale row due to a
 
 ## Replace the five WIP mock metric tiles in the secondary workspace with real data
 
-The right-panel tiles Total Requests, Serviced, Total Cost (Est.), Mean and Median Time to Resolve remain badged mock data (Fleet Utilization is now live) in `12-UX-workspace-refactor.md`. See [#41](https://github.com/seththeeke/nyc-311/issues/41).
+**Resolved 2026-09-26:** every right-panel tile is now live — no WIP tiles remain. Total Cost (Est.) reads `wbr`'s future `total_cost` column and shows "no data yet" until it exists (see `12-UX-workspace-refactor.md`). See [#41](https://github.com/seththeeke/nyc-311/issues/41).
 
 ---
 
 ## Cover default-DAO happy path in orderExecutionService (98.21% -> 100%)
 
 See [#42](https://github.com/seththeeke/nyc-311/issues/42).
+
+---
+
+## Create the wbr warehouse job in Prod
+
+See [#44](https://github.com/seththeeke/nyc-311/issues/44).
 
 ---

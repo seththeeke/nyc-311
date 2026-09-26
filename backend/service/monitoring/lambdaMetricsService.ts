@@ -32,6 +32,7 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "WarehouseSchemaApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API" },
   { logicalName: "WarehouseJobsApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOBS_API" },
   { logicalName: "JobResultApi", envVar: "MONITORED_LAMBDA_JOB_RESULT_API" },
+  { logicalName: "WorkspaceMetricsApi", envVar: "MONITORED_LAMBDA_WORKSPACE_METRICS_API" },
   { logicalName: "PipelineStatus", envVar: "MONITORED_LAMBDA_PIPELINE_STATUS" },
 ];
 
@@ -72,6 +73,43 @@ async function fetchDailySum(
     .map((dp) => ({ date: dp.Timestamp.toISOString().slice(0, 10), sum: dp.Sum }));
 }
 
+interface RawDurationDatapoint {
+  date: string;
+  average: number;
+  maximum: number;
+}
+
+/* Lambda's built-in `Duration` (ms) — daily average and worst case, so a latency drift shows up without a custom metric. */
+async function fetchDailyDuration(
+  client: CloudWatchClient,
+  functionName: string,
+  startTime: Date,
+  endTime: Date
+): Promise<RawDurationDatapoint[]> {
+  const result = await client.send(
+    new GetMetricStatisticsCommand({
+      Namespace: "AWS/Lambda",
+      MetricName: "Duration",
+      Dimensions: [{ Name: "FunctionName", Value: functionName }],
+      StartTime: startTime,
+      EndTime: endTime,
+      Period: PERIOD_SECONDS,
+      Statistics: ["Average", "Maximum"],
+    })
+  );
+  return (result.Datapoints ?? [])
+    .filter(
+      (dp): dp is { Timestamp: Date; Average: number; Maximum: number } =>
+        dp.Timestamp !== undefined && dp.Average !== undefined && dp.Maximum !== undefined
+    )
+    .map((dp) => ({ date: dp.Timestamp.toISOString().slice(0, 10), average: dp.Average, maximum: dp.Maximum }));
+}
+
+/* Whole milliseconds — sub-ms precision is noise on a daily bucket. */
+function roundMs(value: number | undefined): number | null {
+  return value === undefined ? null : Math.round(value);
+}
+
 async function getOneLambdaHealth(
   client: CloudWatchClient,
   logicalName: string,
@@ -81,10 +119,12 @@ async function getOneLambdaHealth(
 ): Promise<LambdaHealth> {
   logInfo("GetLambdaHealthLambdaStarted", { logicalName, functionName });
 
-  const [invocationPoints, errorPoints] = await Promise.all([
+  const [invocationPoints, errorPoints, durationPoints] = await Promise.all([
     fetchDailySum(client, functionName, "Invocations", startTime, endTime),
     fetchDailySum(client, functionName, "Errors", startTime, endTime),
+    fetchDailyDuration(client, functionName, startTime, endTime),
   ]);
+  const durationByDate = new Map(durationPoints.map((dp) => [dp.date, dp]));
 
   const byDate = new Map<string, { invocations: number; errors: number }>();
   for (const { date, sum } of invocationPoints) {
@@ -101,6 +141,8 @@ async function getOneLambdaHealth(
       invocations: counts.invocations,
       errors: counts.errors,
       successes: counts.invocations - counts.errors,
+      avgDurationMs: roundMs(durationByDate.get(date)?.average),
+      maxDurationMs: roundMs(durationByDate.get(date)?.maximum),
     }));
 
   logInfo("GetLambdaHealthLambdaCompleted", { logicalName, functionName, pointCount: points.length });
@@ -108,7 +150,7 @@ async function getOneLambdaHealth(
 }
 
 /**
- * Basic invocation/success/failure health for every Lambda in
+ * Basic invocation/success/failure health, plus daily latency, for every Lambda in
  * `MONITORED_LAMBDAS`, over the last `LOOKBACK_DAYS` — backs the public
  * `GET /lambda-metrics` route (`controller/web-api/
  * getLambdaMetricsController.ts`). Added after the 2026-08-22

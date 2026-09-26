@@ -20,6 +20,7 @@ const ENV_VARS: Record<string, string> = {
   MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: "Nyc311WarehouseSchemaApi-Test",
   MONITORED_LAMBDA_WAREHOUSE_JOBS_API: "Nyc311WarehouseJobsApi-Test",
   MONITORED_LAMBDA_JOB_RESULT_API: "Nyc311JobResultApi-Test",
+  MONITORED_LAMBDA_WORKSPACE_METRICS_API: "Nyc311WorkspaceMetricsApi-Test",
   MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
 };
 
@@ -61,12 +62,12 @@ describe("getLambdaHealth", () => {
 
     const result = await getLambdaHealth({ client, now });
 
-    expect(result).toHaveLength(14);
+    expect(result).toHaveLength(15);
     const poller = result.find((r) => r.logicalName === "Poller");
     expect(poller).toEqual({
       logicalName: "Poller",
       functionName: "Nyc311Poller-Test",
-      points: [{ date: "2026-08-21", invocations: 4, errors: 0, successes: 4 }],
+      points: [{ date: "2026-08-21", invocations: 4, errors: 0, successes: 4, avgDurationMs: null, maxDurationMs: null }],
     });
   });
 
@@ -80,7 +81,7 @@ describe("getLambdaHealth", () => {
     const result = await getLambdaHealth({ client, now });
 
     const fanOut = result.find((r) => r.logicalName === "RequestsFanOut");
-    expect(fanOut?.points).toEqual([{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0 }]);
+    expect(fanOut?.points).toEqual([{ date: "2026-08-19", invocations: 1008, errors: 1008, successes: 0, avgDurationMs: null, maxDurationMs: null }]);
   });
 
   it("sorts points chronologically by date regardless of the order CloudWatch returns them", async () => {
@@ -139,7 +140,7 @@ describe("getLambdaHealth", () => {
     const result = await getLambdaHealth({ client, now });
 
     const poller = result.find((r) => r.logicalName === "Poller");
-    expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 3, errors: 1, successes: 2 }]);
+    expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 3, errors: 1, successes: 2, avgDurationMs: null, maxDurationMs: null }]);
   });
 
   it("defaults invocations to 0 for a date that only has an errors datapoint", async () => {
@@ -155,7 +156,38 @@ describe("getLambdaHealth", () => {
     const result = await getLambdaHealth({ client, now });
 
     const poller = result.find((r) => r.logicalName === "Poller");
-    expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 0, errors: 2, successes: -2 }]);
+    expect(poller?.points).toEqual([{ date: "2026-08-21", invocations: 0, errors: 2, successes: -2, avgDurationMs: null, maxDurationMs: null }]);
+  });
+
+  it("adds each day's average and maximum Duration, rounded to whole ms", async () => {
+    cwMock.on(GetMetricStatisticsCommand).callsFake((input) => {
+      const functionName = input.Dimensions?.[0]?.Value;
+      if (functionName !== "Nyc311WorkspaceMetricsApi-Test") return { Datapoints: [] };
+      if (input.MetricName === "Duration") {
+        expect(input.Statistics).toEqual(["Average", "Maximum"]);
+        return {
+          Datapoints: [
+            { Timestamp: new Date("2026-08-21T00:00:00.000Z"), Average: 41.6, Maximum: 812.2 },
+            { Timestamp: new Date("2026-08-20T00:00:00.000Z"), Average: undefined, Maximum: 5 },
+          ],
+        };
+      }
+      return {
+        Datapoints: [
+          { Timestamp: new Date("2026-08-20T00:00:00.000Z"), Sum: input.MetricName === "Errors" ? 0 : 3 },
+          { Timestamp: new Date("2026-08-21T00:00:00.000Z"), Sum: input.MetricName === "Errors" ? 0 : 5 },
+        ],
+      };
+    });
+
+    const result = await getLambdaHealth({ client, now });
+
+    const api = result.find((r) => r.logicalName === "WorkspaceMetricsApi");
+    expect(api?.functionName).toBe("Nyc311WorkspaceMetricsApi-Test");
+    expect(api?.points).toEqual([
+      { date: "2026-08-20", invocations: 3, errors: 0, successes: 3, avgDurationMs: null, maxDurationMs: null },
+      { date: "2026-08-21", invocations: 5, errors: 0, successes: 5, avgDurationMs: 42, maxDurationMs: 812 },
+    ]);
   });
 
   it("treats a response with no Datapoints as an empty series", async () => {
@@ -169,7 +201,7 @@ describe("getLambdaHealth", () => {
   it("defaults `client` and `now` to fresh instances when not injected", async () => {
     cwMock.on(GetMetricStatisticsCommand).resolves({ Datapoints: [] });
 
-    await expect(getLambdaHealth()).resolves.toHaveLength(14);
+    await expect(getLambdaHealth()).resolves.toHaveLength(15);
   });
 
   it("throws when a monitored lambda's env var is unset", async () => {

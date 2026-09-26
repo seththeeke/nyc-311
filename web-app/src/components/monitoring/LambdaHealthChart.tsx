@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import type { LambdaHealth } from "../../models/lambdaMetrics";
 import { formatCompactNumber, niceMax } from "../ingestion/formatters";
 import { IV_COLORS } from "../ingestion/palette";
+import { LambdaLatencyChart } from "./LambdaLatencyChart";
 
 export interface LambdaHealthChartProps {
   lambda: LambdaHealth;
@@ -22,7 +23,8 @@ function LegendItem({ color, label }: { color: string; label: string }): ReactEl
  * One stacked-bar chart per Lambda (successes + errors sum to invocations,
  * the same part-to-whole shape as IngestionVolumeChart) — added after the
  * 2026-08-22 fan-out-Lambda incident, where a Lambda erroring on every
- * single invocation had no visual signal anywhere in the dashboard.
+ * single invocation had no visual signal anywhere in the dashboard. Daily
+ * latency sits underneath (LambdaLatencyChart).
  */
 export function LambdaHealthChart({ lambda }: LambdaHealthChartProps): ReactElement {
   const axisMax = niceMax(Math.max(...lambda.points.map((p) => p.invocations), 1));
@@ -81,6 +83,7 @@ export function LambdaHealthChart({ lambda }: LambdaHealthChartProps): ReactElem
               </div>
             ))}
           </div>
+          <LambdaLatencyChart points={lambda.points} />
         </div>
       )}
     </div>

@@ -5,7 +5,7 @@ interface MetricTileBodyProps {
   detail?: string;
 }
 
-/** The big-number-plus-caption body shared by the Capacity tile and the mock metric tiles. */
+/** The big-number-plus-caption body shared by the Capacity tile and the workspace metric tiles. */
 export function MetricTileBody({ value, detail }: MetricTileBodyProps): ReactElement {
   return (
     <>

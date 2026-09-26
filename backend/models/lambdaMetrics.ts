@@ -12,6 +12,9 @@ export interface LambdaHealthPoint {
   invocations: number;
   errors: number;
   successes: number;
+  /** Daily average / maximum `Duration` in whole ms; `null` on a day CloudWatch has no duration datapoint. */
+  avgDurationMs: number | null;
+  maxDurationMs: number | null;
 }
 
 export interface LambdaHealth {
