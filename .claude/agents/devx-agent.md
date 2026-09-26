@@ -112,7 +112,7 @@ are open).
 `claude --settings`) — the complete allowlist; nothing else on the machine
 grants permissions — so this whole workflow is permitted headlessly:
 `git fetch`/`checkout`/`add`/`commit`/`push`, the Operational Loop,
-`gh issue create`, `gh pr create`/`checkout`/`comment`, read-only
+`gh issue create`/`close` (your own ticket only), `gh pr create`/`checkout`/`comment`, read-only
 `gh api …/pulls/<n>/{comments,reviews}`, `Write`/`Edit`. What's *not*
 granted: `gh pr merge`/`close`, force-push, `git reset --hard`, any deploy, any
 other `gh api`, anything touching `main` (the guard hook also hard-blocks
@@ -251,6 +251,30 @@ seththeeke/nyc-311 --body-file <tmp>`:
   this run.
 
 Leave the issue **open** — it closes when the human merges the PR (`Closes #N`).
+
+### If it isn't worth shipping — close your own ticket
+
+If, after filing the step-3 ticket, the change turns out not to be worthwhile —
+the hypothesis is disproved, the re-measured number misses the success
+criterion or the gain is noise, or the fix is unsafe/too broad for one PR —
+don't open a PR. Instead:
+
+1. Discard the change (`git checkout -- .` / delete the local branch; nothing
+   pushed).
+2. Close **the ticket you filed this run** — never any other issue — with your
+   findings as the closing comment:
+   ```
+   gh issue close <number> --repo seththeeke/nyc-311 --reason "not planned" \
+     --comment "$(cat <tmp>)"
+   ```
+   The comment starts with `<!-- devx-agent -->` and says why it wasn't
+   worthwhile: baseline vs. measured result (with the command), what the real
+   cause turned out to be, and any existing issue a broader fix belongs under.
+3. Since nothing ships, the ticket's `docs/99-things-to-come-back-to.md` entry
+   is discarded with the rest — that's expected.
+
+A disproved idea closed with clear findings is a successful run. Report it in
+the final report.
 
 ---
 

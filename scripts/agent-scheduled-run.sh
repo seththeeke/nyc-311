@@ -80,8 +80,21 @@ if [ -z "${AGENT_SCHED_REEXEC:-}" ]; then
   fi
 fi
 
+# Always run on the latest committed config/prompts, even when the primary
+# couldn't fast-forward: read the .env from a fresh origin/main. (The agent
+# definition + permissions already come from origin/main — the worktree is
+# created from it.)
+git -C "$PRIMARY" fetch --quiet origin main || log "WARN: git fetch origin main failed"
+latest_config=$(mktemp)
+if git -C "$PRIMARY" show "origin/main:scripts/agent-schedules/$agent.env" >"$latest_config" 2>/dev/null; then
+  config="$latest_config"
+  log "config + prompts from origin/main @ $(git -C "$PRIMARY" rev-parse --short origin/main)"
+else
+  log "WARN: no $agent.env on origin/main; using primary's copy"
+fi
 # shellcheck disable=SC1090
 . "$config"
+rm -f "$latest_config"
 # AGENT_MAX_OPEN_PRS overrides the limit for a manual test (e.g. =0 forces REVISE).
 MAX_OPEN_PRS=${AGENT_MAX_OPEN_PRS:-${MAX_OPEN_PRS:-}}
 : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}"

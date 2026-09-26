@@ -16,6 +16,7 @@ launchd (06:00, 18:00)
   └─ scripts/agent-scheduled-run.sh devx-agent
        1. fast-forward the primary checkout (only if on a clean main);
           `npm ci` any package whose lockfile changed; re-exec if this script changed
+          then read config + prompts from a fresh origin/main (always latest)
        2. count open PRs on devx/* branches
             < 3  → NEW mode     find + land one improvement (issue + PR)
             ≥ 3  → REVISE mode  address unaddressed review comments on those PRs
@@ -47,7 +48,7 @@ launchd (06:00, 18:00)
   intentionally **not** committed — they can capture command output (env
   values, tokens), and committing them would mean a commit to `main` per run.
 - A run that exits non-zero or leaves uncommitted changes keeps its worktree
-  under `../nyc-311-worktrees/` for inspection (`scripts/agent-worktree.sh ls`);
+  under `~/agents/nyc-311-worktrees/` for inspection (`scripts/agent-worktree.sh ls`);
   it's auto-removed after 7 days.
 
 ### Revision mode and the comment marker
@@ -60,8 +61,19 @@ rebase/force-push; merge conflicts are left for the human.
 
 ## One-time machine setup
 
-On a fresh machine, from the repo checkout
-(`~/Documents/projects/nyc-311`):
+On a fresh machine. **The scheduler uses its own clone, outside
+`~/Documents` / `~/Desktop` / `~/Downloads`.** macOS privacy protection (TCC)
+blocks launchd jobs from reading those folders (`/bin/sh: …: Operation not
+permitted` in `launchd.log`), and a dedicated clone also keeps your dev
+checkout from ever being auto-pulled. Convention: `~/agents/nyc-311`
+(worktrees land in `~/agents/nyc-311-worktrees/`).
+
+```
+mkdir -p ~/agents && git clone https://github.com/seththeeke/nyc-311 ~/agents/nyc-311
+cd ~/agents/nyc-311
+```
+
+Then, from that clone:
 
 1. **Tools:** `brew install gh node` (Claude Code: `brew install claude` or the
    official installer). `aws` CLI is optional — agents don't mutate AWS.
@@ -94,9 +106,17 @@ On a fresh machine, from the repo checkout
    `AGENT_MAX_OPEN_PRS=0 scripts/agent-scheduled-run.sh devx-agent` (REVISE)
    or `=99` (NEW).
 
-The primary checkout must stay on `main` and clean for step 1 of each run to
-update it; if you develop in it, the run logs a warning and uses the stale
-checkout (worktrees still branch from fresh `origin/main`).
+Don't develop in `~/agents/nyc-311` — it must stay on a clean `main` for each
+run to fast-forward it (otherwise the run logs a warning and continues).
+
+### Always the latest prompt
+
+Prompt/agent changes need no machine-side step — merge to `main` and the next
+run picks them up: the worktree (so `.claude/agents/<agent>.md` and
+`.claude/agent-settings/<agent>.json`) is created from a just-fetched
+`origin/main`, and the wrapper reads `scripts/agent-schedules/<agent>.env`
+from `origin/main` too. Only the wrapper script itself relies on the
+primary checkout fast-forwarding.
 
 ## Adding another agent
 
