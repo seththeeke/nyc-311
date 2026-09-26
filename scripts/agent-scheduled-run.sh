@@ -12,10 +12,10 @@
 #   2. count the agent's open PRs (head branch starts with BRANCH_PREFIX):
 #      below MAX_OPEN_PRS → NEW mode, else REVISE mode (address PR comments)
 #   3. `agent-worktree.sh run <agent> "<prompt>"`
-#   4. post a summary comment on the agent's pinned "run log" issue
-#   5. prune logs > 30 days and this agent's kept worktrees > 7 days
+#   4. prune logs > 30 days and this agent's kept worktrees > 7 days
 #
-# Config: scripts/agent-schedules/<agent>.env. Full log per run:
+# Nothing is posted to GitHub by this script — the agent's own tickets/PRs are
+# the only GitHub output. Config: scripts/agent-schedules/<agent>.env. Log per run:
 # ~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log (AGENT_LOG_ROOT overrides).
 
 set -u
@@ -24,7 +24,6 @@ PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export PATH
 
 REPO=seththeeke/nyc-311
-RUN_LOG_LABEL=agent-run-log
 LOG_RETENTION_DAYS=30
 WORKTREE_RETENTION_DAYS=7
 
@@ -151,46 +150,9 @@ cat "$report"
 printf '\n'
 
 prs_after=$(open_prs || echo "?")
+log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
 
-# ---- 4. post to the run-log issue --------------------------------------------
-
-issue_title="$agent run log"
-issue=$(gh issue list --repo "$REPO" --state open --label "$RUN_LOG_LABEL" --search "in:title \"$issue_title\"" \
-  --json number,title --jq ".[] | select(.title == \"$issue_title\") | .number" 2>/dev/null | head -1)
-if [ -z "$issue" ]; then
-  gh label create "$RUN_LOG_LABEL" --repo "$REPO" --color 5319E7 \
-    --description "One pinned issue per scheduled agent; each run posts a comment" >/dev/null 2>&1 || true
-  body=$(mktemp)
-  printf 'Each scheduled run of `%s` posts a comment here. See `docs/agent-automation-setup.md`.\n' "$agent" >"$body"
-  url=$(gh issue create --repo "$REPO" --title "$issue_title" --label "$RUN_LOG_LABEL" --body-file "$body") || url=
-  rm -f "$body"
-  issue=${url##*/}
-  [ -n "$issue" ] && gh issue pin "$issue" --repo "$REPO" >/dev/null 2>&1 || true
-fi
-
-if [ -n "$issue" ]; then
-  [ "$status" -eq 0 ] && verdict="✅ exit 0" || verdict="❌ exit $status"
-  comment=$(mktemp)
-  {
-    printf '<!-- %s-run -->\n' "$agent"
-    printf '### %s — %s mode — %s\n\n' "$(date '+%Y-%m-%d %H:%M %Z')" "$mode" "$verdict"
-    printf '| | |\n|---|---|\n'
-    printf '| Duration | %sm%ss |\n' "$((elapsed / 60))" "$((elapsed % 60))"
-    printf '| Open `%s*` PRs before | %s |\n' "$BRANCH_PREFIX" "${prs_before:-none}"
-    printf '| Open `%s*` PRs after | %s |\n' "$BRANCH_PREFIX" "${prs_after:-none}"
-    printf '| Host log | `%s` |\n\n' "$(basename -- "$AGENT_SCHED_LOG")"
-    printf '<details><summary>Agent final report</summary>\n\n'
-    if [ -s "$report" ]; then head -c 50000 "$report"; else printf '_(empty — see host log)_'; fi
-    printf '\n\n</details>\n'
-  } >"$comment"
-  gh issue comment "$issue" --repo "$REPO" --body-file "$comment" >/dev/null \
-    && log "posted summary to #$issue" || log "WARN: could not comment on #$issue"
-  rm -f "$comment"
-else
-  log "WARN: no run-log issue available; summary not posted"
-fi
-
-# ---- 5. housekeeping ---------------------------------------------------------
+# ---- 4. housekeeping ---------------------------------------------------------
 
 find "$log_dir" -maxdepth 1 -type f \( -name '*.log' -o -name '*.report.md' \) \
   -mtime +"$LOG_RETENTION_DAYS" -delete 2>/dev/null || true

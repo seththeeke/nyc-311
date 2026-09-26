@@ -22,8 +22,7 @@ launchd (06:00, 18:00)
             ≥ 3  → REVISE mode  address unaddressed review comments on those PRs
        3. scripts/agent-worktree.sh run devx-agent "<mode prompt>"
             └─ isolated worktree off origin/main → claude --agent devx-agent -p …
-       4. comment a summary on the pinned "devx-agent run log" issue
-       5. prune host logs > 30 days, kept worktrees > 7 days
+       4. prune host logs > 30 days, kept worktrees > 7 days
 ```
 
 | Piece | Where |
@@ -37,12 +36,10 @@ launchd (06:00, 18:00)
 
 ### Seeing what happened
 
-- **GitHub (everyone):** each agent has one pinned issue, `<agent> run log`
-  (label `agent-run-log`), with one comment per run — time, mode, exit
-  status, duration, open PRs before/after, and the agent's final report.
-  Failed runs post there too; that issue *is* the alerting. The real output is
-  the PRs, issues, and review replies themselves.
-- **The Mac mini:** full logs in
+- **GitHub:** only the agent's real work — backlog tickets (closed with
+  findings if the idea didn't pan out), PRs, and review replies. The wrapper
+  posts nothing to GitHub itself; run logs are deliberately kept off GitHub.
+- **The Mac mini (per-run logs live only here):**
   `~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log` (+ `.report.md`), and
   `launchd.log` for anything that failed before logging started. Logs are
   intentionally **not** committed — they can capture command output (env
