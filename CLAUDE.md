@@ -559,3 +559,8 @@ copied in.
   `CLAUDE_PROJECT_DIR`, which is the worktree, so it works unchanged.
 
 Design + rationale: `docs/autonomous-agent-plan.md`.
+
+**Scheduled runs.** On the Mac mini, launchd runs agents on a cadence via
+`scripts/agent-scheduled-run.sh <agent>` (NEW vs REVISE mode by open-PR
+count, per-run summary on a pinned `<agent> run log` issue). Setup, config,
+and adding an agent: `docs/agent-automation-setup.md`.

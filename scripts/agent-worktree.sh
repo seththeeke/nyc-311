@@ -39,7 +39,8 @@ AGENT_WORKTREE_ROOT=${AGENT_WORKTREE_ROOT:-"$(dirname -- "$PRIMARY")/$(basename 
 LOCK_DIR="$AGENT_WORKTREE_ROOT/.agent-worktree.lock"
 
 # gitignored-but-required files to copy into each worktree (relative to repo root).
-# Without settings.local.json a headless `-p` run prompts on nearly every tool call.
+# settings.local.json is optional personal config; an agent's complete headless
+# allowlist lives in the committed .claude/agent-settings/<agent>.json.
 # Root .env is personal notes only — not copied.
 COPY_UNTRACKED='.claude/settings.local.json
 web-app/.env.local'

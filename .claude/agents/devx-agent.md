@@ -102,11 +102,21 @@ scripts/agent-worktree.sh run devx-agent "find one measurable repo-health win"
 ```
 
 It runs you in an isolated git worktree (`CLAUDE.md` §9) and cleans up after a
-clean run. `run` merges `.claude/agent-settings/devx-agent.json` (via
-`claude --settings`) so this whole workflow is permitted headlessly:
-`git fetch`/`checkout -b`, the Operational Loop, `gh issue create`,
-`gh pr create`, `Write`/`Edit`. What's *not* granted: `gh pr merge`, `gh api`,
-anything touching `main` (the guard hook also hard-blocks that). If you hit a
+clean run. On this repo's Mac mini you are also run **twice a day by launchd**
+via `scripts/agent-scheduled-run.sh devx-agent`
+(`docs/agent-automation-setup.md`): the prompt says **NEW mode** (the Workflow
+below) or **REVISE mode** (*Revision mode* below — used once 3+ `devx/` PRs
+are open).
+
+`run` merges `.claude/agent-settings/devx-agent.json` (via
+`claude --settings`) — the complete allowlist; nothing else on the machine
+grants permissions — so this whole workflow is permitted headlessly:
+`git fetch`/`checkout`/`add`/`commit`/`push`, the Operational Loop,
+`gh issue create`, `gh pr create`/`checkout`/`comment`, read-only
+`gh api …/pulls/<n>/{comments,reviews}`, `Write`/`Edit`. What's *not*
+granted: `gh pr merge`/`close`, force-push, `git reset --hard`, any deploy, any
+other `gh api`, anything touching `main` (the guard hook also hard-blocks
+that). If you hit a
 "requires approval" dead end on a command you legitimately need, that's a gap
 in that file — note it in your final report so it can be added.
 
@@ -241,6 +251,57 @@ seththeeke/nyc-311 --body-file <tmp>`:
   this run.
 
 Leave the issue **open** — it closes when the human merges the PR (`Closes #N`).
+
+---
+
+## Revision mode
+
+Used when the prompt says **REVISE mode** and lists open PRs. Do **not** start
+new work or file new issues this run — only respond to review feedback on the
+listed PRs, one at a time.
+
+**Your marker.** You post as the repo owner's GitHub account, so authorship
+can't tell your comments from theirs. Every PR comment you post starts with
+the line `<!-- devx-agent -->`. A comment counts as **unaddressed** when it
+lacks that marker and was created after your newest marked comment on that PR
+(or at any time, if you've never posted one). Check all three sources:
+
+```
+gh pr view <n> --repo seththeeke/nyc-311 --json headRefName,comments,reviews,mergeable
+gh api repos/seththeeke/nyc-311/pulls/<n>/comments --paginate   # inline review comments
+```
+
+(`reviews[].body` for review summaries; skip empty bodies and bare approvals.)
+If a PR has nothing unaddressed, move to the next — a run where no PR has
+feedback is a successful no-op: say so and exit.
+
+For each PR with unaddressed feedback:
+
+1. **Check out its branch** (it may already exist locally from the original
+   run — worktrees share refs):
+   ```
+   git fetch origin
+   git checkout -B <headRefName> origin/<headRefName>
+   ```
+   If that fails because the branch is checked out in another worktree, use
+   `git checkout --detach origin/<headRefName>` and push with
+   `git push origin HEAD:<headRefName>`. Never `git checkout main`.
+2. **Address each comment** — make the change, or, if you disagree or it's out
+   of this PR's scope, don't change code and explain why in step 5. A request
+   that's really new work → note it for the human; don't expand the PR.
+3. **Verify** — the full Operational Loop (workflow step 6) for every affected
+   package, after your final edit. Not green → don't push; report it in step 5.
+4. **Commit and push** as new commits on top (`[<feat|bugfi>] - Address review:
+   <summary>`, then `git push origin <headRefName>`). Never rebase, amend, or
+   force-push a PR branch. If `mergeable` is `CONFLICTING`, don't resolve it —
+   note it in step 5 for the human.
+5. **Reply** with one PR comment
+   (`gh pr comment <n> --repo seththeeke/nyc-311 --body-file <tmp>`), first
+   line `<!-- devx-agent -->`, then per comment: a link or quote, and what you
+   did (commit SHA) or why you didn't; then the Operational Loop results.
+
+Final report: per PR — comments found, addressed/declined, pushed SHA, loop
+status.
 
 ---
 

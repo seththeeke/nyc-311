@@ -1,5 +1,9 @@
 # Parallel agent runs — worktree isolation plan
 
+> **Follow-on (2026-09-26):** scheduled, unattended runs on the Mac mini
+> (launchd → `scripts/agent-scheduled-run.sh`) are in
+> `agent-automation-setup.md`.
+
 > **✅ Complete — 2026-09-08.** Built, generalized, and verified end to end
 > (including a real autonomous `devx-agent` run from a worktree: branched off
 > `origin/main`, ran the Operational Loop, filed a backlog issue, opened a PR,
