@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
-import { CapacityIcon, SchedulingIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
+import { CapacityIcon, FeatureFlagIcon, SchedulingIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
@@ -33,6 +33,13 @@ const ADMIN_TILES: AdminTileConfig[] = [
     to: "/admin/warehouse",
     accent: "violet",
     icon: <SqlConsoleIcon />,
+  },
+  {
+    title: "Feature Flags",
+    description: "Manage flags and experiments — treatments, per-Operator overrides, and percentage splits.",
+    to: "/admin/feature-flags",
+    accent: "amber",
+    icon: <FeatureFlagIcon />,
   },
 ];
 

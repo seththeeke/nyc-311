@@ -88,6 +88,25 @@ describe("AdminPage", () => {
     expect(link).toHaveAttribute("href", "/admin/warehouse");
   });
 
+  it("renders the Feature Flags tile, linking to /admin/feature-flags", () => {
+    mockedUseAuth.mockReturnValue({
+      user,
+      isLoading: false,
+      signIn: vi.fn(),
+      signInError: null,
+      isSigningIn: false,
+      completeNewPassword: vi.fn(),
+      completeNewPasswordError: null,
+      isCompletingNewPassword: false,
+      signOut: vi.fn(),
+    });
+
+    renderAdminPage();
+
+    const link = screen.getByRole("link", { name: /Feature Flags/ });
+    expect(link).toHaveAttribute("href", "/admin/feature-flags");
+  });
+
   it("shows the signed-in admin's email", () => {
     mockedUseAuth.mockReturnValue({
       user,

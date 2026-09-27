@@ -215,6 +215,21 @@ describe("Nyc311Stack", () => {
     }
   });
 
+  it("creates the FeatureFlags table and one Lambda per feature-flag operation", () => {
+    const { template } = testEnv;
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Test" });
+    for (const fn of [
+      "Nyc311ListFeatureFlagsApi-Test",
+      "Nyc311GetFeatureFlagApi-Test",
+      "Nyc311GetTreatmentApi-Test",
+      "Nyc311CreateFeatureFlagApi-Test",
+      "Nyc311UpdateFeatureFlagApi-Test",
+      "Nyc311DeleteFeatureFlagApi-Test",
+    ]) {
+      template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
+    }
+  });
+
   it("wires WebsiteHosting (S3 + CloudFront) for web-app/, per claude-prompt-initial.md's hosting decision", () => {
     const { template } = testEnv;
 

@@ -23,6 +23,9 @@ export const KNOWN_ROUTES = [
   "/data/jobs/{name}/result",
   "/workspace/metrics",
   "/admin/whoami",
+  "/feature-flags/{flag_key}/treatment",
+  "/admin/feature-flags",
+  "/admin/feature-flags/{flag_key}",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

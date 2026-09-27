@@ -95,6 +95,11 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
   });
 
+  it("redirects /admin/feature-flags to /login when logged out", async () => {
+    renderAt("/admin/feature-flags");
+    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+  });
+
   it("wraps every page in the 3-panel shell: menu, primary workspace, and the secondary workspace", () => {
     renderAt("/monitoring/pipeline");
     expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();

@@ -144,7 +144,7 @@ describe("Sidebar menu", () => {
 });
 
 describe("Sidebar Admin lock", () => {
-  it("signed out: the Admin header and all three items show a lock, and the accordion still expands", async () => {
+  it("signed out: the Admin header and all four items show a lock, and the accordion still expands", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
     const header = screen.getByRole("button", { name: /^Admin/ });
@@ -152,7 +152,7 @@ describe("Sidebar Admin lock", () => {
     expect(header).toHaveAttribute("aria-expanded", "true");
     const group = screen.getByRole("group", { name: "Admin" });
     const links = within(group).getAllByRole("link");
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(4);
     for (const link of links) expect(link).toHaveTextContent("locked");
   });
 

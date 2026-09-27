@@ -12,6 +12,7 @@ import { AdminPage } from "../components/pages/AdminPage";
 import { CapacityManagementPage } from "../components/pages/CapacityManagementPage";
 import { SchedulingManagementPage } from "../components/pages/SchedulingManagementPage";
 import { AdminWarehousePage } from "../components/pages/AdminWarehousePage";
+import { FeatureFlagsPage } from "../components/pages/FeatureFlagsPage";
 import { PublicRoute } from "./PublicRoute";
 import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
@@ -121,6 +122,14 @@ export function AppRoutes(): ReactElement {
           element={
             <AdminRoute>
               <AdminWarehousePage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/feature-flags"
+          element={
+            <AdminRoute>
+              <FeatureFlagsPage />
             </AdminRoute>
           }
         />

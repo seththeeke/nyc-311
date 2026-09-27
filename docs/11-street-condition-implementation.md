@@ -13,8 +13,8 @@
 > section below for the full checklist; **neither Topic 1's original
 > commit nor Topic 7's changes have been confirmed live via the pipeline
 > yet.** Topic 2 (monitoring cleanup) was dropped from this doc — done on
-> a separate branch. Topic 4 is agreed at the design level but not yet
-> built. Topics 5/6 are agreed but explicitly flagged for a fresh,
+> a separate branch. Topic 4 was re-negotiated as a combined feature-flag
+> + experiment service and built 2026-09-27 (see §4). Topics 5/6 are agreed but explicitly flagged for a fresh,
 > in-depth pass right before their implementation starts — not done yet.
 > Topic 3 (routing) is still deferred, undecided.
 >
@@ -64,7 +64,7 @@ doc-level status banner above.
 |---|---|
 | [1. Evaluation narrowing — drop the ingestion stub filters, replace random order evaluation with a Street-Condition filter](#1-evaluation-narrowing--drop-the-ingestion-stub-filters-replace-random-order-evaluation-with-a-street-condition-filter) | **Implemented (2026-09-14)** |
 | [3. Route planning — self-hosted routing vs. a free routing API](#3-route-planning--self-hosted-routing-vs-a-free-routing-api) | **Deferred (2026-09-14)** — user wants to think it over |
-| [4. Feature flags — storage, evaluation, and a new Admin tile](#4-feature-flags--storage-evaluation-and-a-new-admin-tile) | **Agreed (2026-09-14)** |
+| [4. Feature flags & experiments — treatments, overrides, percentage splits, and a new Admin tab](#4-feature-flags--experiments--treatments-overrides-percentage-splits-and-a-new-admin-tab) | **Implemented (2026-09-27)** |
 | [5. Cost prediction (brute-force) at scheduling, and where the estimate lives](#5-cost-prediction-brute-force-at-scheduling-and-where-the-estimate-lives) | **Agreed (2026-09-14)** — revisit in depth before implementation |
 | [6. ML cost-estimation experiment — synthetic data, local training, and a Python Lambda](#6-ml-cost-estimation-experiment--synthetic-data-local-training-and-a-python-lambda) | **Agreed (2026-09-14)** — revisit in depth before implementation |
 | [7. Fleet map UX — truck icons and a fading path trail of an operator's last 5 completed jobs](#7-fleet-map-ux--truck-icons-and-a-fading-path-trail-of-an-operators-last-5-completed-jobs) | **Implemented (2026-09-15)** |
@@ -187,78 +187,119 @@ ready to pick.
 
 ---
 
-## 4. Feature flags — storage, evaluation, and a new Admin tile
+## 4. Feature flags & experiments — treatments, overrides, percentage splits, and a new Admin tab
 
-**Agreed (2026-09-14).** Came out of §6's cost-model discussion — rather than an
-offline "experiment" with no live ground truth to score against (there's
-no real materials-cost feedback loop once an Order actually runs), the
-brute-force vs. ML choice becomes a live, admin-toggleable flag: ship
-both `MaterialsCostEstimator` implementations, flip between them without
-a redeploy, and build confidence in the ML one on real usage before
-committing to it as the default. This is deliberately built as a
-general framework, not a one-off toggle just for cost — the project
-already has one other documented-but-never-built need for exactly this
-(`CLAUDE.md` §5.2 / `claude-prompt-initial.md`'s failure-injection mode,
-"toggleable by the Admin via a DynamoDB config item or Parameter Store
-flag," tracked as [#36](https://github.com/seththeeke/nyc-311/issues/36)
-and still unbuilt — confirmed by grep, no chaos-config code exists
-anywhere today). Building this now as a real, generic mechanism means
-that backlog item has somewhere to plug in later without a redesign —
-same "one more thing joins an existing seam" shape as `Operators`
-joining the warehouse pipeline in `7-data-warehousing.md` Leg 6.
+**Re-negotiated and implemented 2026-09-27.** Supersedes the original
+2026-09-14 plain key/value design. That design covered the brute-force
+vs. ML toggle; this one goes further, so one mechanism handles both
+**feature flags** and **experiments**: sample X% of traffic into a
+treatment, and allow-list specific entities (e.g. one Operator) so they
+always behave the same way. It is still the seam
+[#36](https://github.com/seththeeke/nyc-311/issues/36)'s failure injection
+plugs into later.
 
-**Storage: a new `FeatureFlags` table, not SSM Parameter Store.**
-Every other piece of admin-managed state in this project already lives
-in DynamoDB behind a `Dao<T>` (`Operator`s, `WarehouseJobRuns`
-definitions, ...), with the exact "list everything, toggle one thing"
-API shape this needs already established by
-`GET/POST/DELETE /admin/warehouse/jobs` and `GET/POST/DELETE /capacity`.
-SSM Parameter Store would work too (`claude-prompt-initial.md` mentions
-it as an alternative) but adds a new AWS API surface (`ssm:GetParameter`/
-`PutParameter`) this project has never used, for no benefit over
-DynamoDB at this scale — flags are read at most once per scheduling
-decision, not a hot Lambda-cold-start path that would benefit from SSM's
-own caching layer.
+Negotiated question by question (Q1–Q7):
 
-**Shape:** plain (non-event-sourced) entity, `flag_key` (PK, e.g.
-`"COST_MODEL"`) + `value` (a plain string, not a typed boolean) +
-`updated_at`/`updated_by`. A string value rather than a boolean
-covers both shapes a flag needs to take in this project — a genuine
-on/off switch (the future failure-injection case) and a named-variant
-selector (`"BRUTE_FORCE"` / `"ML"` for the cost model) — without two
-parallel flag mechanisms. Each flag's valid values are a convention
-documented at its call site, not enforced by the table itself (matching
-how `ORDER_SCHEDULED`'s own `cost_model` payload field is just a plain
-string today).
+| # | Question | Decision |
+|---|---|---|
+| Q1 | Flag vs. experiment | **One entity.** Every flag is a set of named treatments with a default, per-entity overrides, and a multi-way percentage split. A plain on/off flag is just `treatments: ["ON","OFF"]` with no allocations. |
+| Q2 | `getTreatment` input | **Typed context plus `entity_type` on overrides.** The context is a zod-validated object (today just `operator_id`). Each override names `entity_type` + `entity_id`, so an Order id and an Operator id can never collide once more context fields exist. |
+| Q3 | "Own backend service" | **Self-contained `service/featureFlag/` module, one Lambda per route.** Internal backend callers (e.g. scheduling, for `COST_MODEL`) import `getTreatment()` directly, with no HTTP hop. |
+| Q4 | Lifecycle | **Full CRUD from the Admin tab.** `getTreatment` on a missing flag returns `404` over HTTP. In-process callers pass a `fallback`, so a missing or deleted flag never breaks their code path. |
+| Q5 | Write semantics | **Whole-flag `PUT` with optimistic concurrency.** Every flag carries an integer `version`, and a `PUT` must send the `expected_version` it read or get `409`. |
+| Q6 | `getTreatment` response | **`{ flag_key, treatment }` only.** Why (`OVERRIDE`/`ALLOCATION`/`DEFAULT`) and which `flag_version` decided it go to a structured log line, not the response. Nothing is persisted per evaluation. |
+| Q7 | Admin UI | **One `/admin/feature-flags` page with expandable rows**, each expanding in place into its editor; "New flag" adds a blank row. |
 
-**Read path:** a new `getFeatureFlagDao()`/`featureFlagService.ts`,
-constructed lazily per the project's established "no module-scope
-singleton" rule (`CLAUDE.md` §5.2, the `nyc311RequestService.ts`
-cold-start incident). `orderSchedulingService.ts`'s `dispatchOneOrder`
-reads the `COST_MODEL` flag once per invocation and picks the matching
-`MaterialsCostEstimator` implementation — same shape as every other
-injected-dependency choice in that function.
+### 4.1 Models (`backend/models/featureFlag.ts`, mirrored in `web-app/src/models/featureFlag.ts`)
 
-**Write path / Admin UI:** a new Admin tile ("Feature Flags," alongside
-Capacity/Scheduling/SQL-Query/Warehouse) → `/admin/feature-flags` →
-lists every flag with its current value and a control to change it,
-backed by `GET /admin/feature-flags` and `PUT /admin/feature-flags/{key}`
-(admin-authorized, same `requireAdminUser` pattern as everything else
-under `/admin`). Full stack, mirroring the Capacity/Warehouse-Jobs
-precedent exactly: `backend/models/featureFlag.ts`,
-`dao/featureFlag/featureFlagDao.ts`, `service/featureFlag/featureFlagService.ts`,
-`controller/web-api/{getFeatureFlagsController,updateFeatureFlagController}.ts`,
-`cdk/data/FeatureFlagsTable.ts`,
-`cdk/lambda/Nyc311{Get,Update}FeatureFlagsApiLambda.ts`; web-app
-`models/featureFlag.ts`, `services/featureFlagService.ts` (mock + live),
-`hooks/{useFeatureFlags,useUpdateFeatureFlag}.ts`,
-`components/featureFlags/FeatureFlagList.tsx`,
-`components/pages/FeatureFlagsPage.tsx`, a new tile icon, fixtures, full
-mirrored tests.
+```ts
+ENTITY_TYPES = ["OPERATOR"]                    /* grows later: ORDER, LOCATION, ... */
+TREATMENT_REASONS = ["OVERRIDE", "ALLOCATION", "DEFAULT"]   /* log-only */
 
-**Initial flag set:** just `COST_MODEL` (`"BRUTE_FORCE"` | `"ML"`,
-default `"BRUTE_FORCE"` until §6's model is trained and trusted). The
-mechanism is generic; nothing else gets a flag in this pass.
+FeatureFlagOverride   { entity_type: "OPERATOR"; entity_id: string; treatment: string }
+FeatureFlagAllocation { treatment: string; percent: number /* integer 1–100 */ }
+
+FeatureFlag {
+  flag_key:          string                    /* PK, ^[A-Z][A-Z0-9_]{0,63}$ */
+  description:       string                    /* ≤ 500 chars */
+  treatments:        string[]                  /* 1–10, unique, same ALL_CAPS pattern */
+  default_treatment: string                    /* ∈ treatments */
+  overrides:         FeatureFlagOverride[]     /* unique (entity_type, entity_id); treatment ∈ treatments */
+  allocations:       FeatureFlagAllocation[]   /* unique treatment ∈ treatments; Σ percent ≤ 100 */
+  version:           number                    /* 1 on create, +1 per PUT */
+  created_at, updated_at: string               /* ISO-8601 */
+  updated_by:        string                    /* User.user_id — never an email */
+}
+
+TreatmentContext  { operator_id?: string }     /* .strict(); new fields added as needed */
+TreatmentRequest  { context: TreatmentContext }
+TreatmentResponse { flag_key: string; treatment: string }
+
+FeatureFlagInput         = description/treatments/default_treatment/overrides/allocations
+CreateFeatureFlagRequest = FeatureFlagInput & { flag_key }
+UpdateFeatureFlagRequest = FeatureFlagInput & { expected_version: number }
+```
+
+### 4.2 API
+
+| Method | Path | Auth | Body → Response | Errors |
+|---|---|---|---|---|
+| GET | `/feature-flags` | public | → `{ flags: FeatureFlag[] }` | — |
+| GET | `/feature-flags/{flag_key}` | public | → `FeatureFlag` | 404 |
+| POST | `/feature-flags/{flag_key}/treatment` | public | `TreatmentRequest` → `TreatmentResponse` | 400, 404 |
+| POST | `/admin/feature-flags` | admin JWT + `requireAdminUser` | `CreateFeatureFlagRequest` → `201 FeatureFlag` (v1) | 400, 409 if key exists |
+| PUT | `/admin/feature-flags/{flag_key}` | admin | `UpdateFeatureFlagRequest` → `FeatureFlag` (v+1); key immutable | 400, 404, 409 stale version |
+| DELETE | `/admin/feature-flags/{flag_key}` | admin | → `204` | 404 |
+
+Public reads return the full config, overrides included. Operator ids
+are already public via `/fleet/locations`, and `updated_by` is a
+`user_id`, so nothing new is exposed. Delete is unconditional, with no
+version check.
+
+### 4.3 How a treatment is chosen (`treatmentEvaluator.ts`, a pure function)
+
+1. **Override:** the first override whose `entity_type`'s context field
+   matches (`OPERATOR` ↔ `context.operator_id`) wins.
+2. **Allocation:** otherwise `r = random() * 100` walks the allocations
+   cumulatively (e.g. `[{ML, 10}]` → `r < 10` ⇒ `ML`).
+3. **Default:** any remaining traffic gets `default_treatment`.
+
+It's a plain random draw per call, with no hashing or sticky bucketing,
+so an Operator without an override can land in different treatments on
+separate calls. That's deliberate for this pass. Each evaluation logs
+`{ flag_key, treatment, reason, flag_version, context }`.
+
+The in-process API is
+`getTreatment(flagKey, context, { fallback })`. A missing flag returns
+`fallback` and logs a WARN.
+
+### 4.4 Where it lives
+
+- **backend:** `models/featureFlag.ts`, `dao/featureFlag/featureFlagDao.ts`
+  (plain `Dao`; creates condition on `attribute_not_exists(flag_key)`,
+  updates on `version = :expected`), `service/featureFlag/{featureFlagService,treatmentEvaluator}.ts`,
+  six `controller/web-api/*FeatureFlag*Controller.ts`.
+- **cdk:** `data/FeatureFlagsTable.ts` (`FeatureFlags-<Env>`, PK
+  `flag_key`), one parameterized `lambda/Nyc311FeatureFlagApiLambda.ts`
+  construct instantiated per operation (`Nyc311<Op>FeatureFlagApi-<Env>`,
+  least-privilege grants per operation), routes on `Nyc311Api`, with the
+  admin routes behind the existing JWT authorizer.
+- **web-app:** a "Feature Flags" Admin tile and menu entry lead to
+  `/admin/feature-flags` (`FeatureFlagsPage`). Rows are `FeatureFlagRow`,
+  which expands into a `FeatureFlagEditor`; the editor holds the
+  treatments/default fields, `OverridesEditor` and `AllocationsEditor`
+  ("default gets X%"). Supporting pieces are the `useFeatureFlags` hook
+  (query + create/update/delete mutations), `featureFlagService`
+  (mock + live) and `test-data/featureFlags.ts`.
+- **Integration test:** `backend/tests/integration/featureFlagTreatmentApi.integration.test.ts`
+  creates a throwaway flag through the admin API and checks that
+  `getTreatment` honors an override and a 100% allocation, and returns
+  `404` for an unknown flag. It deletes the flag afterward.
+
+**Out of scope for this pass:** wiring `COST_MODEL` into scheduling
+(Topic 5; the flag is created from the new tab once that lands), a
+web-app `getTreatment` hook (no UI consumer yet), and sticky or hashed
+bucketing.
 
 ---
 
@@ -561,10 +602,31 @@ for the model change, the new component, and the DAO/GSI write.
       `Nyc311-Prod` deploy status for this change is unconfirmed. Check
       the pipeline before considering this leg actually live.
 
-### Topic 4 — agreed, not yet built
+### Topic 4 — feature flags & experiments — **implemented 2026-09-27**
 
-The feature-flag framework is fully specified above with no open
-questions, ready to implement whenever picked up next.
+- [x] `backend`: `models/featureFlag.ts` (zod, including the cross-field
+      rules), `dao/featureFlag/featureFlagDao.ts` (create conditioned on
+      `attribute_not_exists`, update conditioned on `version`),
+      `service/featureFlag/{featureFlagService,treatmentEvaluator}.ts`
+      (override → random % → default, plus in-process `getTreatment`
+      with a fallback), six `controller/web-api/*` controllers.
+- [x] `cdk`: `FeatureFlags-<Env>` table, one parameterized
+      `Nyc311FeatureFlagApiLambda` per operation with least-privilege grants
+      (UsersTable only on admin operations), six routes on `Nyc311Api`
+      (three public, three behind the admin JWT authorizer).
+- [x] `web-app`: `/admin/feature-flags` page with expandable rows, a
+      "New flag" editor, a two-click delete, and a versioned save. There's
+      also a Feature Flags Admin tile and menu entry, a mock + live
+      `featureFlagService` and a `useFeatureFlags` hook.
+- [x] Integration test: `backend/tests/integration/featureFlagTreatmentApi.integration.test.ts`
+      (override, 100% allocation, 400 for an unsupported context field,
+      404 for an unknown flag; the throwaway flag is created and deleted
+      via the admin API). Skipped for `local`.
+- [x] `backend`/`cdk`/`web-app` build/lint/`test:coverage` all green
+      (1027, 355, and 1007 tests; 90%+ per file); `cdk synth` succeeds.
+- [ ] **Not yet done:** confirm `Nyc311Pipeline` deploys it and the
+      integration test passes against `Nyc311-Test`. Then create
+      `COST_MODEL` from the new tab once Topic 5 is built.
 
 ### Topic 7 — fleet map UX — **implemented 2026-09-15**
 

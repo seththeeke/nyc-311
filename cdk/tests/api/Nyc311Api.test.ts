@@ -35,6 +35,12 @@ import { Nyc311RemoveCapacityApiLambda } from "../../lambda/Nyc311RemoveCapacity
 import { Nyc311GetCapacityApiLambda } from "../../lambda/Nyc311GetCapacityApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311GetFleetLocationsApiLambda } from "../../lambda/Nyc311GetFleetLocationsApiLambda";
+import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
+import {
+  FEATURE_FLAG_API_OPERATIONS,
+  Nyc311FeatureFlagApiLambda,
+  type FeatureFlagApiOperation,
+} from "../../lambda/Nyc311FeatureFlagApiLambda";
 import { Nyc311Api } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -210,6 +216,18 @@ function synthesize(envName: "TEST" | "PROD"): Template {
       warehouseBucket,
     }
   );
+  const featureFlagsTable = new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName });
+  const featureFlagApiLambdas = Object.fromEntries(
+    FEATURE_FLAG_API_OPERATIONS.map((operation) => [
+      operation,
+      new Nyc311FeatureFlagApiLambda(stack, `Nyc311FeatureFlagApiLambda${operation}`, {
+        envName,
+        operation,
+        featureFlagsTable,
+        usersTable,
+      }),
+    ])
+  ) as Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -236,6 +254,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     listWarehouseJobsApiLambda,
     getWarehouseJobSqlApiLambda,
     getWarehouseJobRunResultsApiLambda,
+    featureFlagApiLambdas,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -288,7 +307,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 19);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 25);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -383,6 +402,9 @@ describe("Nyc311Api", () => {
         "DELETE /admin/warehouse/jobs/{name}",
         "GET /admin/warehouse/jobs/{name}/sql",
         "POST /admin/warehouse/job-runs/results",
+        "POST /admin/feature-flags",
+        "PUT /admin/feature-flags/{flag_key}",
+        "DELETE /admin/feature-flags/{flag_key}",
       ].sort()
     );
   });
@@ -395,7 +417,13 @@ describe("Nyc311Api", () => {
     });
   });
 
-  it("declares exactly nineteen routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 19);
+  it("wires the public feature-flag reads and getTreatment with no authorizer", () => {
+    for (const routeKey of ["GET /feature-flags", "GET /feature-flags/{flag_key}", "POST /feature-flags/{flag_key}/treatment"]) {
+      testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "NONE" });
+    }
+  });
+
+  it("declares exactly twenty-five routes today", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 25);
   });
 });

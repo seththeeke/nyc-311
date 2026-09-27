@@ -49,6 +49,12 @@ import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
+import { FeatureFlagsTable } from "../data/FeatureFlagsTable";
+import {
+  FEATURE_FLAG_API_OPERATIONS,
+  Nyc311FeatureFlagApiLambda,
+  type FeatureFlagApiOperation,
+} from "../lambda/Nyc311FeatureFlagApiLambda";
 import { Nyc311AdminAuth } from "../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
 import { OperatorsTable } from "../data/OperatorsTable";
@@ -204,6 +210,19 @@ export class Nyc311Stack extends Stack {
       operatorsTable,
       usersTable,
     });
+    /* 11-street-condition-implementation.md §4 — the feature-flag/experiment service, one Lambda per operation. */
+    const featureFlagsTable = new FeatureFlagsTable(this, "FeatureFlagsTable", { envName: props.envName });
+    const featureFlagApiLambdas = Object.fromEntries(
+      FEATURE_FLAG_API_OPERATIONS.map((operation) => [
+        operation,
+        new Nyc311FeatureFlagApiLambda(this, `Nyc311FeatureFlagApiLambda${operation}`, {
+          envName: props.envName,
+          operation,
+          featureFlagsTable,
+          usersTable,
+        }),
+      ])
+    ) as Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
     const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
       envName: props.envName,
@@ -671,6 +690,7 @@ export class Nyc311Stack extends Stack {
       listWarehouseJobsApiLambda,
       getWarehouseJobSqlApiLambda,
       getWarehouseJobRunResultsApiLambda,
+      featureFlagApiLambdas,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,

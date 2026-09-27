@@ -103,3 +103,12 @@ export function SqlConsoleIcon(): ReactElement {
     </svg>
   );
 }
+
+export function FeatureFlagIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M5 21V4" />
+      <path d="M5 4h11l-2 4 2 4H5" />
+    </svg>
+  );
+}

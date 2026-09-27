@@ -23,6 +23,7 @@ import type { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311Delet
 import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
 import type { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
 import type { Nyc311GetWarehouseJobRunResultsApiLambda } from "../warehouse/Nyc311GetWarehouseJobRunResultsApiLambda";
+import type { FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -53,6 +54,8 @@ export interface Nyc311ApiProps {
   getWarehouseJobSqlApiLambda: Nyc311GetWarehouseJobSqlApiLambda;
   /** `7-data-warehousing.md` §12b's Reports tab addition — bulk raw job-run results by id, same authorizer. */
   getWarehouseJobRunResultsApiLambda: Nyc311GetWarehouseJobRunResultsApiLambda;
+  /** `11-street-condition-implementation.md` §4.2 — one Lambda per feature-flag operation. */
+  featureFlagApiLambdas: Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -72,6 +75,16 @@ export interface Nyc311ApiProps {
  * deployed Test API without a browser-side CORS error during local dev.
  */
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
+
+/* Feature-flag routes (§4.2): reads and getTreatment are public, every write is admin-only. */
+const FEATURE_FLAG_ROUTES: { operation: FeatureFlagApiOperation; path: string; method: HttpMethod; admin: boolean }[] = [
+  { operation: "LIST", path: "/feature-flags", method: HttpMethod.GET, admin: false },
+  { operation: "GET", path: "/feature-flags/{flag_key}", method: HttpMethod.GET, admin: false },
+  { operation: "GET_TREATMENT", path: "/feature-flags/{flag_key}/treatment", method: HttpMethod.POST, admin: false },
+  { operation: "CREATE", path: "/admin/feature-flags", method: HttpMethod.POST, admin: true },
+  { operation: "UPDATE", path: "/admin/feature-flags/{flag_key}", method: HttpMethod.PUT, admin: true },
+  { operation: "DELETE", path: "/admin/feature-flags/{flag_key}", method: HttpMethod.DELETE, admin: true },
+];
 
 /**
  * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — an HTTP
@@ -223,5 +236,14 @@ export class Nyc311Api extends HttpApi {
       integration: new HttpLambdaIntegration("PostJobRunResultsIntegration", props.getWarehouseJobRunResultsApiLambda),
       authorizer: props.adminAuthorizer,
     });
+
+    for (const route of FEATURE_FLAG_ROUTES) {
+      this.addRoutes({
+        path: route.path,
+        methods: [route.method],
+        integration: new HttpLambdaIntegration(`FeatureFlag${route.operation}Integration`, props.featureFlagApiLambdas[route.operation]),
+        ...(route.admin ? { authorizer: props.adminAuthorizer } : {}),
+      });
+    }
   }
 }

@@ -66,6 +66,7 @@ export const MENU: readonly MenuEntry[] = [
       { label: "Capacity", to: "/admin/capacity" },
       { label: "Scheduling", to: "/admin/scheduling" },
       { label: "Data Warehouse", to: "/admin/warehouse" },
+      { label: "Feature Flags", to: "/admin/feature-flags" },
     ],
   },
 ];
