@@ -1,5 +1,5 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchGetCommand, DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -18,6 +18,9 @@ class TestDao extends Dao<TestEntity> {
   }
   async put(entity: TestEntity, options?: PutItemOptions): Promise<void> {
     return this.putItem(entity, options);
+  }
+  async getMany(ids: string[]): Promise<Map<string, TestEntity>> {
+    return this.batchGetItems(ids);
   }
 }
 
@@ -128,6 +131,64 @@ describe("Dao.getItem (via TestDao.get)", () => {
   it("throws ValidationError when the stored item doesn't match the schema", async () => {
     ddbMock.on(GetCommand).resolves({ Item: { id: "a" } });
     await expect(dao.get("a")).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("Dao.batchGetItems (via TestDao.getMany)", () => {
+  it("returns validated entities keyed by partition key, omitting missing keys", async () => {
+    ddbMock.on(BatchGetCommand).resolves({ Responses: { TestTable: [{ id: "a", value: 1 }, { id: "b", value: 2 }] } });
+
+    const result = await dao.getMany(["a", "b", "missing"]);
+
+    expect(result).toEqual(new Map([["a", { id: "a", value: 1 }], ["b", { id: "b", value: 2 }]]));
+    expect(ddbMock.commandCalls(BatchGetCommand)[0].args[0].input).toEqual({
+      RequestItems: { TestTable: { Keys: [{ id: "a" }, { id: "b" }, { id: "missing" }] } },
+    });
+  });
+
+  it("dedupes keys and makes no call for an empty list", async () => {
+    ddbMock.on(BatchGetCommand).resolves({ Responses: { TestTable: [{ id: "a", value: 1 }] } });
+
+    await dao.getMany(["a", "a"]);
+    await expect(dao.getMany([])).resolves.toEqual(new Map());
+
+    expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(1);
+    expect(ddbMock.commandCalls(BatchGetCommand)[0].args[0].input.RequestItems?.TestTable.Keys).toEqual([{ id: "a" }]);
+  });
+
+  it("chunks at 100 keys per BatchGetItem request", async () => {
+    ddbMock.on(BatchGetCommand).resolves({});
+    const ids = Array.from({ length: 250 }, (_, i) => `id-${i}`);
+
+    await dao.getMany(ids);
+
+    const sizes = ddbMock.commandCalls(BatchGetCommand).map((call) => call.args[0].input.RequestItems?.TestTable.Keys?.length);
+    expect(sizes).toEqual([100, 100, 50]);
+  });
+
+  it("retries UnprocessedKeys until every key is served", async () => {
+    ddbMock
+      .on(BatchGetCommand)
+      .resolvesOnce({ Responses: { TestTable: [{ id: "a", value: 1 }] }, UnprocessedKeys: { TestTable: { Keys: [{ id: "b" }] } } })
+      .resolvesOnce({ Responses: { TestTable: [{ id: "b", value: 2 }] } });
+
+    const result = await dao.getMany(["a", "b"]);
+
+    expect([...result.keys()]).toEqual(["a", "b"]);
+    expect(ddbMock.commandCalls(BatchGetCommand)[1].args[0].input.RequestItems?.TestTable.Keys).toEqual([{ id: "b" }]);
+  });
+
+  it("throws when keys remain unprocessed after the final attempt", async () => {
+    ddbMock.on(BatchGetCommand).resolves({ UnprocessedKeys: { TestTable: { Keys: [{ id: "a" }] } } });
+
+    await expect(dao.getMany(["a"])).rejects.toThrow("left 1 keys unprocessed after 4 attempts");
+    expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(4);
+  });
+
+  it("throws ValidationError when a returned item doesn't match the schema", async () => {
+    ddbMock.on(BatchGetCommand).resolves({ Responses: { TestTable: [{ id: "a" }] } });
+
+    await expect(dao.getMany(["a"])).rejects.toBeInstanceOf(ValidationError);
   });
 });
 

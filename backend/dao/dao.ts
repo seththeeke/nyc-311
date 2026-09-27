@@ -1,11 +1,17 @@
 import { ConditionalCheckFailedException, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchGetCommand, DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import type { ZodType } from "zod";
 import { logInfo } from "../logger";
 import { TerminalError, ValidationError } from "../models/errors";
 
 /* Exported so DAOs needing a raw Scan/Query (e.g. OrderDao.listOrders) can filter to projection-only items. */
 export const PROJECTION_SORT_KEY = "#METADATA";
+
+/* DynamoDB's hard per-request key limit for BatchGetItem. */
+const BATCH_GET_MAX_KEYS = 100;
+/* Bounded retries for UnprocessedKeys (throttling/size limits) before giving up loudly. */
+const BATCH_GET_MAX_ATTEMPTS = 4;
+const BATCH_GET_BACKOFF_MS = 50;
 
 /**
  * Options for {@link Dao.putItem}.
@@ -88,6 +94,52 @@ export abstract class Dao<TEntity> {
     );
     if (!result.Item) return null;
     return this.validate(result.Item);
+  }
+
+  /**
+   * Fetches many items by partition key via BatchGetItem — chunked at
+   * DynamoDB's 100-key limit, chunks run in parallel, `UnprocessedKeys`
+   * retried with backoff. Duplicate keys are collapsed first (DynamoDB
+   * rejects a batch containing the same key twice).
+   *
+   * @param partitionKeyValues - Values of {@link partitionKeyName} to look up.
+   * @returns Validated entities keyed by partition key value; a missing key is simply absent.
+   * @throws Error if some keys are still unprocessed after the final attempt.
+   */
+  protected async batchGetItems(partitionKeyValues: string[]): Promise<Map<string, TEntity>> {
+    const uniqueValues = [...new Set(partitionKeyValues)];
+    logInfo("Dao.batchGetItems", { table: this.tableName, keyCount: uniqueValues.length, partitionKeyValues: uniqueValues });
+    const chunks: string[][] = [];
+    for (let i = 0; i < uniqueValues.length; i += BATCH_GET_MAX_KEYS) {
+      chunks.push(uniqueValues.slice(i, i + BATCH_GET_MAX_KEYS));
+    }
+    const chunkResults = await Promise.all(chunks.map((chunk) => this.batchGetChunk(chunk)));
+    const items = new Map<string, TEntity>();
+    for (const item of chunkResults.flat()) {
+      const entity = this.validate(item);
+      items.set(String((item as Record<string, unknown>)[this.partitionKeyName]), entity);
+    }
+    return items;
+  }
+
+  private async batchGetChunk(partitionKeyValues: string[]): Promise<Record<string, unknown>[]> {
+    const found: Record<string, unknown>[] = [];
+    let pendingKeys: Record<string, unknown>[] = partitionKeyValues.map((value) => ({ [this.partitionKeyName]: value }));
+    for (let attempt = 1; attempt <= BATCH_GET_MAX_ATTEMPTS && pendingKeys.length > 0; attempt++) {
+      if (attempt > 1) {
+        logInfo("Dao.batchGetItems.retryUnprocessed", { table: this.tableName, attempt, unprocessedCount: pendingKeys.length });
+        await new Promise((resolve) => setTimeout(resolve, BATCH_GET_BACKOFF_MS * 2 ** (attempt - 2)));
+      }
+      const result = await this.client.send(
+        new BatchGetCommand({ RequestItems: { [this.tableName]: { Keys: pendingKeys } } })
+      );
+      found.push(...(result.Responses?.[this.tableName] ?? []));
+      pendingKeys = result.UnprocessedKeys?.[this.tableName]?.Keys ?? [];
+    }
+    if (pendingKeys.length > 0) {
+      throw new Error(`BatchGetItem on ${this.tableName} left ${pendingKeys.length} keys unprocessed after ${BATCH_GET_MAX_ATTEMPTS} attempts`);
+    }
+    return found;
   }
 
   /**

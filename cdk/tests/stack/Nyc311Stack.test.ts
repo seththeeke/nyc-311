@@ -271,6 +271,7 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },
           MONITORED_LAMBDA_JOB_RESULT_API: { Ref: Match.stringLikeRegexp("^Nyc311JobResultApiLambda") },
           MONITORED_LAMBDA_WORKSPACE_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311WorkspaceMetricsApiLambda") },
+          MONITORED_LAMBDA_FLEET_LOCATIONS_API: { Ref: Match.stringLikeRegexp("^Nyc311GetFleetLocationsApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

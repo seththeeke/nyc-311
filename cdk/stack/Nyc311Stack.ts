@@ -647,6 +647,7 @@ export class Nyc311Stack extends Stack {
       warehouseJobsApiFunctionName: warehouseJobsApiLambda.functionName,
       jobResultApiFunctionName: jobResultApiLambda.functionName,
       workspaceMetricsApiFunctionName: workspaceMetricsApiLambda.functionName,
+      fleetLocationsApiFunctionName: getFleetLocationsApiLambda.functionName,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {

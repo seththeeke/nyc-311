@@ -62,6 +62,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
     jobResultApiFunctionName: "Nyc311JobResultApi-Test",
     workspaceMetricsApiFunctionName: "Nyc311WorkspaceMetricsApi-Test",
+    fleetLocationsApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
   });
   const warehouseJobRunsTable = new WarehouseJobRunsTable(stack, "WarehouseJobRunsTable", { envName });
   const warehouseBucket = new Nyc311WarehouseBucket(stack, "Nyc311WarehouseBucket", { envName });

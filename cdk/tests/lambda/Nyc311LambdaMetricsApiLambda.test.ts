@@ -18,6 +18,7 @@ const PROPS = {
   warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
   jobResultApiFunctionName: "Nyc311JobResultApi-Test",
   workspaceMetricsApiFunctionName: "Nyc311WorkspaceMetricsApi-Test",
+  fleetLocationsApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
 };
 
 function synthesize(envName: "TEST" | "PROD"): Template {

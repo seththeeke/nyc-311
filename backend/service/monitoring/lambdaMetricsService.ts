@@ -33,6 +33,7 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "WarehouseJobsApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOBS_API" },
   { logicalName: "JobResultApi", envVar: "MONITORED_LAMBDA_JOB_RESULT_API" },
   { logicalName: "WorkspaceMetricsApi", envVar: "MONITORED_LAMBDA_WORKSPACE_METRICS_API" },
+  { logicalName: "FleetLocationsApi", envVar: "MONITORED_LAMBDA_FLEET_LOCATIONS_API" },
   { logicalName: "PipelineStatus", envVar: "MONITORED_LAMBDA_PIPELINE_STATUS" },
 ];
 

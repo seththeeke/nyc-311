@@ -54,7 +54,16 @@ describe("Nyc311GetFleetLocationsApiLambda", () => {
     });
   });
 
-  it("grants only Query (Operators, Orders) and GetItem (Locations) — read-only, no writes", () => {
+  it("sizes for a full vCPU with a 20s timeout and active X-Ray tracing", () => {
+    synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "Nyc311GetFleetLocationsApi-Test",
+      MemorySize: 1769,
+      Timeout: 20,
+      TracingConfig: { Mode: "Active" },
+    });
+  });
+
+  it("grants only Query (Operators, Orders) and BatchGetItem (Locations) — read-only, no writes", () => {
     const template = synthesize("TEST");
 
     const policies = template.findResources("AWS::IAM::Policy");
@@ -63,7 +72,7 @@ describe("Nyc311GetFleetLocationsApiLambda", () => {
     );
     const allActions = allStatements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
     expect(new Set(allActions.filter((a) => typeof a === "string" && a.startsWith("dynamodb:")))).toEqual(
-      new Set(["dynamodb:Query", "dynamodb:GetItem"])
+      new Set(["dynamodb:Query", "dynamodb:BatchGetItem"])
     );
   });
 });

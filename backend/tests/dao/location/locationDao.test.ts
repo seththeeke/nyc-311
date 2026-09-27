@@ -1,5 +1,5 @@
 import { ConditionalCheckFailedException, DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchGetCommand, DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationDao } from "../../../dao/location/locationDao";
@@ -29,6 +29,17 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("LocationDao.getLocations", () => {
+  it("batch-fetches Locations keyed by location_id", async () => {
+    ddbMock.on(BatchGetCommand).resolves({ Responses: { [TABLE_NAME]: [location] } });
+
+    await expect(locationDao.getLocations([location.location_id])).resolves.toEqual(new Map([[location.location_id, location]]));
+    expect(ddbMock.commandCalls(BatchGetCommand)[0].args[0].input).toEqual({
+      RequestItems: { [TABLE_NAME]: { Keys: [{ location_id: location.location_id }] } },
+    });
+  });
 });
 
 describe("LocationDao.findOrCreateLocation", () => {

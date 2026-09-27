@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Runtime, Tracing } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { OperatorsTable } from "../data/OperatorsTable";
@@ -23,7 +23,7 @@ export interface Nyc311GetFleetLocationsApiLambdaProps {
  * getFleetLocationsController.ts`. No UsersTable grant — this route is
  * public. Read-only on `OperatorsTable`, plus (`11-street-condition-
  * implementation.md` §7) `OrdersTable`'s recent-jobs trail query and
- * `LocationsTable`'s point lookups.
+ * `LocationsTable`'s batched lookups.
  */
 export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311GetFleetLocationsApiLambdaProps) {
@@ -41,8 +41,9 @@ export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getFleetLocationsController.ts"),
       handler: "getFleetLocationsController",
       runtime: Runtime.NODEJS_22_X,
-      timeout: Duration.seconds(10),
-      memorySize: 256,
+      timeout: Duration.seconds(20),
+      memorySize: 1769, /* one full vCPU — at 256 MB (~1/7 vCPU) SDK overhead alone took 6-10s and hit the timeout */
+      tracing: Tracing.ACTIVE,
       logGroup,
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
@@ -55,6 +56,6 @@ export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
 
     props.operatorsTable.grant(this, "dynamodb:Query");
     props.ordersTable.grant(this, "dynamodb:Query");
-    props.locationsTable.grant(this, "dynamodb:GetItem");
+    props.locationsTable.grant(this, "dynamodb:BatchGetItem");
   }
 }

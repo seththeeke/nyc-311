@@ -15,6 +15,11 @@ export class LocationDao extends Dao<Location> {
     return this.getItem(locationId);
   }
 
+  /** Bulk lookup by id via BatchGetItem — the fleet map resolves hundreds of job locations per call. Missing ids are absent from the map. */
+  async getLocations(locationIds: string[]): Promise<Map<string, Location>> {
+    return this.batchGetItems(locationIds);
+  }
+
   /**
    * Dedup-by-`bbl` at intake (`ddb-design.md`'s Locations table design):
    * returns the existing Location if one is already stored under this

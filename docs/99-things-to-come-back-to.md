@@ -214,3 +214,9 @@ See [#44](https://github.com/seththeeke/nyc-311/issues/44).
 See [#49](https://github.com/seththeeke/nyc-311/issues/49).
 
 ---
+
+## Precompute a fleet snapshot for GET /fleet/locations (O(1) fleet map)
+
+See [#51](https://github.com/seththeeke/nyc-311/issues/51).
+
+---
