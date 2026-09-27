@@ -208,3 +208,9 @@ See [#42](https://github.com/seththeeke/nyc-311/issues/42).
 See [#44](https://github.com/seththeeke/nyc-311/issues/44).
 
 ---
+
+## Bump 33 patch/minor-outdated dependencies across web-app/backend/cdk (within existing semver ranges)
+
+See [#49](https://github.com/seththeeke/nyc-311/issues/49).
+
+---
