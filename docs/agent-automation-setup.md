@@ -1,5 +1,9 @@
 # Agent automation — scheduled autonomous runs
 
+> **Being replaced** by the local orchestrator app — see
+> `agent-orchestration-spec.md`. This launchd setup stays live until that
+> spec's migration (§12) completes.
+
 How the repo's autonomous agents (today: `devx-agent`) run unattended on a
 cadence, on the dedicated Mac mini. Builds on the worktree isolation in
 `autonomous-agent-plan.md` / `CLAUDE.md` §9.
