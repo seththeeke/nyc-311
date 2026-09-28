@@ -220,3 +220,9 @@ See [#49](https://github.com/seththeeke/nyc-311/issues/49).
 See [#51](https://github.com/seththeeke/nyc-311/issues/51).
 
 ---
+
+## cdk/tests/pipeline/Nyc311AppStage.test.ts pays full-stack Lambda bundling cost (11s) to test a thin wrapper
+
+See [#52](https://github.com/seththeeke/nyc-311/issues/52).
+
+---
