@@ -220,3 +220,9 @@ See [#49](https://github.com/seththeeke/nyc-311/issues/49).
 See [#51](https://github.com/seththeeke/nyc-311/issues/51).
 
 ---
+
+## web-app: happy-dom localStorage/sessionStorage never wired up under Node 22+, breaking test:coverage (60/1007 tests, 0 coverage report)
+
+See [#54](https://github.com/seththeeke/nyc-311/issues/54).
+
+---
