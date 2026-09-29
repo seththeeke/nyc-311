@@ -27,5 +27,5 @@
     "declaration": false,
     "noEmit": true
   },
-  "include": ["bin", "stack", "tests"]
+  "include": ["bin", "stack", "tests", "scripts"]
 }

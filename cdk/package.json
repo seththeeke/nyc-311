@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:coverage:ci": "bash scripts/test-coverage-sharded.sh",
+    "plan-shards": "ts-node --prefer-ts-exts scripts/plan-shards.ts",
+    "measure-shard-timings": "ts-node --prefer-ts-exts scripts/measure-shard-timings.ts",
     "synth": "cdk synth --profile nyc311",
     "diff": "cdk diff --profile nyc311",
     "deploy": "cdk deploy --profile nyc311",
