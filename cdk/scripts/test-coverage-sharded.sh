@@ -37,6 +37,16 @@
 # day. Tried 5 first: a local sharded run passed, but the slowest shard
 # still took 51s -- too close to the 60s ceiling to trust on CodeBuild's
 # more variable performance. 6 gives real headroom, not just a bare pass.
+#
+# Switched 2026-09-29 (#34) from Vitest's own --shard=i/N (a contiguous
+# slice of the alphabetically-sorted file list, blind to duration) to
+# scripts/plan-shards.ts's duration-aware bin-packing: measured locally,
+# the alphabetical split ranged 7.2s-22.7s per shard (3.15x spread) even
+# though every shard has the same file count -- one unlucky shard was
+# always closer to the 60s ceiling than the others for no reason tied to
+# suite size. The packed plan ranges 17.1s-17.3s (near-perfectly even),
+# cutting the worst-case shard by ~24% without changing total test count,
+# coverage collected, or the merge-time threshold check below.
 
 set -uo pipefail
 # Deliberately no `-e` — each shard's exit status is captured and reported
@@ -47,7 +57,9 @@ set -uo pipefail
 # the shell's own "exit status 1"); `--reporter=default` restores it
 # alongside blob's merge data.
 
-SHARD_COUNT=6
+# SHARD_COUNT itself now lives in scripts/plan-shards.ts, next to the
+# packing logic that depends on it — read the plan's line count below
+# rather than duplicating the constant here.
 
 # One fork per shard process. The "onTaskUpdate" worker-RPC timeout this
 # whole script exists to dodge is a CodeBuild-only, parallelism-sensitive
@@ -68,9 +80,26 @@ DISABLE_PER_SHARD_THRESHOLDS=(
 
 rm -rf .vitest-reports coverage
 
-for shard in $(seq 1 "$SHARD_COUNT"); do
+# Reads plan-shards.ts's stdout (one shard's space-separated file list per
+# line) into an array without relying on `mapfile` (bash 4+ only —
+# CodeBuild's image has it, but this avoids a silent local-macOS/bash-3.2
+# failure for anyone running this script by hand).
+SHARD_FILE_LISTS=()
+while IFS= read -r line; do
+  SHARD_FILE_LISTS+=("$line")
+done < <(npx ts-node --prefer-ts-exts scripts/plan-shards.ts)
+SHARD_COUNT=${#SHARD_FILE_LISTS[@]}
+
+for i in "${!SHARD_FILE_LISTS[@]}"; do
+  shard=$((i + 1))
   echo "=== Shard ${shard}/${SHARD_COUNT} starting ==="
-  npx vitest run --shard="${shard}/${SHARD_COUNT}" --reporter=default --reporter=blob --coverage "${SERIAL_POOL[@]}" "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
+  # Vitest's blob reporter only auto-names its output per-shard when its
+  # own --shard flag is set (`.vitest-reports/blob-<i>-<n>.json`); since
+  # this script now picks each shard's explicit file list instead, every
+  # invocation would otherwise write the same `blob.json` and silently
+  # clobber the previous shard's data before --mergeReports ever runs.
+  # shellcheck disable=SC2086  # intentional word-splitting: a shard's file list
+  npx vitest run ${SHARD_FILE_LISTS[$i]} --reporter=default --reporter=blob --outputFile.blob=".vitest-reports/blob-${shard}.json" --coverage "${SERIAL_POOL[@]}" "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
   status=$?
   echo "=== Shard ${shard}/${SHARD_COUNT} exited with status ${status} ==="
   if [ "$status" -ne 0 ]; then
