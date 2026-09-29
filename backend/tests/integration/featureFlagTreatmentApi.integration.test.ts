@@ -17,6 +17,8 @@ import { FeatureFlagSchema } from "../../models/featureFlag";
 const TREATMENT_ROUTE = "/feature-flags/{flag_key}/treatment";
 const FLAG_KEY = `INTEGRATION_TEST_${Date.now()}`;
 const PINNED_OPERATOR_ID = "integration-test-pinned-operator";
+/* Setup signs in and creates the flag against cold Lambdas; Vitest's 10s default hook timeout isn't enough (it failed in the pipeline). */
+const HOOK_TIMEOUT_MS = 60000;
 
 function treatmentPath(flagKey: string): string {
   return `/feature-flags/${flagKey}/treatment`;
@@ -42,7 +44,7 @@ describe.skipIf(process.env.INTEGRATION_TARGET === "local")("POST /feature-flags
     expect(status).toBe(201);
     expect(FeatureFlagSchema.parse(body).version).toBe(1);
     created = true;
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     if (!created) return;
@@ -50,7 +52,7 @@ describe.skipIf(process.env.INTEGRATION_TARGET === "local")("POST /feature-flags
       headers: authHeaders,
     });
     expect(status).toBe(204);
-  });
+  }, HOOK_TIMEOUT_MS);
 
   /* Runs first so the route report's last recorded hit for this route is a success. */
   it("returns 404 for a flag that doesn't exist", async () => {

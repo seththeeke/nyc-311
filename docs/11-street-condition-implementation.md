@@ -624,9 +624,14 @@ for the model change, the new component, and the DAO/GSI write.
       via the admin API). Skipped for `local`.
 - [x] `backend`/`cdk`/`web-app` build/lint/`test:coverage` all green
       (1027, 355, and 1007 tests; 90%+ per file); `cdk synth` succeeds.
-- [ ] **Not yet done:** confirm `Nyc311Pipeline` deploys it and the
-      integration test passes against `Nyc311-Test`. Then create
-      `COST_MODEL` from the new tab once Topic 5 is built.
+- [x] Deployed: `Nyc311-Test`'s DeployTest succeeded for `af1410d`. Its
+      pipeline integration step then failed. The new test's `beforeAll`
+      (admin sign-in + flag create against cold Lambdas) exceeded Vitest's
+      10s default hook timeout, so all four cases were skipped. Fixed
+      2026-09-28 with an explicit 60s hook timeout. Re-run against the live
+      `Nyc311-Test` API: 4/4 passing, all three routes hit (200/201/204).
+- [x] **Topic 4 complete.** `COST_MODEL` itself is created from the new tab
+      once Topic 5 is built.
 
 ### Topic 7 — fleet map UX — **implemented 2026-09-15**
 
