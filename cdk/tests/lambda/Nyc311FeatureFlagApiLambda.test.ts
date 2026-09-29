@@ -10,13 +10,30 @@ import {
   type FeatureFlagApiOperation,
 } from "../../lambda/Nyc311FeatureFlagApiLambda";
 
+/*
+ * This file's 4 it/it.each blocks call synthesize() 24 times but only for
+ * 12 distinct (operation, envName) pairs — the rest re-run an identical,
+ * side-effect-free esbuild bundle to re-assert against a Template already
+ * computed earlier. Caching by that pair, same idea as the beforeAll-cached
+ * synths in Nyc311Stack.test.ts/Nyc311Api.test.ts, halves the synth count.
+ */
+const templateCache = new Map<string, Template>();
+
 function synthesize(operation: FeatureFlagApiOperation, envName: "TEST" | "PROD" = "TEST"): Template {
+  const cacheKey = `${operation}:${envName}`;
+  const cached = templateCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const featureFlagsTable = new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName });
   const usersTable = new UsersTable(stack, "UsersTable", { envName });
   new Nyc311FeatureFlagApiLambda(stack, "Fn", { envName, operation, featureFlagsTable, usersTable });
-  return Template.fromStack(stack);
+  const template = Template.fromStack(stack);
+  templateCache.set(cacheKey, template);
+  return template;
 }
 
 function policyActions(template: Template): unknown[] {
