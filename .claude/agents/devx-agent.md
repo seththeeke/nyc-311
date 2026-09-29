@@ -111,7 +111,7 @@ are open).
 `run` merges `.claude/agent-settings/devx-agent.json` (via
 `claude --settings`) — the complete allowlist; nothing else on the machine
 grants permissions — so this whole workflow is permitted headlessly:
-`git fetch`/`checkout`/`add`/`commit`/`push`, the Operational Loop,
+`git fetch`/`checkout`/`add`/`commit`/`push`, `git merge --no-edit origin/main` (+ `--abort`), the Operational Loop,
 `gh issue create`/`close` (your own ticket only), `gh pr create`/`checkout`/`comment`, read-only
 `gh api …/pulls/<n>/{comments,reviews}`, `Write`/`Edit`. What's *not*
 granted: `gh pr merge`/`close`, force-push, `git reset --hard`, any deploy, any
@@ -132,9 +132,70 @@ acceptable.
 
 Track these as a TodoWrite list so progress is visible.
 
+### 0. Tend your open PRs first — every run, before any new work
+
+Your open PRs outrank new work. Before step 1, in **every** run (NEW or REVISE
+mode), list the PRs you own — open PRs whose head branch starts with `devx/`:
+
+```
+gh pr list --repo seththeeke/nyc-311 --state open --limit 100 \
+  --json number,headRefName,mergeable \
+  --jq '.[] | select(.headRefName | startswith("devx/"))'
+```
+
+For each one, check for **unaddressed review comments** and **merge conflicts**
+(`mergeable` is `CONFLICTING`; if it's `UNKNOWN`, re-query once — GitHub computes
+it lazily). Handle every PR that has either, using the *Revision mode* procedure
+below. Only once every open `devx/` PR is clean (no unaddressed feedback, no
+conflicts) do you continue:
+
+- **NEW mode** → go on to step 1.
+- **REVISE mode** → stop after this step; no new work.
+
+If step 0 hit something it couldn't finish (a loop that won't go green, a
+conflict you couldn't resolve safely), don't start new work — report it and
+exit. Tending PRs is a full run's worth of work in itself if that's all there
+was.
+
 ### 1. Identify
 
-Investigate the repo for a concrete, bounded problem. Useful starting points:
+**First, requested issues.** Before hunting for your own problem, scan the open
+backlog for an issue someone has asked you to take:
+
+```
+gh issue list --repo seththeeke/nyc-311 --state open --label backlog \
+  --limit 200 --json number,title,comments \
+  --jq '.[] | select(any(.comments[]; (.body | test("devx-agent"; "i"))
+        and (.body | startswith("<!-- devx-agent -->") | not)))
+        | {number, title}'
+```
+
+A **request** is a comment that mentions `devx-agent` and does *not* start with
+your `<!-- devx-agent -->` marker (you post as the repo owner, so the marker is
+the only way to tell yourself apart). Read each hit with
+`gh issue view <n> --repo seththeeke/nyc-311 --comments` and skip it if:
+
+- an open PR already addresses it (a `devx/<n>-*` branch, or a PR body
+  containing `Closes #<n>`), or
+- your newest marked comment on it is newer than the request (you've already
+  answered — e.g. declined it).
+
+If any requested issue remains, **it is this run's work** — take the oldest
+request. It replaces your own investigation: the issue *is* the problem
+statement, and the "one improvement per run" rule still holds. The rest of the
+workflow applies unchanged except:
+
+- **Step 2** still needs a baseline number. If the request genuinely can't be
+  measured, don't make the change — comment on the issue (marker first) saying
+  why, and what metric would make it actionable, then exit.
+- **Step 3** — don't file a new ticket. Post a comment on the requested issue
+  (marker first) with the Evidence / Plan / Success criterion instead, and use
+  its number for the branch (`devx/<n>-<slug>`) and the PR's `Closes #<n>`.
+- **"Not worth shipping"** — you didn't file this ticket, so never close it;
+  comment your findings on it (marker first) and leave it open for the human.
+
+**Otherwise, find your own problem.** Investigate the repo for a concrete,
+bounded problem. Useful starting points:
 
 - `aws --profile nyc311 --region us-east-1 codepipeline get-pipeline-state --name Nyc311Pipeline`
   then the failed CodeBuild's CloudWatch logs — recurring Synth failures.
@@ -280,9 +341,11 @@ the final report.
 
 ## Revision mode
 
-Used when the prompt says **REVISE mode** and lists open PRs. Do **not** start
-new work or file new issues this run — only respond to review feedback on the
-listed PRs, one at a time.
+The procedure for tending an open PR — used by workflow step 0 in every run,
+and the *whole* run when the prompt says **REVISE mode** (then do **not** start
+new work or file new issues — only tend the open PRs, one at a time). A PR
+needs tending if it has unaddressed review feedback **or** merge conflicts
+with `main`.
 
 **Your marker.** You post as the repo owner's GitHub account, so authorship
 can't tell your comments from theirs. Every PR comment you post starts with
@@ -296,10 +359,11 @@ gh api repos/seththeeke/nyc-311/pulls/<n>/comments --paginate   # inline review 
 ```
 
 (`reviews[].body` for review summaries; skip empty bodies and bare approvals.)
-If a PR has nothing unaddressed, move to the next — a run where no PR has
-feedback is a successful no-op: say so and exit.
+If a PR has nothing unaddressed and isn't `CONFLICTING`, move to the next. In
+REVISE mode, a run where no PR needs tending is a successful no-op: say so and
+exit.
 
-For each PR with unaddressed feedback:
+For each PR that needs tending:
 
 1. **Check out its branch** (it may already exist locally from the original
    run — worktrees share refs):
@@ -310,22 +374,37 @@ For each PR with unaddressed feedback:
    If that fails because the branch is checked out in another worktree, use
    `git checkout --detach origin/<headRefName>` and push with
    `git push origin HEAD:<headRefName>`. Never `git checkout main`.
-2. **Address each comment** — make the change, or, if you disagree or it's out
-   of this PR's scope, don't change code and explain why in step 5. A request
+2. **Resolve merge conflicts first** (if `CONFLICTING`) — merge `main` into the
+   branch; never rebase:
+   ```
+   git merge --no-edit origin/main
+   ```
+   Resolve each conflicted file by keeping *both* sides' intent — `main`'s
+   changes are already reviewed and merged, so your PR's change adapts to
+   them, never the reverse. `docs/99-things-to-come-back-to.md` append
+   conflicts: keep every entry from both sides. Then `git add` the files and
+   `git commit --no-edit` to conclude the merge. If a conflict can't be
+   resolved without guessing at intent (both sides rewrote the same logic
+   differently), `git merge --abort`, leave the PR as-is, and explain the
+   conflict in step 6 for the human.
+3. **Address each comment** — make the change, or, if you disagree or it's out
+   of this PR's scope, don't change code and explain why in step 6. A request
    that's really new work → note it for the human; don't expand the PR.
-3. **Verify** — the full Operational Loop (workflow step 6) for every affected
-   package, after your final edit. Not green → don't push; report it in step 5.
-4. **Commit and push** as new commits on top (`[<feat|bugfi>] - Address review:
-   <summary>`, then `git push origin <headRefName>`). Never rebase, amend, or
-   force-push a PR branch. If `mergeable` is `CONFLICTING`, don't resolve it —
-   note it in step 5 for the human.
-5. **Reply** with one PR comment
+4. **Verify** — the full Operational Loop (workflow step 6) for every affected
+   package, after your final edit (a conflict resolution counts as an edit).
+   Not green → don't push; report it in step 6.
+5. **Commit and push** as new commits on top (`[<feat|bugfi>] - Address review:
+   <summary>` for comment fixes; the merge commit from step 2 stays as-is),
+   then `git push origin <headRefName>`. Never rebase, amend, or force-push a
+   PR branch.
+6. **Reply** with one PR comment
    (`gh pr comment <n> --repo seththeeke/nyc-311 --body-file <tmp>`), first
-   line `<!-- devx-agent -->`, then per comment: a link or quote, and what you
-   did (commit SHA) or why you didn't; then the Operational Loop results.
+   line `<!-- devx-agent -->`, then: the merge conflicts resolved (files, and
+   how) or why they were left; per review comment, a link or quote and what
+   you did (commit SHA) or why you didn't; then the Operational Loop results.
 
-Final report: per PR — comments found, addressed/declined, pushed SHA, loop
-status.
+Final report: per PR — conflicts resolved/left, comments found,
+addressed/declined, pushed SHA, loop status.
 
 ---
 
@@ -333,6 +412,10 @@ status.
 
 End your run with:
 
+- Step 0: per open `devx/` PR tended — conflicts resolved/left, comments
+  addressed/declined, pushed SHA (or "no open PRs needed tending").
+- Whether this run's work came from a requested issue (and which) or your own
+  investigation.
 - The problem, in one line.
 - Before → after metric.
 - PR URL and issue URL.

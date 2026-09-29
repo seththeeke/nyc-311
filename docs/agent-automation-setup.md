@@ -22,8 +22,10 @@ launchd (06:00, 18:00)
           `npm ci` any package whose lockfile changed; re-exec if this script changed
           then read config + prompts from a fresh origin/main (always latest)
        2. count open PRs on devx/* branches
-            < 3  → NEW mode     find + land one improvement (issue + PR)
-            ≥ 3  → REVISE mode  address unaddressed review comments on those PRs
+            < 3  → NEW mode     tend open PRs first, then land one improvement
+                                (a backlog issue requesting devx-agent wins over
+                                self-found work; issue + PR)
+            ≥ 3  → REVISE mode  tend open PRs only (comments + merge conflicts)
        3. scripts/agent-worktree.sh run devx-agent "<mode prompt>"
             └─ isolated worktree off origin/main → claude --agent devx-agent -p …
        4. prune host logs > 30 days, kept worktrees > 7 days
@@ -57,8 +59,14 @@ launchd (06:00, 18:00)
 The agent's `gh` credentials are the repo owner's, so GitHub authorship can't
 separate the agent's comments from a human's. Every agent PR comment begins
 with `<!-- devx-agent -->`; any unmarked comment newer than the agent's latest
-marked one is "unaddressed". Revisions are new commits on the PR branch — never
-rebase/force-push; merge conflicts are left for the human.
+marked one is "unaddressed". Every run (NEW or REVISE) tends open `devx/` PRs
+before new work. Revisions are new commits on the PR branch — never
+rebase/force-push; merge conflicts are resolved by merging `origin/main` into
+the branch, or left for the human (with an explanation) if intent is ambiguous.
+
+The same marker identifies requests: a backlog-issue comment mentioning
+`devx-agent` without the marker asks the agent to pick that issue up, and NEW
+mode prioritizes it over self-found work.
 
 ## One-time machine setup
 
