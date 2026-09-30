@@ -35,6 +35,8 @@ export class RequestsTable extends TableV2 {
        */
 
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN, /* all environments, per ddb-design.md */
       /*
        * Agreed 2026-08-18 (3-order-ingestion.md §2.1) — backs the

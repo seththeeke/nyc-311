@@ -15,6 +15,8 @@ export interface Nyc311PollerScheduleProps {
   pollerLambda: Nyc311PollerLambda;
   /** Where the repeated-failure CloudWatch Alarm notifies — 1-data-ingestion.md §5. */
   failureNotificationEmail: string;
+  /** Sets the Schedule's state — the per-environment dial-up switch (v1-prod-deployment.md B5). */
+  enabled: boolean;
 }
 
 /*
@@ -57,6 +59,7 @@ export class Nyc311PollerSchedule extends Construct {
     this.schedule = new Schedule(this, "Schedule", {
       scheduleName: `Nyc311PollerSchedule-${suffix}`,
       schedule: ScheduleExpression.rate(POLL_INTERVAL),
+      enabled: props.enabled,
       target: new LambdaInvoke(props.pollerLambda, {
         deadLetterQueue: this.deadLetterQueue,
       }),

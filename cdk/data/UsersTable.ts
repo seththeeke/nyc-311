@@ -20,6 +20,7 @@ export class UsersTable extends TableV2 {
       tableName: `Users-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "user_id", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
       globalSecondaryIndexes: [
         {

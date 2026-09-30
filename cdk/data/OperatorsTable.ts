@@ -25,6 +25,7 @@ export class OperatorsTable extends TableV2 {
       partitionKey: { name: "operator_id", type: AttributeType.STRING },
       sortKey: { name: "sk", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
       dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,
       globalSecondaryIndexes: [

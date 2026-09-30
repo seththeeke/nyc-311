@@ -1,5 +1,5 @@
 import { Duration } from "aws-cdk-lib";
-import { CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
+import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import type { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import type { Construct } from "constructs";
@@ -76,6 +76,20 @@ export interface Nyc311ApiProps {
  */
 const LOCAL_DEV_ORIGIN = "http://localhost:5173";
 
+/*
+ * v1-prod-deployment.md B3/Q9 — crude, free abuse protection: a stage-wide
+ * default plus tighter limits on the two expensive public routes. Sized
+ * against the web-app's polling (/fleet/locations every 15s, /lambda-metrics
+ * every 60s per viewer): ~30 and ~60 concurrent viewers respectively.
+ * Per stage/route, not per client IP — one abuser can 429 everyone, which
+ * is accepted over WAF's cost.
+ */
+export const DEFAULT_THROTTLE = { rateLimit: 10, burstLimit: 20 };
+export const ROUTE_THROTTLES: Record<string, { rateLimit: number; burstLimit: number }> = {
+  "GET /fleet/locations": { rateLimit: 2, burstLimit: 5 },
+  "GET /lambda-metrics": { rateLimit: 1, burstLimit: 2 },
+};
+
 /* Feature-flag routes (§4.2): reads and getTreatment are public, every write is admin-only. */
 const FEATURE_FLAG_ROUTES: { operation: FeatureFlagApiOperation; path: string; method: HttpMethod; admin: boolean }[] = [
   { operation: "LIST", path: "/feature-flags", method: HttpMethod.GET, admin: false },
@@ -117,7 +131,7 @@ export class Nyc311Api extends HttpApi {
       integration: new HttpLambdaIntegration("GetPollerMetricsIntegration", props.metricsApiLambda),
     });
 
-    this.addRoutes({
+    const lambdaMetricsRoutes = this.addRoutes({
       path: "/lambda-metrics",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetLambdaMetricsIntegration", props.lambdaMetricsApiLambda),
@@ -182,7 +196,7 @@ export class Nyc311Api extends HttpApi {
       authorizer: props.adminAuthorizer,
     });
 
-    this.addRoutes({
+    const fleetLocationsRoutes = this.addRoutes({
       path: "/fleet/locations",
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetFleetLocationsIntegration", props.getFleetLocationsApiLambda),
@@ -244,6 +258,27 @@ export class Nyc311Api extends HttpApi {
         integration: new HttpLambdaIntegration(`FeatureFlag${route.operation}Integration`, props.featureFlagApiLambdas[route.operation]),
         ...(route.admin ? { authorizer: props.adminAuthorizer } : {}),
       });
+    }
+
+    /*
+     * The L2 HttpApi exposes no throttle for its auto-created $default
+     * stage, so set it on the L1. routeSettings keys must name routes that
+     * already exist, hence the explicit dependency on them.
+     */
+    const cfnStage = this.defaultStage?.node.defaultChild as CfnStage;
+    cfnStage.defaultRouteSettings = {
+      throttlingRateLimit: DEFAULT_THROTTLE.rateLimit,
+      throttlingBurstLimit: DEFAULT_THROTTLE.burstLimit,
+    };
+    /* routeSettings is untyped JSON on the L1, so CDK won't PascalCase it — use CloudFormation's key names directly. */
+    cfnStage.routeSettings = Object.fromEntries(
+      Object.entries(ROUTE_THROTTLES).map(([routeKey, limits]) => [
+        routeKey,
+        { ThrottlingRateLimit: limits.rateLimit, ThrottlingBurstLimit: limits.burstLimit },
+      ])
+    );
+    for (const route of [...fleetLocationsRoutes, ...lambdaMetricsRoutes]) {
+      cfnStage.node.addDependency(route);
     }
   }
 }

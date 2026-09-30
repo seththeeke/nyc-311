@@ -1,5 +1,5 @@
 import { App, Stack } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
 
@@ -29,5 +29,16 @@ describe("FeatureFlagsTable", () => {
   it("suffixes the physical table name by environment", () => {
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Test" });
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Prod" });
+  });
+});
+
+describe("deletion protection (v1-prod-deployment.md B9)", () => {
+  it("is enabled in Prod and off in Test", () => {
+    synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: true })]),
+    });
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: false })]),
+    });
   });
 });

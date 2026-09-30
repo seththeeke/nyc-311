@@ -113,7 +113,7 @@ detailed design conversation before any code.
 |---|---|---|---|
 | F1 | **✅ Done 2026-09-30** (#54 via PR #55; #48 via `c7718cc`). Fix web-app `test:coverage` on Node 22+ (#54) and bump `happy-dom` to ≥20.x (#48). This unblocks every later web-app change. | web-app | Q10 |
 | F2 | **✅ Done 2026-09-30** (live builds tree-shake mocks + `test-data/`; `vite.config.ts` `liveBundleGuard` fails any live build that leaks them, so the pipeline's existing live build is the gate, with no cdk change). Remove credentials from the public bundle, plus a build check that fails if a credential or test-data reaches `web-app/dist` (A15). | web-app, cdk (pipeline check) | Q11 |
-| F3 | Prod-only safety: DynamoDB deletion protection on all Prod tables (B9), the `pollerEnabled` flag per environment with Prod `false` (B5), the $20/month AWS Budget construct, Prod-only (B2), and API stage + expensive-route throttling (B3). | cdk | Q8, Q9, Q11 |
+| F3 | **✅ Done 2026-09-30** (deletion protection on all 7 tables when `envName === "PROD"`; `POLLER_ENABLED` in `cdk/stack/Nyc311Stack.ts`, Prod `false`; `Nyc311CostBudget` (`Nyc311MonthlyCost`), Prod stack only; `$default` stage 10 rps / burst 20, `GET /fleet/locations` 2/5, `GET /lambda-metrics` 1/2). Prod-only safety: DynamoDB deletion protection on all Prod tables (B9), the `pollerEnabled` flag per environment with Prod `false` (B5), the $20/month AWS Budget construct, Prod-only (B2), and API stage + expensive-route throttling (B3). | cdk | Q8, Q9, Q11 |
 | F4 | Order rejection reason codes. A BBL miss becomes an Order rejected with `MISSING_BBL`, and non–Street Condition Orders get `NOT_STREET_CONDITION`. `Order.location_id` becomes nullable. Includes the stale-comment cleanup (B11). | backend, web-app, docs | Q2, Q4 |
 | F5 | **Design session:** the descriptor-driven job model: processing time, material cost, and descriptor-based evaluation outcomes (e.g. `Blocked - Construction` isn't dispatched). Build it after the session. | backend (+ cdk/web-app as designed) | Q5 |
 | F6 | **Design session:** execution-failure handling. The truck goes back to IDLE, the Order is marked FAILED, the scheduler retries it normally, and this includes the non-atomic claim fix (A10). | backend, cdk | Q3 |
@@ -146,7 +146,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 **Dial-up**
 
 11. [ ] **Forward-only cursor (Q12).** Prod's cursor is stale at `last_watermark: 2026-08-13T01:24:08`, checked via the public `GET /ingestion/metrics`. Leaving it would backfill ~47 days. Deleting it would still backfill 24h (`INITIAL_WINDOW_HOURS`). **Immediately before step 12**, overwrite the `CURSOR#NYC_311` item in `Requests-Prod` with `last_watermark` = the current UTC time (SoQL format, no ms/Z) and `resume_offset: null`. Take the exact key/attribute shape from `models/ingestionCursor.ts` and `requestDao.putCursor`. Then confirm `GET /ingestion/metrics` shows `lag_hours` ≈ 0.
-12. [ ] **Flip the Prod `pollerEnabled` flag to `true`** (F3) in a commit, merge, and let full CD deploy it. Confirm `Nyc311PollerSchedule-Prod` shows `ENABLED`.
+12. [ ] **Flip `POLLER_ENABLED.PROD` to `true`** in `cdk/stack/Nyc311Stack.ts` (F3) in a commit, merge, and let full CD deploy it. Confirm `Nyc311PollerSchedule-Prod` shows `ENABLED`.
 
 ## Part E — Post-dial-up verification
 

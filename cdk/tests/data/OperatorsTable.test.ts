@@ -65,3 +65,14 @@ describe("OperatorsTable", () => {
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Operators-Prod" });
   });
 });
+
+describe("deletion protection (v1-prod-deployment.md B9)", () => {
+  it("is enabled in Prod and off in Test", () => {
+    synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: true })]),
+    });
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: false })]),
+    });
+  });
+});

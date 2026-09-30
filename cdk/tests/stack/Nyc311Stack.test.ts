@@ -301,4 +301,24 @@ describe("Nyc311Stack", () => {
       Object.keys(prodEnv.template.findResources("AWS::Logs::MetricFilter")).length,
     ).toBeLessThanOrEqual(10);
   });
+
+  it("creates the account-wide $20 cost budget in Prod only (v1-prod-deployment.md B2)", () => {
+    prodEnv.template.resourcePropertiesCountIs(
+      "AWS::Budgets::Budget",
+      { Budget: Match.objectLike({ BudgetLimit: { Amount: 20, Unit: "USD" } }) },
+      1
+    );
+    testEnv.template.resourceCountIs("AWS::Budgets::Budget", 0);
+  });
+
+  it("disables the poller in Prod and enables it in Test (v1-prod-deployment.md B5)", () => {
+    prodEnv.template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "Nyc311PollerSchedule-Prod",
+      State: "DISABLED",
+    });
+    testEnv.template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "Nyc311PollerSchedule-Test",
+      State: "ENABLED",
+    });
+  });
 });

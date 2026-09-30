@@ -41,7 +41,7 @@ import {
   Nyc311FeatureFlagApiLambda,
   type FeatureFlagApiOperation,
 } from "../../lambda/Nyc311FeatureFlagApiLambda";
-import { Nyc311Api } from "../../api/Nyc311Api";
+import { Nyc311Api, ROUTE_THROTTLES } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
 const CLOUDFRONT_DOMAIN = "d123456abcdef.cloudfront.net";
@@ -425,5 +425,26 @@ describe("Nyc311Api", () => {
 
   it("declares exactly twenty-five routes today", () => {
     testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 25);
+  });
+
+  it("throttles the $default stage, tighter on /fleet/locations and /lambda-metrics (v1-prod-deployment.md B3)", () => {
+    prodTemplate.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      StageName: "$default",
+      DefaultRouteSettings: { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 },
+      RouteSettings: {
+        "GET /fleet/locations": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 },
+        "GET /lambda-metrics": { ThrottlingRateLimit: 1, ThrottlingBurstLimit: 2 },
+      },
+    });
+  });
+
+  it("makes the stage depend on every throttled route, so routeSettings never names a missing route", () => {
+    const [stage] = Object.values(prodTemplate.findResources("AWS::ApiGatewayV2::Stage"));
+    const routes = prodTemplate.findResources("AWS::ApiGatewayV2::Route");
+    const throttledRouteIds = Object.entries(routes)
+      .filter(([, route]) => Object.keys(ROUTE_THROTTLES).includes(route.Properties.RouteKey))
+      .map(([id]) => id);
+    expect(throttledRouteIds).toHaveLength(2);
+    expect(stage.DependsOn).toEqual(expect.arrayContaining(throttledRouteIds));
   });
 });

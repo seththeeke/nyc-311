@@ -18,6 +18,7 @@ export class FeatureFlagsTable extends TableV2 {
       tableName: `FeatureFlags-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "flag_key", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
     });
   }
