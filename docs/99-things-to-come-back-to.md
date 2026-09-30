@@ -238,3 +238,10 @@ See [#52](https://github.com/seththeeke/nyc-311/issues/52).
 See [#56](https://github.com/seththeeke/nyc-311/issues/56).
 
 ---
+
+## web-app: production JS bundle is a single 802 kB chunk — no route-level code splitting
+
+See [#60](https://github.com/seththeeke/nyc-311/issues/60) — fixed this run,
+closes on merge.
+
+---
