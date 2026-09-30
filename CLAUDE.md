@@ -115,7 +115,7 @@ web-app/
   -> pages - for top level page components
  -> models - one file per entity: the TypeScript type plus a matching
     runtime (zod) schema; services parse every response through it
- -> config.ts - environment-specific values (API base URL, mock/live flag)
+ -> config.ts - environment-specific values (API base URL, Cognito ids)
     resolved from Vite's `import.meta.env` (`.env.test` / `.env.production`);
     no secrets committed
  -> tests - has mirrored structure as the web-app to ensure tests follow the same structure
@@ -147,11 +147,15 @@ go the other way):**
   boundary instead of surfacing as a blank chart three components later.
 - **In-memory mode, mechanically.** Each service module exports one
   interface with two implementations — a real `fetch`-based one and an
-  in-memory one backed by `test-data/` — selected by the `mock`/`live` flag
-  in `config.ts`. Keeping the swap inside the service layer (rather than
-  intercepting at the network level) means the same mock implementation is
-  directly importable in Vitest/RTL tests too, no separate test-only mocking
-  story needed.
+  in-memory one backed by `test-data/` — selected by reading
+  `import.meta.env.VITE_DATA_MODE === "live"` directly in each service (not
+  via `config.ts`), so a live build folds it to a constant and tree-shakes
+  the mock class and `test-data/` out. Mock state lives on the Mock class
+  instance, never module scope. `vite.config.ts`'s `liveBundleGuard` fails
+  any live build that still ships test-data or a mock credential. Keeping
+  the swap inside the service layer (rather than intercepting at the
+  network level) means the same mock implementation is directly importable
+  in Vitest/RTL tests too, no separate test-only mocking story needed.
 - **Accessibility is a baseline, not optional:** semantic HTML, full keyboard
   navigation, `aria-label` on every icon-only control. Enforced via
   `eslint-plugin-jsx-a11y`, not left to code review.

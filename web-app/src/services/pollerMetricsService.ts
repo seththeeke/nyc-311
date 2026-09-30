@@ -3,7 +3,7 @@ import { PollerMetricsResponseSchema, type PollerMetricsResponse } from "../mode
 import { MOCK_POLLER_METRICS, MOCK_INGESTION_CURSOR_STATUS } from "../test-data/pollerMetrics";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — the same shape is directly importable in tests, no
  * separate test-only mocking story needed. Returns the full envelope
  * (metrics + cursor) — both come back from one backend call, so this stays
@@ -36,4 +36,4 @@ class MockPollerMetricsService implements PollerMetricsService {
 }
 
 export const pollerMetricsService: PollerMetricsService =
-  config.dataMode === "live" ? new LivePollerMetricsService() : new MockPollerMetricsService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LivePollerMetricsService() : new MockPollerMetricsService();

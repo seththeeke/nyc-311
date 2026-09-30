@@ -111,8 +111,8 @@ detailed design conversation before any code.
 
 | # | Item | Packages | Source |
 |---|---|---|---|
-| F1 | **✅ Done 2026-09-30** (#54 via PR #55; #48 via `a29a857`). Fix web-app `test:coverage` on Node 22+ (#54) and bump `happy-dom` to ≥20.x (#48). This unblocks every later web-app change. | web-app | Q10 |
-| F2 | Remove credentials from the public bundle, plus a build check that fails if a credential or test-data reaches `web-app/dist` (A15). | web-app, cdk (pipeline check) | Q11 |
+| F1 | **✅ Done 2026-09-30** (#54 via PR #55; #48 via `c7718cc`). Fix web-app `test:coverage` on Node 22+ (#54) and bump `happy-dom` to ≥20.x (#48). This unblocks every later web-app change. | web-app | Q10 |
+| F2 | **✅ Done 2026-09-30** (live builds tree-shake mocks + `test-data/`; `vite.config.ts` `liveBundleGuard` fails any live build that leaks them, so the pipeline's existing live build is the gate, with no cdk change). Remove credentials from the public bundle, plus a build check that fails if a credential or test-data reaches `web-app/dist` (A15). | web-app, cdk (pipeline check) | Q11 |
 | F3 | Prod-only safety: DynamoDB deletion protection on all Prod tables (B9), the `pollerEnabled` flag per environment with Prod `false` (B5), the $20/month AWS Budget construct, Prod-only (B2), and API stage + expensive-route throttling (B3). | cdk | Q8, Q9, Q11 |
 | F4 | Order rejection reason codes. A BBL miss becomes an Order rejected with `MISSING_BBL`, and non–Street Condition Orders get `NOT_STREET_CONDITION`. `Order.location_id` becomes nullable. Includes the stale-comment cleanup (B11). | backend, web-app, docs | Q2, Q4 |
 | F5 | **Design session:** the descriptor-driven job model: processing time, material cost, and descriptor-based evaluation outcomes (e.g. `Blocked - Construction` isn't dispatched). Build it after the session. | backend (+ cdk/web-app as designed) | Q5 |

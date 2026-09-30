@@ -1,9 +1,6 @@
-export type DataMode = "mock" | "live";
-
 export interface AppConfig {
   apiBaseUrl: string;
   pipelineApiBaseUrl: string;
-  dataMode: DataMode;
   /** Cognito User Pool / app client ids (`9-admin-auth-integration.md` §3) — same runtime-injected shape as `apiBaseUrl`. */
   userPoolId: string;
   userPoolClientId: string;
@@ -32,7 +29,6 @@ export const config: AppConfig = {
    * build-time value (web-app/.env, not .env.local).
    */
   pipelineApiBaseUrl: import.meta.env.VITE_PIPELINE_API_BASE_URL || "",
-  dataMode: import.meta.env.VITE_DATA_MODE === "live" ? "live" : "mock",
   userPoolId: import.meta.env.VITE_USER_POOL_ID || "",
   userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
 };

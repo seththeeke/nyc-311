@@ -4,7 +4,7 @@ import { JobRunResultsResponseSchema, type JobRunResultItem } from "../models/jo
 import { MOCK_JOB_RUN_RESULTS } from "../test-data/jobRunResults";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as warehouseJobDefinitionService. Backs
  * the admin Reports tab (7-data-warehousing.md §12b's addition): a bulk
  * fetch of raw job-run results by id, sized for a future multi-report
@@ -57,4 +57,4 @@ class MockWarehouseJobRunResultsService implements WarehouseJobRunResultsService
 }
 
 export const warehouseJobRunResultsService: WarehouseJobRunResultsService =
-  config.dataMode === "live" ? new LiveWarehouseJobRunResultsService() : new MockWarehouseJobRunResultsService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveWarehouseJobRunResultsService() : new MockWarehouseJobRunResultsService();

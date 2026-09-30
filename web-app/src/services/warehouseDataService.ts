@@ -7,7 +7,7 @@ import { MOCK_WAREHOUSE_JOB_RUNS } from "../test-data/warehouseJobRuns";
 import { MOCK_JOB_RESULTS } from "../test-data/jobResult";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as pipelineStatusService.ts. Backs
  * GET /data/schema, GET /data/jobs and GET /data/jobs/{name}/result
  * (7-data-warehousing.md §11/§12).
@@ -66,4 +66,4 @@ class MockWarehouseDataService implements WarehouseDataService {
 }
 
 export const warehouseDataService: WarehouseDataService =
-  config.dataMode === "live" ? new LiveWarehouseDataService() : new MockWarehouseDataService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveWarehouseDataService() : new MockWarehouseDataService();

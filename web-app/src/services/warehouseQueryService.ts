@@ -4,7 +4,7 @@ import { AdHocQueryResultSchema, type AdHocQueryResult } from "../models/adHocQu
 import { MOCK_AD_HOC_QUERY_RESULT } from "../test-data/adHocQueryResult";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as schedulingService. Backs the admin
  * ad-hoc SQL console (7-data-warehousing.md §12a, Leg 7).
  */
@@ -51,4 +51,4 @@ class MockWarehouseQueryService implements WarehouseQueryService {
 }
 
 export const warehouseQueryService: WarehouseQueryService =
-  config.dataMode === "live" ? new LiveWarehouseQueryService() : new MockWarehouseQueryService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveWarehouseQueryService() : new MockWarehouseQueryService();

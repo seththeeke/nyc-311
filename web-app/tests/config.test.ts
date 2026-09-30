@@ -6,7 +6,7 @@ describe("config", () => {
     vi.resetModules();
   });
 
-  it("defaults to mock data mode and empty apiBaseUrl/pipelineApiBaseUrl when env vars are unset", async () => {
+  it("defaults to empty apiBaseUrl/pipelineApiBaseUrl when env vars are unset", async () => {
     /*
      * Stubbed explicitly rather than relying on ambient absence — a
      * developer's local .env.local (e.g. for pointing local dev at a real
@@ -14,37 +14,27 @@ describe("config", () => {
      * VITE_PIPELINE_API_BASE_URL= — would otherwise silently break this
      * test's premise.
      */
-    vi.stubEnv("VITE_DATA_MODE", "");
     vi.stubEnv("VITE_API_BASE_URL", "");
     vi.stubEnv("VITE_PIPELINE_API_BASE_URL", "");
     vi.stubEnv("VITE_USER_POOL_ID", "");
     vi.stubEnv("VITE_USER_POOL_CLIENT_ID", "");
     const { config } = await import("../src/config");
-    expect(config.dataMode).toBe("mock");
     expect(config.apiBaseUrl).toBe("");
     expect(config.pipelineApiBaseUrl).toBe("");
     expect(config.userPoolId).toBe("");
     expect(config.userPoolClientId).toBe("");
   });
 
-  it("resolves to live data mode and the configured apiBaseUrl/pipelineApiBaseUrl/userPool ids when set", async () => {
-    vi.stubEnv("VITE_DATA_MODE", "live");
+  it("resolves to the configured apiBaseUrl/pipelineApiBaseUrl/userPool ids when set", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
     vi.stubEnv("VITE_PIPELINE_API_BASE_URL", "https://pipeline-api.example.com");
     vi.stubEnv("VITE_USER_POOL_ID", "us-east-1_abc123");
     vi.stubEnv("VITE_USER_POOL_CLIENT_ID", "client-abc123");
     const { config } = await import("../src/config");
-    expect(config.dataMode).toBe("live");
     expect(config.apiBaseUrl).toBe("https://api.example.com");
     expect(config.pipelineApiBaseUrl).toBe("https://pipeline-api.example.com");
     expect(config.userPoolId).toBe("us-east-1_abc123");
     expect(config.userPoolClientId).toBe("client-abc123");
-  });
-
-  it("falls back to mock for any non-live VITE_DATA_MODE value", async () => {
-    vi.stubEnv("VITE_DATA_MODE", "bogus");
-    const { config } = await import("../src/config");
-    expect(config.dataMode).toBe("mock");
   });
 });
 
