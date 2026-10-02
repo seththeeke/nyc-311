@@ -40,39 +40,39 @@ describe("AppRoutes", () => {
     expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
-  it("renders DataPage at /data", () => {
+  it("renders DataPage at /data", async () => {
     renderAt("/data");
-    expect(screen.getByRole("heading", { name: "Data" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Data" })).toBeInTheDocument();
   });
 
-  it("renders MonitoringPage at /monitoring", () => {
+  it("renders MonitoringPage at /monitoring", async () => {
     renderAt("/monitoring");
-    expect(screen.getByRole("heading", { name: "Monitoring" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Monitoring" })).toBeInTheDocument();
   });
 
-  it("renders IngestionMonitoringPage at /monitoring/ingestion", () => {
+  it("renders IngestionMonitoringPage at /monitoring/ingestion", async () => {
     renderAt("/monitoring/ingestion");
-    expect(screen.getByRole("heading", { name: "Ingestion" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Ingestion" })).toBeInTheDocument();
   });
 
-  it("renders PipelineMonitoringPage at /monitoring/pipeline", () => {
+  it("renders PipelineMonitoringPage at /monitoring/pipeline", async () => {
     renderAt("/monitoring/pipeline");
-    expect(screen.getByRole("heading", { name: "Pipeline" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pipeline" })).toBeInTheDocument();
   });
 
-  it("renders LambdaMonitoringPage at /monitoring/lambda-health", () => {
+  it("renders LambdaMonitoringPage at /monitoring/lambda-health", async () => {
     renderAt("/monitoring/lambda-health");
-    expect(screen.getByRole("heading", { name: "Lambda Health" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Lambda Health" })).toBeInTheDocument();
   });
 
-  it("renders IntegrationTestReportPage at /monitoring/integration-tests", () => {
+  it("renders IntegrationTestReportPage at /monitoring/integration-tests", async () => {
     renderAt("/monitoring/integration-tests");
-    expect(screen.getByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
   });
 
-  it("renders LoginPage at /login", () => {
+  it("renders LoginPage at /login", async () => {
     renderAt("/login");
-    expect(screen.getByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
   });
 
   it("redirects /admin to /login when logged out (mock mode's default session state)", async () => {
@@ -107,10 +107,10 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 
-  it("keeps the shell around the login page (renders inside the primary workspace)", () => {
+  it("keeps the shell around the login page (renders inside the primary workspace)", async () => {
     renderAt("/login");
     const primary = screen.getByRole("region", { name: "Primary workspace" });
-    expect(primary).toContainElement(screen.getByRole("heading", { name: "Admin sign in" }));
+    expect(primary).toContainElement(await screen.findByRole("heading", { name: "Admin sign in" }));
     expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();
   });
 
