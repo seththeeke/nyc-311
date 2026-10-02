@@ -170,27 +170,27 @@ describe("OrderDao.rejectOrder", () => {
   it("sets status to REJECTED, leaving current_stage untouched", async () => {
     ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
 
-    const order = await orderDao.rejectOrder("01ORDER", "no good reason");
+    const order = await orderDao.rejectOrder("01ORDER", "SERVICE_NOT_SUPPORTED", "no good reason");
 
     expect(order).toMatchObject({ status: "REJECTED", current_stage: "INGEST" });
   });
 
-  it("writes an ORDER_REJECTED event carrying the reason", async () => {
+  it("writes an ORDER_REJECTED event carrying the reason code and reason", async () => {
     ddbMock.on(GetCommand).resolves({ Item: makeOrderItem() });
 
-    await orderDao.rejectOrder("01ORDER", "no good reason");
+    await orderDao.rejectOrder("01ORDER", "LOCATION_UNRESOLVED", "no good reason");
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
       event_type: "ORDER_REJECTED",
-      payload: { reason: "no good reason" },
+      payload: { reason_code: "LOCATION_UNRESOLVED", reason: "no good reason" },
     });
   });
 
   it("throws ValidationError when no projection exists yet", async () => {
     ddbMock.on(GetCommand).resolves({});
 
-    await expect(orderDao.rejectOrder("01ORDER", "reason")).rejects.toThrow(ValidationError);
+    await expect(orderDao.rejectOrder("01ORDER", "SERVICE_NOT_SUPPORTED", "reason")).rejects.toThrow(ValidationError);
   });
 });
 

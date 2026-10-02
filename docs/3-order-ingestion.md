@@ -98,7 +98,7 @@ Requests table (draft Request written by poller)
 
 | # | Function | Kind | v1 behavior (proposed) |
 |---|---|---|---|
-| 1 | `resolveLocation` | gate + enrichment | Reads `raw_payload` for a usable `bbl`/lat-long, looks up or creates the `Location` (dedup by `bbl`), sets `location_id`. Miss → halts pipeline entirely (not a "reject" outcome — see below), stays `draft`, spawns a `location_resolution_failure` Case. |
+| 1 | `resolveLocation` | gate + enrichment | Reads `raw_payload` for a usable `bbl`/lat-long, looks up or creates the `Location` (dedup by `bbl`), sets `location_id`. Miss → halts pipeline entirely (not a "reject" outcome — see below), stays `draft`, spawns a `location_resolution_failure` Case. **Superseded 2026-10-01 (`v1-prod-deployment.md` Q2/F4):** a miss now `CONTINUE`s with no location; the Order is created and rejected `LOCATION_UNRESOLVED`. |
 | 2 | `checkAlreadyClosed` | reject filter | NYC 311's own `status` field on the raw record (e.g. `"Closed"`) means the real-world complaint was already resolved before we ever ingested it — nothing for a simulated crew to dispatch to. Reject → `filtered`. |
 | 3 | `checkComplaintTypeSupported` | reject filter | Placeholder seam for an eventual admin-configurable per-`complaint_type`/`agency` allow/deny list (ties to `capacity-model.md` §1's agency+borough capacity pools — a complaint type with no matching pool has nowhere to go). |
 | 4 | `checkBusinessDuplicate` | reject filter | Distinct from the ingestion-time raw dedup already handled by `gsi1-external-key` (`external_unique_key`, exact-record dedup pre-insert). This is a *business*-level duplicate: is there already an active, unresolved Order for the same `location_id` + `complaint_type`? Reject → `duplicate`. |

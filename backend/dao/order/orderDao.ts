@@ -3,14 +3,14 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { EventSourcedDao } from "../dao";
 import { logInfo } from "../../logger";
-import type { Order, OrderEvent, OrderStage } from "../../models/order";
+import type { Order, OrderEvent, OrderRejectionReasonCode, OrderStage } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
 import type { OrderListResult } from "../../models/orderListResult";
 import { ValidationError } from "../../models/errors";
 
 export interface CreateOrderInput {
   request_id: string;
-  location_id: string;
+  location_id: string | null;
   complaint_type: string | null;
 }
 
@@ -186,8 +186,10 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * Records an evaluation `REJECT` outcome (`5-order-evaluation.md` §1/§4):
    * appends `ORDER_REJECTED`, terminal — `status: "REJECTED"`,
    * `current_stage` stays wherever it already was (never advanced).
+   * `reasonCode` lands in the event payload for the warehouse's rejection
+   * funnel (v1-prod-deployment.md Q2).
    */
-  async rejectOrder(orderId: string, reason: string): Promise<Order> {
+  async rejectOrder(orderId: string, reasonCode: OrderRejectionReasonCode, reason: string): Promise<Order> {
     const now = new Date().toISOString();
     return this.appendEvent(
       orderId,
@@ -196,7 +198,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         sequence_number: nextSequence,
         event_type: "ORDER_REJECTED",
         stage: null,
-        payload: { reason },
+        payload: { reason_code: reasonCode, reason },
         occurred_at: now,
         actor: "SYSTEM",
       }),

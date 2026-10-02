@@ -92,6 +92,16 @@ async function dispatchOneOrder(
 ): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY"> {
   logInfo("OrderScheduleAttemptStarted", { orderId: order.order_id });
 
+  /*
+   * Evaluation rejects every Order without a location, so one in SCHEDULE
+   * is a data anomaly. Checked before claiming an Operator so it can't
+   * strand a truck; the caller's per-order isolation counts it as failed.
+   */
+  const locationId = order.location_id;
+  if (locationId === null) {
+    throw new Error(`Order ${order.order_id} reached SCHEDULE with no location_id`);
+  }
+
   const idleOperator = await deps.operatorDao.findIdleOperator();
   if (!idleOperator) {
     logInfo("OrderScheduleSkippedNoCapacity", { orderId: order.order_id });
@@ -100,7 +110,7 @@ async function dispatchOneOrder(
 
   const [request, location] = await Promise.all([
     deps.requestDao.getRequestById(order.request_id),
-    deps.locationDao.getLocation(order.location_id),
+    deps.locationDao.getLocation(locationId),
   ]);
   if (!request || !location) {
     throw new Error(`Order ${order.order_id} has no resolvable Request/Location record`);

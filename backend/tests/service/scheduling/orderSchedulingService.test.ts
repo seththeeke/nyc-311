@@ -194,6 +194,16 @@ describe("scheduleOrders", () => {
     expect(deps.executionStarter!.startExecution).not.toHaveBeenCalled();
   });
 
+  it("fails an Order with no location_id before claiming an Operator (v1-prod-deployment.md Q2)", async () => {
+    const deps = baseDeps({ orderDao: makeOrderDao([makeOrder({ location_id: null })]) });
+
+    const summary = await scheduleOrders(deps);
+
+    expect(summary.ordersFailed).toBe(1);
+    expect(deps.operatorDao!.findIdleOperator).not.toHaveBeenCalled();
+    expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
+  });
+
   it("throws (isolated as a per-order failure) when the Order's Request/Location can't be resolved", async () => {
     const deps = baseDeps({ requestDao: makeRequestDao(null) });
 

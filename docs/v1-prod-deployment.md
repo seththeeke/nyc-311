@@ -61,7 +61,7 @@ a simple heuristic standing in for a real model.
 | A10 | Operator claim isn't atomic | `dao/operator/operatorDao.ts` `findIdleOperator` + `startTransit` (deferred per doc 10 §1.5) | `startTransit` doesn't check that the Operator is `IDLE`. The only protection is the sequence-number condition. The hourly schedule and the admin `POST /scheduling/run` can overlap. | A rare double-assignment of one vehicle. | **Folded into Q3** for the implementation-time design pass. Recommendation on file: an `IDLE` condition on `startTransit`. |
 | A11 | Failure injection doesn't exist | CLAUDE.md §5.2 convention, #36 | No chaos-config code anywhere in `backend/`. | None at runtime. It's a portfolio or feature gap only. | **DECIDED Q7: defer to v2.** Add a note to CLAUDE.md §5.2 that the convention isn't implemented yet. |
 | A12 | Cost prediction and the ML cost model are held | doc 11 §5/§6 | The Total Cost tile shows "no data yet" until `wbr` gains `total_cost`. | A visible empty tile in Prod. | **DECIDED Q7: must-have for launch.** `total_cost` (labor + material, from Q5) is added to the `wbr` query, applied by hand in Test and Prod. Prediction and ML (doc 11 §6) are deferred to v2. |
-| A13 | Location resolution uses BBL only, with no geocoding fallback | `requestEvaluationService.ts#resolveLocation` | A missing `bbl` halts the Request (see A2). | **Measured: 64% of Street Condition complaints have no `bbl`** (4,475 / 7,033 since 2026-09-01). Of those, 2,571 have lat/lng and 1,904 have neither. Under BBL-only resolution, about two-thirds of the target workload halts. | **DECIDED Q2: BBL-only for v1.** A miss becomes an Order that gets REJECTED with `reason_code: MISSING_BBL` (see decision log). Geocoding and lat/lng fallback are deferred. |
+| A13 | Location resolution uses BBL only, with no geocoding fallback | `requestEvaluationService.ts#resolveLocation` | A missing `bbl` halts the Request (see A2). | **Measured: 64% of Street Condition complaints have no `bbl`** (4,475 / 7,033 since 2026-09-01). Of those, 2,571 have lat/lng and 1,904 have neither. Under BBL-only resolution, about two-thirds of the target workload halts. | **DECIDED Q2: BBL-only for v1.** A miss becomes an Order that gets REJECTED with `reason_code: LOCATION_UNRESOLVED` (see decision log). Geocoding and lat/lng fallback are deferred. |
 | A14 | About page has two "Work in progress" sections | `web-app/src/components/about/aboutSections.ts` (Machine Learning, LLMs) | These render "details coming soon". | Visible in Prod. They're intentional, but should be a conscious choice. | **DECIDED Q7: leave as "Work in progress" on purpose.** AI/ML is planned for v2. |
 | A15 | Mock admin credential ships in the Prod bundle | `web-app/src/services/authService.ts` imports `test-data/adminUser.ts` unconditionally | The mock-mode login credential is in the live JS bundle. It's only used in mock mode. | Harmless **only if** it doesn't match the real Cognito admin password. User to confirm. | **DECIDED Q11: must fix. No credentials of any kind in the public bundle.** The approach is chosen at build time. |
 
@@ -80,7 +80,7 @@ a simple heuristic standing in for a real model.
 | B9 | DynamoDB tables have PITR + `RETAIN`, but deletion protection is off | Low. An accidental table delete is recoverable from PITR, just more painful. | **DECIDED Q11: enable deletion protection on all Prod tables.** |
 | B10 | Admin Cognito MFA is off (deliberate per doc 9 §2) | Single-admin account. The admin can run Athena and change the fleet. | **DECIDED Q11: defer MFA.** |
 | B12 | **`wbr.orders_created` overcounts.** Test's `wbr.sql` does `COUNT(*) FROM order_snapshots`, and `order_snapshots` gets one row per projection change (create + every MODIFY), not one per order. It doesn't use #40's dedup; the separate `operator_latest` CTE correctly orders by `last_event_sequence`. | The "orders created" metric is inflated by roughly the average number of transitions per Order | Fix in the Q7 `wbr` rewrite: count `ORDER_CREATED` in `order_events` instead. |
-| B11 | Stale comments say "Leg 3, not yet built" (`capacityService.ts#removeCapacity`, `operatorDao.ts` ~L84), but Leg 3 shipped | Misleading only | **DECIDED Q12: fix inside F4.** |
+| B11 | Stale comments say "Leg 3, not yet built" (`capacityService.ts#removeCapacity`, `operatorDao.ts` ~L84), but Leg 3 shipped | Misleading only | **DECIDED Q12: fix inside F4.** ✅ Done 2026-10-01. |
 
 ## Part C — Backlog and GitHub issue triage
 
@@ -114,7 +114,7 @@ detailed design conversation before any code.
 | F1 | **✅ Done 2026-09-30** (#54 via PR #55; #48 via `c7718cc`). Fix web-app `test:coverage` on Node 22+ (#54) and bump `happy-dom` to ≥20.x (#48). This unblocks every later web-app change. | web-app | Q10 |
 | F2 | **✅ Done 2026-09-30** (live builds tree-shake mocks + `test-data/`; `vite.config.ts` `liveBundleGuard` fails any live build that leaks them, so the pipeline's existing live build is the gate, with no cdk change). Remove credentials from the public bundle, plus a build check that fails if a credential or test-data reaches `web-app/dist` (A15). | web-app, cdk (pipeline check) | Q11 |
 | F3 | **✅ Done 2026-09-30** (deletion protection on all 7 tables when `envName === "PROD"`; `POLLER_ENABLED` in `cdk/stack/Nyc311Stack.ts`, Prod `false`; `Nyc311CostBudget` (`Nyc311MonthlyCost`), Prod stack only; `$default` stage 10 rps / burst 20, `GET /fleet/locations` 2/5, `GET /lambda-metrics` 1/2). Prod-only safety: DynamoDB deletion protection on all Prod tables (B9), the `pollerEnabled` flag per environment with Prod `false` (B5), the $20/month AWS Budget construct, Prod-only (B2), and API stage + expensive-route throttling (B3). | cdk | Q8, Q9, Q11 |
-| F4 | Order rejection reason codes. A BBL miss becomes an Order rejected with `MISSING_BBL`, and non–Street Condition Orders get `NOT_STREET_CONDITION`. `Order.location_id` becomes nullable. Includes the stale-comment cleanup (B11). | backend, web-app, docs | Q2, Q4 |
+| F4 | **✅ Done 2026-10-01** (codes renamed to generic `SERVICE_NOT_SUPPORTED` / `LOCATION_UNRESOLVED`; see Q2's 2026-10-01 note). Order rejection reason codes. A BBL miss becomes an Order rejected with `LOCATION_UNRESOLVED`, and non–Street Condition Orders get `SERVICE_NOT_SUPPORTED`. `Order.location_id` becomes nullable. Includes the stale-comment cleanup (B11). | backend, web-app, docs | Q2, Q4 |
 | F5 | **Design session:** the descriptor-driven job model: processing time, material cost, and descriptor-based evaluation outcomes (e.g. `Blocked - Construction` isn't dispatched). Build it after the session. | backend (+ cdk/web-app as designed) | Q5 |
 | F6 | **Design session:** execution-failure handling. The truck goes back to IDLE, the Order is marked FAILED, the scheduler retries it normally, and this includes the non-atomic claim fix (A10). | backend, cdk | Q3 |
 | F7 | Warehouse correctness: investigate, then fix #40 (`order_snapshots` dedup key), and make `event_name` real in the warehouse (#37). | backend, cdk, docs | Q10 |
@@ -139,7 +139,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 5. [ ] **Deletion protection (Q11):** `aws dynamodb describe-table` shows `DeletionProtectionEnabled: true` for all 7 Prod tables.
 6. [ ] **Throttling (Q9):** a quick burst against `GET /fleet/locations` in Prod returns `429`s past the limit, while normal dashboard use is unaffected.
 7. [ ] **`wbr` in Test (F8):** apply the final v1 SQL to `wbr` in Test, run it, and verify every column is populated with plausible values.
-8. [ ] **Rejection-rate report gate (Q2):** review Test's `wbr` numbers: Street Condition created, accepted, and rejected by `reason_code` (at least `MISSING_BBL`), plus the rejection rate. This is the baseline we'll use to decide when BBL-only resolution needs improving.
+8. [ ] **Rejection-rate report gate (Q2):** review Test's `wbr` numbers: Street Condition created, accepted, and rejected by `reason_code` (at least `LOCATION_UNRESOLVED`), plus the rejection rate. This is the baseline we'll use to decide when BBL-only resolution needs improving.
 9. [ ] **`wbr` in Prod (#44):** create the `wbr` job in Prod with the identical SQL (from the checked-in file) and the same cadence as Test.
 10. [ ] **Fleet (Q12), by hand only, never scripted:** create the initial Prod fleet (likely 5–10 vehicles; the exact number and names are your call) through the admin Capacity page at `boroughsim.com`. Confirm the Capacity widget and fleet map show them all IDLE at the depot.
 
@@ -163,7 +163,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 **Check-ins at 24h, 7 days, and 30 days**
 - [ ] Fleet utilization and SCHEDULE backlog. Is the fleet size keeping up with the ~300/day Street Condition volume (Q1)? Adjust by hand if not.
 - [ ] Execution-failure rate from `wbr` (Q3/F6). This decides whether retry caps or a sweeper are needed.
-- [ ] `MISSING_BBL` rejection rate (Q2). This decides when to build the location fallback.
+- [ ] `LOCATION_UNRESOLVED` rejection rate (Q2). This decides when to build the location fallback.
 - [ ] DLQ depths: `Nyc311OrderEvaluationDlq-Prod`, `Nyc311PollerDlq-Prod`, `Nyc311OrderSchedulingDlq-Prod`.
 - [ ] Cost to date against the $20 budget, via Cost Explorer grouped by service.
 - [ ] Warehouse freshness, again by hand (Q8).
@@ -176,7 +176,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 | Chaos config / failure injection (A11) | v2 | #36 |
 | Cost prediction + ML cost model (A12, doc 11 §6) | v2 | doc 11 |
 | About page "Machine Learning" / "LLMs" (A14), left as "Work in progress" on purpose | v2 (AI) | — |
-| Location fallback: lat/lng or geocoding for the ~64% of Street Condition complaints with no BBL (A13) | Decide from the `MISSING_BBL` rejection rate | new ticket (F9) |
+| Location fallback: lat/lng or geocoding for the ~64% of Street Condition complaints with no BBL (A13) | Decide from the `LOCATION_UNRESOLVED` rejection rate | new ticket (F9) |
 | Route planning / traffic-aware transit (A5) | Undecided (doc 11 Topic 3) | doc 11 |
 | Real depot(s) (A6) | Later. The fallback never fires under BBL-only. | — |
 | Priority/SLA model (A3) | Revisit in the F5 design session. It may stay a v1 constant. | doc 11 / F5 |
@@ -220,7 +220,8 @@ rejection instead of a silent halt.** There's no change to `Request`.
 - `resolveLocation`: when there's no `bbl`, CONTINUE with no `location_id` instead of HALT, and create no Case.
 - `evaluateRequest`: create the Order even when there's no resolved location.
 - `Order.location_id` becomes nullable (`models/order.ts`, `data-model.md`, web-app model). This is the only model change.
-- `OrderEvaluationRule` returns `{ outcome, reasonCode }`. Codes are ALL_CAPS: `NOT_STREET_CONDITION` is checked first, then `MISSING_BBL`. `rejectOrder` stamps `reason_code` into the `ORDER_REJECTED` event payload.
+- `OrderEvaluationRule` returns `{ outcome, reasonCode }`. Codes are ALL_CAPS: `SERVICE_NOT_SUPPORTED` is checked first, then `LOCATION_UNRESOLVED`. `rejectOrder` stamps `reason_code` into the `ORDER_REJECTED` event payload.
+- **Renamed at build time (2026-10-01):** originally `NOT_STREET_CONDITION` and `MISSING_BBL`. You asked for generic codes, so they aren't tied to one complaint type or to BBL as the only way to resolve a location (the lat/lng fallback would have made `MISSING_BBL` wrong).
 - The scheduler narrows `location_id` to non-null. Accepted Orders always have one.
 - `wbr` adds a Street Condition funnel, read from `order_events` (append-only, so it sidesteps #40): created, accepted, rejected by `reason_code`, and rejection rate.
 - Side effect we accept: non–Street Condition complaints without a BBL now also create Orders and get rejected, which adds a little to A9's volume.
@@ -283,7 +284,7 @@ A5 (travel time), A6 (depot) and A7 ($45/hr labor rate) stay as-is for v1.
 **Decision: keep as-is. This is intentional, not a placeholder.** Every
 ingested complaint that has a BBL and isn't already closed becomes an Order.
 Non–Street Condition Orders are rejected with `reason_code:
-NOT_STREET_CONDITION` (Q2), so the Orders table and `wbr` hold the complete
+SERVICE_NOT_SUPPORTED` (Q2), so the Orders table and `wbr` hold the complete
 NYC funnel. Cost is negligible: Test's DynamoDB spend was $0.62 over 30 days
 for 509k Requests and 1.7M Order items. No revisit trigger was set. The
 AWS Budget (B2) is the general cost backstop.

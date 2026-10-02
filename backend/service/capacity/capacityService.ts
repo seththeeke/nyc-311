@@ -52,10 +52,9 @@ export interface RemoveCapacityDeps {
 
 /**
  * `DELETE /capacity/{operator_id}` (§2.1) — finalizes immediately for an
- * already-idle Operator, or queues removal for a busy one (finalized once
- * its current execution resolves — Leg 3, not yet built, so in practice
- * every removal finalizes immediately today). Idempotent for an
- * already-queued removal.
+ * already-idle Operator, or queues removal for a busy one (finalized by
+ * `orderExecutionService.resolveOrder` once its current execution
+ * resolves). Idempotent for an already-queued removal.
  *
  * @throws {@link NotFoundError} if `operatorId` doesn't exist.
  * @throws {@link ValidationError} if the Operator is already retired.

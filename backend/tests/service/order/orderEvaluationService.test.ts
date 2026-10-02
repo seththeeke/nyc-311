@@ -5,6 +5,7 @@ import {
   evaluateOrder,
   fanOutOrdersStreamRecord,
   StreetConditionOnlyRule,
+  type OrderEvaluationResult,
   type OrderEvaluationRule,
 } from "../../../service/order/orderEvaluationService";
 import type { OrderDao } from "../../../dao/order/orderDao";
@@ -226,19 +227,41 @@ describe("fanOutOrdersStreamRecord", () => {
 });
 
 describe("StreetConditionOnlyRule", () => {
-  it("returns ACCEPT when complaint_type is exactly Street Condition", async () => {
+  it("accepts a Street Condition Order with a resolved location", async () => {
     const rule = new StreetConditionOnlyRule();
-    await expect(rule.evaluate(makeOrder({ complaint_type: "Street Condition" }))).resolves.toBe("ACCEPT");
+    await expect(rule.evaluate(makeOrder({ complaint_type: "Street Condition" }))).resolves.toEqual({ outcome: "ACCEPT" });
   });
 
-  it("returns REJECT for any other complaint_type", async () => {
+  it("rejects any other complaint_type as SERVICE_NOT_SUPPORTED", async () => {
     const rule = new StreetConditionOnlyRule();
-    await expect(rule.evaluate(makeOrder({ complaint_type: "Noise - Residential" }))).resolves.toBe("REJECT");
+    await expect(rule.evaluate(makeOrder({ complaint_type: "Noise - Residential" }))).resolves.toEqual({
+      outcome: "REJECT",
+      reasonCode: "SERVICE_NOT_SUPPORTED",
+    });
   });
 
-  it("returns REJECT when complaint_type is null", async () => {
+  it("rejects a null complaint_type as SERVICE_NOT_SUPPORTED", async () => {
     const rule = new StreetConditionOnlyRule();
-    await expect(rule.evaluate(makeOrder({ complaint_type: null }))).resolves.toBe("REJECT");
+    await expect(rule.evaluate(makeOrder({ complaint_type: null }))).resolves.toEqual({
+      outcome: "REJECT",
+      reasonCode: "SERVICE_NOT_SUPPORTED",
+    });
+  });
+
+  it("rejects a Street Condition Order with no location as LOCATION_UNRESOLVED", async () => {
+    const rule = new StreetConditionOnlyRule();
+    await expect(rule.evaluate(makeOrder({ location_id: null }))).resolves.toEqual({
+      outcome: "REJECT",
+      reasonCode: "LOCATION_UNRESOLVED",
+    });
+  });
+
+  it("checks service type before location, so an unsupported Order with no location is SERVICE_NOT_SUPPORTED", async () => {
+    const rule = new StreetConditionOnlyRule();
+    await expect(rule.evaluate(makeOrder({ complaint_type: "Noise - Residential", location_id: null }))).resolves.toEqual({
+      outcome: "REJECT",
+      reasonCode: "SERVICE_NOT_SUPPORTED",
+    });
   });
 });
 
@@ -288,8 +311,8 @@ describe("evaluateOrder", () => {
     } as unknown as OrderDao;
   }
 
-  function makeRule(outcome: "ACCEPT" | "REJECT" | "CASE"): OrderEvaluationRule {
-    return { evaluate: vi.fn().mockResolvedValue(outcome) };
+  function makeRule(result: OrderEvaluationResult): OrderEvaluationRule {
+    return { evaluate: vi.fn().mockResolvedValue(result) };
   }
 
   function makePriorityAssigner(): OrderPriorityAssigner {
@@ -299,14 +322,14 @@ describe("evaluateOrder", () => {
   it("no-ops when the Order doesn't exist yet", async () => {
     const orderDao = makeDaoMock(null);
 
-    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule("ACCEPT"), priorityAssigner: makePriorityAssigner() });
+    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule({ outcome: "ACCEPT" }), priorityAssigner: makePriorityAssigner() });
 
     expect(orderDao.acceptOrder).not.toHaveBeenCalled();
   });
 
   it("no-ops when status is no longer CREATED (already evaluated)", async () => {
     const orderDao = makeDaoMock(makeOrder({ status: "ACTIVE" }));
-    const rule = makeRule("ACCEPT");
+    const rule = makeRule({ outcome: "ACCEPT" });
 
     await evaluateOrder(makeOrderEvent(), { orderDao, rule, priorityAssigner: makePriorityAssigner() });
 
@@ -316,7 +339,7 @@ describe("evaluateOrder", () => {
 
   it("no-ops when case_id is already set (CASE outcome already recorded), even though status is still CREATED", async () => {
     const orderDao = makeDaoMock(makeOrder({ case_id: "some-case" }));
-    const rule = makeRule("ACCEPT");
+    const rule = makeRule({ outcome: "ACCEPT" });
 
     await evaluateOrder(makeOrderEvent(), { orderDao, rule, priorityAssigner: makePriorityAssigner() });
 
@@ -327,7 +350,7 @@ describe("evaluateOrder", () => {
     const orderDao = makeDaoMock(makeOrder());
     const priorityAssigner = makePriorityAssigner();
 
-    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule("ACCEPT"), priorityAssigner });
+    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule({ outcome: "ACCEPT" }), priorityAssigner });
 
     expect(orderDao.acceptOrder).toHaveBeenCalledWith("01ORDER", {
       priorityTier: "STANDARD",
@@ -335,12 +358,12 @@ describe("evaluateOrder", () => {
     });
   });
 
-  it("calls rejectOrder on REJECT", async () => {
+  it("calls rejectOrder with the rule's reason code and its human-readable reason on REJECT", async () => {
     const orderDao = makeDaoMock(makeOrder());
 
-    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule("REJECT"), priorityAssigner: makePriorityAssigner() });
+    await evaluateOrder(makeOrderEvent(), { orderDao, rule: makeRule({ outcome: "REJECT", reasonCode: "LOCATION_UNRESOLVED" }), priorityAssigner: makePriorityAssigner() });
 
-    expect(orderDao.rejectOrder).toHaveBeenCalledWith("01ORDER", expect.any(String));
+    expect(orderDao.rejectOrder).toHaveBeenCalledWith("01ORDER", "LOCATION_UNRESOLVED", "Request had no resolvable location");
   });
 
   it("calls createCase and recordCaseCreated on CASE", async () => {
@@ -349,7 +372,7 @@ describe("evaluateOrder", () => {
 
     await evaluateOrder(makeOrderEvent(), {
       orderDao,
-      rule: makeRule("CASE"),
+      rule: makeRule({ outcome: "CASE" }),
       priorityAssigner: makePriorityAssigner(),
       createCaseFn,
     });
