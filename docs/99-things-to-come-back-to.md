@@ -245,3 +245,10 @@ Third recurrence of the vulnerability class previously fixed in #32 and #38.
 See [#62](https://github.com/seththeeke/nyc-311/issues/62).
 
 ---
+
+## web-app: production JS bundle is a single 802 kB chunk — no route-level code splitting
+
+See [#60](https://github.com/seththeeke/nyc-311/issues/60) — fixed this run,
+closes on merge.
+
+---

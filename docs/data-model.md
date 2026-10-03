@@ -116,6 +116,12 @@ becomes an Order.
    `location_id` stays null, and this is the **first** trigger point for a
    `Case` — see [Case](#case), `case_type: location_resolution_failure`.
 
+   **Superseded for v1 (2026-10-01, `v1-prod-deployment.md` Q2/F4):** a
+   `bbl` miss no longer halts or opens a Case. The Request is still
+   promoted with `location_id` null, its Order is created with a null
+   `location_id`, and evaluation rejects that Order `LOCATION_UNRESOLVED`
+   — a measured rejection instead of a silent halt.
+
 **Still open:** what actually transitions a `draft` Request out of that
 state once its Case is resolved (e.g. does an agent-supplied resolution set
 `location_id` and flip it to `pending`, or can it resolve to "no location
@@ -168,7 +174,7 @@ rationale. Workflow stages (per `capacity-model.md` §8):
 |---|---|
 | `order_id` | Identity. |
 | `request_id` | FK to Request. |
-| `location_id` | FK to Location. |
+| `location_id` | FK to Location. Nullable: null when the Request had no resolvable location, in which case evaluation rejects the Order `LOCATION_UNRESOLVED`. An accepted Order always has one. |
 | `current_stage` | Current workflow stage. |
 | `status` | Current Order status. |
 | `retry_counts` | Map of `{Ingest, Schedule, Execute, Resolve} → count`, folded from `StageRetried` events. |
@@ -180,6 +186,15 @@ rationale. Workflow stages (per `capacity-model.md` §8):
 | `case_id` | Nullable FK to Case. |
 | `created_at` / `updated_at` | Timestamps. |
 | `last_event_sequence` | For replay/consistency checks — the projection must always be re-derivable by folding `OrderEvent`s from sequence 0. |
+
+**Rejection reason codes.** An `OrderRejected` event's payload carries a
+`reason_code`, kept generic so it outlives any one complaint type or
+location-resolution method (`v1-prod-deployment.md` Q2/F4):
+
+| `reason_code` | Meaning |
+|---|---|
+| `service_not_supported` | The complaint type isn't a service this system performs (v1: anything but Street Condition). Checked first. |
+| `location_unresolved` | No location could be resolved for the Request (v1: no `bbl`). |
 
 **Note on `Execute`:** the `Order` stream deliberately does *not* carry an
 `OrderCheckedIn`-style event. The transit→work timeline for a job lives on

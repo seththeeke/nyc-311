@@ -20,6 +20,7 @@ export class OrdersTable extends TableV2 {
       partitionKey: { name: "order_id", type: AttributeType.STRING },
       sortKey: { name: "sk", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,
       removalPolicy: RemovalPolicy.RETAIN,
       globalSecondaryIndexes: [

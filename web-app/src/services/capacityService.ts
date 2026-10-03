@@ -4,7 +4,7 @@ import { CapacityStatusSchema, OperatorSchema, type CapacityStatus, type Operato
 import { MOCK_OPERATORS } from "../test-data/operators";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1, 10-capacity-modeling-and-integration.md §2.1-§2.2) —
  * same shape as every other service. The whole Capacity page sits behind
  * AdminRoute, so every method here assumes an authenticated session
@@ -64,18 +64,18 @@ class LiveCapacityService implements CapacityService {
 
 const MOCK_DEFAULT_RATE_PER_HOUR = 45;
 
-/*
- * Generates data on the fly for write operations, per CLAUDE.md §5.1's
- * in-memory-mode contract — the first mutating mock service in this
- * codebase. Module-scope mutable state (not persisted across a reload),
- * same lifecycle as every other mock service's read-only data.
- */
-let mockOperators: Operator[] = MOCK_OPERATORS.map((operator) => ({ ...operator }));
-let mockOperatorCounter = mockOperators.length;
-
 class MockCapacityService implements CapacityService {
+  /*
+   * Generates data on the fly for write operations, per CLAUDE.md §5.1's
+   * in-memory-mode contract. Instance state, not module scope, so a live
+   * build tree-shakes this and MOCK_OPERATORS out (v1-prod-deployment.md
+   * A15). Not persisted across a reload.
+   */
+  private mockOperators: Operator[] = MOCK_OPERATORS.map((operator) => ({ ...operator }));
+  private mockOperatorCounter = this.mockOperators.length;
+
   async getCapacityStatus(): Promise<CapacityStatus> {
-    const roster = mockOperators.filter((operator) => operator.status === "ACTIVE");
+    const roster = this.mockOperators.filter((operator) => operator.status === "ACTIVE");
     const availableCount = roster.filter(
       (operator) => operator.current_activity === "IDLE" && !operator.removal_requested_at
     ).length;
@@ -85,7 +85,7 @@ class MockCapacityService implements CapacityService {
 
   async addCapacity(name: string, ratePerHour?: number): Promise<Operator> {
     const operator: Operator = {
-      operator_id: `01MOCKOPERATOR${String(mockOperatorCounter).padStart(3, "0")}`,
+      operator_id: `01MOCKOPERATOR${String(this.mockOperatorCounter).padStart(3, "0")}`,
       name,
       status: "ACTIVE",
       current_activity: "IDLE",
@@ -95,14 +95,14 @@ class MockCapacityService implements CapacityService {
       rate_per_hour: ratePerHour ?? MOCK_DEFAULT_RATE_PER_HOUR,
       last_event_sequence: 0,
     };
-    mockOperatorCounter += 1;
-    mockOperators = [...mockOperators, operator];
+    this.mockOperatorCounter += 1;
+    this.mockOperators = [...this.mockOperators, operator];
     return operator;
   }
 
   /** Mock mode never has a busy Operator (no execution flow exists yet), so removal always finalizes immediately. */
   async removeCapacity(operatorId: string): Promise<Operator> {
-    const existing = mockOperators.find((operator) => operator.operator_id === operatorId);
+    const existing = this.mockOperators.find((operator) => operator.operator_id === operatorId);
     if (!existing) {
       throw new Error(`No Operator found for operator_id ${operatorId}`);
     }
@@ -110,10 +110,10 @@ class MockCapacityService implements CapacityService {
       throw new Error(`Operator ${operatorId} is already removed`);
     }
     const updated: Operator = { ...existing, status: "INACTIVE", end_datetime: new Date().toISOString() };
-    mockOperators = mockOperators.map((operator) => (operator.operator_id === operatorId ? updated : operator));
+    this.mockOperators = this.mockOperators.map((operator) => (operator.operator_id === operatorId ? updated : operator));
     return updated;
   }
 }
 
 export const capacityService: CapacityService =
-  config.dataMode === "live" ? new LiveCapacityService() : new MockCapacityService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveCapacityService() : new MockCapacityService();

@@ -68,6 +68,7 @@ import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderEx
 import { Nyc311OperatorEventsTopic } from "../lambda/Nyc311OperatorEventsTopic";
 import { Nyc311OperatorProjectionsTopic } from "../lambda/Nyc311OperatorProjectionsTopic";
 import { Nyc311OperatorsStreamFanOutLambda } from "../lambda/Nyc311OperatorsStreamFanOutLambda";
+import { Nyc311CostBudget } from "./Nyc311CostBudget";
 
 /* Enum-like discriminator, ALL_CAPS per CLAUDE.md §6. */
 export type Nyc311Environment = "TEST" | "PROD";
@@ -114,6 +115,17 @@ export const DOMAIN_CONFIG: Record<Nyc311Environment, { siteDomain: string; apiD
 };
 
 /*
+ * Whether each environment's NYC 311 poller runs (v1-prod-deployment.md
+ * B5/Q9). Prod's dial-up is a reviewed commit flipping PROD to true, after
+ * the forward-only cursor reset in that doc's Part D step 11 — never a
+ * console toggle, which drifts from this.
+ */
+export const POLLER_ENABLED: Record<Nyc311Environment, boolean> = {
+  TEST: true,
+  PROD: false,
+};
+
+/*
  * 1-data-ingestion.md §5 — same address the pipeline's own failure
  * notifications already go to (pipeline/Nyc311PipelineStack.ts).
  */
@@ -135,6 +147,14 @@ export class Nyc311Stack extends Stack {
     super(scope, id, props);
 
     Tags.of(this).add("Environment", props.envName);
+
+    /* Account-wide, so declared once (Prod) rather than per stack — v1-prod-deployment.md B2/Q8. */
+    if (props.envName === "PROD") {
+      new Nyc311CostBudget(this, "Nyc311CostBudget", {
+        monthlyLimitUsd: 20,
+        notificationEmail: FAILURE_NOTIFICATION_EMAIL,
+      });
+    }
 
     /*
      * 8-domain-name-assignment.md — the boroughsim.com hosted zone,
@@ -158,6 +178,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       pollerLambda,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
+      enabled: POLLER_ENABLED[props.envName],
     });
 
     /*

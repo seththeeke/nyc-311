@@ -3,7 +3,7 @@ import { PipelineStatusResponseSchema, type PipelineStatusResponse } from "../mo
 import { MOCK_PIPELINE_STATUS } from "../test-data/pipelineStatus";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as pollerMetricsService.ts.
  */
 export interface PipelineStatusService {
@@ -33,4 +33,4 @@ class MockPipelineStatusService implements PipelineStatusService {
 }
 
 export const pipelineStatusService: PipelineStatusService =
-  config.dataMode === "live" ? new LivePipelineStatusService() : new MockPipelineStatusService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LivePipelineStatusService() : new MockPipelineStatusService();

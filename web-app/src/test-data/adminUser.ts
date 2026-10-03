@@ -6,8 +6,15 @@ import type { User } from "../models/user";
  * the real login form; MockAuthService validates against this fixed
  * credential instead of calling Cognito.
  */
+const MOCK_ADMIN_EMAIL = "admin@example.com";
+
+/*
+ * No module-level property reads (e.g. `MOCK_ADMIN_CREDENTIAL.email`
+ * below) — the bundler keeps those as possible getter side effects, which
+ * leaked this credential into live builds (v1-prod-deployment.md A15).
+ */
 export const MOCK_ADMIN_CREDENTIAL = {
-  email: "admin@example.com",
+  email: MOCK_ADMIN_EMAIL,
   password: "mock-password",
 };
 
@@ -19,6 +26,6 @@ export const MOCK_ADMIN_USER: User = {
   updated_at: "2026-01-01T00:00:00.000Z",
   last_active_at: "2026-01-01T00:00:00.000Z",
   cognito_sub: "mock-sub",
-  email: MOCK_ADMIN_CREDENTIAL.email,
+  email: MOCK_ADMIN_EMAIL,
   display_name: "Mock Admin",
 };

@@ -3,7 +3,7 @@ import { LambdaMetricsResponseSchema, type LambdaHealth } from "../models/lambda
 import { MOCK_LAMBDA_METRICS } from "../test-data/lambdaMetrics";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — the same shape is directly importable in tests, no
  * separate test-only mocking story needed.
  */
@@ -30,4 +30,4 @@ class MockLambdaMetricsService implements LambdaMetricsService {
 }
 
 export const lambdaMetricsService: LambdaMetricsService =
-  config.dataMode === "live" ? new LiveLambdaMetricsService() : new MockLambdaMetricsService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveLambdaMetricsService() : new MockLambdaMetricsService();

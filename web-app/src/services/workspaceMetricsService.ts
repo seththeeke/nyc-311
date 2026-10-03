@@ -2,7 +2,7 @@ import { config } from "../config";
 import { WorkspaceMetricsSchema, type WorkspaceMetrics } from "../models/workspaceMetrics";
 import { MOCK_WORKSPACE_METRICS } from "../test-data/workspaceMetrics";
 
-/* One interface, two implementations, selected by config.dataMode (CLAUDE.md §5.1). */
+/* One interface, two implementations, selected by VITE_DATA_MODE at build time (CLAUDE.md §5.1). */
 export interface WorkspaceMetricsService {
   getWorkspaceMetrics(): Promise<WorkspaceMetrics>;
 }
@@ -25,4 +25,4 @@ class MockWorkspaceMetricsService implements WorkspaceMetricsService {
 }
 
 export const workspaceMetricsService: WorkspaceMetricsService =
-  config.dataMode === "live" ? new LiveWorkspaceMetricsService() : new MockWorkspaceMetricsService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveWorkspaceMetricsService() : new MockWorkspaceMetricsService();

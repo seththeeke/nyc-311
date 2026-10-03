@@ -11,7 +11,7 @@ import { WarehouseJobSqlResponseSchema } from "../models/warehouseJobSql";
 import { MOCK_WAREHOUSE_JOB_DEFINITIONS } from "../test-data/warehouseJobDefinitions";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as capacityService. Backs the admin
  * warehouse workspace (7-data-warehousing.md §12b, Leg 8): create/
  * update/delete/list a self-service warehouse job, plus reading a job's
@@ -100,33 +100,31 @@ class LiveWarehouseJobDefinitionService implements WarehouseJobDefinitionService
   }
 }
 
-/*
- * Generates data on the fly for write operations, per CLAUDE.md §5.1's
- * in-memory-mode contract — same module-scope-mutable-state shape as
- * MockCapacityService. Mock mode has no real S3/Scheduler to write to, so
- * create/update/delete only ever touch this array (and, for SQL text —
- * never part of the real GET /admin/warehouse/jobs response — the
- * `mockJobSql` map below).
- */
-let mockJobs: WarehouseJobDefinition[] = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs.map((job) => ({ ...job }));
-
 /** Placeholder SQL for a job that has never been created/updated in this mock session. */
 function placeholderSql(name: string): string {
   return `-- mock placeholder: no S3-backed SQL yet for "${name}"\nSELECT 1`;
 }
 
-const mockJobSql: Record<string, string> = {};
-
+/*
+ * Generates data on the fly for write operations, per CLAUDE.md §5.1's
+ * in-memory-mode contract — instance state, same shape and reason as
+ * MockCapacityService. Mock mode has no real S3/Scheduler, so writes only
+ * touch `mockJobs` (and `mockJobSql` for SQL text, which the real list
+ * response never carries).
+ */
 class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService {
+  private mockJobs: WarehouseJobDefinition[] = MOCK_WAREHOUSE_JOB_DEFINITIONS.jobs.map((job) => ({ ...job }));
+  private readonly mockJobSql: Record<string, string> = {};
+
   async listJobs(): Promise<WarehouseJobDefinition[]> {
-    return mockJobs;
+    return this.mockJobs;
   }
 
   async createJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
     if (!WAREHOUSE_JOB_NAME_REGEX.test(name)) {
       throw new Error("Job name must be lowercase letters, digits, and underscores only");
     }
-    if (mockJobs.some((job) => job.job_name === name)) {
+    if (this.mockJobs.some((job) => job.job_name === name)) {
       throw new Error(`A job named "${name}" already exists`);
     }
     if (sql.trim() === "") {
@@ -143,13 +141,13 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
       created_at: new Date().toISOString(),
       created_by: "01MOCKADMIN0000000000000001",
     };
-    mockJobs = [job, ...mockJobs];
-    mockJobSql[name] = sql;
+    this.mockJobs = [job, ...this.mockJobs];
+    this.mockJobSql[name] = sql;
     return job;
   }
 
   async updateJob(name: string, sql: string, cadenceCron?: string): Promise<WarehouseJobDefinition> {
-    const existing = mockJobs.find((job) => job.job_name === name);
+    const existing = this.mockJobs.find((job) => job.job_name === name);
     if (!existing) {
       throw new Error(`No job named "${name}"`);
     }
@@ -158,25 +156,25 @@ class MockWarehouseJobDefinitionService implements WarehouseJobDefinitionService
     }
     const updated: WarehouseJobDefinition =
       existing.job_type === "SCHEDULED" && cadenceCron ? { ...existing, cadence_cron: cadenceCron } : existing;
-    mockJobs = mockJobs.map((job) => (job.job_name === name ? updated : job));
-    mockJobSql[name] = sql;
+    this.mockJobs = this.mockJobs.map((job) => (job.job_name === name ? updated : job));
+    this.mockJobSql[name] = sql;
     return updated;
   }
 
   async deleteJob(name: string): Promise<void> {
-    if (!mockJobs.some((job) => job.job_name === name)) {
+    if (!this.mockJobs.some((job) => job.job_name === name)) {
       throw new Error(`No job named "${name}"`);
     }
-    mockJobs = mockJobs.filter((job) => job.job_name !== name);
+    this.mockJobs = this.mockJobs.filter((job) => job.job_name !== name);
   }
 
   async getJobSql(name: string): Promise<string> {
-    if (!mockJobs.some((job) => job.job_name === name)) {
+    if (!this.mockJobs.some((job) => job.job_name === name)) {
       throw new Error(`No job named "${name}"`);
     }
-    return mockJobSql[name] ?? placeholderSql(name);
+    return this.mockJobSql[name] ?? placeholderSql(name);
   }
 }
 
 export const warehouseJobDefinitionService: WarehouseJobDefinitionService =
-  config.dataMode === "live" ? new LiveWarehouseJobDefinitionService() : new MockWarehouseJobDefinitionService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveWarehouseJobDefinitionService() : new MockWarehouseJobDefinitionService();

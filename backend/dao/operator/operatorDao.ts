@@ -81,7 +81,7 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
   /**
    * Queues removal for a *busy* Operator — `current_activity` stays
    * whatever it was; finalized once its current execution resolves
-   * (Leg 3, not yet built). No other projection field changes.
+   * (`orderExecutionService.resolveOrder`). No other projection field changes.
    */
   async queueRemoval(operatorId: string): Promise<Operator> {
     const now = new Date().toISOString();

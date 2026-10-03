@@ -3,11 +3,11 @@ import { CreateCaseInputSchema, type CreateCaseInput } from "../../models/case";
 import { ValidationError } from "../../models/errors";
 
 /**
- * Stub: no Cases table, no CaseDao yet — this only establishes the
- * interface a real caller (e.g. `resolveLocation` on a `bbl` miss) needs,
- * so it doesn't have to change when Case persistence is actually built.
- * Logs and returns; never throws for a missing downstream — only for a
- * malformed `input`, since that's a genuine caller bug worth surfacing now.
+ * Stub: no Cases table, no CaseDao yet — the documented seam for v2's
+ * Case persistence (v1-prod-deployment.md Q4). No live caller today: a
+ * `bbl` miss is now an Order rejected `LOCATION_UNRESOLVED`, and
+ * evaluation's `CASE` outcome is never returned by the v1 rule. Logs and
+ * returns; throws only for a malformed `input`, a genuine caller bug.
  */
 export async function createCase(input: CreateCaseInput): Promise<void> {
   const parsed = CreateCaseInputSchema.safeParse(input);

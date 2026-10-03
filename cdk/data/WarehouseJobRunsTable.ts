@@ -20,6 +20,7 @@ export class WarehouseJobRunsTable extends TableV2 {
       tableName: `WarehouseJobRuns-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "job_run_id", type: AttributeType.STRING },
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
       globalSecondaryIndexes: [
         {

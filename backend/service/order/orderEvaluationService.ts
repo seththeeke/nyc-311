@@ -6,7 +6,7 @@ import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { OrderDao } from "../../dao/order/orderDao";
 import { createCase } from "../case/caseService";
-import type { Order, OrderEvent } from "../../models/order";
+import type { Order, OrderEvent, OrderRejectionReasonCode } from "../../models/order";
 import type { OrderStreamRecord } from "../../models/orderStreamEvent";
 import { MockOrderPriorityAssigner, type OrderPriorityAssigner } from "./orderPriorityService";
 
@@ -143,30 +143,46 @@ export async function fanOutOrdersStreamRecord(
  * (a business rules engine) swaps in without changing callers. A real
  * three-outcome contract, not two outcomes plus an error-path fallback —
  * `CASE` means "no rule applies," distinct from `REJECT` ("a rule fired
- * and said no").
+ * and said no"), which always says why.
  */
 export type OrderEvaluationOutcome = "ACCEPT" | "REJECT" | "CASE";
 
+export type OrderEvaluationResult =
+  | { readonly outcome: "ACCEPT" }
+  | { readonly outcome: "REJECT"; readonly reasonCode: OrderRejectionReasonCode }
+  | { readonly outcome: "CASE" };
+
 export interface OrderEvaluationRule {
-  evaluate(order: Order): Promise<OrderEvaluationOutcome>;
+  evaluate(order: Order): Promise<OrderEvaluationResult>;
 }
 
 /* The one complaint type this system now services (11-street-condition-implementation.md §1). */
 const STREET_CONDITION_COMPLAINT_TYPE = "Street Condition";
 
 /**
- * v1 real implementation (11-street-condition-implementation.md §1):
- * accepts an Order only if its (denormalized) complaint type is exactly
- * "Street Condition," rejecting everything else — a single hardcoded
- * target, not a data-driven allow-list, since narrowing to this one type
- * is the whole point. Replaces the mock `RandomOrderEvaluationRule`,
- * which never inspected the Order at all.
+ * v1 real implementation (11-street-condition-implementation.md §1,
+ * v1-prod-deployment.md Q2): rejects anything but "Street Condition" as
+ * `SERVICE_NOT_SUPPORTED`, then a Street Condition Order with no resolved
+ * location as `LOCATION_UNRESOLVED`; accepts the rest. Service type is
+ * checked first so the location-miss rate reflects serviceable work only.
  */
 export class StreetConditionOnlyRule implements OrderEvaluationRule {
-  async evaluate(order: Order): Promise<OrderEvaluationOutcome> {
-    return order.complaint_type === STREET_CONDITION_COMPLAINT_TYPE ? "ACCEPT" : "REJECT";
+  async evaluate(order: Order): Promise<OrderEvaluationResult> {
+    if (order.complaint_type !== STREET_CONDITION_COMPLAINT_TYPE) {
+      return { outcome: "REJECT", reasonCode: "SERVICE_NOT_SUPPORTED" };
+    }
+    if (order.location_id === null) {
+      return { outcome: "REJECT", reasonCode: "LOCATION_UNRESOLVED" };
+    }
+    return { outcome: "ACCEPT" };
   }
 }
+
+/* Human-readable `reason` alongside each code, for the event log. */
+const REJECTION_REASONS: Record<OrderRejectionReasonCode, string> = {
+  SERVICE_NOT_SUPPORTED: "Complaint type is not a supported service",
+  LOCATION_UNRESOLVED: "Request had no resolvable location",
+};
 
 /**
  * Dependencies for {@link evaluateOrder} — all default to this module's own
@@ -209,14 +225,14 @@ export async function evaluateOrder(orderEvent: OrderEvent, deps: OrderEvaluatio
     return;
   }
 
-  const outcome = await rule.evaluate(order);
-  logInfo("OrderEvaluationOutcomeDecided", { orderId: order.order_id, outcome });
+  const result = await rule.evaluate(order);
+  logInfo("OrderEvaluationOutcomeDecided", { orderId: order.order_id, result });
 
-  if (outcome === "ACCEPT") {
+  if (result.outcome === "ACCEPT") {
     const { priorityTier, slaDeadline } = await priorityAssigner.assign(order);
     await orderDao.acceptOrder(order.order_id, { priorityTier, slaDeadline });
-  } else if (outcome === "REJECT") {
-    await orderDao.rejectOrder(order.order_id, "Rejected by evaluation rule");
+  } else if (result.outcome === "REJECT") {
+    await orderDao.rejectOrder(order.order_id, result.reasonCode, REJECTION_REASONS[result.reasonCode]);
   } else {
     await createCaseFn({
       case_type: "WORKFLOW_EXECUTION_FAILURE",
@@ -227,5 +243,5 @@ export async function evaluateOrder(orderEvent: OrderEvent, deps: OrderEvaluatio
     await orderDao.recordCaseCreated(order.order_id, "No applicable evaluation rule");
   }
 
-  logInfo("OrderEvaluationCompleted", { orderId: order.order_id, outcome });
+  logInfo("OrderEvaluationCompleted", { orderId: order.order_id, result });
 }

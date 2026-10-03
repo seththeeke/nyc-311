@@ -5,7 +5,7 @@ import { RequestsTable } from "../../data/RequestsTable";
 import { Nyc311PollerLambda } from "../../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../../lambda/Nyc311PollerSchedule";
 
-function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
+function synthesize(envName: "TEST" | "PROD" = "TEST", enabled = true): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   const requestsTable = new RequestsTable(stack, "RequestsTable", { envName });
@@ -14,6 +14,7 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
     envName,
     pollerLambda,
     failureNotificationEmail: "seththeeke@gmail.com",
+    enabled,
   });
   return Template.fromStack(stack);
 }
@@ -73,5 +74,12 @@ describe("Nyc311PollerSchedule", () => {
     prodTemplate.hasResourceProperties("AWS::Scheduler::Schedule", { Name: "Nyc311PollerSchedule-Prod" });
     prodTemplate.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311PollerFailures-Prod" });
     prodTemplate.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311PollerFailureAlarm-Prod" });
+  });
+});
+
+describe("Nyc311PollerSchedule enabled flag (v1-prod-deployment.md B5)", () => {
+  it("sets the Schedule's State from the enabled prop", () => {
+    synthesize("TEST", true).hasResourceProperties("AWS::Scheduler::Schedule", { State: "ENABLED" });
+    synthesize("PROD", false).hasResourceProperties("AWS::Scheduler::Schedule", { State: "DISABLED" });
   });
 });

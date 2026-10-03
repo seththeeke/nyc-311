@@ -2,7 +2,7 @@ import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../config";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1, 10-capacity-modeling-and-integration.md §5.1) — same
  * shape as capacityService. Deliberately minimal: an on-demand trigger
  * for testing purposes only, no output-statistics surface yet (§5.1,
@@ -41,4 +41,4 @@ class MockSchedulingService implements SchedulingService {
 }
 
 export const schedulingService: SchedulingService =
-  config.dataMode === "live" ? new LiveSchedulingService() : new MockSchedulingService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveSchedulingService() : new MockSchedulingService();

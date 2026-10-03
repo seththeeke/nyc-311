@@ -1,5 +1,4 @@
 import { IntegrationTestReportSchema, type IntegrationTestReport } from "../models/integrationTestReport";
-import { config } from "../config";
 import { MOCK_INTEGRATION_TEST_REPORT } from "../test-data/integrationTestReport";
 
 /* Same-origin static file synced by the pipeline's integration-test step (5-pipeline-integration-tests.md §5) — not config.apiBaseUrl, which is the separate Lambda-backed API Gateway origin. */
@@ -27,4 +26,4 @@ class MockIntegrationTestReportService implements IntegrationTestReportService {
 }
 
 export const integrationTestReportService: IntegrationTestReportService =
-  config.dataMode === "live" ? new LiveIntegrationTestReportService() : new MockIntegrationTestReportService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveIntegrationTestReportService() : new MockIntegrationTestReportService();

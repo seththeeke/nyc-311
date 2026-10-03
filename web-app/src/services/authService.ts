@@ -19,7 +19,7 @@ import { MOCK_ADMIN_CREDENTIAL, MOCK_ADMIN_USER } from "../test-data/adminUser";
 export type SignInResult = { status: "SIGNED_IN"; user: User } | { status: "NEW_PASSWORD_REQUIRED" };
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1, `9-admin-auth-integration.md` §3) — same shape as every
  * other service in this codebase.
  */
@@ -141,4 +141,4 @@ class MockAuthService implements AuthService {
   }
 }
 
-export const authService: AuthService = config.dataMode === "live" ? new LiveAuthService() : new MockAuthService();
+export const authService: AuthService = import.meta.env.VITE_DATA_MODE === "live" ? new LiveAuthService() : new MockAuthService();

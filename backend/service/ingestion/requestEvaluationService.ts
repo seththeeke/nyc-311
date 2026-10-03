@@ -4,7 +4,6 @@ import { logInfo, logWarn } from "../../logger";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
 import { OrderDao } from "../../dao/order/orderDao";
-import { createCase } from "../case/caseService";
 import type { Request } from "../../models/request";
 
 function requireEnv(name: string): string {
@@ -39,7 +38,6 @@ export type FilterOutcome =
 
 interface FilterDeps {
   locationDao: LocationDao;
-  createCase: typeof createCase;
   now: () => Date;
 }
 
@@ -51,21 +49,16 @@ function stringField(rawPayload: Record<string, unknown>, key: string): string |
 }
 
 /**
- * The only real filter today (`3-order-ingestion.md` §1) — BBL-from-payload
- * only, no geocoding fallback. A miss halts the pipeline (Request stays
- * `DRAFT`) rather than rejecting, and logs a `location_resolution_failure`
- * Case via the stub service — real Case persistence doesn't exist yet.
+ * BBL-from-payload location resolution (`3-order-ingestion.md` §1), no
+ * geocoding fallback. A miss continues with no `locationId`, so the Order
+ * is still created and evaluation rejects it `LOCATION_UNRESOLVED` — a
+ * measured rejection, not a silent halt (v1-prod-deployment.md Q2).
  */
 async function resolveLocation(request: Request, deps: FilterDeps): Promise<FilterOutcome> {
   const bbl = stringField(request.raw_payload, "bbl");
   if (!bbl) {
-    await deps.createCase({
-      case_type: "LOCATION_RESOLUTION_FAILURE",
-      request_id: request.request_id,
-      order_id: null,
-      reason: "No bbl present in raw_payload",
-    });
-    return { kind: "HALT" };
+    logInfo("LocationUnresolvedNoBbl", { requestId: request.request_id });
+    return { kind: "CONTINUE" };
   }
 
   const location = await deps.locationDao.findOrCreateLocation({
@@ -107,7 +100,6 @@ export interface RequestEvaluationDeps {
   requestDao?: RequestDao;
   locationDao?: LocationDao;
   orderDao?: OrderDao;
-  createCaseFn?: typeof createCase;
   now?: () => Date;
   filters?: readonly FilterFn[];
 }
@@ -124,7 +116,6 @@ export async function evaluateRequest(request: Request, deps: RequestEvaluationD
   const requestDao = deps.requestDao ?? getDefaultRequestDao();
   const locationDao = deps.locationDao ?? getDefaultLocationDao();
   const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const createCaseFn = deps.createCaseFn ?? createCase;
   const now = deps.now ?? (() => new Date());
   const filters = deps.filters ?? FILTERS;
 
@@ -140,7 +131,7 @@ export async function evaluateRequest(request: Request, deps: RequestEvaluationD
     return;
   }
 
-  const filterDeps: FilterDeps = { locationDao, createCase: createCaseFn, now };
+  const filterDeps: FilterDeps = { locationDao, now };
   let locationId: string | null = null;
 
   for (const filter of filters) {
@@ -159,10 +150,6 @@ export async function evaluateRequest(request: Request, deps: RequestEvaluationD
     if (outcome.locationId) {
       locationId = outcome.locationId;
     }
-  }
-
-  if (!locationId) {
-    throw new Error(`Request ${current.request_id} passed all filters without a resolved location_id`);
   }
 
   const order = await orderDao.createOrder({

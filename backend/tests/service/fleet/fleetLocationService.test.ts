@@ -219,6 +219,27 @@ describe("getFleetLocations", () => {
     expect(result.operators[0].current_order).toBeNull();
   });
 
+  it("tolerates Orders with no location_id: current_order null, no trail point, never looked up", async () => {
+    const listActiveRoster = vi.fn().mockResolvedValue([makeOperator({ current_activity: "WORKING" })]);
+    const getOperatorOrderActivity = vi.fn().mockResolvedValue(
+      makeActivity({
+        currentOrder: makeOrder({ current_stage: "EXECUTE", location_id: null }),
+        recentCompletedOrders: [makeOrder({ location_id: null }), makeOrder({ location_id: "LOC1" })],
+      })
+    );
+    const { locationDao, getLocations } = makeLocationDao([makeLocation({ location_id: "LOC1" })]);
+
+    const result = await getFleetLocations({
+      operatorDao: { listActiveRoster } as unknown as OperatorDao,
+      orderDao: { getOperatorOrderActivity } as unknown as OrderDao,
+      locationDao,
+    });
+
+    expect(getLocations).toHaveBeenCalledWith(["LOC1"]);
+    expect(result.operators[0].current_order).toBeNull();
+    expect(result.operators[0].recent_job_locations).toHaveLength(1);
+  });
+
   it("resolves every Operator's current and recent job Locations in one batched lookup", async () => {
     const listActiveRoster = vi.fn().mockResolvedValue([makeOperator({ operator_id: "01A" }), makeOperator({ operator_id: "01B" })]);
     const getOperatorOrderActivity = vi.fn().mockImplementation((operatorId: string) =>

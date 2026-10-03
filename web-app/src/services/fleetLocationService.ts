@@ -3,7 +3,7 @@ import { FleetLocationsSchema, type FleetLocations } from "../models/fleetLocati
 import { MOCK_FLEET_LOCATIONS } from "../test-data/fleetLocations";
 
 /*
- * One interface, two implementations, selected by config.dataMode
+ * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — the home-page map's data source
  * (10-capacity-modeling-and-integration.md §6.1). Public, unlike
  * capacityService — no auth header, matches orderService/pollerMetricsService.
@@ -30,4 +30,4 @@ class MockFleetLocationService implements FleetLocationService {
 }
 
 export const fleetLocationService: FleetLocationService =
-  config.dataMode === "live" ? new LiveFleetLocationService() : new MockFleetLocationService();
+  import.meta.env.VITE_DATA_MODE === "live" ? new LiveFleetLocationService() : new MockFleetLocationService();
