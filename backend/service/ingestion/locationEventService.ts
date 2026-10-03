@@ -2,13 +2,8 @@ import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import type { LocationStreamRecord } from "../../models/locationStreamEvent";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 /**
  * Dependencies for {@link fanOutLocationRecord}. Both default to a freshly

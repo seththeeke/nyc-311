@@ -1,11 +1,6 @@
 import { GlueClient, GetTablesCommand, type Table } from "@aws-sdk/client-glue";
 import { logInfo } from "../../logger";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
+import { requireEnv } from "../../env";
 
 export interface WarehouseColumn {
   name: string;

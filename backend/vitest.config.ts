@@ -29,7 +29,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["controller/**/*.ts", "dao/**/*.ts", "models/**/*.ts", "service/**/*.ts", "logger.ts"],
+      include: ["controller/**/*.ts", "dao/**/*.ts", "models/**/*.ts", "service/**/*.ts", "logger.ts", "env.ts"],
       exclude: ["**/*.d.ts"],
       thresholds: {
         lines: 90,

@@ -2,16 +2,9 @@ import { ulid } from "ulid";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { UserDao } from "../../dao/user/userDao";
 import type { User } from "../../models/user";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getDefaultUserDao(): UserDao {

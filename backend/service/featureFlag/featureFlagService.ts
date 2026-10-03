@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { FeatureFlagDao } from "../../dao/featureFlag/featureFlagDao";
 import { NotFoundError } from "../../models/errors";
 import type {
@@ -10,12 +11,6 @@ import type {
   UpdateFeatureFlagRequest,
 } from "../../models/featureFlag";
 import { evaluateTreatment } from "./treatmentEvaluator";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getFeatureFlagDao(): FeatureFlagDao {

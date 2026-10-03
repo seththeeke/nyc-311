@@ -1,14 +1,9 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRunListResponse } from "../../models/warehouseJobRun";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 function getDefaultJobRunsDao(): WarehouseJobRunsDao {
   return new WarehouseJobRunsDao(
