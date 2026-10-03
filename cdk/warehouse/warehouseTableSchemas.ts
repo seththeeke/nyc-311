@@ -70,6 +70,8 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "updated_at", type: "string" },
       { name: "last_event_sequence", type: "bigint" },
       { name: "retry_counts", type: "string" },
+      /* INSERT | MODIFY from the stream record; null on REBUILD rows (#37). */
+      { name: "event_name", type: "string" },
       ...INGEST_METADATA_COLUMNS,
     ],
   },
@@ -88,6 +90,8 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "created_by", type: "string" },
       { name: "created_at", type: "string" },
       { name: "raw_payload", type: "string" },
+      /* INSERT | MODIFY from the stream record; null on REBUILD rows (#37). */
+      { name: "event_name", type: "string" },
       ...INGEST_METADATA_COLUMNS,
     ],
   },
