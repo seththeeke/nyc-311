@@ -52,10 +52,10 @@ describe("Nyc311OrderExecutionStateMachine", () => {
     expect(definition).toContain('"TimestampPath":"$.scheduled_start_datetime"');
   });
 
-  it("invokes the execution Lambda exactly three times — Dispatch, Arrive, Resolve", () => {
+  it("invokes the execution Lambda from four Tasks — Dispatch, Arrive, Resolve, and the HandleFailure cleanup", () => {
     const { definition } = synthesize();
 
-    expect((definition.match(/"Type":"Task"/g) ?? []).length).toBe(3);
+    expect((definition.match(/"Type":"Task"/g) ?? []).length).toBe(4);
   });
 
   it("passes phase DISPATCH, ARRIVE, RESOLVE to the three invocations, in order", () => {
@@ -79,11 +79,18 @@ describe("Nyc311OrderExecutionStateMachine", () => {
     expect(definition).toContain('"SecondsPath":"$.dispatch.processing_wait_seconds"');
   });
 
-  it("routes every Lambda Task's failure to a Fail state", () => {
+  it("routes every step's failure through HandleFailure (phase FAIL) before ending Failed (v1-prod-deployment.md F6)", () => {
     const { definition } = synthesize();
+    const states = (JSON.parse(definition) as { States: Record<string, { Type: string; Next?: string; End?: boolean; Catch?: { Next: string; ResultPath: string }[] }> }).States;
 
-    expect((definition.match(/"ErrorEquals":\["States\.ALL"\]/g) ?? []).length).toBe(3);
-    expect(definition).toContain('"Type":"Fail"');
+    for (const step of ["Dispatch", "Arrive", "Resolve"]) {
+      expect(states[step].Catch).toEqual([expect.objectContaining({ Next: "HandleFailure", ResultPath: "$.executionError" })]);
+    }
+    expect(states.HandleFailure.Next).toBe("ExecutionFailed");
+    expect(states.HandleFailure.Catch).toEqual([expect.objectContaining({ Next: "ExecutionFailed", ResultPath: "$.cleanupError" })]);
+    expect(states.ExecutionFailed.Type).toBe("Fail");
+    expect(definition).toContain('"phase":"FAIL"');
+    expect(definition).toContain('"error.$":"$.executionError.Error"');
   });
 
   it("sends state machine logs to a per-environment log group with ALL level", () => {

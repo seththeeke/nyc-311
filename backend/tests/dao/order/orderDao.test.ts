@@ -375,6 +375,76 @@ describe("OrderDao.recordProcessing", () => {
   });
 });
 
+describe("OrderDao.recordExecutionFailed", () => {
+  const executingItem = () =>
+    makeOrderItem({
+      current_stage: "EXECUTE",
+      status: "ACTIVE",
+      sla_deadline: "2026-08-29T00:00:00.000Z",
+      assigned_operator_id: "01OPERATOR",
+      scheduled_start: "2026-08-28T12:00:00.000Z",
+      scheduled_end: "2026-08-28T12:50:00.000Z",
+      estimated_materials_cost: 75,
+      cost_model_used: "BRUTE_FORCE",
+    });
+
+  it("sends the Order back to SCHEDULE, increments retry_counts.EXECUTE, keeps sla_deadline, and clears the assignment", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: executingItem() });
+
+    const order = await orderDao.recordExecutionFailed("01ORDER", "01OPERATOR", "boom");
+
+    expect(order).toMatchObject({
+      current_stage: "SCHEDULE",
+      status: "ACTIVE",
+      sla_deadline: "2026-08-29T00:00:00.000Z",
+      assigned_operator_id: null,
+      scheduled_start: null,
+      scheduled_end: null,
+      estimated_materials_cost: null,
+      cost_model_used: null,
+    });
+    expect(order.retry_counts.EXECUTE).toBe(1);
+  });
+
+  it("writes a STAGE_FAILED event (stage EXECUTE) carrying the operator and reason", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: executingItem() });
+
+    await orderDao.recordExecutionFailed("01ORDER", "01OPERATOR", "boom");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "STAGE_FAILED",
+      stage: "EXECUTE",
+      payload: { operator_id: "01OPERATOR", reason: "boom" },
+    });
+  });
+
+  it("re-stamps gsi1 under STAGE#SCHEDULE at the original deadline and drops gsi2", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: executingItem() });
+
+    await orderDao.recordExecutionFailed("01ORDER", "01OPERATOR", "boom");
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    const projection = transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+    expect(projection).toMatchObject({ gsi1pk: "STAGE#SCHEDULE", gsi1sk: "2026-08-29T00:00:00.000Z" });
+    expect(projection.gsi2pk).toBeUndefined();
+  });
+
+  it("starts the count at 1 when retry_counts has no EXECUTE entry", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { ...executingItem(), retry_counts: {} } });
+
+    const order = await orderDao.recordExecutionFailed("01ORDER", "01OPERATOR", "boom");
+
+    expect(order.retry_counts.EXECUTE).toBe(1);
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(orderDao.recordExecutionFailed("01ORDER", "01OPERATOR", "boom")).rejects.toThrow(ValidationError);
+  });
+});
+
 describe("OrderDao.recordResolved", () => {
   it("moves current_stage to RESOLVE", async () => {
     ddbMock.on(GetCommand).resolves({

@@ -13,6 +13,8 @@ import { streetConditionProcessingTimeEstimator } from "./streetConditionProcess
 import type { MaterialsCostEstimator } from "./materialsCostService";
 import { streetConditionMaterialsCostEstimator } from "./streetConditionMaterialsCostService";
 import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
+import { failExecution } from "../execution/orderExecutionService";
+import { ConflictError } from "../../models/errors";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -68,6 +70,8 @@ export interface OrderSchedulingDeps {
   processingEstimator?: ProcessingTimeEstimator;
   materialsEstimator?: MaterialsCostEstimator;
   executionStarter?: OrderExecutionStarter;
+  /** Cleanup when a claimed vehicle can't be handed off — injectable for tests. */
+  failExecution?: typeof failExecution;
   now?: () => Date;
 }
 
@@ -90,7 +94,7 @@ async function dispatchOneOrder(
   deps: Required<
     Pick<
       OrderSchedulingDeps,
-      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "materialsEstimator" | "executionStarter" | "now"
+      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "materialsEstimator" | "executionStarter" | "failExecution" | "now"
     >
   >
 ): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY"> {
@@ -147,21 +151,46 @@ async function dispatchOneOrder(
    * Task, so a later Order in this same run never sees this Operator as
    * idle again.
    */
-  await deps.operatorDao.startTransit(idleOperator.operator_id);
-  await deps.orderDao.scheduleOrder(order.order_id, {
-    scheduledStart: scheduledStart.toISOString(),
-    scheduledEnd: scheduledEnd.toISOString(),
-    operatorId: idleOperator.operator_id,
-    materialsCostEstimate,
-    costModel: deps.materialsEstimator.costModel,
-  });
+  try {
+    await deps.operatorDao.startTransit(idleOperator.operator_id);
+  } catch (err) {
+    /* A10: another run claimed this vehicle first. The Order stays in SCHEDULE for the next run. */
+    if (err instanceof ConflictError) {
+      logInfo("OrderScheduleSkippedOperatorClaimConflict", { orderId: order.order_id, operatorId: idleOperator.operator_id });
+      return "SKIPPED_NO_CAPACITY";
+    }
+    throw err;
+  }
 
-  await deps.executionStarter.startExecution({
-    orderId: order.order_id,
-    operatorId: idleOperator.operator_id,
-    jobLocation,
-    scheduledStartDatetime: scheduledStart.toISOString(),
-  });
+  /*
+   * Once the vehicle is claimed, a failure to hand off must not strand it
+   * (v1-prod-deployment.md Q3/F6): run the same cleanup as a failed
+   * execution, then rethrow so the run counts this Order as failed.
+   */
+  try {
+    await deps.orderDao.scheduleOrder(order.order_id, {
+      scheduledStart: scheduledStart.toISOString(),
+      scheduledEnd: scheduledEnd.toISOString(),
+      operatorId: idleOperator.operator_id,
+      materialsCostEstimate,
+      costModel: deps.materialsEstimator.costModel,
+    });
+
+    await deps.executionStarter.startExecution({
+      orderId: order.order_id,
+      operatorId: idleOperator.operator_id,
+      jobLocation,
+      scheduledStartDatetime: scheduledStart.toISOString(),
+    });
+  } catch (err) {
+    const reason = `Hand-off after claim failed: ${err instanceof Error ? err.message : String(err)}`;
+    logWarn("OrderScheduleHandOffFailed", { orderId: order.order_id, operatorId: idleOperator.operator_id, reason });
+    await deps.failExecution(order.order_id, idleOperator.operator_id, reason, {
+      orderDao: deps.orderDao,
+      operatorDao: deps.operatorDao,
+    });
+    throw err;
+  }
 
   logInfo("OrderScheduled", {
     orderId: order.order_id,
@@ -191,6 +220,7 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     processingEstimator: deps.processingEstimator ?? streetConditionProcessingTimeEstimator,
     materialsEstimator: deps.materialsEstimator ?? streetConditionMaterialsCostEstimator,
     executionStarter: deps.executionStarter ?? stepFunctionsOrderExecutionStarter,
+    failExecution: deps.failExecution ?? failExecution,
     now: deps.now ?? (() => new Date()),
   };
 

@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { logInfo } from "../../logger";
+import { logInfo, logWarn } from "../../logger";
 import { OrderDao } from "../../dao/order/orderDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import { RequestDao } from "../../dao/request/requestDao";
@@ -197,4 +197,58 @@ export async function resolveOrder(
     await operatorDao.finalizeRemoval(operatorId);
   }
   logInfo("OrderExecutionResolveCompleted", { orderId, operatorId });
+}
+
+/**
+ * Cleanup after a failed execution (v1-prod-deployment.md Q3/F6): Order
+ * back to `SCHEDULE`, vehicle back to `IDLE`, so the scheduler retries
+ * normally. Called by the state machine's `FAIL` step and by the scheduler
+ * when a claim can't be handed off. Safe to repeat: the Order resets only
+ * while still executing on this Operator, and the Operator is freed only
+ * while busy with no other Order executing on it.
+ */
+export async function failExecution(
+  orderId: string,
+  operatorId: string,
+  reason: string,
+  deps: OrderExecutionDeps = {}
+): Promise<void> {
+  const orderDao = deps.orderDao ?? getDefaultOrderDao();
+  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+
+  logInfo("OrderExecutionFailStarted", { orderId, operatorId, reason });
+
+  const order = await orderDao.getOrder(orderId);
+  if (order && order.current_stage === "EXECUTE" && order.assigned_operator_id === operatorId) {
+    await orderDao.recordExecutionFailed(orderId, operatorId, reason);
+    logInfo("OrderExecutionFailOrderReset", { orderId, retryCount: (order.retry_counts.EXECUTE ?? 0) + 1 });
+  } else {
+    logInfo("OrderExecutionFailOrderSkipped", {
+      orderId,
+      found: order !== null,
+      currentStage: order?.current_stage ?? null,
+      assignedOperatorId: order?.assigned_operator_id ?? null,
+    });
+  }
+
+  const operator = await operatorDao.getOperator(operatorId);
+  if (!operator || operator.current_activity === "IDLE") {
+    logInfo("OrderExecutionFailOperatorSkipped", { operatorId, found: operator !== null });
+    logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
+    return;
+  }
+  const { currentOrder } = await orderDao.getOperatorOrderActivity(operatorId);
+  if (currentOrder) {
+    logWarn("OrderExecutionFailOperatorBusyElsewhere", { operatorId, currentOrderId: currentOrder.order_id });
+    logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
+    return;
+  }
+
+  const released = await operatorDao.abortWork(operatorId, reason);
+  logInfo("OrderExecutionFailOperatorReleased", { operatorId });
+  if (released.removal_requested_at) {
+    logInfo("OrderExecutionFinalizingQueuedRemoval", { operatorId });
+    await operatorDao.finalizeRemoval(operatorId);
+  }
+  logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
 }

@@ -158,7 +158,7 @@ rationale. Workflow stages (per `capacity-model.md` §8):
 | `OrderCreated` | Order created from a promoted Request. |
 | `StageStarted` | A workflow stage began. |
 | `StageSucceeded` | A workflow stage completed successfully. |
-| `StageFailed` | A workflow stage failed (may or may not be terminal). |
+| `StageFailed` | A workflow stage failed (may or may not be terminal). v1 (`v1-prod-deployment.md` F6): an `Execute` failure records `operator_id` + `reason`, sends the Order back to `Schedule` (original `sla_deadline` kept, `retry_counts.Execute` +1, assignment cleared), and the scheduler retries it through its normal path. |
 | `StageRetried` | A workflow stage retried after failure. |
 | `FailureInjected` | A chaos-testing failure was injected at this stage. |
 | `PriorityAssigned` | `Ingest` stamps `priority_tier` (static base tier from `complaint_type`) and `sla_deadline` (the **queue-wait SLA** deadline per `capacity-model.md` §6 — not to be confused with the separate Case resolution-time SLA, which lives on `Case`). |
@@ -261,6 +261,7 @@ same way `stage` marks boundaries within an `Order`'s stream.
 | `TransitStarted` | Begins driving to a job (`order_id`). |
 | `WorkStarted` | Begins on-site work (`order_id`) — the moment that would have been `OrderCheckedIn` on Order's own stream; see the note under [Order](#order). |
 | `WorkCompleted` | Finishes on-site work (`order_id`). |
+| `WorkAborted` | The job's execution failed (v1, F6); returns to idle wherever the last GPS ping left it, carrying the failure `reason`. |
 | `IdleStarted` | Waiting between jobs — paid, not attributable to any Order. |
 | `ReturnToBaseStarted` | Paid drive back to the depot at shift end — also not attributable to any Order. |
 | `CheckedOut` | Ends the engagement for `shift_id`. |

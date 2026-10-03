@@ -11,6 +11,7 @@ import type { Order } from "../../../models/order";
 import type { Request } from "../../../models/request";
 import type { Location } from "../../../models/location";
 import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
+import { ConflictError } from "../../../models/errors";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const NOW = new Date("2026-08-28T12:00:00.000Z");
@@ -107,6 +108,7 @@ function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
     processingEstimator: { estimateMinutes: vi.fn().mockResolvedValue(30) },
     materialsEstimator: { costModel: "BRUTE_FORCE", estimateCost: vi.fn().mockResolvedValue(75) },
     executionStarter: { startExecution: vi.fn().mockResolvedValue(undefined) },
+    failExecution: vi.fn().mockResolvedValue(undefined),
     now: () => NOW,
     ...overrides,
   };
@@ -206,6 +208,55 @@ describe("scheduleOrders", () => {
     expect(summary.ordersFailed).toBe(1);
     expect(deps.operatorDao!.findIdleOperator).not.toHaveBeenCalled();
     expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
+  });
+
+  it("skips (not fails) an Order whose vehicle another run claimed first, leaving it for the next run (A10)", async () => {
+    const operatorDao = makeOperatorDao();
+    vi.mocked(operatorDao.startTransit).mockRejectedValue(new ConflictError("taken"));
+    const deps = baseDeps({ operatorDao });
+
+    const summary = await scheduleOrders(deps);
+
+    expect(summary).toMatchObject({ ordersSkippedNoCapacity: 1, ordersFailed: 0 });
+    expect(deps.orderDao!.scheduleOrder).not.toHaveBeenCalled();
+    expect(deps.failExecution).not.toHaveBeenCalled();
+  });
+
+  it("fails an Order, without cleanup, when the claim itself errors for a reason other than a conflict", async () => {
+    const operatorDao = makeOperatorDao();
+    vi.mocked(operatorDao.startTransit).mockRejectedValue(new Error("DynamoDB down"));
+    const deps = baseDeps({ operatorDao });
+
+    const summary = await scheduleOrders(deps);
+
+    expect(summary.ordersFailed).toBe(1);
+    expect(deps.failExecution).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["scheduleOrder", "write failed"],
+    ["startExecution", "throttled"],
+  ])("frees the claimed vehicle via failExecution when %s throws after the claim (F6)", async (step, message) => {
+    const deps = baseDeps();
+    if (step === "scheduleOrder") vi.mocked(deps.orderDao!.scheduleOrder).mockRejectedValue(new Error(message));
+    else vi.mocked(deps.executionStarter!.startExecution).mockRejectedValue(new Error(message));
+
+    const summary = await scheduleOrders(deps);
+
+    expect(summary.ordersFailed).toBe(1);
+    expect(deps.failExecution).toHaveBeenCalledWith("01ORDER", "01OPERATOR", `Hand-off after claim failed: ${message}`, {
+      orderDao: deps.orderDao,
+      operatorDao: deps.operatorDao,
+    });
+  });
+
+  it("stringifies a non-Error hand-off rejection into the cleanup reason", async () => {
+    const deps = baseDeps();
+    vi.mocked(deps.executionStarter!.startExecution).mockRejectedValue("plain string");
+
+    await scheduleOrders(deps);
+
+    expect(deps.failExecution).toHaveBeenCalledWith("01ORDER", "01OPERATOR", "Hand-off after claim failed: plain string", expect.any(Object));
   });
 
   it("throws (isolated as a per-order failure) when the Order's Request/Location can't be resolved", async () => {

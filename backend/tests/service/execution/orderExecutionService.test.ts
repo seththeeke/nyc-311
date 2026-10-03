@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { arriveAtJob, dispatchOrder, resolveOrder } from "../../../service/execution/orderExecutionService";
+import { arriveAtJob, dispatchOrder, failExecution, resolveOrder } from "../../../service/execution/orderExecutionService";
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { OperatorDao } from "../../../dao/operator/operatorDao";
 import type { RequestDao } from "../../../dao/request/requestDao";
@@ -424,6 +424,116 @@ describe("resolveOrder", () => {
 
     try {
       await expect(resolveOrder("01ORDER", "01OPERATOR", null, { orderDao })).rejects.toThrow(
+        "Missing required environment variable: OPERATORS_TABLE_NAME"
+      );
+    } finally {
+      if (previous !== undefined) process.env.OPERATORS_TABLE_NAME = previous;
+    }
+  });
+});
+
+describe("failExecution (v1-prod-deployment.md Q3/F6)", () => {
+  function makeFailDeps(overrides: {
+    order?: Order | null;
+    operator?: Operator | null;
+    currentOrderAfterReset?: Order | null;
+    released?: Operator;
+  } = {}): { orderDao: OrderDao; operatorDao: OperatorDao } {
+    const order =
+      overrides.order === undefined
+        ? makeOrder({ current_stage: "EXECUTE", assigned_operator_id: "01OPERATOR" })
+        : overrides.order;
+    const operator = overrides.operator === undefined ? makeOperator({ current_activity: "WORKING" }) : overrides.operator;
+    return {
+      orderDao: {
+        getOrder: vi.fn().mockResolvedValue(order),
+        recordExecutionFailed: vi.fn().mockResolvedValue(undefined),
+        getOperatorOrderActivity: vi
+          .fn()
+          .mockResolvedValue({ currentOrder: overrides.currentOrderAfterReset ?? null, recentCompletedOrders: [] }),
+      } as unknown as OrderDao,
+      operatorDao: {
+        getOperator: vi.fn().mockResolvedValue(operator),
+        abortWork: vi.fn().mockResolvedValue(overrides.released ?? makeOperator({ current_activity: "IDLE" })),
+        finalizeRemoval: vi.fn().mockResolvedValue(undefined),
+      } as unknown as OperatorDao,
+    };
+  }
+
+  it("resets the executing Order and frees its vehicle", async () => {
+    const deps = makeFailDeps();
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.recordExecutionFailed).toHaveBeenCalledWith("01ORDER", "01OPERATOR", "boom");
+    expect(deps.operatorDao.abortWork).toHaveBeenCalledWith("01OPERATOR", "boom");
+    expect(deps.operatorDao.finalizeRemoval).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a removal that was queued while the vehicle was busy", async () => {
+    const deps = makeFailDeps({
+      released: makeOperator({ current_activity: "IDLE", removal_requested_at: "2026-09-12T01:00:00.000Z" }),
+    });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.operatorDao.finalizeRemoval).toHaveBeenCalledWith("01OPERATOR");
+  });
+
+  it.each([
+    ["no longer exists", null],
+    ["already back in SCHEDULE (a repeat call)", makeOrder({ current_stage: "SCHEDULE", assigned_operator_id: null })],
+    ["executing on a different vehicle", makeOrder({ current_stage: "EXECUTE", assigned_operator_id: "01OTHER" })],
+  ])("leaves the Order alone when it %s, but still frees a stranded vehicle", async (_label, order) => {
+    const deps = makeFailDeps({ order });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.recordExecutionFailed).not.toHaveBeenCalled();
+    expect(deps.operatorDao.abortWork).toHaveBeenCalledWith("01OPERATOR", "boom");
+  });
+
+  it.each([
+    ["can't be found", null],
+    ["is already IDLE (a repeat call)", makeOperator({ current_activity: "IDLE" })],
+  ])("doesn't touch a vehicle that %s", async (_label, operator) => {
+    const deps = makeFailDeps({ operator });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.getOperatorOrderActivity).not.toHaveBeenCalled();
+    expect(deps.operatorDao.abortWork).not.toHaveBeenCalled();
+  });
+
+  it("doesn't free a vehicle that's since been claimed for another executing Order", async () => {
+    const deps = makeFailDeps({ currentOrderAfterReset: makeOrder({ order_id: "01NEXT", current_stage: "EXECUTE" }) });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.getOperatorOrderActivity).toHaveBeenCalledWith("01OPERATOR");
+    expect(deps.operatorDao.abortWork).not.toHaveBeenCalled();
+  });
+
+  it("throws when deps.orderDao is omitted and ORDERS_TABLE_NAME isn't set", async () => {
+    const previous = process.env.ORDERS_TABLE_NAME;
+    delete process.env.ORDERS_TABLE_NAME;
+
+    try {
+      await expect(failExecution("01ORDER", "01OPERATOR", "boom")).rejects.toThrow(
+        "Missing required environment variable: ORDERS_TABLE_NAME"
+      );
+    } finally {
+      if (previous !== undefined) process.env.ORDERS_TABLE_NAME = previous;
+    }
+  });
+
+  it("throws when deps.operatorDao is omitted and OPERATORS_TABLE_NAME isn't set", async () => {
+    const previous = process.env.OPERATORS_TABLE_NAME;
+    delete process.env.OPERATORS_TABLE_NAME;
+
+    try {
+      await expect(failExecution("01ORDER", "01OPERATOR", "boom", { orderDao: makeFailDeps().orderDao })).rejects.toThrow(
         "Missing required environment variable: OPERATORS_TABLE_NAME"
       );
     } finally {

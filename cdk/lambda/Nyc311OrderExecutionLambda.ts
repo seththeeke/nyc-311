@@ -57,7 +57,8 @@ export class Nyc311OrderExecutionLambda extends NodejsFunction {
       },
     });
 
-    props.ordersTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem");
+    /* Query: the FAIL step checks gsi2-assigned-operator before freeing a vehicle (v1-prod-deployment.md F6). */
+    props.ordersTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
     props.operatorsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem");
     props.requestsTable.grant(this, "dynamodb:GetItem");
   }

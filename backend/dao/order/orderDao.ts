@@ -313,6 +313,51 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
   }
 
   /**
+   * An execution failed (v1-prod-deployment.md Q3/F6): appends
+   * `STAGE_FAILED` (stage `EXECUTE`) and sends the Order back to
+   * `SCHEDULE` for the scheduler's normal path. `retry_counts.EXECUTE`
+   * increments; the original `sla_deadline` is kept, so a retry sorts ahead
+   * of newer work. The assignment, window, and materials estimate are
+   * cleared; re-scheduling re-estimates them.
+   */
+  async recordExecutionFailed(orderId: string, operatorId: string, reason: string): Promise<Order> {
+    const now = new Date().toISOString();
+    return this.appendEvent(
+      orderId,
+      (nextSequence) => ({
+        order_id: orderId,
+        sequence_number: nextSequence,
+        event_type: "STAGE_FAILED",
+        stage: "EXECUTE",
+        payload: { operator_id: operatorId, reason },
+        occurred_at: now,
+        actor: "SYSTEM",
+      }),
+      (previous, event) => {
+        const base = this.requirePreviousProjection(orderId, previous);
+        return {
+          ...base,
+          current_stage: "SCHEDULE",
+          retry_counts: { ...base.retry_counts, EXECUTE: (base.retry_counts.EXECUTE ?? 0) + 1 },
+          scheduled_start: null,
+          scheduled_end: null,
+          assigned_operator_id: null,
+          estimated_materials_cost: null,
+          cost_model_used: null,
+          updated_at: now,
+          last_event_sequence: event.sequence_number,
+        };
+      },
+      /* Back in gsi1-stage-sla under SCHEDULE at its original deadline; gsi2 drops with the cleared assignment. */
+      (projection) => ({
+        gsi1pk: stageSlaPartitionKey(projection.current_stage),
+        gsi1sk: projection.sla_deadline,
+        ...assignedOperatorAttributes(projection),
+      })
+    );
+  }
+
+  /**
    * The `Process/Resolve` phase's terminal step — on-site work finished,
    * moving `current_stage` from `EXECUTE` to `RESOLVE`. `actualMaterialsCost`
    * is null for an execution dispatched before materials cost existed.

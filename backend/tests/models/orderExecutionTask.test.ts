@@ -24,6 +24,15 @@ describe("OrderExecutionTaskSchema", () => {
     expect(OrderExecutionTaskSchema.parse(task)).toEqual({ ...task, materials_cost_actual: null });
   });
 
+  it("accepts a well-formed FAIL task carrying the Step Functions error name", () => {
+    const task = { phase: "FAIL", order_id: "01ORDER", operator_id: "01OPERATOR", error: "States.TaskFailed" };
+    expect(OrderExecutionTaskSchema.parse(task)).toEqual(task);
+  });
+
+  it("rejects a FAIL task with no error", () => {
+    expect(OrderExecutionTaskSchema.safeParse({ phase: "FAIL", order_id: "01ORDER", operator_id: "01OPERATOR" }).success).toBe(false);
+  });
+
   it("rejects an unknown phase", () => {
     expect(OrderExecutionTaskSchema.safeParse({ phase: "PROCESS", order_id: "01ORDER" }).success).toBe(false);
   });

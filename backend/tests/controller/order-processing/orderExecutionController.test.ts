@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { orderExecutionController } from "../../../controller/order-processing/orderExecutionController";
-import { arriveAtJob, dispatchOrder, resolveOrder } from "../../../service/execution/orderExecutionService";
+import { arriveAtJob, dispatchOrder, failExecution, resolveOrder } from "../../../service/execution/orderExecutionService";
 import { ValidationError } from "../../../models/errors";
 
 vi.mock("../../../service/execution/orderExecutionService", () => ({
   dispatchOrder: vi.fn(),
   arriveAtJob: vi.fn(),
   resolveOrder: vi.fn(),
+  failExecution: vi.fn(),
 }));
 
 const mockedDispatchOrder = vi.mocked(dispatchOrder);
 const mockedArriveAtJob = vi.mocked(arriveAtJob);
 const mockedResolveOrder = vi.mocked(resolveOrder);
+const mockedFailExecution = vi.mocked(failExecution);
 
 beforeEach(() => {
   mockedDispatchOrder.mockReset();
@@ -74,6 +76,20 @@ describe("orderExecutionController", () => {
     await orderExecutionController({ phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR" });
 
     expect(mockedResolveOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR", null);
+  });
+
+  it("routes a FAIL task to failExecution with the Step Functions error name in the reason (v1-prod-deployment.md F6)", async () => {
+    mockedFailExecution.mockResolvedValue(undefined);
+
+    const result = await orderExecutionController({
+      phase: "FAIL",
+      order_id: "01ORDER",
+      operator_id: "01OPERATOR",
+      error: "States.TaskFailed",
+    });
+
+    expect(mockedFailExecution).toHaveBeenCalledWith("01ORDER", "01OPERATOR", "Execution step failed: States.TaskFailed");
+    expect(result).toEqual({});
   });
 
   it("throws ValidationError for a malformed task, without calling any service function", async () => {
