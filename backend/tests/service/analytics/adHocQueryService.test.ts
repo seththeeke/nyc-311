@@ -43,6 +43,22 @@ describe("isReadOnlyStatement", () => {
       expect(isReadOnlyStatement(sql)).toBe(false);
     }
   );
+
+  it.each([
+    ["line comments", "-- v1 wbr header\n-- more notes\nWITH a AS (SELECT 1) SELECT * FROM a"],
+    ["a block comment", "/* header\n spanning lines */ SELECT 1"],
+    ["mixed comments and blank lines", "\n  -- one\n/* two */\n\n  -- three\nselect 1"],
+  ])("skips leading %s before the first keyword", (_label, sql) => {
+    expect(isReadOnlyStatement(sql)).toBe(true);
+  });
+
+  it.each([
+    ["a write statement hidden behind a comment", "-- looks harmless\nDELETE FROM order_events"],
+    ["a comment-only query", "-- nothing here"],
+    ["an unterminated block comment", "/* never closed SELECT 1"],
+  ])("still rejects %s", (_label, sql) => {
+    expect(isReadOnlyStatement(sql)).toBe(false);
+  });
 });
 
 describe("runAdHocQuery", () => {
