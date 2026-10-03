@@ -239,6 +239,12 @@ See [#56](https://github.com/seththeeke/nyc-311/issues/56).
 
 ---
 
+## Bump 29 patch/minor-outdated dependencies across web-app/backend/cdk (within existing semver ranges)
+
+See [#64](https://github.com/seththeeke/nyc-311/issues/64).
+
+---
+
 ## web-app: production JS bundle is a single 802 kB chunk — no route-level code splitting
 
 See [#60](https://github.com/seththeeke/nyc-311/issues/60) — fixed this run,
