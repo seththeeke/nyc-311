@@ -122,7 +122,8 @@ export const DOMAIN_CONFIG: Record<Nyc311Environment, { siteDomain: string; apiD
  */
 export const POLLER_ENABLED: Record<Nyc311Environment, boolean> = {
   TEST: true,
-  PROD: false,
+  /* Dialed up 2026-10-03 (v1-prod-deployment.md Part D step 12), after the stale cursor was deleted (step 11). */
+  PROD: true,
 };
 
 /*
