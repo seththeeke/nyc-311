@@ -45,7 +45,7 @@ export interface GetFleetLocationsDeps {
  */
 function buildCurrentOrderDetail(order: Order | null, locations: Map<string, Location>): FleetCurrentOrder | null {
   if (!order) return null;
-  const location = locations.get(order.location_id);
+  const location = order.location_id === null ? undefined : locations.get(order.location_id);
   if (!location) {
     logWarn("GetFleetLocationsCurrentOrderLocationMissing", { orderId: order.order_id, locationId: order.location_id });
     return null;
@@ -60,7 +60,7 @@ function buildCurrentOrderDetail(order: Order | null, locations: Map<string, Loc
  */
 function buildRecentJobLocations(orders: Order[], locations: Map<string, Location>): GpsLocation[] {
   return orders
-    .map((order) => locations.get(order.location_id))
+    .map((order) => (order.location_id === null ? undefined : locations.get(order.location_id)))
     .filter((location): location is Location => location !== undefined)
     .map(toGpsLocation);
 }
@@ -87,10 +87,12 @@ export async function getFleetLocations(deps: GetFleetLocationsDeps = {}): Promi
     logInfo("GetFleetLocationsRosterLoaded", { operatorCount: roster.length });
 
     const activities = await Promise.all(roster.map((operator) => orderDao.getOperatorOrderActivity(operator.operator_id)));
-    const locationIds = activities.flatMap(({ currentOrder, recentCompletedOrders }) => [
-      ...(currentOrder ? [currentOrder.location_id] : []),
-      ...recentCompletedOrders.map((order) => order.location_id),
-    ]);
+    const locationIds = activities
+      .flatMap(({ currentOrder, recentCompletedOrders }) => [
+        ...(currentOrder ? [currentOrder.location_id] : []),
+        ...recentCompletedOrders.map((order) => order.location_id),
+      ])
+      .filter((locationId): locationId is string => locationId !== null);
     logInfo("GetFleetLocationsOrderActivityLoaded", { locationIdCount: locationIds.length });
 
     const locations = locationIds.length > 0 ? await locationDao.getLocations(locationIds) : new Map<string, Location>();

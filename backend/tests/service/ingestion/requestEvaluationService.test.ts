@@ -91,20 +91,20 @@ describe("evaluateRequest", () => {
     expect(requestDao.updateRequestStatus).not.toHaveBeenCalled();
   });
 
-  it("halts (Request stays draft) and logs a stub Case when resolveLocation finds no bbl", async () => {
+  it("still creates the Order, with no location_id, when resolveLocation finds no bbl (v1-prod-deployment.md Q2)", async () => {
     const requestDao = makeRequestDao();
     const locationDao = makeLocationDao();
     const orderDao = makeOrderDao();
-    const createCaseFn = vi.fn().mockResolvedValue(undefined);
 
-    await evaluateRequest(draftRequest, { requestDao, locationDao, orderDao, createCaseFn, now: () => NOW });
+    await evaluateRequest(draftRequest, { requestDao, locationDao, orderDao, now: () => NOW });
 
-    expect(createCaseFn).toHaveBeenCalledWith(
-      expect.objectContaining({ case_type: "LOCATION_RESOLUTION_FAILURE", request_id: "01REQUEST" })
-    );
     expect(locationDao.findOrCreateLocation).not.toHaveBeenCalled();
-    expect(requestDao.updateRequestStatus).not.toHaveBeenCalled();
-    expect(orderDao.createOrder).not.toHaveBeenCalled();
+    expect(orderDao.createOrder).toHaveBeenCalledWith({
+      request_id: "01REQUEST",
+      location_id: null,
+      complaint_type: "Noise - Residential",
+    });
+    expect(requestDao.updateRequestStatus).toHaveBeenCalledWith("01REQUEST", "PROMOTED", null);
   });
 
   it("resolves the location, creates the Order, and promotes the Request when a bbl is present", async () => {
@@ -181,13 +181,14 @@ describe("evaluateRequest", () => {
     expect(secondFilter).not.toHaveBeenCalled();
   });
 
-  it("throws if every filter continues but no filter ever resolved a location_id", async () => {
+  it("creates the Order with a null location_id when every filter continues without resolving one", async () => {
     const requestDao = makeRequestDao();
+    const orderDao = makeOrderDao();
     const noopFilter: FilterFn = async () => ({ kind: "CONTINUE" });
 
-    await expect(
-      evaluateRequest(draftRequest, { requestDao, now: () => NOW, filters: [noopFilter] })
-    ).rejects.toThrow(/without a resolved location_id/);
+    await evaluateRequest(draftRequest, { requestDao, orderDao, now: () => NOW, filters: [noopFilter] });
+
+    expect(orderDao.createOrder).toHaveBeenCalledWith(expect.objectContaining({ location_id: null }));
   });
 
   it("falls back to freshly constructed DAOs when none are provided in deps", async () => {

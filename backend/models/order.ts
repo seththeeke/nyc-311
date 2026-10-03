@@ -48,6 +48,15 @@ export type Actor = (typeof ACTORS)[number];
 export const ORDER_STATUSES = ["CREATED", "ACTIVE", "REJECTED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/*
+ * Why evaluation rejected an Order, stamped as `reason_code` on the
+ * ORDER_REJECTED event payload (v1-prod-deployment.md Q2/F4). Kept generic
+ * on purpose, not tied to one complaint type or location-resolution method,
+ * so the codes outlive both.
+ */
+export const ORDER_REJECTION_REASON_CODES = ["SERVICE_NOT_SUPPORTED", "LOCATION_UNRESOLVED"] as const;
+export type OrderRejectionReasonCode = (typeof ORDER_REJECTION_REASON_CODES)[number];
+
 export const OrderEventSchema = z.object({
   order_id: z.string().min(1),
   sequence_number: z.number().int().nonnegative(),
@@ -62,7 +71,12 @@ export type OrderEvent = z.infer<typeof OrderEventSchema>;
 export const OrderSchema = z.object({
   order_id: z.string().min(1),
   request_id: z.string().min(1),
-  location_id: z.string().min(1),
+  /*
+   * Null when the Request had no resolvable location (v1-prod-deployment.md
+   * Q2) — that Order is created anyway, then rejected LOCATION_UNRESOLVED.
+   * An accepted Order always has one.
+   */
+  location_id: z.string().min(1).nullable(),
   /*
    * Denormalized from the originating Request at creation
    * (11-street-condition-implementation.md §1) — lets OrderEvaluationRule
