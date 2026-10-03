@@ -128,16 +128,16 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 
 **Before dial-up**
 1. [x] All of Part F has shipped. The pipeline is green end to end on the launch commit, and `Nyc311-Prod` matches main.
-2. [ ] **Alarm subscriptions (B1/Q8):** *(2026-10-03: subscribed to the 4 Prod/pipeline topics; Test topics skipped by choice. Confirmations pending.)* subscribe **seththeeke@gmail.com** (email) to every alarm topic that has no subscriber, then click each confirmation email **within 3 days**, or AWS deletes it again. The topics:
+2. [x] **Alarm subscriptions (B1/Q8):** *(2026-10-03: the 4 Prod/pipeline topics are subscribed and confirmed; Test topics skipped by choice.)* subscribe **seththeeke@gmail.com** (email) to every alarm topic that has no subscriber, then click each confirmation email **within 3 days**, or AWS deletes it again. The topics:
    - `Nyc311OrderPipelineFailures-Prod`, `Nyc311OrderSchedulingFailures-Prod`, `Nyc311WarehouseJobsFailures-Prod`
    - `Nyc311PipelineFailures`
    - optionally the `-Test` equivalents
 
    Verify with `aws sns list-subscriptions-by-topic`: each should show an ARN, not `PendingConfirmation`.
 3. [x] **Budget (Q8):** *(2026-10-03: exists, all 3 alerts go to the right address. Forecast was over budget on CI spend; see Q8's B2 follow-up.)* confirm the CDK-built $20/month budget exists in the Budgets console, and that its alerts reach seththeeke@gmail.com.
-4. [ ] **Admin access (Q11):** log in at `boroughsim.com` as the Prod admin (`Nyc311AdminPool-Prod`). Confirm the real password isn't the old mock one, and rotate it if it is.
-5. [ ] **Deletion protection (Q11):** `aws dynamodb describe-table` shows `DeletionProtectionEnabled: true` for all 7 Prod tables.
-6. [ ] **Throttling (Q9):** a quick burst against `GET /fleet/locations` in Prod returns `429`s past the limit, while normal dashboard use is unaffected.
+4. [x] **Admin access (Q11):** *(2026-10-03: the Prod admin logs in with a real password, and no account exists for the old mock credential.)* log in at `boroughsim.com` as the Prod admin (`Nyc311AdminPool-Prod`). Confirm the real password isn't the old mock one, and rotate it if it is.
+5. [x] **Deletion protection (Q11):** *(2026-10-03: all 7 Prod tables `true`, Test `false`.)* `aws dynamodb describe-table` shows `DeletionProtectionEnabled: true` for all 7 Prod tables.
+6. [x] **Throttling (Q9):** *(2026-10-03: stage and route limits confirmed on both stages; a burst in Test returned `429`s. Enforcement is approximate: ~4–5 rps gets through the 2 rps route under sustained load.)* a quick burst against `GET /fleet/locations` in Prod returns `429`s past the limit, while normal dashboard use is unaffected.
 7. [x] **`wbr` in Test (F8):** *(2026-10-03: SQL applied and validated with a one-off Athena run. Confirm the first scheduled job run and the Total Cost tile.)* apply the final v1 SQL to `wbr` in Test, run it, and verify every column is populated with plausible values.
 8. [ ] **Rejection-rate report gate (Q2):** review Test's `wbr` numbers: Street Condition created, accepted, and rejected by `reason_code` (at least `LOCATION_UNRESOLVED`), plus the rejection rate. This is the baseline we'll use to decide when BBL-only resolution needs improving.
 9. [ ] **`wbr` in Prod (#44):** create the `wbr` job in Prod with the identical SQL (from the checked-in file) and the same cadence as Test.
