@@ -2,15 +2,10 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { JobResultSchema, type JobResult } from "../../models/jobResult";
 import type { JobRunResultItem } from "../../models/jobRunResults";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 export interface GetJobResultDeps {
   jobRunsDao?: WarehouseJobRunsDao;

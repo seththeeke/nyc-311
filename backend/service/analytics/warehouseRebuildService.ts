@@ -13,6 +13,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { logInfo, logError } from "../../logger";
+import { requireEnv } from "../../env";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRun, WarehouseJobRunStatus } from "../../models/warehouseJobRun";
 import type {
@@ -26,12 +27,6 @@ import type {
   RebuildFailTask,
   WarehouseRebuildResult,
 } from "../../models/warehouseRebuild";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 type ExportItem = Record<string, unknown>;
 

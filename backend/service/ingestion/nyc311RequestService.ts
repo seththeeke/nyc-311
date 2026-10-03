@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { RequestDao } from "../../dao/request/requestDao";
 import type { Request } from "../../models/request";
 import { Nyc311RawRecordSchema } from "../../models/nyc311RawRecord";
@@ -13,14 +14,6 @@ import type { PollResult } from "../../models/pollResult";
 import type { PollerMetrics } from "../../models/pollerMetrics";
 import type { RequestStreamRecord } from "../../models/requestStreamEvent";
 import { fetchNyc311Page, toSoqlTimestamp } from "./nyc311Client";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /*
  * Constructed lazily inside each function that needs one, not at module

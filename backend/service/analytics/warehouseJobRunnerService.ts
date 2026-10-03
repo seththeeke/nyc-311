@@ -10,17 +10,12 @@ import {
 } from "@aws-sdk/client-athena";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { NotFoundError } from "../../models/errors";
 import { MAX_JOB_RETRIES, type WarehouseJobRun, type WarehouseJobRunTrigger } from "../../models/warehouseJobRun";
 import type { JobResult, JobResultColumn } from "../../models/jobResult";
 import type { WarehouseJob } from "../../models/warehouseJob";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 const QUERY_POLL_INTERVAL_MS = 2_000;
 const QUERY_MAX_WAIT_MS = 120_000;

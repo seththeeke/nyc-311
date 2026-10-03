@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import { OrderDao } from "../../dao/order/orderDao";
 import { LocationDao } from "../../dao/location/locationDao";
@@ -8,14 +9,6 @@ import type { FleetLocations, FleetCurrentOrder } from "../../models/fleetLocati
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { Location } from "../../models/location";
 import type { Order } from "../../models/order";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /*
  * Constructed lazily inside getFleetLocations, not at module scope — per CLAUDE.md §5.2.

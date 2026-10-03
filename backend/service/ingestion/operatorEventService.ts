@@ -2,13 +2,8 @@ import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import type { OperatorStreamRecord } from "../../models/operatorStreamEvent";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 /**
  * Dependencies for {@link fanOutOperatorRecord}. All default to a freshly
