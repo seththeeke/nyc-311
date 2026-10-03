@@ -1,6 +1,6 @@
 # v1 Prod Deployment — Build/Defer Decisions + Launch Checklist
 
-> **Status: decisions complete (2026-09-28). The build phase hasn't started.**
+> **Status: decisions complete (2026-09-28). Part F build complete (2026-10-03): F1–F9 are all done. Next is the Part D launch runbook.**
 > Every placeholder and brute-force decision found in the codebase has been
 > classified as **must-have for v1**, **intentional as-is**, or **deferred**
 > (each deferral has a ticket or a named v2 home). Nothing in Prod should be
@@ -119,7 +119,7 @@ detailed design conversation before any code.
 | F6 | **✅ Done 2026-10-03** (design: Q3's 2026-10-03 session). **Design session:** execution-failure handling. The truck goes back to IDLE, the Order is marked FAILED, the scheduler retries it normally, and this includes the non-atomic claim fix (A10). | backend, cdk | Q3 |
 | F7 | **✅ Done 2026-10-03.** #40: the stored data was always correct; only the dedup *queries* were wrong. No live job was affected (Prod has no jobs; Test's only job, `wbr`, already dedups operators by `last_event_sequence`). Fixed the seed jobs in `test-scripts/9-backfill-warehouse-jobs.py` and doc 7's guidance: `order_snapshots`/`operator_snapshots` dedup by `last_event_sequence DESC, warehouse_ingested_at DESC`, and F8's `wbr` must follow it. No shared view, since there's only one live call site. #37: both fan-outs now embed `event_name` in the SNS body (raw delivery dropped the attribute), with a real `event_name` column on `order_snapshots` and `requests`, null on REBUILD rows. Warehouse correctness: investigate, then fix #40 (`order_snapshots` dedup key), and make `event_name` real in the warehouse (#37). | backend, cdk, docs | Q10 |
 | F8 | **✅ Done 2026-10-03** (checked in as `docs/v1-wbr.sql`; applied to Test's `wbr` job via S3, validated by a one-off Athena run against Test data; Prod's job gets created from the same file at Part D step 9). Final v1 `wbr` SQL, applied by hand (it's a job definition, not code). It covers the Street Condition funnel + rejection rate by `reason_code` (F4), execution-failure count/rate (F6), `total_cost` = labor + material (F5), and the existing weekly metrics, with the `orders_created` overcount fixed (B12). Check the SQL into the repo, e.g. `docs/v1-wbr.sql`. | — (manual, Test first) | Q2, Q3, Q7 |
-| F9 | Housekeeping: close #11 as obsolete, tag #8/#36 as v2, add a CLAUDE.md §5.2 note that failure injection isn't implemented yet, update the stale Lambda-concurrency memory (the quota is now 400), and file a ticket for the lat/lng-or-geocoding location fallback. | docs, GitHub | Q2, Q4, Q7 |
+| F9 | **✅ Done 2026-10-03** (#11 closed as obsolete; #8/#36 labeled `v2`; CLAUDE.md §5.2 note added; concurrency memory already current; location-fallback ticket filed as #69). Housekeeping: close #11 as obsolete, tag #8/#36 as v2, add a CLAUDE.md §5.2 note that failure injection isn't implemented yet, update the stale Lambda-concurrency memory (the quota is now 400), and file a ticket for the lat/lng-or-geocoding location fallback. | docs, GitHub | Q2, Q4, Q7 |
 
 ## Part D — Launch runbook (manual steps, in order)
 
@@ -176,7 +176,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 | Chaos config / failure injection (A11) | v2 | #36 |
 | Cost prediction + ML cost model (A12, doc 11 §6) | v2 | doc 11 |
 | About page "Machine Learning" / "LLMs" (A14), left as "Work in progress" on purpose | v2 (AI) | — |
-| Location fallback: lat/lng or geocoding for the ~64% of Street Condition complaints with no BBL (A13) | Decide from the `LOCATION_UNRESOLVED` rejection rate | new ticket (F9) |
+| Location fallback: lat/lng or geocoding for the ~64% of Street Condition complaints with no BBL (A13) | Decide from the `LOCATION_UNRESOLVED` rejection rate | #69 |
 | Route planning / traffic-aware transit (A5) | Undecided (doc 11 Topic 3) | doc 11 |
 | Real depot(s) (A6) | Later. The fallback never fires under BBL-only. | — |
 | Priority/SLA model (A3) | Stays a v1 constant (F5 session, 2026-10-03). Revisit with launch data. | doc 11 / F5 |
