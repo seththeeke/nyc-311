@@ -127,14 +127,14 @@ Every AWS-mutating step gets **explicit confirmation immediately before it
 runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 
 **Before dial-up**
-1. [ ] All of Part F has shipped. The pipeline is green end to end on the launch commit, and `Nyc311-Prod` matches main.
-2. [ ] **Alarm subscriptions (B1/Q8):** subscribe **seththeeke@gmail.com** (email) to every alarm topic that has no subscriber, then click each confirmation email **within 3 days**, or AWS deletes it again. The topics:
+1. [x] All of Part F has shipped. The pipeline is green end to end on the launch commit, and `Nyc311-Prod` matches main.
+2. [ ] **Alarm subscriptions (B1/Q8):** *(2026-10-03: subscribed to the 4 Prod/pipeline topics; Test topics skipped by choice. Confirmations pending.)* subscribe **seththeeke@gmail.com** (email) to every alarm topic that has no subscriber, then click each confirmation email **within 3 days**, or AWS deletes it again. The topics:
    - `Nyc311OrderPipelineFailures-Prod`, `Nyc311OrderSchedulingFailures-Prod`, `Nyc311WarehouseJobsFailures-Prod`
    - `Nyc311PipelineFailures`
    - optionally the `-Test` equivalents
 
    Verify with `aws sns list-subscriptions-by-topic`: each should show an ARN, not `PendingConfirmation`.
-3. [ ] **Budget (Q8):** confirm the CDK-built $20/month budget exists in the Budgets console, and that its alerts reach seththeeke@gmail.com.
+3. [x] **Budget (Q8):** *(2026-10-03: exists, all 3 alerts go to the right address. Forecast was over budget on CI spend; see Q8's B2 follow-up.)* confirm the CDK-built $20/month budget exists in the Budgets console, and that its alerts reach seththeeke@gmail.com.
 4. [ ] **Admin access (Q11):** log in at `boroughsim.com` as the Prod admin (`Nyc311AdminPool-Prod`). Confirm the real password isn't the old mock one, and rotate it if it is.
 5. [ ] **Deletion protection (Q11):** `aws dynamodb describe-table` shows `DeletionProtectionEnabled: true` for all 7 Prod tables.
 6. [ ] **Throttling (Q9):** a quick burst against `GET /fleet/locations` in Prod returns `429`s past the limit, while normal dashboard use is unaffected.
@@ -330,6 +330,7 @@ AWS Budget (B2) is the general cost backstop.
 ### Q8 — Alerting and cost guardrails (2026-09-28)
 - **B1: manually subscribe seththeeke@gmail.com** to each alarm topic that has no subscriber, and confirm (Part D step 2). Worth recording: CDK *declares* these `EmailSubscription`s, but an unconfirmed subscription gets deleted by AWS while CloudFormation still thinks it exists. So "declared in CDK" doesn't mean "delivering".
 - **B2: an AWS Budget in CDK at $20/month** with email alerts. It's a pre-launch build item. Implementation note to settle at build time: a budget covers the whole account, so declaring it in `Nyc311Stack` would create two (Test + Prod). My recommendation is a construct created **only when `envName === "PROD"`**, following the poller `MetricFilter`s' existing Prod-only precedent, and scoped to all account costs (CodeBuild/CodePipeline included). Alert on actual spend at 80% and 100%, plus forecasted spend at 100%.
+- **B2 follow-up, found at Part D step 3 (2026-10-03): CI is most of the bill.** September's account spend was $148.57: CodeBuild $103.84, the one-time domain $16, CodePipeline $15.78, and the app itself ~$10. October's first 3 days forecast $105.88 against the $20 budget. Measured over one day's runs: ~$1.50 per pipeline run, ~73% of it from ~43 per-asset CodeBuild projects, each starting a LARGE container with a one-minute minimum. **Decision: cut CI cost before touching the budget.** `publishAssetsInParallel: false` (one serial asset project), with SMALL compute for every step except Synth (stays LARGE, Vitest RPC-timeout history) and the integration gates (MEDIUM). Estimated ~$0.25/run (−83%), so September's volume would cost ~$18 of CodeBuild. Re-check against the budget after a week of runs; if it still fires on CI alone, revisit excluding CI from the $20.
 - **B6/#25: defer additional alarms.** Alarms and custom log metrics cost real money. This includes the `ExecutionsFailed` alarm listed in Q3 and the Firehose `DataFreshness` alarm I suggested. The known risk we're accepting: if Firehose stalls, `wbr` keeps succeeding on stale data. Mitigation: check freshness by hand during the Part E check-ins.
 
 ### Q9 — Deploy safety and dial-up control (2026-09-28)

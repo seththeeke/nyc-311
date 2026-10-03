@@ -1,3 +1,4 @@
+import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import type { CfnOutput } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
@@ -64,6 +65,8 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
       USER_POOL_CLIENT_ID: props.adminUserPoolClientIdOutput,
     },
     commands: [runAndCaptureExit, syncReport, invalidate, finish],
+    /* MEDIUM, not the pipeline's SMALL default: this is Test's blocking gate, and a starved Vitest run would flake it. */
+    buildEnvironment: { computeType: codebuild.ComputeType.MEDIUM },
     /*
      * Least-privilege, not a blanket bucket grant: this step can write
      * under /integration-tests/* only, never touch the SPA's own files
