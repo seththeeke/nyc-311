@@ -28,6 +28,8 @@ export type DispatchTask = z.infer<typeof DispatchTaskSchema>;
 export const DispatchResultSchema = z.object({
   transit_wait_seconds: z.number().nonnegative(),
   processing_wait_seconds: z.number().nonnegative(),
+  /* Drawn at dispatch, carried by the state machine to Resolve (v1-prod-deployment.md Q5). */
+  materials_cost_actual: z.number().nonnegative(),
 });
 export type DispatchResult = z.infer<typeof DispatchResultSchema>;
 
@@ -45,6 +47,8 @@ export const ResolveTaskSchema = z.object({
   phase: z.literal("RESOLVE"),
   order_id: z.string().min(1),
   operator_id: z.string().min(1),
+  /* From `$.dispatch`. Null for an execution dispatched before materials cost existed. */
+  materials_cost_actual: z.number().nonnegative().nullable().default(null),
 });
 export type ResolveTask = z.infer<typeof ResolveTaskSchema>;
 

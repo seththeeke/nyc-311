@@ -105,6 +105,7 @@ function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
     operatorDao: makeOperatorDao(),
     transitEstimator: { estimateMinutes: vi.fn().mockResolvedValue(20) },
     processingEstimator: { estimateMinutes: vi.fn().mockResolvedValue(30) },
+    materialsEstimator: { costModel: "BRUTE_FORCE", estimateCost: vi.fn().mockResolvedValue(75) },
     executionStarter: { startExecution: vi.fn().mockResolvedValue(undefined) },
     now: () => NOW,
     ...overrides,
@@ -122,7 +123,7 @@ afterEach(() => {
 });
 
 describe("scheduleOrders", () => {
-  it("schedules an Order when an idle Operator is available, computing the window from transit + processing minutes", async () => {
+  it("schedules an Order when an idle Operator is available, computing the window from transit + processing minutes and stamping the materials estimate", async () => {
     const deps = baseDeps();
 
     const summary = await scheduleOrders(deps);
@@ -138,7 +139,10 @@ describe("scheduleOrders", () => {
       scheduledStart: "2026-08-28T12:00:00.000Z",
       scheduledEnd: "2026-08-28T12:50:00.000Z",
       operatorId: "01OPERATOR",
+      materialsCostEstimate: 75,
+      costModel: "BRUTE_FORCE",
     });
+    expect(deps.materialsEstimator!.estimateCost).toHaveBeenCalledWith(makeOrder(), makeRequest());
   });
 
   it("starts the execution state machine with the job location, timing, and a now scheduled_start_datetime", async () => {

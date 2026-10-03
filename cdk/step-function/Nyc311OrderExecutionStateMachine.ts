@@ -77,6 +77,8 @@ export class Nyc311OrderExecutionStateMachine extends Construct {
         phase: "RESOLVE",
         "order_id.$": "$.order_id",
         "operator_id.$": "$.operator_id",
+        /* Drawn at Dispatch, stamped on ORDER_RESOLVED (v1-prod-deployment.md Q5). */
+        "materials_cost_actual.$": "$.dispatch.materials_cost_actual",
       }),
       payloadResponseOnly: true,
       resultPath: "$.resolve",

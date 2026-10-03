@@ -27,7 +27,7 @@ afterEach(() => {
 
 describe("orderExecutionController", () => {
   it("routes a DISPATCH task to dispatchOrder and returns its result", async () => {
-    mockedDispatchOrder.mockResolvedValue({ transit_wait_seconds: 12, processing_wait_seconds: 18 });
+    mockedDispatchOrder.mockResolvedValue({ transit_wait_seconds: 12, processing_wait_seconds: 18, materials_cost_actual: 112.5 });
 
     const result = await orderExecutionController({
       phase: "DISPATCH",
@@ -37,7 +37,7 @@ describe("orderExecutionController", () => {
     });
 
     expect(mockedDispatchOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR", { lat: 40.75, lng: -73.98 });
-    expect(result).toEqual({ transit_wait_seconds: 12, processing_wait_seconds: 18 });
+    expect(result).toEqual({ transit_wait_seconds: 12, processing_wait_seconds: 18, materials_cost_actual: 112.5 });
   });
 
   it("routes an ARRIVE task to arriveAtJob and returns an empty object", async () => {
@@ -54,13 +54,26 @@ describe("orderExecutionController", () => {
     expect(result).toEqual({});
   });
 
-  it("routes a RESOLVE task to resolveOrder and returns an empty object", async () => {
+  it("routes a RESOLVE task to resolveOrder with its actual materials cost and returns an empty object", async () => {
     mockedResolveOrder.mockResolvedValue(undefined);
 
-    const result = await orderExecutionController({ phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR" });
+    const result = await orderExecutionController({
+      phase: "RESOLVE",
+      order_id: "01ORDER",
+      operator_id: "01OPERATOR",
+      materials_cost_actual: 112.5,
+    });
 
-    expect(mockedResolveOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR");
+    expect(mockedResolveOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR", 112.5);
     expect(result).toEqual({});
+  });
+
+  it("defaults a RESOLVE task's missing materials cost to null (an execution dispatched before materials cost existed)", async () => {
+    mockedResolveOrder.mockResolvedValue(undefined);
+
+    await orderExecutionController({ phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR" });
+
+    expect(mockedResolveOrder).toHaveBeenCalledWith("01ORDER", "01OPERATOR", null);
   });
 
   it("throws ValidationError for a malformed task, without calling any service function", async () => {

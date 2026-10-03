@@ -184,6 +184,8 @@ rationale. Workflow stages (per `capacity-model.md` §8):
 | `assigned_operator_id` | Folded from the latest `OrderAssigned`. Nullable until first assignment. |
 | `reassignment_count` | Count of `OrderAssigned` events beyond the first. |
 | `case_id` | Nullable FK to Case. |
+| `estimated_materials_cost` / `cost_model_used` | Folded from `OrderScheduled` — the `MaterialsCostEstimator`'s USD estimate and which model produced it (`brute_force`). Null before scheduling. |
+| `actual_materials_cost` | Folded from `OrderResolved` — the estimate × the execution's processing variance factor. Labor cost is never stored; it derives from `rate_per_hour` × hours worked. |
 | `created_at` / `updated_at` | Timestamps. |
 | `last_event_sequence` | For replay/consistency checks — the projection must always be re-derivable by folding `OrderEvent`s from sequence 0. |
 

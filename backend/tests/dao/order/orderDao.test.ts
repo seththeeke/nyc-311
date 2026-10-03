@@ -227,9 +227,11 @@ describe("OrderDao.scheduleOrder", () => {
     scheduledStart: "2026-08-28T12:00:00.000Z",
     scheduledEnd: "2026-08-28T12:50:00.000Z",
     operatorId: "01OPERATOR",
+    materialsCostEstimate: 75,
+    costModel: "BRUTE_FORCE" as const,
   };
 
-  it("moves current_stage to EXECUTE, stamping the window and operator", async () => {
+  it("moves current_stage to EXECUTE, stamping the window, operator, and materials estimate", async () => {
     ddbMock.on(GetCommand).resolves({
       Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
     });
@@ -241,10 +243,12 @@ describe("OrderDao.scheduleOrder", () => {
       scheduled_start: SCHEDULED_INPUT.scheduledStart,
       scheduled_end: SCHEDULED_INPUT.scheduledEnd,
       assigned_operator_id: SCHEDULED_INPUT.operatorId,
+      estimated_materials_cost: 75,
+      cost_model_used: "BRUTE_FORCE",
     });
   });
 
-  it("writes a single ORDER_SCHEDULED event carrying the window and operator, stage SCHEDULE", async () => {
+  it("writes a single ORDER_SCHEDULED event carrying the window, operator, and materials estimate, stage SCHEDULE", async () => {
     ddbMock.on(GetCommand).resolves({
       Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
     });
@@ -259,6 +263,8 @@ describe("OrderDao.scheduleOrder", () => {
         scheduled_start: SCHEDULED_INPUT.scheduledStart,
         scheduled_end: SCHEDULED_INPUT.scheduledEnd,
         operator_id: SCHEDULED_INPUT.operatorId,
+        materials_cost_estimate: 75,
+        cost_model: "BRUTE_FORCE",
       },
     });
   });
@@ -375,20 +381,25 @@ describe("OrderDao.recordResolved", () => {
       Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
     });
 
-    const order = await orderDao.recordResolved("01ORDER");
+    const order = await orderDao.recordResolved("01ORDER", 112.5);
 
     expect(order.current_stage).toBe("RESOLVE");
+    expect(order.actual_materials_cost).toBe(112.5);
   });
 
-  it("writes a single ORDER_RESOLVED event, stage EXECUTE (the stage it resolved from)", async () => {
+  it("writes a single ORDER_RESOLVED event carrying the actual materials cost, stage EXECUTE (the stage it resolved from)", async () => {
     ddbMock.on(GetCommand).resolves({
       Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
     });
 
-    await orderDao.recordResolved("01ORDER");
+    await orderDao.recordResolved("01ORDER", 112.5);
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
-    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({ event_type: "ORDER_RESOLVED", stage: "EXECUTE" });
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "ORDER_RESOLVED",
+      stage: "EXECUTE",
+      payload: { materials_cost_actual: 112.5 },
+    });
   });
 
   it("re-stamps gsi1pk under the new stage (RESOLVE)", async () => {
@@ -396,7 +407,7 @@ describe("OrderDao.recordResolved", () => {
       Item: makeOrderItem({ current_stage: "EXECUTE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
     });
 
-    await orderDao.recordResolved("01ORDER");
+    await orderDao.recordResolved("01ORDER", null);
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({
@@ -408,7 +419,7 @@ describe("OrderDao.recordResolved", () => {
   it("throws ValidationError when no projection exists yet", async () => {
     ddbMock.on(GetCommand).resolves({});
 
-    await expect(orderDao.recordResolved("01ORDER")).rejects.toThrow(ValidationError);
+    await expect(orderDao.recordResolved("01ORDER", null)).rejects.toThrow(ValidationError);
   });
 
   it("preserves gsi2-assigned-operator through to RESOLVE — the fleet map's recent-jobs query depends on this surviving the whole execution flow", async () => {
@@ -416,7 +427,7 @@ describe("OrderDao.recordResolved", () => {
       Item: makeOrderItem({ current_stage: "EXECUTE", assigned_operator_id: "01OPERATOR" }),
     });
 
-    const order = await orderDao.recordResolved("01ORDER");
+    const order = await orderDao.recordResolved("01ORDER", null);
 
     const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
     expect(transactInput.TransactItems?.[1]?.Put?.Item).toMatchObject({ gsi2pk: "01OPERATOR", gsi2sk: order.updated_at });

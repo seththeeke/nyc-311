@@ -29,7 +29,7 @@ export const orderExecutionController = async (event: unknown): Promise<Dispatch
       await arriveAtJob(task.order_id, task.operator_id, task.job_location);
       return {};
     case "RESOLVE":
-      await resolveOrder(task.order_id, task.operator_id);
+      await resolveOrder(task.order_id, task.operator_id, task.materials_cost_actual);
       return {};
   }
 };

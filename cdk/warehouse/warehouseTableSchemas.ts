@@ -62,6 +62,10 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "assigned_operator_id", type: "string" },
       { name: "reassignment_count", type: "bigint" },
       { name: "case_id", type: "string" },
+      /* Materials cost (v1-prod-deployment.md Q5); null on Orders scheduled before it existed. */
+      { name: "estimated_materials_cost", type: "double" },
+      { name: "actual_materials_cost", type: "double" },
+      { name: "cost_model_used", type: "string" },
       { name: "created_at", type: "string" },
       { name: "updated_at", type: "string" },
       { name: "last_event_sequence", type: "bigint" },

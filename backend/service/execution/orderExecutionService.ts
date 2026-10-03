@@ -7,7 +7,10 @@ import { RequestDao } from "../../dao/request/requestDao";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { DispatchResult } from "../../models/orderExecutionTask";
 import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "../scheduling/transitTimeService";
-import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "../scheduling/processingTimeService";
+import type { ProcessingTimeEstimator } from "../scheduling/processingTimeService";
+import { streetConditionProcessingTimeEstimator } from "../scheduling/streetConditionProcessingTimeService";
+import type { MaterialsCostEstimator } from "../scheduling/materialsCostService";
+import { streetConditionMaterialsCostEstimator } from "../scheduling/streetConditionMaterialsCostService";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -49,6 +52,7 @@ export interface OrderExecutionDeps {
   requestDao?: RequestDao;
   transitEstimator?: TransitTimeEstimator;
   processingEstimator?: ProcessingTimeEstimator;
+  materialsEstimator?: MaterialsCostEstimator;
   /** Source of the execution-time random variance factors — defaults to `Math.random`, injectable for deterministic tests. */
   random?: () => number;
   getSimulationTimeScale?: () => number;
@@ -83,7 +87,8 @@ export async function dispatchOrder(
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
   const requestDao = deps.requestDao ?? getDefaultRequestDao();
   const transitEstimator = deps.transitEstimator ?? straightLineTransitTimeEstimator;
-  const processingEstimator = deps.processingEstimator ?? mockProcessingTimeEstimator;
+  const processingEstimator = deps.processingEstimator ?? streetConditionProcessingTimeEstimator;
+  const materialsEstimator = deps.materialsEstimator ?? streetConditionMaterialsCostEstimator;
   const random = deps.random ?? Math.random;
   const scale = (deps.getSimulationTimeScale ?? getSimulationTimeScale)();
 
@@ -100,9 +105,10 @@ export async function dispatchOrder(
   /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED, and this one was just claimed moments earlier — but defended against rather than assumed. */
   const operatorLocation = operator?.current_location ?? HOME_DEPOT_LOCATION;
 
-  const [estimatedTransitMinutes, estimatedProcessingMinutes] = await Promise.all([
+  const [estimatedTransitMinutes, estimatedProcessingMinutes, estimatedMaterialsCost] = await Promise.all([
     transitEstimator.estimateMinutes(operatorLocation, jobLocation),
     processingEstimator.estimateMinutes(order, request),
+    materialsEstimator.estimateCost(order, request),
   ]);
 
   const transitRandomFactor = randomVarianceFactor(random);
@@ -126,9 +132,19 @@ export async function dispatchOrder(
     processingMinutes,
   });
 
+  /* A longer job uses proportionally more material: the actual reuses the processing variance factor, rounded to cents (v1-prod-deployment.md Q5). */
+  const materialsCostActual = Math.round(estimatedMaterialsCost * processingRandomFactor * 100) / 100;
+  logInfo("OrderExecutionMaterialsCostDrawn", {
+    orderId,
+    estimatedMaterialsCost,
+    randomFactor: processingRandomFactor,
+    materialsCostActual,
+  });
+
   const result: DispatchResult = {
     transit_wait_seconds: Math.round((transitMinutes * 60) / scale),
     processing_wait_seconds: Math.round((processingMinutes * 60) / scale),
+    materials_cost_actual: materialsCostActual,
   };
   logInfo("OrderExecutionDispatchCompleted", { orderId, ...result });
   return result;
@@ -163,12 +179,17 @@ export async function arriveAtJob(
  * conditional second Operator event, same two-step precedent
  * `removeCapacity` already uses.
  */
-export async function resolveOrder(orderId: string, operatorId: string, deps: OrderExecutionDeps = {}): Promise<void> {
+export async function resolveOrder(
+  orderId: string,
+  operatorId: string,
+  actualMaterialsCost: number | null,
+  deps: OrderExecutionDeps = {}
+): Promise<void> {
   const orderDao = deps.orderDao ?? getDefaultOrderDao();
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
 
-  logInfo("OrderExecutionResolveStarted", { orderId, operatorId });
-  await orderDao.recordResolved(orderId);
+  logInfo("OrderExecutionResolveStarted", { orderId, operatorId, actualMaterialsCost });
+  await orderDao.recordResolved(orderId, actualMaterialsCost);
   const operator = await operatorDao.completeWork(operatorId);
 
   if (operator.removal_requested_at) {

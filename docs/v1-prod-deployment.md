@@ -51,8 +51,8 @@ a simple heuristic standing in for a real model.
 |---|---|---|---|---|---|
 | A1 | **No compensation when an order execution fails** | `cdk/step-function/Nyc311OrderExecutionStateMachine.ts` (Catch → `Fail`), `service/scheduling/orderSchedulingService.ts#dispatchOneOrder` | If any Dispatch/Arrive/Resolve task fails, the execution ends in `Fail`. The Operator stays in `TRANSIT`/`WORKING` and the Order stays in `EXECUTE` forever. The same thing happens if `startTransit` succeeds but `scheduleOrder` or `StartExecution` then throws. There's no sweeper or reconciliation. | Each failure permanently takes one vehicle out of the fleet, and nothing alarms on it. With 10 vehicles, the Prod fleet decays silently. | **DECIDED Q3 (direction only): fix before launch.** The detailed design is revisited at implementation time (see decision log). |
 | A2 | **Case persistence is log-only** | `service/case/caseService.ts` (`CaseCreationStub`) | `createCase` only writes a log line. Callers: `resolveLocation` when there's no BBL (the Request stays `DRAFT` forever), and `evaluateOrder`'s `CASE` branch (unreachable today, since `StreetConditionOnlyRule` only returns ACCEPT/REJECT). | Requests without a BBL pile up as `DRAFT` with no record except logs. Blocks #8. | **DECIDED Q4: deferred to v2.** Support/Cases is among the first v2 items. After Q2 there are no live callers. |
-| A3 | Priority tier + SLA are fixed | `service/order/orderPriorityService.ts` (`MockOrderPriorityAssigner`) | Every Order gets `STANDARD` with an SLA of accept time + 24h. | The scheduler sorts by `sla_deadline`, so dispatch is effectively FIFO. SLA-breach metrics mean "older than 24h". | **Q5: considered alongside the descriptor model.** It may stay a v1 constant. Decided in the Q5 session. |
-| A4 | Processing time is a fixed 30 min | `service/scheduling/processingTimeService.ts` | 30 min at scheduling, then × a random factor in [1, 2) at execution. | Every Street Condition job takes 30–60 real minutes in Prod. | **DECIDED Q5: must be implemented before launch.** Descriptor-driven. The design is deferred to a dedicated working session (see decision log). |
+| A3 | Priority tier + SLA are fixed | `service/order/orderPriorityService.ts` (`MockOrderPriorityAssigner`) | Every Order gets `STANDARD` with an SLA of accept time + 24h. | The scheduler sorts by `sla_deadline`, so dispatch is effectively FIFO. SLA-breach metrics mean "older than 24h". | **Q5: considered alongside the descriptor model.** It may stay a v1 constant. Decided in the Q5 session. **Decided 2026-10-03: stays the v1 constant.** |
+| A4 | Processing time is a fixed 30 min | `service/scheduling/processingTimeService.ts` | 30 min at scheduling, then × a random factor in [1, 2) at execution. | Every Street Condition job takes 30–60 real minutes in Prod. | **DECIDED Q5: must be implemented before launch.** Descriptor-driven. The design is deferred to a dedicated working session (see decision log). ✅ Built 2026-10-03 (F5). |
 | A5 | Transit time is straight-line at 25 mph | `transitTimeService.ts`, `pathPlanningService.ts` | Flat-earth distance, 25 mph, 10 min minimum, long-haul penalty, then × a random factor in [1, 2) at execution. Route planning is deferred (doc 11 Topic 3). | Plausible for a sim. Nothing breaks. | **DECIDED Q5: keep for v1.** Routing stays deferred (doc 11 Topic 3). |
 | A6 | Single fixed depot | `models/gpsLocation.ts` `HOME_DEPOT_LOCATION` (City Hall) | Every Operator starts here. It's also the fallback job location when a Location has null lat/lng. | Jobs with no coordinates get "serviced" at City Hall, which skews the fleet map and transit times. | **DECIDED Q5: keep for v1.** Verified that 100% of Street Condition records with a BBL have lat/lng (2,558/2,558 since 09-01), so the fallback never fires under BBL-only. |
 | A7 | Default operator rate $45/hr | `service/capacity/capacityService.ts` | Placeholder business input. | Feeds burn rate and any cost tiles. | **DECIDED Q5: keep as the v1 labor-cost input.** Material cost comes from the descriptor model. |
@@ -115,7 +115,7 @@ detailed design conversation before any code.
 | F2 | **✅ Done 2026-09-30** (live builds tree-shake mocks + `test-data/`; `vite.config.ts` `liveBundleGuard` fails any live build that leaks them, so the pipeline's existing live build is the gate, with no cdk change). Remove credentials from the public bundle, plus a build check that fails if a credential or test-data reaches `web-app/dist` (A15). | web-app, cdk (pipeline check) | Q11 |
 | F3 | **✅ Done 2026-09-30** (deletion protection on all 7 tables when `envName === "PROD"`; `POLLER_ENABLED` in `cdk/stack/Nyc311Stack.ts`, Prod `false`; `Nyc311CostBudget` (`Nyc311MonthlyCost`), Prod stack only; `$default` stage 10 rps / burst 20, `GET /fleet/locations` 2/5, `GET /lambda-metrics` 1/2). Prod-only safety: DynamoDB deletion protection on all Prod tables (B9), the `pollerEnabled` flag per environment with Prod `false` (B5), the $20/month AWS Budget construct, Prod-only (B2), and API stage + expensive-route throttling (B3). | cdk | Q8, Q9, Q11 |
 | F4 | **✅ Done 2026-10-01** (codes renamed to generic `SERVICE_NOT_SUPPORTED` / `LOCATION_UNRESOLVED`; see Q2's 2026-10-01 note). Order rejection reason codes. A BBL miss becomes an Order rejected with `LOCATION_UNRESOLVED`, and non–Street Condition Orders get `SERVICE_NOT_SUPPORTED`. `Order.location_id` becomes nullable. Includes the stale-comment cleanup (B11). | backend, web-app, docs | Q2, Q4 |
-| F5 | **Design session:** the descriptor-driven job model: processing time, material cost, and descriptor-based evaluation outcomes (e.g. `Blocked - Construction` isn't dispatched). Build it after the session. | backend (+ cdk/web-app as designed) | Q5 |
+| F5 | **✅ Done 2026-10-03** (design: Q5's 2026-10-03 session). **Design session:** the descriptor-driven job model: processing time, material cost, and descriptor-based evaluation outcomes (e.g. `Blocked - Construction` isn't dispatched). Build it after the session. | backend (+ cdk/web-app as designed) | Q5 |
 | F6 | **Design session:** execution-failure handling. The truck goes back to IDLE, the Order is marked FAILED, the scheduler retries it normally, and this includes the non-atomic claim fix (A10). | backend, cdk | Q3 |
 | F7 | Warehouse correctness: investigate, then fix #40 (`order_snapshots` dedup key), and make `event_name` real in the warehouse (#37). | backend, cdk, docs | Q10 |
 | F8 | Final v1 `wbr` SQL, applied by hand (it's a job definition, not code). It covers the Street Condition funnel + rejection rate by `reason_code` (F4), execution-failure count/rate (F6), `total_cost` = labor + material (F5), and the existing weekly metrics, with the `orders_created` overcount fixed (B12). Check the SQL into the repo, e.g. `docs/v1-wbr.sql`. | — (manual, Test first) | Q2, Q3, Q7 |
@@ -179,7 +179,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 | Location fallback: lat/lng or geocoding for the ~64% of Street Condition complaints with no BBL (A13) | Decide from the `LOCATION_UNRESOLVED` rejection rate | new ticket (F9) |
 | Route planning / traffic-aware transit (A5) | Undecided (doc 11 Topic 3) | doc 11 |
 | Real depot(s) (A6) | Later. The fallback never fires under BBL-only. | — |
-| Priority/SLA model (A3) | Revisit in the F5 design session. It may stay a v1 constant. | doc 11 / F5 |
+| Priority/SLA model (A3) | Stays a v1 constant (F5 session, 2026-10-03). Revisit with launch data. | doc 11 / F5 |
 | Retry cap, reconciliation sweeper, `ExecutionsFailed` alarm | Decide from the `wbr` failure rate after F6 | F6 notes |
 | Warehouse alarm suite + Firehose freshness alarm (B6) | Cost-conscious deferral. Freshness is checked by hand. | #25 |
 | Admin MFA (B10) | Later | — |
@@ -279,6 +279,30 @@ Questions for that session:
 - Re-sizing the fleet (Q1) once real durations exist. The Q1 estimate assumed a 45-min average.
 
 A5 (travel time), A6 (depot) and A7 ($45/hr labor rate) stay as-is for v1.
+
+**Design session outcome (2026-10-03), built as F5:**
+- **Processing time:** `StreetConditionProcessingTimeEstimator` (`service/scheduling/streetConditionProcessingTimeService.ts`) implements the existing `ProcessingTimeEstimator` interface with a plain `switch` on `descriptor`, returning a constant expected time per job. It replaces the fixed 30-min mock in both scheduling and execution.
+- **Materials cost:** the same pattern. A new `MaterialsCostEstimator` interface plus `StreetConditionMaterialsCostEstimator`, a switch returning a constant USD estimate. No `COST_MODEL` flag wiring until a second (ML, v2) implementation exists; estimates are labeled `cost_model: "BRUTE_FORCE"`.
+- **Recording (estimate + actual):** the estimate goes on `ORDER_SCHEDULED` (`materials_cost_estimate`, `cost_model`), per doc 11 §5a. The actual is drawn at Dispatch as the live estimate × the *same* processing variance factor (longer jobs use more material), carried by the state machine as `$.dispatch.materials_cost_actual`, and stamped on `ORDER_RESOLVED` (`materials_cost_actual`). The projection gains nullable `estimated_materials_cost` / `actual_materials_cost` / `cost_model_used`, and `order_snapshots` gains matching columns. `wbr` should use the actual.
+- **Variance:** unchanged, a uniform [1, 2) factor at execution for every descriptor.
+- **No-dispatch descriptors become inspection jobs, not rejections:** `Blocked - Construction`, `Dumpster - Construction Waste` and `Unsafe Worksite` still dispatch a truck, for 15 min and $0 of materials. No new evaluation rule or reason code.
+- **A3 priority/SLA:** stays the v1 constant (STANDARD, 24h).
+- **Unknown or null descriptor:** the generic repair profile (60 min, $200), plus an `UnknownDescriptor` warn log naming the descriptor. Known long-tail descriptors map to the same profile explicitly, so the log only fires for genuinely new ones.
+
+| Descriptor | Minutes | Materials |
+|---|---|---|
+| Pothole | 30 | $75 |
+| Cave-in | 120 | $600 |
+| Defective Hardware | 60 | $250 |
+| Rough, Pitted or Cracked Roads | 90 | $400 |
+| Failed Street Repair | 60 | $200 |
+| Plate Condition (Noisy, Shifted, Open, Anti-Skid) | 30 | $50 |
+| Line/Marking (Faded, After Repaving) | 45 | $150 |
+| Crash Cushion Defect, Guard Rail - Street | 90 | $500 |
+| Blocked - Construction, Dumpster - Construction Waste, Unsafe Worksite (inspection) | 15 | $0 |
+| Depression Maintenance, Wear & Tear, Hummock, General Bad Condition, unknown/null | 60 | $200 |
+
+**Fleet re-sizing (Q1):** weighted by real Jul–Sep 2026 volume, the average job is **61 min base, ~91 min with variance** (Q1 assumed 45), and materials average **$252 estimated, ~$377 actual**. At BBL-only volume (~110 jobs/day) with ~30 min transit, that's **~9–10 trucks at 100%, ~13 with headroom**, up from 8–10. Cave-ins (28% of volume at 120 min) dominate. Re-check against real utilization at the Part E check-ins.
 
 ### Q6 — Every Request becomes an Order (2026-09-28)
 **Decision: keep as-is. This is intentional, not a placeholder.** Every

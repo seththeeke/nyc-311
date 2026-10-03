@@ -8,7 +8,10 @@ import { OperatorDao } from "../../dao/operator/operatorDao";
 import type { Order } from "../../models/order";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "./transitTimeService";
-import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "./processingTimeService";
+import type { ProcessingTimeEstimator } from "./processingTimeService";
+import { streetConditionProcessingTimeEstimator } from "./streetConditionProcessingTimeService";
+import type { MaterialsCostEstimator } from "./materialsCostService";
+import { streetConditionMaterialsCostEstimator } from "./streetConditionMaterialsCostService";
 import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
 
 function requireEnv(name: string): string {
@@ -51,10 +54,10 @@ export interface SchedulingRunSummary {
 
 /**
  * Dependencies for {@link scheduleOrders} — all default to this module's
- * own singletons/mocks. `transitEstimator`/`processingEstimator` are
- * swappable for a future real implementation without this orchestration
- * changing (6-order-scheduling.md §5); `executionStarter` likewise for
- * testing without a real Step Functions call.
+ * own singletons. `transitEstimator`/`processingEstimator`/
+ * `materialsEstimator` are swappable for a future implementation without
+ * this orchestration changing (6-order-scheduling.md §5); `executionStarter`
+ * likewise for testing without a real Step Functions call.
  */
 export interface OrderSchedulingDeps {
   orderDao?: OrderDao;
@@ -63,6 +66,7 @@ export interface OrderSchedulingDeps {
   operatorDao?: OperatorDao;
   transitEstimator?: TransitTimeEstimator;
   processingEstimator?: ProcessingTimeEstimator;
+  materialsEstimator?: MaterialsCostEstimator;
   executionStarter?: OrderExecutionStarter;
   now?: () => Date;
 }
@@ -86,7 +90,7 @@ async function dispatchOneOrder(
   deps: Required<
     Pick<
       OrderSchedulingDeps,
-      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "executionStarter" | "now"
+      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "materialsEstimator" | "executionStarter" | "now"
     >
   >
 ): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY"> {
@@ -120,10 +124,19 @@ async function dispatchOneOrder(
   /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED — but the schema allows it, so this is defended rather than assumed. */
   const operatorLocation = idleOperator.current_location ?? HOME_DEPOT_LOCATION;
 
-  const [transitMinutes, processingMinutes] = await Promise.all([
+  const [transitMinutes, processingMinutes, materialsCostEstimate] = await Promise.all([
     deps.transitEstimator.estimateMinutes(operatorLocation, jobLocation),
     deps.processingEstimator.estimateMinutes(order, request),
+    deps.materialsEstimator.estimateCost(order, request),
   ]);
+  logInfo("OrderScheduleEstimated", {
+    orderId: order.order_id,
+    descriptor: request.descriptor,
+    transitMinutes,
+    processingMinutes,
+    materialsCostEstimate,
+    costModel: deps.materialsEstimator.costModel,
+  });
 
   const scheduledStart = deps.now();
   const scheduledEnd = new Date(scheduledStart.getTime() + (transitMinutes + processingMinutes) * 60 * 1000);
@@ -139,6 +152,8 @@ async function dispatchOneOrder(
     scheduledStart: scheduledStart.toISOString(),
     scheduledEnd: scheduledEnd.toISOString(),
     operatorId: idleOperator.operator_id,
+    materialsCostEstimate,
+    costModel: deps.materialsEstimator.costModel,
   });
 
   await deps.executionStarter.startExecution({
@@ -173,7 +188,8 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     locationDao: deps.locationDao ?? getDefaultLocationDao(),
     operatorDao: deps.operatorDao ?? getDefaultOperatorDao(),
     transitEstimator: deps.transitEstimator ?? straightLineTransitTimeEstimator,
-    processingEstimator: deps.processingEstimator ?? mockProcessingTimeEstimator,
+    processingEstimator: deps.processingEstimator ?? streetConditionProcessingTimeEstimator,
+    materialsEstimator: deps.materialsEstimator ?? streetConditionMaterialsCostEstimator,
     executionStarter: deps.executionStarter ?? stepFunctionsOrderExecutionStarter,
     now: deps.now ?? (() => new Date()),
   };

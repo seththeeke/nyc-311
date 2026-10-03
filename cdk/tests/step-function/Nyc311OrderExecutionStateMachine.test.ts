@@ -66,6 +66,12 @@ describe("Nyc311OrderExecutionStateMachine", () => {
     expect(definition.indexOf('"phase":"RESOLVE"')).toBeGreaterThan(definition.indexOf('"phase":"ARRIVE"'));
   });
 
+  it("passes Dispatch's materials_cost_actual to Resolve (v1-prod-deployment.md Q5)", () => {
+    const { definition } = synthesize();
+
+    expect(definition).toContain('"materials_cost_actual.$":"$.dispatch.materials_cost_actual"');
+  });
+
   it("waits transit_wait_seconds from Dispatch's result before Arrive, and processing_wait_seconds before Resolve", () => {
     const { definition } = synthesize();
 

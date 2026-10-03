@@ -3,7 +3,7 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { EventSourcedDao } from "../dao";
 import { logInfo } from "../../logger";
-import type { Order, OrderEvent, OrderRejectionReasonCode, OrderStage } from "../../models/order";
+import type { CostModel, Order, OrderEvent, OrderRejectionReasonCode, OrderStage } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
 import type { OrderListResult } from "../../models/orderListResult";
 import { ValidationError } from "../../models/errors";
@@ -23,6 +23,9 @@ export interface ScheduleOrderInput {
   scheduledStart: string;
   scheduledEnd: string;
   operatorId: string;
+  /** Expected materials cost in USD, from the MaterialsCostEstimator (v1-prod-deployment.md Q5). */
+  materialsCostEstimate: number;
+  costModel: CostModel;
 }
 
 export interface ListOrdersWaitingForScheduleOptions {
@@ -259,6 +262,8 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
           scheduled_start: input.scheduledStart,
           scheduled_end: input.scheduledEnd,
           operator_id: input.operatorId,
+          materials_cost_estimate: input.materialsCostEstimate,
+          cost_model: input.costModel,
         },
         occurred_at: now,
         actor: "SYSTEM",
@@ -271,6 +276,8 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
           scheduled_start: input.scheduledStart,
           scheduled_end: input.scheduledEnd,
           assigned_operator_id: input.operatorId,
+          estimated_materials_cost: input.materialsCostEstimate,
+          cost_model_used: input.costModel,
           updated_at: now,
           last_event_sequence: event.sequence_number,
         };
@@ -305,8 +312,12 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
     return this.appendExecutionEvent(orderId, "ORDER_PROCESSING");
   }
 
-  /** The `Process/Resolve` phase's terminal step — on-site work finished, moving `current_stage` from `EXECUTE` to `RESOLVE`. */
-  async recordResolved(orderId: string): Promise<Order> {
+  /**
+   * The `Process/Resolve` phase's terminal step — on-site work finished,
+   * moving `current_stage` from `EXECUTE` to `RESOLVE`. `actualMaterialsCost`
+   * is null for an execution dispatched before materials cost existed.
+   */
+  async recordResolved(orderId: string, actualMaterialsCost: number | null): Promise<Order> {
     const now = new Date().toISOString();
     return this.appendEvent(
       orderId,
@@ -315,13 +326,19 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         sequence_number: nextSequence,
         event_type: "ORDER_RESOLVED",
         stage: "EXECUTE",
-        payload: {},
+        payload: { materials_cost_actual: actualMaterialsCost },
         occurred_at: now,
         actor: "SYSTEM",
       }),
       (previous, event) => {
         const base = this.requirePreviousProjection(orderId, previous);
-        return { ...base, current_stage: "RESOLVE", updated_at: now, last_event_sequence: event.sequence_number };
+        return {
+          ...base,
+          current_stage: "RESOLVE",
+          actual_materials_cost: actualMaterialsCost,
+          updated_at: now,
+          last_event_sequence: event.sequence_number,
+        };
       },
       (projection) => ({
         gsi1pk: stageSlaPartitionKey(projection.current_stage),
