@@ -264,3 +264,15 @@ closes on merge.
 See [#69](https://github.com/seththeeke/nyc-311/issues/69).
 
 ---
+
+## Prod poller gets intermittent empty SODA pages — add a Socrata app token
+
+See [#72](https://github.com/seththeeke/nyc-311/issues/72).
+
+---
+
+## v1 Part E: post-dial-up validation check-ins (6h / first wbr / 24h / 7d / 30d)
+
+See [#73](https://github.com/seththeeke/nyc-311/issues/73).
+
+---
