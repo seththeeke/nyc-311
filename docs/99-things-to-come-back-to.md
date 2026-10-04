@@ -239,6 +239,12 @@ See [#56](https://github.com/seththeeke/nyc-311/issues/56).
 
 ---
 
+## Bump 29 patch/minor-outdated dependencies across web-app/backend/cdk (within existing semver ranges)
+
+See [#64](https://github.com/seththeeke/nyc-311/issues/64).
+
+---
+
 ## Recurring high-severity brace-expansion DoS advisory has a non-breaking npm audit fix unapplied across web-app/backend/cdk
 
 Third recurrence of the vulnerability class previously fixed in #32 and #38.
