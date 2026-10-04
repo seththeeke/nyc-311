@@ -62,10 +62,16 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "assigned_operator_id", type: "string" },
       { name: "reassignment_count", type: "bigint" },
       { name: "case_id", type: "string" },
+      /* Materials cost (v1-prod-deployment.md Q5); null on Orders scheduled before it existed. */
+      { name: "estimated_materials_cost", type: "double" },
+      { name: "actual_materials_cost", type: "double" },
+      { name: "cost_model_used", type: "string" },
       { name: "created_at", type: "string" },
       { name: "updated_at", type: "string" },
       { name: "last_event_sequence", type: "bigint" },
       { name: "retry_counts", type: "string" },
+      /* INSERT | MODIFY from the stream record; null on REBUILD rows (#37). */
+      { name: "event_name", type: "string" },
       ...INGEST_METADATA_COLUMNS,
     ],
   },
@@ -84,6 +90,8 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "created_by", type: "string" },
       { name: "created_at", type: "string" },
       { name: "raw_payload", type: "string" },
+      /* INSERT | MODIFY from the stream record; null on REBUILD rows (#37). */
+      { name: "event_name", type: "string" },
       ...INGEST_METADATA_COLUMNS,
     ],
   },

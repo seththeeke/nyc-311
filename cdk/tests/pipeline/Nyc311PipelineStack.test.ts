@@ -52,14 +52,29 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("runs every CodeBuild-backed step on LARGE compute, not the SMALL default", () => {
-    const projects = template.findResources("AWS::CodeBuild::Project");
-    expect(Object.keys(projects).length).toBeGreaterThan(0);
-    for (const project of Object.values(projects)) {
-      expect((project.Properties as { Environment: { ComputeType: string } }).Environment.ComputeType).toBe(
-        "BUILD_GENERAL1_LARGE"
-      );
+  it("sizes compute per step: Synth LARGE, integration gates MEDIUM, everything else SMALL (CI cost, 2026-10-03)", () => {
+    const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map(
+      (project) => project.Properties as { Description: string; Environment: { ComputeType: string } }
+    );
+    const computeFor = (step: string): string[] =>
+      projects.filter((p) => p.Description.endsWith(`/${step}`)).map((p) => p.Environment.ComputeType);
+
+    expect(computeFor("Build/Synth")).toEqual(["BUILD_GENERAL1_LARGE"]);
+    expect(computeFor("DeployTest/IntegrationTestsTest")).toEqual(["BUILD_GENERAL1_MEDIUM"]);
+    expect(computeFor("DeployProd/IntegrationTestsProd")).toEqual(["BUILD_GENERAL1_MEDIUM"]);
+    const rest = projects.filter((p) => !/\/(Build\/Synth|IntegrationTests(Test|Prod))$/.test(p.Description));
+    expect(rest.length).toBeGreaterThan(0);
+    for (const project of rest) {
+      expect(project.Environment.ComputeType).toBe("BUILD_GENERAL1_SMALL");
     }
+  });
+
+  it("publishes every file asset from one CodeBuild project, not one per asset (publishAssetsInParallel: false)", () => {
+    const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map(
+      (project) => (project.Properties as { Description: string }).Description
+    );
+
+    expect(projects.filter((d) => d.includes("/Assets/"))).toEqual([expect.stringMatching(/\/Assets\/FileAssets$/)]);
   });
 
   it("synths and diffs against bin/pipeline.ts explicitly, not cdk.json's default app", () => {

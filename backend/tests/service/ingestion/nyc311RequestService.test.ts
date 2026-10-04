@@ -411,6 +411,7 @@ describe("fanOutRequestRecord", () => {
       request_id: "01ABCDEF",
       external_unique_key: "12345",
       status: "DRAFT",
+      event_name: "INSERT",
     });
     expect(input?.MessageAttributes).toEqual({
       event_name: { DataType: "String", StringValue: "INSERT" },

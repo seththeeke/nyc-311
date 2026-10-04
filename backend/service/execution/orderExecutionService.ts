@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { logInfo } from "../../logger";
+import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
 import { OrderDao } from "../../dao/order/orderDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
@@ -8,7 +8,10 @@ import { RequestDao } from "../../dao/request/requestDao";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { DispatchResult } from "../../models/orderExecutionTask";
 import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "../scheduling/transitTimeService";
-import { mockProcessingTimeEstimator, type ProcessingTimeEstimator } from "../scheduling/processingTimeService";
+import type { ProcessingTimeEstimator } from "../scheduling/processingTimeService";
+import { streetConditionProcessingTimeEstimator } from "../scheduling/streetConditionProcessingTimeService";
+import type { MaterialsCostEstimator } from "../scheduling/materialsCostService";
+import { streetConditionMaterialsCostEstimator } from "../scheduling/streetConditionMaterialsCostService";
 
 /* Constructed lazily inside each exported function, not at module scope — per CLAUDE.md §5.2. */
 function getDefaultOrderDao(): OrderDao {
@@ -42,6 +45,7 @@ export interface OrderExecutionDeps {
   requestDao?: RequestDao;
   transitEstimator?: TransitTimeEstimator;
   processingEstimator?: ProcessingTimeEstimator;
+  materialsEstimator?: MaterialsCostEstimator;
   /** Source of the execution-time random variance factors — defaults to `Math.random`, injectable for deterministic tests. */
   random?: () => number;
   getSimulationTimeScale?: () => number;
@@ -76,7 +80,8 @@ export async function dispatchOrder(
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
   const requestDao = deps.requestDao ?? getDefaultRequestDao();
   const transitEstimator = deps.transitEstimator ?? straightLineTransitTimeEstimator;
-  const processingEstimator = deps.processingEstimator ?? mockProcessingTimeEstimator;
+  const processingEstimator = deps.processingEstimator ?? streetConditionProcessingTimeEstimator;
+  const materialsEstimator = deps.materialsEstimator ?? streetConditionMaterialsCostEstimator;
   const random = deps.random ?? Math.random;
   const scale = (deps.getSimulationTimeScale ?? getSimulationTimeScale)();
 
@@ -93,9 +98,10 @@ export async function dispatchOrder(
   /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED, and this one was just claimed moments earlier — but defended against rather than assumed. */
   const operatorLocation = operator?.current_location ?? HOME_DEPOT_LOCATION;
 
-  const [estimatedTransitMinutes, estimatedProcessingMinutes] = await Promise.all([
+  const [estimatedTransitMinutes, estimatedProcessingMinutes, estimatedMaterialsCost] = await Promise.all([
     transitEstimator.estimateMinutes(operatorLocation, jobLocation),
     processingEstimator.estimateMinutes(order, request),
+    materialsEstimator.estimateCost(order, request),
   ]);
 
   const transitRandomFactor = randomVarianceFactor(random);
@@ -119,9 +125,19 @@ export async function dispatchOrder(
     processingMinutes,
   });
 
+  /* A longer job uses proportionally more material: the actual reuses the processing variance factor, rounded to cents (v1-prod-deployment.md Q5). */
+  const materialsCostActual = Math.round(estimatedMaterialsCost * processingRandomFactor * 100) / 100;
+  logInfo("OrderExecutionMaterialsCostDrawn", {
+    orderId,
+    estimatedMaterialsCost,
+    randomFactor: processingRandomFactor,
+    materialsCostActual,
+  });
+
   const result: DispatchResult = {
     transit_wait_seconds: Math.round((transitMinutes * 60) / scale),
     processing_wait_seconds: Math.round((processingMinutes * 60) / scale),
+    materials_cost_actual: materialsCostActual,
   };
   logInfo("OrderExecutionDispatchCompleted", { orderId, ...result });
   return result;
@@ -156,12 +172,17 @@ export async function arriveAtJob(
  * conditional second Operator event, same two-step precedent
  * `removeCapacity` already uses.
  */
-export async function resolveOrder(orderId: string, operatorId: string, deps: OrderExecutionDeps = {}): Promise<void> {
+export async function resolveOrder(
+  orderId: string,
+  operatorId: string,
+  actualMaterialsCost: number | null,
+  deps: OrderExecutionDeps = {}
+): Promise<void> {
   const orderDao = deps.orderDao ?? getDefaultOrderDao();
   const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
 
-  logInfo("OrderExecutionResolveStarted", { orderId, operatorId });
-  await orderDao.recordResolved(orderId);
+  logInfo("OrderExecutionResolveStarted", { orderId, operatorId, actualMaterialsCost });
+  await orderDao.recordResolved(orderId, actualMaterialsCost);
   const operator = await operatorDao.completeWork(operatorId);
 
   if (operator.removal_requested_at) {
@@ -169,4 +190,58 @@ export async function resolveOrder(orderId: string, operatorId: string, deps: Or
     await operatorDao.finalizeRemoval(operatorId);
   }
   logInfo("OrderExecutionResolveCompleted", { orderId, operatorId });
+}
+
+/**
+ * Cleanup after a failed execution (v1-prod-deployment.md Q3/F6): Order
+ * back to `SCHEDULE`, vehicle back to `IDLE`, so the scheduler retries
+ * normally. Called by the state machine's `FAIL` step and by the scheduler
+ * when a claim can't be handed off. Safe to repeat: the Order resets only
+ * while still executing on this Operator, and the Operator is freed only
+ * while busy with no other Order executing on it.
+ */
+export async function failExecution(
+  orderId: string,
+  operatorId: string,
+  reason: string,
+  deps: OrderExecutionDeps = {}
+): Promise<void> {
+  const orderDao = deps.orderDao ?? getDefaultOrderDao();
+  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+
+  logInfo("OrderExecutionFailStarted", { orderId, operatorId, reason });
+
+  const order = await orderDao.getOrder(orderId);
+  if (order && order.current_stage === "EXECUTE" && order.assigned_operator_id === operatorId) {
+    await orderDao.recordExecutionFailed(orderId, operatorId, reason);
+    logInfo("OrderExecutionFailOrderReset", { orderId, retryCount: (order.retry_counts.EXECUTE ?? 0) + 1 });
+  } else {
+    logInfo("OrderExecutionFailOrderSkipped", {
+      orderId,
+      found: order !== null,
+      currentStage: order?.current_stage ?? null,
+      assignedOperatorId: order?.assigned_operator_id ?? null,
+    });
+  }
+
+  const operator = await operatorDao.getOperator(operatorId);
+  if (!operator || operator.current_activity === "IDLE") {
+    logInfo("OrderExecutionFailOperatorSkipped", { operatorId, found: operator !== null });
+    logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
+    return;
+  }
+  const { currentOrder } = await orderDao.getOperatorOrderActivity(operatorId);
+  if (currentOrder) {
+    logWarn("OrderExecutionFailOperatorBusyElsewhere", { operatorId, currentOrderId: currentOrder.order_id });
+    logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
+    return;
+  }
+
+  const released = await operatorDao.abortWork(operatorId, reason);
+  logInfo("OrderExecutionFailOperatorReleased", { operatorId });
+  if (released.removal_requested_at) {
+    logInfo("OrderExecutionFinalizingQueuedRemoval", { operatorId });
+    await operatorDao.finalizeRemoval(operatorId);
+  }
+  logInfo("OrderExecutionFailCompleted", { orderId, operatorId });
 }

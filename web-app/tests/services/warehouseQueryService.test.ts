@@ -43,6 +43,16 @@ describe("warehouseQueryService — mock mode", () => {
       await expect(warehouseQueryService.runQuery(sql)).resolves.toBeDefined();
     }
   });
+
+  it("skips leading comments before the first keyword, but still rejects a write hidden behind one", async () => {
+    vi.stubEnv("VITE_DATA_MODE", "mock");
+    const { warehouseQueryService } = await import("../../src/services/warehouseQueryService");
+
+    await expect(warehouseQueryService.runQuery("-- header\n/* note */\nWITH a AS (SELECT 1) SELECT * FROM a")).resolves.toBeDefined();
+    await expect(warehouseQueryService.runQuery("-- header\nDELETE FROM order_events")).rejects.toThrow(
+      "Only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN statements are allowed"
+    );
+  });
 });
 
 describe("warehouseQueryService — live mode", () => {

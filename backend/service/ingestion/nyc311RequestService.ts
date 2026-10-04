@@ -336,7 +336,8 @@ export async function fanOutRequestRecord(record: RequestStreamRecord, deps: Req
   await snsClient.send(
     new PublishCommand({
       TopicArn: topicArn,
-      Message: JSON.stringify(request),
+      /* event_name in the body too: raw SNS delivery drops attributes, so this is how it reaches the warehouse (#37). */
+      Message: JSON.stringify({ ...request, event_name: record.eventName }),
       MessageAttributes: {
         event_name: { DataType: "String", StringValue: record.eventName },
       },

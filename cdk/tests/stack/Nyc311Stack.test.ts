@@ -311,10 +311,10 @@ describe("Nyc311Stack", () => {
     testEnv.template.resourceCountIs("AWS::Budgets::Budget", 0);
   });
 
-  it("disables the poller in Prod and enables it in Test (v1-prod-deployment.md B5)", () => {
+  it("enables the poller in both environments once Prod is dialed up (v1-prod-deployment.md B5, Part D step 12)", () => {
     prodEnv.template.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "Nyc311PollerSchedule-Prod",
-      State: "DISABLED",
+      State: "ENABLED",
     });
     testEnv.template.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "Nyc311PollerSchedule-Test",

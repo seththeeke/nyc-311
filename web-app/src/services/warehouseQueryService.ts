@@ -13,6 +13,8 @@ export interface WarehouseQueryService {
 }
 
 const READ_ONLY_LEADING_KEYWORDS = ["SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN"];
+/* Leading whitespace and `--` / `/* *\/` comments, skipped before the first keyword — same as the backend's check. */
+const LEADING_COMMENTS = /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/;
 
 class LiveWarehouseQueryService implements WarehouseQueryService {
   async runQuery(sql: string): Promise<AdHocQueryResult> {
@@ -42,7 +44,7 @@ class LiveWarehouseQueryService implements WarehouseQueryService {
  */
 class MockWarehouseQueryService implements WarehouseQueryService {
   async runQuery(sql: string): Promise<AdHocQueryResult> {
-    const firstKeyword = sql.trim().split(/\s+/)[0]?.toUpperCase() ?? "";
+    const firstKeyword = sql.replace(LEADING_COMMENTS, "").split(/\s+/)[0]?.toUpperCase() ?? "";
     if (!READ_ONLY_LEADING_KEYWORDS.includes(firstKeyword)) {
       throw new Error("Only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN statements are allowed");
     }

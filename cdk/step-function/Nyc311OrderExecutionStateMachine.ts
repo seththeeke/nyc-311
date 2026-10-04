@@ -77,12 +77,35 @@ export class Nyc311OrderExecutionStateMachine extends Construct {
         phase: "RESOLVE",
         "order_id.$": "$.order_id",
         "operator_id.$": "$.operator_id",
+        /* Drawn at Dispatch, stamped on ORDER_RESOLVED (v1-prod-deployment.md Q5). */
+        "materials_cost_actual.$": "$.dispatch.materials_cost_actual",
       }),
       payloadResponseOnly: true,
       resultPath: "$.resolve",
     });
 
     const failed = new sfn.Fail(this, "ExecutionFailed");
+
+    /*
+     * v1-prod-deployment.md Q3/F6: any failed step routes here first —
+     * vehicle back to IDLE, Order back to SCHEDULE — then the execution
+     * still ends Failed so it's visible. LambdaInvoke's default
+     * retryOnServiceExceptions already retries transient Lambda errors
+     * before a Catch fires. If cleanup itself fails, end Failed anyway.
+     */
+    const handleFailure = new tasks.LambdaInvoke(this, "HandleFailure", {
+      lambdaFunction: props.executionLambda,
+      payload: sfn.TaskInput.fromObject({
+        phase: "FAIL",
+        "order_id.$": "$.order_id",
+        "operator_id.$": "$.operator_id",
+        "error.$": "$.executionError.Error",
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.failure",
+    });
+    handleFailure.addCatch(failed, { resultPath: "$.cleanupError" });
+    handleFailure.next(failed);
 
     const definition = waitForScheduledStart
       .next(dispatch)
@@ -92,7 +115,7 @@ export class Nyc311OrderExecutionStateMachine extends Construct {
       .next(resolve);
 
     for (const task of [dispatch, arrive, resolve]) {
-      task.addCatch(failed, { resultPath: "$.executionError" });
+      task.addCatch(handleFailure, { resultPath: "$.executionError" });
     }
 
     const logGroup = new logs.LogGroup(this, "LogGroup", {

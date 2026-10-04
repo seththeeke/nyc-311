@@ -57,6 +57,10 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const ORDER_REJECTION_REASON_CODES = ["SERVICE_NOT_SUPPORTED", "LOCATION_UNRESOLVED"] as const;
 export type OrderRejectionReasonCode = (typeof ORDER_REJECTION_REASON_CODES)[number];
 
+/* Which MaterialsCostEstimator produced an Order's estimate (11-street-condition-implementation.md §5a). */
+export const COST_MODELS = ["BRUTE_FORCE"] as const;
+export type CostModel = (typeof COST_MODELS)[number];
+
 export const OrderEventSchema = z.object({
   order_id: z.string().min(1),
   sequence_number: z.number().int().nonnegative(),
@@ -95,6 +99,15 @@ export const OrderSchema = z.object({
   assigned_operator_id: z.string().min(1).nullable(),
   reassignment_count: z.number().int().nonnegative(),
   case_id: z.string().min(1).nullable(),
+  /*
+   * Materials cost (v1-prod-deployment.md Q5): the estimate is folded from
+   * ORDER_SCHEDULED, the actual (estimate × the processing variance factor)
+   * from ORDER_RESOLVED. Optional because Orders scheduled before this
+   * existed don't carry them; labor cost is never stored, it's derived.
+   */
+  estimated_materials_cost: z.number().nonnegative().nullable().optional(),
+  actual_materials_cost: z.number().nonnegative().nullable().optional(),
+  cost_model_used: z.enum(COST_MODELS).nullable().optional(),
   created_at: z.string().min(1),
   updated_at: z.string().min(1),
   last_event_sequence: z.number().int().nonnegative(),

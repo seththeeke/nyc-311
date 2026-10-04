@@ -305,6 +305,12 @@ bucketing.
 
 ## 5. Cost prediction (brute-force) at scheduling, and where the estimate lives
 
+> **Built 2026-10-03 as `v1-prod-deployment.md` F5** (see its Q5 session
+> outcome). Two departures from below: the v1 estimator is a per-`descriptor`
+> constant, not one flat number, and an *actual* (estimate × processing
+> variance) is also stamped on `ORDER_RESOLVED`. The `COST_MODEL` flag isn't
+> wired until an ML implementation exists.
+
 > **Before writing any code for this section: revisit it in depth one
 > more time.** Everything below is agreed at the design level, but by
 > your own request this gets a fresh, focused pass right before

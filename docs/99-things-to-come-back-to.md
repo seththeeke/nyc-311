@@ -239,6 +239,13 @@ See [#56](https://github.com/seththeeke/nyc-311/issues/56).
 
 ---
 
+## Recurring high-severity brace-expansion DoS advisory has a non-breaking npm audit fix unapplied across web-app/backend/cdk
+
+Third recurrence of the vulnerability class previously fixed in #32 and #38.
+See [#62](https://github.com/seththeeke/nyc-311/issues/62).
+
+---
+
 ## web-app: production JS bundle is a single 802 kB chunk — no route-level code splitting
 
 See [#60](https://github.com/seththeeke/nyc-311/issues/60) — fixed this run,
@@ -249,5 +256,11 @@ closes on merge.
 ## backend/service/ duplicates requireEnv() identically across 21 files
 
 See [#67](https://github.com/seththeeke/nyc-311/issues/67).
+
+---
+
+## Location fallback for Street Condition Requests with no BBL (lat/lng or geocoding)
+
+See [#69](https://github.com/seththeeke/nyc-311/issues/69).
 
 ---

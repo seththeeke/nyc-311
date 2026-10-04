@@ -64,7 +64,7 @@ describe("Nyc311OrderExecutionLambda", () => {
     });
   });
 
-  it("grants exactly GetItem/PutItem on Orders/Operators plus GetItem on Requests — no Query, this Lambda never scans/queries", () => {
+  it("grants only GetItem/PutItem plus Query (the FAIL step's gsi2-assigned-operator check) — no Scan or deletes", () => {
     const template = synthesize("TEST");
 
     const policies = template.findResources("AWS::IAM::Policy");
@@ -73,7 +73,7 @@ describe("Nyc311OrderExecutionLambda", () => {
     );
     const allActions = allStatements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
     const dynamoActions = allActions.filter((a) => typeof a === "string" && a.startsWith("dynamodb:"));
-    expect(new Set(dynamoActions)).toEqual(new Set(["dynamodb:GetItem", "dynamodb:PutItem"]));
+    expect(new Set(dynamoActions)).toEqual(new Set(["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]));
   });
 
   it("does not pin reserved concurrency — the account's unraised concurrency quota (10) rejects any reservation", () => {

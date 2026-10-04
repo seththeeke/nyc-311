@@ -7,7 +7,7 @@ import type { Operator, OperatorEvent } from "../../models/operator";
 import { OperatorSchema, OperatorEventSchema } from "../../models/operator";
 import type { GpsLocation } from "../../models/gpsLocation";
 import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
-import { ValidationError } from "../../models/errors";
+import { ConflictError, ValidationError } from "../../models/errors";
 
 const ROSTER_INDEX = "gsi2-roster";
 const ROSTER_PARTITION_KEY = "OPERATOR";
@@ -152,16 +152,26 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
 
   /**
    * Claims an idle Operator for dispatch (§3.5/§3.6) — the scheduling
-   * job's own idle→busy transition, performed synchronously at
-   * assignment time (before the execution state machine even starts),
-   * not deferred to the state machine's `Dispatch` Task. Fires
-   * `TRANSIT_STARTED`; the GPS ping carries wherever the Operator's last
-   * recorded position was (§3.7) — unchanged by this transition, only the
-   * activity is.
+   * job's idle→busy transition, done at assignment time, not in the state
+   * machine's `Dispatch` Task. Fires `TRANSIT_STARTED` at the last recorded
+   * GPS position (§3.7). Atomic (v1-prod-deployment.md A10): availability
+   * is re-checked on a fresh read and the append is conditioned on that
+   * read's sequence, so overlapping runs can't both claim one vehicle.
+   *
+   * @throws {@link ConflictError} if the Operator is no longer available.
    */
   async startTransit(operatorId: string): Promise<Operator> {
     const now = new Date().toISOString();
     const previous = this.requirePreviousProjection(operatorId, await this.getProjection(operatorId));
+    if (previous.status !== "ACTIVE" || previous.current_activity !== "IDLE" || previous.removal_requested_at) {
+      logInfo("OperatorDao.startTransitConflict", {
+        operatorId,
+        status: previous.status,
+        currentActivity: previous.current_activity,
+        removalRequestedAt: previous.removal_requested_at,
+      });
+      throw new ConflictError(`Operator ${operatorId} is no longer available to claim`);
+    }
 
     return this.appendEvent(
       operatorId,
@@ -222,6 +232,34 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         sequence_number: nextSequence,
         event_type: "WORK_COMPLETED",
         payload: { location: previous.current_location },
+        occurred_at: now,
+        actor: "SYSTEM",
+      }),
+      (existing, event) => {
+        const base = this.requirePreviousProjection(operatorId, existing);
+        return { ...base, current_activity: "IDLE", last_event_sequence: event.sequence_number };
+      },
+      projectionAttributes
+    );
+  }
+
+  /**
+   * An execution failed mid-job (v1-prod-deployment.md Q3/F6): fires
+   * `WORK_ABORTED` and returns the Operator to `IDLE` wherever its last GPS
+   * ping left it, back in the availability queue. The caller finalizes a
+   * queued removal separately, same as {@link completeWork}.
+   */
+  async abortWork(operatorId: string, reason: string): Promise<Operator> {
+    const now = new Date().toISOString();
+    const previous = this.requirePreviousProjection(operatorId, await this.getProjection(operatorId));
+
+    return this.appendEvent(
+      operatorId,
+      (nextSequence) => ({
+        operator_id: operatorId,
+        sequence_number: nextSequence,
+        event_type: "WORK_ABORTED",
+        payload: { location: previous.current_location, reason },
         occurred_at: now,
         actor: "SYSTEM",
       }),
