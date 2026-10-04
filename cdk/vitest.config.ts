@@ -11,6 +11,16 @@ export default defineConfig({
      */
     testTimeout: 20000,
     /*
+     * Skip NodejsFunction's esbuild bundling in tests: the suite synthesizes
+     * ~70 stacks and bundled every Lambda each time (528 "Bundling asset"
+     * runs per suite). Assertions only check handler/runtime/names, never
+     * bundle contents, and the real bundle is still built once by the
+     * Synth step's `cdk synth` of bin/pipeline.ts.
+     */
+    env: {
+      CDK_CONTEXT_JSON: JSON.stringify({ "aws:cdk:bundling-stacks": [] }),
+    },
+    /*
      * 30s (default 10s) of headroom for Nyc311Stack.test.ts's beforeAll,
      * which synthesizes the full stack twice (TEST + PROD) — ~4s of CPU
      * each and slower still when several forks synth concurrently below.

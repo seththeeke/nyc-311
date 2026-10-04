@@ -258,3 +258,9 @@ closes on merge.
 See [#69](https://github.com/seththeeke/nyc-311/issues/69).
 
 ---
+
+## cdk test suite re-bundles every NodejsFunction Lambda on every synth (528 esbuild bundles per run) — skip bundling in vitest
+
+See [#70](https://github.com/seththeeke/nyc-311/issues/70).
+
+---
