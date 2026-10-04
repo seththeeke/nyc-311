@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { arriveAtJob, dispatchOrder, resolveOrder } from "../../../service/execution/orderExecutionService";
+import { arriveAtJob, dispatchOrder, failExecution, resolveOrder } from "../../../service/execution/orderExecutionService";
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { OperatorDao } from "../../../dao/operator/operatorDao";
 import type { RequestDao } from "../../../dao/request/requestDao";
@@ -8,6 +8,7 @@ import type { Order } from "../../../models/order";
 import type { Request } from "../../../models/request";
 import type { TransitTimeEstimator } from "../../../service/scheduling/transitTimeService";
 import type { ProcessingTimeEstimator } from "../../../service/scheduling/processingTimeService";
+import type { MaterialsCostEstimator } from "../../../service/scheduling/materialsCostService";
 import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
 /*
@@ -120,6 +121,7 @@ describe("dispatchOrder", () => {
     requestDao: RequestDao;
     transitEstimator: TransitTimeEstimator;
     processingEstimator: ProcessingTimeEstimator;
+    materialsEstimator: MaterialsCostEstimator;
     random: () => number;
   } {
     const order = overrides.order ?? makeOrder();
@@ -135,6 +137,7 @@ describe("dispatchOrder", () => {
       requestDao: { getRequestById: vi.fn().mockResolvedValue(request) } as unknown as RequestDao,
       transitEstimator: { estimateMinutes: vi.fn().mockResolvedValue(overrides.estimatedTransitMinutes ?? 10) },
       processingEstimator: { estimateMinutes: vi.fn().mockResolvedValue(overrides.estimatedProcessingMinutes ?? 40) },
+      materialsEstimator: { costModel: "BRUTE_FORCE", estimateCost: vi.fn().mockResolvedValue(100) },
       random,
     };
   }
@@ -148,7 +151,7 @@ describe("dispatchOrder", () => {
     expect(deps.orderDao.recordDispatched).toHaveBeenCalledWith("01ORDER");
     expect(deps.requestDao.getRequestById).toHaveBeenCalledWith("01REQUEST");
     /* estimated 10 * factor 1.5 = 15 transit minutes -> 900s / scale 100 = 9; estimated 40 * factor 1.5 = 60 processing minutes -> 3600s / 100 = 36 */
-    expect(result).toEqual({ transit_wait_seconds: 9, processing_wait_seconds: 36 });
+    expect(result).toEqual({ transit_wait_seconds: 9, processing_wait_seconds: 36, materials_cost_actual: 150 });
   });
 
   it("calls the transit estimator with the Operator's position and the processing estimator with the Order/Request", async () => {
@@ -164,6 +167,17 @@ describe("dispatchOrder", () => {
     expect(deps.processingEstimator.estimateMinutes).toHaveBeenCalledWith(order, request);
   });
 
+  it("draws the actual materials cost as the live estimate times the processing variance factor, rounded to cents", async () => {
+    const deps = makeDeps({ randomValues: [0, 0.3333] });
+    const request = makeRequest();
+
+    const result = await dispatchOrder("01ORDER", "01OPERATOR", JOB_LOCATION, deps);
+
+    expect(deps.materialsEstimator.estimateCost).toHaveBeenCalledWith(makeOrder(), request);
+    /* $100 * processing factor 1.3333 = 133.33 (transit's factor 1 doesn't affect it) */
+    expect(result.materials_cost_actual).toBe(133.33);
+  });
+
   it("draws an independent random factor for processing than for transit", async () => {
     process.env.SIMULATION_TIME_SCALE = "1";
     const deps = makeDeps({ estimatedTransitMinutes: 10, estimatedProcessingMinutes: 10, randomValues: [0, 0.5] });
@@ -171,7 +185,7 @@ describe("dispatchOrder", () => {
     const result = await dispatchOrder("01ORDER", "01OPERATOR", JOB_LOCATION, deps);
 
     /* transit: factor 1 -> 10min -> 600s; processing: factor 1.5 -> 15min -> 900s */
-    expect(result).toEqual({ transit_wait_seconds: 600, processing_wait_seconds: 900 });
+    expect(result).toEqual({ transit_wait_seconds: 600, processing_wait_seconds: 900, materials_cost_actual: 150 });
   });
 
   it("falls back to HOME_DEPOT_LOCATION for the Operator's position when the Operator can't be found", async () => {
@@ -203,7 +217,7 @@ describe("dispatchOrder", () => {
 
     const result = await dispatchOrder("01ORDER", "01OPERATOR", JOB_LOCATION, deps);
 
-    expect(result).toEqual({ transit_wait_seconds: 900, processing_wait_seconds: 3600 });
+    expect(result).toEqual({ transit_wait_seconds: 900, processing_wait_seconds: 3600, materials_cost_actual: 150 });
   });
 
   it("falls back to a scale of 1 for a non-numeric or non-positive SIMULATION_TIME_SCALE", async () => {
@@ -212,7 +226,7 @@ describe("dispatchOrder", () => {
 
     const result = await dispatchOrder("01ORDER", "01OPERATOR", JOB_LOCATION, deps);
 
-    expect(result).toEqual({ transit_wait_seconds: 900, processing_wait_seconds: 3600 });
+    expect(result).toEqual({ transit_wait_seconds: 900, processing_wait_seconds: 3600, materials_cost_actual: 150 });
   });
 
   it("throws when deps.orderDao is omitted and ORDERS_TABLE_NAME isn't set", async () => {
@@ -257,7 +271,7 @@ describe("dispatchOrder", () => {
     }
   });
 
-  it("falls back to the real transit/processing estimators and Math.random when none are injected", async () => {
+  it("falls back to the real transit/processing/materials estimators and Math.random when none are injected", async () => {
     const orderDao = { recordDispatched: vi.fn().mockResolvedValue(makeOrder()) } as unknown as OrderDao;
     const operatorDao = { getOperator: vi.fn().mockResolvedValue(makeOperator()) } as unknown as OperatorDao;
     const requestDao = { getRequestById: vi.fn().mockResolvedValue(makeRequest()) } as unknown as RequestDao;
@@ -268,6 +282,7 @@ describe("dispatchOrder", () => {
     expect(Number.isInteger(result.processing_wait_seconds)).toBe(true);
     expect(result.transit_wait_seconds).toBeGreaterThan(0);
     expect(result.processing_wait_seconds).toBeGreaterThan(0);
+    expect(result.materials_cost_actual).toBeGreaterThanOrEqual(0);
   });
 
   it("uses an injected getSimulationTimeScale override instead of the env var", async () => {
@@ -279,7 +294,7 @@ describe("dispatchOrder", () => {
       getSimulationTimeScale: () => 10,
     });
 
-    expect(result).toEqual({ transit_wait_seconds: 90, processing_wait_seconds: 360 });
+    expect(result).toEqual({ transit_wait_seconds: 90, processing_wait_seconds: 360, materials_cost_actual: 150 });
   });
 });
 
@@ -330,16 +345,16 @@ describe("arriveAtJob default operator DAO", () => {
 });
 
 describe("resolveOrder", () => {
-  it("records ORDER_RESOLVED and completes the Operator's work", async () => {
+  it("records ORDER_RESOLVED with the actual materials cost and completes the Operator's work", async () => {
     const recordResolved = vi.fn().mockResolvedValue(undefined);
     const completeWork = vi.fn().mockResolvedValue(makeOperator({ current_activity: "IDLE" }));
     const finalizeRemoval = vi.fn();
     const orderDao = { recordResolved } as unknown as OrderDao;
     const operatorDao = { completeWork, finalizeRemoval } as unknown as OperatorDao;
 
-    await resolveOrder("01ORDER", "01OPERATOR", { orderDao, operatorDao });
+    await resolveOrder("01ORDER", "01OPERATOR", 112.5, { orderDao, operatorDao });
 
-    expect(recordResolved).toHaveBeenCalledWith("01ORDER");
+    expect(recordResolved).toHaveBeenCalledWith("01ORDER", 112.5);
     expect(completeWork).toHaveBeenCalledWith("01OPERATOR");
     expect(finalizeRemoval).not.toHaveBeenCalled();
   });
@@ -352,7 +367,7 @@ describe("resolveOrder", () => {
     const orderDao = { recordResolved: vi.fn().mockResolvedValue(undefined) } as unknown as OrderDao;
     const operatorDao = { completeWork, finalizeRemoval } as unknown as OperatorDao;
 
-    await resolveOrder("01ORDER", "01OPERATOR", { orderDao, operatorDao });
+    await resolveOrder("01ORDER", "01OPERATOR", null, { orderDao, operatorDao });
 
     expect(finalizeRemoval).toHaveBeenCalledWith("01OPERATOR");
   });
@@ -362,7 +377,7 @@ describe("resolveOrder", () => {
     delete process.env.ORDERS_TABLE_NAME;
 
     try {
-      await expect(resolveOrder("01ORDER", "01OPERATOR")).rejects.toThrow(
+      await expect(resolveOrder("01ORDER", "01OPERATOR", null)).rejects.toThrow(
         "Missing required environment variable: ORDERS_TABLE_NAME"
       );
     } finally {
@@ -377,7 +392,7 @@ describe("resolveOrder", () => {
     daoCtorCalls.operator.length = 0;
 
     try {
-      await resolveOrder("01ORDER", "01OPERATOR");
+      await resolveOrder("01ORDER", "01OPERATOR", null);
     } finally {
       vi.unstubAllEnvs();
     }
@@ -408,7 +423,117 @@ describe("resolveOrder", () => {
     const orderDao = { recordResolved: vi.fn().mockResolvedValue(undefined) } as unknown as OrderDao;
 
     try {
-      await expect(resolveOrder("01ORDER", "01OPERATOR", { orderDao })).rejects.toThrow(
+      await expect(resolveOrder("01ORDER", "01OPERATOR", null, { orderDao })).rejects.toThrow(
+        "Missing required environment variable: OPERATORS_TABLE_NAME"
+      );
+    } finally {
+      if (previous !== undefined) process.env.OPERATORS_TABLE_NAME = previous;
+    }
+  });
+});
+
+describe("failExecution (v1-prod-deployment.md Q3/F6)", () => {
+  function makeFailDeps(overrides: {
+    order?: Order | null;
+    operator?: Operator | null;
+    currentOrderAfterReset?: Order | null;
+    released?: Operator;
+  } = {}): { orderDao: OrderDao; operatorDao: OperatorDao } {
+    const order =
+      overrides.order === undefined
+        ? makeOrder({ current_stage: "EXECUTE", assigned_operator_id: "01OPERATOR" })
+        : overrides.order;
+    const operator = overrides.operator === undefined ? makeOperator({ current_activity: "WORKING" }) : overrides.operator;
+    return {
+      orderDao: {
+        getOrder: vi.fn().mockResolvedValue(order),
+        recordExecutionFailed: vi.fn().mockResolvedValue(undefined),
+        getOperatorOrderActivity: vi
+          .fn()
+          .mockResolvedValue({ currentOrder: overrides.currentOrderAfterReset ?? null, recentCompletedOrders: [] }),
+      } as unknown as OrderDao,
+      operatorDao: {
+        getOperator: vi.fn().mockResolvedValue(operator),
+        abortWork: vi.fn().mockResolvedValue(overrides.released ?? makeOperator({ current_activity: "IDLE" })),
+        finalizeRemoval: vi.fn().mockResolvedValue(undefined),
+      } as unknown as OperatorDao,
+    };
+  }
+
+  it("resets the executing Order and frees its vehicle", async () => {
+    const deps = makeFailDeps();
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.recordExecutionFailed).toHaveBeenCalledWith("01ORDER", "01OPERATOR", "boom");
+    expect(deps.operatorDao.abortWork).toHaveBeenCalledWith("01OPERATOR", "boom");
+    expect(deps.operatorDao.finalizeRemoval).not.toHaveBeenCalled();
+  });
+
+  it("finalizes a removal that was queued while the vehicle was busy", async () => {
+    const deps = makeFailDeps({
+      released: makeOperator({ current_activity: "IDLE", removal_requested_at: "2026-09-12T01:00:00.000Z" }),
+    });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.operatorDao.finalizeRemoval).toHaveBeenCalledWith("01OPERATOR");
+  });
+
+  it.each([
+    ["no longer exists", null],
+    ["already back in SCHEDULE (a repeat call)", makeOrder({ current_stage: "SCHEDULE", assigned_operator_id: null })],
+    ["executing on a different vehicle", makeOrder({ current_stage: "EXECUTE", assigned_operator_id: "01OTHER" })],
+  ])("leaves the Order alone when it %s, but still frees a stranded vehicle", async (_label, order) => {
+    const deps = makeFailDeps({ order });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.recordExecutionFailed).not.toHaveBeenCalled();
+    expect(deps.operatorDao.abortWork).toHaveBeenCalledWith("01OPERATOR", "boom");
+  });
+
+  it.each([
+    ["can't be found", null],
+    ["is already IDLE (a repeat call)", makeOperator({ current_activity: "IDLE" })],
+  ])("doesn't touch a vehicle that %s", async (_label, operator) => {
+    const deps = makeFailDeps({ operator });
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.getOperatorOrderActivity).not.toHaveBeenCalled();
+    expect(deps.operatorDao.abortWork).not.toHaveBeenCalled();
+  });
+
+  it("doesn't free a vehicle that's since been claimed for another executing Order", async () => {
+    const deps = makeFailDeps({ currentOrderAfterReset: makeOrder({ order_id: "01NEXT", current_stage: "EXECUTE" }) });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await failExecution("01ORDER", "01OPERATOR", "boom", deps);
+
+    expect(deps.orderDao.getOperatorOrderActivity).toHaveBeenCalledWith("01OPERATOR");
+    expect(deps.operatorDao.abortWork).not.toHaveBeenCalled();
+  });
+
+  it("throws when deps.orderDao is omitted and ORDERS_TABLE_NAME isn't set", async () => {
+    const previous = process.env.ORDERS_TABLE_NAME;
+    delete process.env.ORDERS_TABLE_NAME;
+
+    try {
+      await expect(failExecution("01ORDER", "01OPERATOR", "boom")).rejects.toThrow(
+        "Missing required environment variable: ORDERS_TABLE_NAME"
+      );
+    } finally {
+      if (previous !== undefined) process.env.ORDERS_TABLE_NAME = previous;
+    }
+  });
+
+  it("throws when deps.operatorDao is omitted and OPERATORS_TABLE_NAME isn't set", async () => {
+    const previous = process.env.OPERATORS_TABLE_NAME;
+    delete process.env.OPERATORS_TABLE_NAME;
+
+    try {
+      await expect(failExecution("01ORDER", "01OPERATOR", "boom", { orderDao: makeFailDeps().orderDao })).rejects.toThrow(
         "Missing required environment variable: OPERATORS_TABLE_NAME"
       );
     } finally {

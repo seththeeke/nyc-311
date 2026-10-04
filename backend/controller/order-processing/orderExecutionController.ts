@@ -1,7 +1,7 @@
 import { logError, logInfo } from "../../logger";
 import { OrderExecutionTaskSchema, type DispatchResult } from "../../models/orderExecutionTask";
 import { ValidationError } from "../../models/errors";
-import { arriveAtJob, dispatchOrder, resolveOrder } from "../../service/execution/orderExecutionService";
+import { arriveAtJob, dispatchOrder, failExecution, resolveOrder } from "../../service/execution/orderExecutionService";
 
 /**
  * `Nyc311OrderExecutionLambda` — one phase-routed Lambda backing every
@@ -29,7 +29,10 @@ export const orderExecutionController = async (event: unknown): Promise<Dispatch
       await arriveAtJob(task.order_id, task.operator_id, task.job_location);
       return {};
     case "RESOLVE":
-      await resolveOrder(task.order_id, task.operator_id);
+      await resolveOrder(task.order_id, task.operator_id, task.materials_cost_actual);
+      return {};
+    case "FAIL":
+      await failExecution(task.order_id, task.operator_id, `Execution step failed: ${task.error}`);
       return {};
   }
 };

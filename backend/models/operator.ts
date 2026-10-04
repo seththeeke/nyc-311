@@ -22,6 +22,8 @@ export const OPERATOR_EVENT_TYPES = [
   "TRANSIT_STARTED",
   "WORK_STARTED",
   "WORK_COMPLETED",
+  /* An execution failed mid-job; the vehicle returns to IDLE where it is (v1-prod-deployment.md Q3/F6). */
+  "WORK_ABORTED",
 ] as const;
 export type OperatorEventType = (typeof OPERATOR_EVENT_TYPES)[number];
 

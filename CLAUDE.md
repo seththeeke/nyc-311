@@ -295,6 +295,11 @@ The backend will follow a basic controller, service, and data access object(DAO)
   TerminalError, ...) directly, rather than running a separate simulated
   failure path. This guarantees an injected failure exercises the exact
   same retry policy and Case-creation transition as a genuine one.
+  **Not implemented yet** (deferred to v2, #36, `v1-prod-deployment.md`
+  A11): no chaos-config code exists in `backend/`. When it's built, the
+  "genuine" path to reuse is F6's execution-failure handling (the state
+  machine's `HandleFailure` step → Order back to `SCHEDULE`, vehicle back
+  to `IDLE`), since Case creation is itself deferred to v2.
 - **Linting: ESLint** with `typescript-eslint`, matching `web-app` for one
   lint philosophy across the TS monorepo (no React-specific plugins needed
   here). `@typescript-eslint/no-explicit-any` is what actually enforces

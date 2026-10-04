@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NotFoundError, TerminalError, ValidationError } from "../../models/errors";
+import { ConflictError, NotFoundError, TerminalError, ValidationError } from "../../models/errors";
 
 describe("ValidationError", () => {
   it("sets name, message, and details", () => {
@@ -38,5 +38,15 @@ describe("TerminalError", () => {
   it("allows omitting cause", () => {
     const err = new TerminalError("terminal failure");
     expect(err.cause).toBeUndefined();
+  });
+});
+
+describe("ConflictError", () => {
+  it("is an Error named ConflictError, carrying its message", () => {
+    const err = new ConflictError("Operator 01OPERATOR is no longer available to claim");
+
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("ConflictError");
+    expect(err.message).toBe("Operator 01OPERATOR is no longer available to claim");
   });
 });

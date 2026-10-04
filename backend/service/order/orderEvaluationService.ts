@@ -118,7 +118,8 @@ export async function fanOutOrdersStreamRecord(
     await snsClient.send(
       new PublishCommand({
         TopicArn: projectionsTopicArn,
-        Message: JSON.stringify(projection),
+        /* event_name in the body too: raw SNS delivery drops attributes, so this is how it reaches the warehouse (#37). */
+        Message: JSON.stringify({ ...projection, event_name: record.eventName }),
         MessageAttributes: { event_name: { DataType: "String", StringValue: record.eventName } },
       })
     );

@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand 
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OperatorDao } from "../../../dao/operator/operatorDao";
-import { ValidationError } from "../../../models/errors";
+import { ConflictError, ValidationError } from "../../../models/errors";
 import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
 const TABLE_NAME = "Operators";
@@ -220,6 +220,42 @@ describe("OperatorDao.startTransit", () => {
     ddbMock.on(GetCommand).resolves({});
 
     await expect(operatorDao.startTransit("01OPERATOR")).rejects.toThrow(ValidationError);
+  });
+
+  it.each([
+    ["already in TRANSIT (claimed by another run)", { current_activity: "TRANSIT" }],
+    ["WORKING", { current_activity: "WORKING" }],
+    ["INACTIVE", { status: "INACTIVE" }],
+    ["queued for removal", { removal_requested_at: "2026-09-12T01:00:00.000Z" }],
+  ])("throws ConflictError without writing when the Operator is %s (v1-prod-deployment.md A10)", async (_label, overrides) => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem(overrides) });
+
+    await expect(operatorDao.startTransit("01OPERATOR")).rejects.toThrow(ConflictError);
+    expect(ddbMock.commandCalls(TransactWriteCommand)).toHaveLength(0);
+  });
+});
+
+describe("OperatorDao.abortWork", () => {
+  it("returns to IDLE and the availability queue, GPS position unchanged, with a WORK_ABORTED event carrying the reason", async () => {
+    const jobLocation = { lat: 40.75, lng: -73.98 };
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "WORKING", current_location: jobLocation }) });
+
+    const operator = await operatorDao.abortWork("01OPERATOR", "Execution step failed: States.TaskFailed");
+
+    expect(operator.current_activity).toBe("IDLE");
+    expect(operator.current_location).toEqual(jobLocation);
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "WORK_ABORTED",
+      payload: { location: jobLocation, reason: "Execution step failed: States.TaskFailed" },
+    });
+    expect((transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>).gsi1pk).toBe("AVAILABLE");
+  });
+
+  it("throws ValidationError when no projection exists yet", async () => {
+    ddbMock.on(GetCommand).resolves({});
+
+    await expect(operatorDao.abortWork("01OPERATOR", "reason")).rejects.toThrow(ValidationError);
   });
 });
 

@@ -97,6 +97,7 @@ describe("fanOutOrdersStreamRecord", () => {
       sk: "#METADATA",
       status: "ACTIVE",
       current_stage: "SCHEDULE",
+      event_name: "MODIFY",
     });
     expect(input?.MessageAttributes).toEqual({
       event_name: { DataType: "String", StringValue: "MODIFY" },

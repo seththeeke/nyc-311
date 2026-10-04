@@ -632,6 +632,15 @@ The transform Lambda respects the pre-set `ingestion_source` /
 written *after* the export carries a later timestamp. Every query resolves
 "latest per entity" with `ROW_NUMBER() OVER (PARTITION BY <id> ORDER BY
 warehouse_ingested_at DESC)`, so the newer stream row always wins.
+
+**Corrected 2026-10-03 (#40, `v1-prod-deployment.md` F7):** for
+`order_snapshots` and `operator_snapshots`, order by `last_event_sequence
+DESC` first, with `warehouse_ingested_at DESC` only as a tiebreak.
+`warehouse_ingested_at` is stamped per Firehose batch, so two transitions of
+one entity in the same batch tie on it and Athena picks either row
+arbitrarily, sometimes the stale one. `last_event_sequence` comes from the
+event stream itself and is strictly increasing per entity. Tables with no
+sequence (`requests`, `locations`) keep `warehouse_ingested_at DESC`.
 `order_events` (append-only, no dedup) can carry a few duplicate rows for
 events in the `[ExportTime, replay]` window — harmless: no job queries it
 yet, and any future one dedups on `(order_id, sk)`.

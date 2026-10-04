@@ -62,3 +62,16 @@ export class TerminalError extends Error {
     this.name = "TerminalError";
   }
 }
+
+/**
+ * The entity is no longer in the state this write requires (e.g. an
+ * Operator claimed by another scheduling run between `findIdleOperator`
+ * and `startTransit` — v1-prod-deployment.md A10). The caller skips and
+ * lets a later run retry; not a failure.
+ */
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}

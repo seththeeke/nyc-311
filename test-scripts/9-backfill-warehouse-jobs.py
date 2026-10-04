@@ -47,7 +47,7 @@ JOBS = [
         "cadence_cron": DAILY_09_UTC_CRON,
         "sql": """-- 7-data-warehousing.md §8 — order volume by (created-date, current stage)
 -- over the trailing 7 created-date buckets. From the latest order_snapshots
--- row per order_id (dedup by warehouse_ingested_at). Emits one row per
+-- row per order_id (dedup by last_event_sequence, #40). Emits one row per
 -- (created_date, stage); the runner stores the resultset verbatim as
 -- job-results/job_name=order_volume_by_stage_7d/run_date=<date>/result.json
 -- and it becomes one row of the job_results Glue table (§11).
@@ -56,7 +56,7 @@ WITH latest AS (
     order_id,
     current_stage,
     substr(created_at, 1, 10) AS created_date,
-    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY warehouse_ingested_at DESC) AS rn
+    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY last_event_sequence DESC, warehouse_ingested_at DESC) AS rn
   FROM order_snapshots
 )
 SELECT
@@ -85,7 +85,7 @@ WITH latest AS (
     order_id,
     current_stage,
     try(date_trunc('week', date(substr(created_at, 1, 10)))) AS created_week,
-    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY warehouse_ingested_at DESC) AS rn
+    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY last_event_sequence DESC, warehouse_ingested_at DESC) AS rn
   FROM order_snapshots
 )
 SELECT
@@ -112,7 +112,7 @@ WITH latest_order AS (
   SELECT
     order_id,
     location_id,
-    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY warehouse_ingested_at DESC) AS rn
+    ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY last_event_sequence DESC, warehouse_ingested_at DESC) AS rn
   FROM order_snapshots
 ),
 latest_location AS (
@@ -149,7 +149,7 @@ WITH latest_operator AS (
     rate_per_hour,
     start_datetime,
     end_datetime,
-    ROW_NUMBER() OVER (PARTITION BY operator_id ORDER BY warehouse_ingested_at DESC) AS rn
+    ROW_NUMBER() OVER (PARTITION BY operator_id ORDER BY last_event_sequence DESC, warehouse_ingested_at DESC) AS rn
   FROM operator_snapshots
 ),
 cost AS (

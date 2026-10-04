@@ -14,9 +14,23 @@ describe("OrderExecutionTaskSchema", () => {
     expect(OrderExecutionTaskSchema.parse(task)).toEqual(task);
   });
 
-  it("accepts a well-formed RESOLVE task", () => {
-    const task = { phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR" };
+  it("accepts a well-formed RESOLVE task carrying its actual materials cost", () => {
+    const task = { phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR", materials_cost_actual: 112.5 };
     expect(OrderExecutionTaskSchema.parse(task)).toEqual(task);
+  });
+
+  it("defaults a RESOLVE task's missing materials cost to null (an execution dispatched before it existed)", () => {
+    const task = { phase: "RESOLVE", order_id: "01ORDER", operator_id: "01OPERATOR" };
+    expect(OrderExecutionTaskSchema.parse(task)).toEqual({ ...task, materials_cost_actual: null });
+  });
+
+  it("accepts a well-formed FAIL task carrying the Step Functions error name", () => {
+    const task = { phase: "FAIL", order_id: "01ORDER", operator_id: "01OPERATOR", error: "States.TaskFailed" };
+    expect(OrderExecutionTaskSchema.parse(task)).toEqual(task);
+  });
+
+  it("rejects a FAIL task with no error", () => {
+    expect(OrderExecutionTaskSchema.safeParse({ phase: "FAIL", order_id: "01ORDER", operator_id: "01OPERATOR" }).success).toBe(false);
   });
 
   it("rejects an unknown phase", () => {
@@ -35,12 +49,20 @@ describe("OrderExecutionTaskSchema", () => {
 });
 
 describe("DispatchResultSchema", () => {
-  it("accepts well-formed wait durations", () => {
-    const result = { transit_wait_seconds: 12, processing_wait_seconds: 18 };
+  it("accepts well-formed wait durations and an actual materials cost", () => {
+    const result = { transit_wait_seconds: 12, processing_wait_seconds: 18, materials_cost_actual: 112.5 };
     expect(DispatchResultSchema.parse(result)).toEqual(result);
   });
 
   it("rejects a negative wait duration", () => {
-    expect(DispatchResultSchema.safeParse({ transit_wait_seconds: -1, processing_wait_seconds: 18 }).success).toBe(false);
+    expect(
+      DispatchResultSchema.safeParse({ transit_wait_seconds: -1, processing_wait_seconds: 18, materials_cost_actual: 0 }).success
+    ).toBe(false);
+  });
+
+  it("rejects a negative materials cost", () => {
+    expect(
+      DispatchResultSchema.safeParse({ transit_wait_seconds: 1, processing_wait_seconds: 18, materials_cost_actual: -1 }).success
+    ).toBe(false);
   });
 });

@@ -23,9 +23,16 @@ function requireEnv(name: string): string {
  */
 const READ_ONLY_LEADING_KEYWORDS = ["SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN"];
 
-/** True if `sql`'s first keyword is one of the read-only statement types this console allows. */
+/* Leading whitespace, `-- line` comments, and `/* block *\/` comments — skipped before reading the first keyword. */
+const LEADING_COMMENTS = /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/;
+
+/**
+ * True if `sql`'s first keyword is one of the read-only statement types
+ * this console allows. Leading comments are skipped, so a query that
+ * opens with a header comment (e.g. docs/v1-wbr.sql) still passes.
+ */
 export function isReadOnlyStatement(sql: string): boolean {
-  const firstKeyword = sql.trim().split(/\s+/)[0]?.toUpperCase() ?? "";
+  const firstKeyword = sql.replace(LEADING_COMMENTS, "").split(/\s+/)[0]?.toUpperCase() ?? "";
   return READ_ONLY_LEADING_KEYWORDS.includes(firstKeyword);
 }
 

@@ -119,20 +119,26 @@ export class Nyc311PipelineStack extends Stack {
       synth,
       selfMutation: true,
       pipelineType: codepipeline.PipelineType.V2,
+      /*
+       * CI cost (v1-prod-deployment.md, 2026-10-03): ~43 parallel asset
+       * actions each started their own LARGE container (one-minute minimum)
+       * — ~73% of CodeBuild spend. One serial publishing action instead.
+       */
+      publishAssetsInParallel: false,
+      /*
+       * Synth alone stays LARGE: it runs every package's tests, and smaller
+       * compute starved Vitest into its RPC timeout ("onTaskUpdate") — SMALL
+       * -> MEDIUM, then MEDIUM -> LARGE 2026-08-28 after 3/3 failures at
+       * ~318s even fully serial. Every other step is light (uploads, API
+       * calls) and takes the SMALL default below.
+       */
+      synthCodeBuildDefaults: {
+        buildEnvironment: { computeType: codebuild.ComputeType.LARGE },
+      },
       codeBuildDefaults: {
         buildEnvironment: {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
-          /*
-           * Raised SMALL -> MEDIUM (99-things-to-come-back-to.md's
-           * "Pipeline metrics and build-time optimization" item) after a
-           * resource-starved Vitest worker hit an RPC timeout
-           * ("onTaskUpdate"), failing the build despite every test
-           * passing. Raised again MEDIUM -> LARGE 2026-08-28: even fully
-           * serial (scripts/test-coverage-sharded.sh pins each shard to
-           * one fork), the same timeout recurred deterministically 3/3
-           * times at ~318s — CPU-bound starvation, not a parallelism race.
-           */
-          computeType: codebuild.ComputeType.LARGE,
+          computeType: codebuild.ComputeType.SMALL,
         },
         /*
          * STANDARD_7_0's default Node (18) is too old for this repo's
