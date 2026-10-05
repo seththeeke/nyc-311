@@ -10,15 +10,8 @@ import {
   type StageState,
 } from "@aws-sdk/client-codepipeline";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import type { PipelineAction, PipelineExecution, PipelineStage, PipelineStatusResponse } from "../../models/pipelineStatus";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /* Constructed lazily inside getPipelineStatus, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
 function getDefaultPipelineName(): string {

@@ -4,19 +4,12 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { OrderDao } from "../../dao/order/orderDao";
 import { createCase } from "../case/caseService";
 import type { Order, OrderEvent, OrderRejectionReasonCode } from "../../models/order";
 import type { OrderStreamRecord } from "../../models/orderStreamEvent";
 import { MockOrderPriorityAssigner, type OrderPriorityAssigner } from "./orderPriorityService";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /* Constructed lazily inside evaluateOrder, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
 function getDefaultOrderDao(): OrderDao {

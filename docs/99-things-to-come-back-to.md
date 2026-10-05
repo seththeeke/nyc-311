@@ -259,6 +259,12 @@ closes on merge.
 
 ---
 
+## backend/service/ duplicates requireEnv() identically across 21 files
+
+See [#67](https://github.com/seththeeke/nyc-311/issues/67).
+
+---
+
 ## Location fallback for Street Condition Requests with no BBL (lat/lng or geocoding)
 
 See [#69](https://github.com/seththeeke/nyc-311/issues/69).

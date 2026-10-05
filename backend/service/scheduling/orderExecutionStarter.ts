@@ -1,5 +1,6 @@
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import type { GpsLocation } from "../../models/gpsLocation";
 
 /*
@@ -19,14 +20,6 @@ export interface StartOrderExecutionInput {
 
 export interface OrderExecutionStarter {
   startExecution(input: StartOrderExecutionInput): Promise<void>;
-}
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
 }
 
 /**

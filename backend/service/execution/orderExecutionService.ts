@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { OrderDao } from "../../dao/order/orderDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import { RequestDao } from "../../dao/request/requestDao";
@@ -11,14 +12,6 @@ import type { ProcessingTimeEstimator } from "../scheduling/processingTimeServic
 import { streetConditionProcessingTimeEstimator } from "../scheduling/streetConditionProcessingTimeService";
 import type { MaterialsCostEstimator } from "../scheduling/materialsCostService";
 import { streetConditionMaterialsCostEstimator } from "../scheduling/streetConditionMaterialsCostService";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /* Constructed lazily inside each exported function, not at module scope — per CLAUDE.md §5.2. */
 function getDefaultOrderDao(): OrderDao {

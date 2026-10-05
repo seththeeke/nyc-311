@@ -8,16 +8,11 @@ import {
   UpdateScheduleCommand,
 } from "@aws-sdk/client-scheduler";
 import { logError, logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { NotFoundError, TerminalError } from "../../models/errors";
 import { warehouseJobDefinitionId, type WarehouseJobDefinition } from "../../models/warehouseJobDefinition";
 import type { WarehouseJobType } from "../../models/warehouseJob";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 export interface WarehouseJobDefinitionDeps {
   jobRunsDao?: WarehouseJobRunsDao;

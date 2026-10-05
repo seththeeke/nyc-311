@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
+import { requireEnv } from "../../env";
 import { OrderDao } from "../../dao/order/orderDao";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
@@ -15,14 +16,6 @@ import { streetConditionMaterialsCostEstimator } from "./streetConditionMaterial
 import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
 import { failExecution } from "../execution/orderExecutionService";
 import { ConflictError } from "../../models/errors";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /* Constructed lazily inside scheduleOrders, not at module scope — per CLAUDE.md §5.2. */
 function getDefaultOrderDao(): OrderDao {

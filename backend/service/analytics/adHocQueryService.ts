@@ -6,14 +6,9 @@ import {
   GetQueryResultsCommand,
 } from "@aws-sdk/client-athena";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import { ValidationError } from "../../models/errors";
 import type { AdHocQueryResult } from "../../models/adHocQueryResult";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 /*
  * The controller's fast, honest reject for an obvious mistake — not the

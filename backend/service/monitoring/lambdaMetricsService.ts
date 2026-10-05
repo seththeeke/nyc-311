@@ -1,14 +1,7 @@
 import { CloudWatchClient, GetMetricStatisticsCommand } from "@aws-sdk/client-cloudwatch";
 import { logInfo } from "../../logger";
+import { requireEnv } from "../../env";
 import type { LambdaHealth, LambdaHealthPoint } from "../../models/lambdaMetrics";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 /*
  * Static, explicit list (not dynamic account-wide discovery) — the
