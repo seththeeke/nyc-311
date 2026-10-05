@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -39,6 +40,7 @@ export class Nyc311PipelineStatusLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getPipelineStatusController.ts"),
       handler: "getPipelineStatusController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(20), /* up to ~1 + 1 + 10*2 CodePipeline calls per invocation, mostly parallelized (service §3) */
       memorySize: 256,
       logGroup,

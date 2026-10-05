@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -38,6 +39,7 @@ export class Nyc311WarehouseSchemaApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getWarehouseSchemaController.ts"),
       handler: "getWarehouseSchemaController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(10),
       memorySize: 256,
       logGroup,

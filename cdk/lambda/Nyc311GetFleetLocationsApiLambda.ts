@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime, Tracing } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -41,6 +42,7 @@ export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getFleetLocationsController.ts"),
       handler: "getFleetLocationsController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(20),
       memorySize: 1769, /* one full vCPU — at 256 MB (~1/7 vCPU) SDK overhead alone took 6-10s and hit the timeout */
       tracing: Tracing.ACTIVE,

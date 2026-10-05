@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -54,6 +55,7 @@ export class Nyc311OrderSchedulingLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "order-processing", "scheduleOrdersController.ts"),
       handler: "scheduleOrdersController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.minutes(5),
       memorySize: 256,
       logGroup,

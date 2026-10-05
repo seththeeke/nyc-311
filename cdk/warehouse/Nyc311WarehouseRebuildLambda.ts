@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -57,6 +58,7 @@ export class Nyc311WarehouseRebuildLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "data-archival", "warehouseRebuildController.ts"),
       handler: "warehouseRebuildController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       /* One export (< 500 MB / < 1M rows at this project's scale) unmarshalled + PutRecordBatch'd — minutes, not the full 15. */
       timeout: Duration.minutes(15),
       memorySize: 1024,

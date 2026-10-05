@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -34,6 +35,7 @@ export class Nyc311WarehouseTransformLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "data-archival", "warehouseRecordTransformController.ts"),
       handler: "warehouseRecordTransformController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       /* Firehose caps a transformation invocation at 5 minutes; 60s covers a 3 MB / 300s buffer of tiny records. */
       timeout: Duration.seconds(60),
       memorySize: 256,
