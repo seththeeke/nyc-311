@@ -288,3 +288,9 @@ See [#73](https://github.com/seththeeke/nyc-311/issues/73).
 See [#74](https://github.com/seththeeke/nyc-311/issues/74).
 
 ---
+
+## Clean up the LIVE_METRICS_DASHBOARD feature flag and the wbr tile read path (by 2026-11-03)
+
+See [#76](https://github.com/seththeeke/nyc-311/issues/76).
+
+---

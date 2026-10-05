@@ -12,8 +12,9 @@ interface WorkspaceMetricTileProps {
 }
 
 /**
- * One `GET /workspace/metrics` value as a tile: the latest week, with the
- * change against the week before as its caption. Every metric tile reads
+ * One `GET /workspace/metrics` value as a tile: the latest week (or, from
+ * the live source, the week to date), with the change against the week
+ * before as its caption. Every metric tile reads
  * the same cached query, so the panel makes one request, not one per tile.
  */
 export function WorkspaceMetricTile({ metricId, label, formatValue }: WorkspaceMetricTileProps): ReactElement {
@@ -43,16 +44,18 @@ export function WorkspaceMetricTile({ metricId, label, formatValue }: WorkspaceM
     );
   }
 
-  const week = `week of ${formatWeekLabel(data.week_start)}`;
+  /* Live values are this week so far, compared against the same days of the week before — not two full weeks. */
+  const isLive = data.source === "LIVE";
+  const week = `${isLive ? "week to date from" : "week of"} ${formatWeekLabel(data.week_start)}`;
   const delta = formatWeekDelta(current, previous);
   const value = formatValue(current);
+  const comparedTo = (previousWeekStart: string): string =>
+    isLive ? "the same days of the week before" : `week of ${formatWeekLabel(previousWeekStart)}`;
   return (
     <div
       role="status"
       aria-label={`${label}: ${value}, ${week}${delta ? `, ${delta}` : ""}`}
-      data-tooltip={
-        data.previous_week_start ? `${week} vs. week of ${formatWeekLabel(data.previous_week_start)}` : week
-      }
+      data-tooltip={data.previous_week_start ? `${week} vs. ${comparedTo(data.previous_week_start)}` : week}
     >
       <MetricTileBody value={value} detail={delta ?? week} />
     </div>

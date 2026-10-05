@@ -634,3 +634,48 @@ describe("OrderDao.getOperatorOrderActivity", () => {
   });
 });
 
+
+describe("OrderDao.listOrderEvents", () => {
+  const eventItem = (sequence: number, eventType: string): Record<string, unknown> => ({
+    order_id: "01ORDER",
+    sk: `EVENT#${sequence}`,
+    sequence_number: sequence,
+    event_type: eventType,
+    stage: null,
+    payload: {},
+    occurred_at: "2026-10-05T12:00:00.000Z",
+    actor: "SYSTEM",
+  });
+
+  it("strongly-consistently queries the Order's EVENT# items and follows pagination", async () => {
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({ Items: [eventItem(0, "ORDER_CREATED")], LastEvaluatedKey: { order_id: "01ORDER", sk: "EVENT#0" } })
+      .resolvesOnce({ Items: [eventItem(1, "ORDER_ACCEPTED")] });
+
+    const events = await orderDao.listOrderEvents("01ORDER");
+
+    expect(events.map((event) => event.event_type)).toEqual(["ORDER_CREATED", "ORDER_ACCEPTED"]);
+    const calls = ddbMock.commandCalls(QueryCommand);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].args[0].input).toMatchObject({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "order_id = :orderId AND begins_with(sk, :eventPrefix)",
+      ExpressionAttributeValues: { ":orderId": "01ORDER", ":eventPrefix": "EVENT#" },
+      ConsistentRead: true,
+    });
+    expect(calls[1].args[0].input.ExclusiveStartKey).toEqual({ order_id: "01ORDER", sk: "EVENT#0" });
+  });
+
+  it("returns an empty list when the Order has no events", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+
+    await expect(orderDao.listOrderEvents("01MISSING")).resolves.toEqual([]);
+  });
+
+  it("rejects a stored event that doesn't match the schema", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [{ order_id: "01ORDER", sk: "EVENT#0", event_type: "NOT_A_TYPE" }] });
+
+    await expect(orderDao.listOrderEvents("01ORDER")).rejects.toBeInstanceOf(ValidationError);
+  });
+});

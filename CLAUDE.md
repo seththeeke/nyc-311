@@ -210,6 +210,8 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> analytics - controller endpoints for the data warehouse (`7-data-warehousing.md`):
      the EventBridge-Scheduler-triggered daily aggregation job runner (§8), and
      the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
+     — plus the SQS-triggered consumer that folds accepted/resolved Orders into
+     the live workspace metric buckets (`12-UX-workspace-refactor.md`)
  -> service
   -> grouped into logical processing services, not necessarily by entity
  -> dao - explicitely grouped by entity we store, names matching
@@ -225,7 +227,9 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> location
   -> shift
   -> user
-  -> analytics - warehouseJobRunsDao, analyticsRollupsDao (see carve-out above)
+  -> analytics - warehouseJobRunsDao, analyticsRollupsDao, liveWorkspaceMetricsDao
+     (see carve-out above; the live workspace metrics table is the same kind
+     of non-domain bookkeeping)
  -> models - all shared types live here, one file each (TS type + zod
     schema), consumed by dao/service/controller — same pattern as
     web-app's models/. This includes data-model.md entities (named to

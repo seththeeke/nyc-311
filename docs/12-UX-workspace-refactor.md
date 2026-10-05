@@ -586,3 +586,36 @@ the report doesn't have yet: a missing column makes only that metric
 `null` (plus a `WorkspaceMetricsColumnsMissing` warning log), so the tile
 says "no data yet" while the rest render. **No WIP tiles remain**; the
 `WORK_IN_PROGRESS` status and badge stay in place for future tiles.
+
+**Live week-to-date source behind `LIVE_METRICS_DASHBOARD` (2026-10-04).** The map
+polls live every 15s while the five `wbr` tiles lagged by up to a day, so the two
+disagreed. `GET /workspace/metrics` now has a second source, chosen per request by
+the `LIVE_METRICS_DASHBOARD` feature flag: `C` (control, and the fallback when the
+flag is missing or its lookup fails) is the `wbr` path above, unchanged; `T1` reads
+live day buckets. The response gains `source: "WBR" | "LIVE"`; nothing else about
+its shape changes.
+
+- **Write side (always on, flag or not).** `Nyc311LiveWorkspaceMetricsQueue-<env>`
+  subscribes to `Nyc311OrderEventsTopic` filtered to `ORDER_ACCEPTED` +
+  `ORDER_RESOLVED`; `Nyc311LiveWorkspaceMetrics-<env>`
+  (`controller/analytics/recordWorkspaceMetricsController.ts`) folds each event
+  into its New York calendar day's bucket in `LiveWorkspaceMetrics-<env>`
+  (`ddb-design.md`). Counts and sums are atomic `ADD`s; every resolution time is
+  also appended to the day's list so the median is exact. A `SEEN#` marker written
+  in the same transaction makes each Order count once despite SQS redelivery.
+  Resolution time and cost follow `v1-wbr.sql`'s rules (created→resolved whole
+  seconds; labor from the last `ORDER_SCHEDULED` × the Operator's rate, plus
+  `materials_cost_actual`). A DLQ message is an uncounted Order —
+  `Nyc311LiveWorkspaceMetricsDlqDepthAlarm-<env>` fires on the first one.
+- **Read side (`T1`).** The week runs Monday–Sunday in `America/New_York`,
+  resetting at the midnight that ends Sunday. Nothing is reset or scheduled: the
+  read sums the buckets for Monday through today, and `previous` is the same
+  days of the week before (all-null until that week has any bucket).
+- **Web app.** Tiles poll every 15s when `source` is `LIVE` (5 min for `WBR`) and
+  caption as "week to date from <Monday>".
+- **`wbr` stays the reporting source of record.** Small differences from the live
+  tiles are expected: UTC vs New York week boundary, `approx_percentile` vs the
+  exact median, and whole-week vs week-to-date.
+- **Rollout.** Buckets only exist from deploy onward, so flip to `T1` after the
+  first Monday boundary following the deploy, or the week in progress reads short.
+  Flag and `wbr` read-path cleanup is tracked in `99-things-to-come-back-to.md`.

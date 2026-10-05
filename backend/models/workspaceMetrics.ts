@@ -23,8 +23,13 @@ export const WorkspaceMetricValueSchema = z.object({
 });
 export type WorkspaceMetricValue = z.infer<typeof WorkspaceMetricValueSchema>;
 
+/* Where the values came from: the weekly `wbr` warehouse job, or the live week-to-date day buckets. */
+export const WORKSPACE_METRICS_SOURCES = ["WBR", "LIVE"] as const;
+export type WorkspaceMetricsSource = (typeof WORKSPACE_METRICS_SOURCES)[number];
+
 export const WorkspaceMetricsSchema = z.object({
-  /** The warehouse job the values come from. */
+  source: z.enum(WORKSPACE_METRICS_SOURCES),
+  /** The warehouse job the values come from; `"live"` when `source` is `LIVE`. */
   source_job: z.string().min(1),
   /** `null` until that job has produced a result. */
   job_run_id: z.string().nullable(),

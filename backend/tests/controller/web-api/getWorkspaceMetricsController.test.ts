@@ -7,6 +7,7 @@ vi.mock("../../../service/analytics/workspaceMetricsService", () => ({ getWorksp
 const mocked = vi.mocked(getWorkspaceMetrics);
 
 const METRICS: WorkspaceMetrics = {
+  source: "WBR",
   source_job: "wbr",
   job_run_id: "01WBR",
   computed_at: "2026-09-26T06:00:00.000Z",

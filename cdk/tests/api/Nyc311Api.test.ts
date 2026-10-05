@@ -36,6 +36,7 @@ import { Nyc311GetCapacityApiLambda } from "../../lambda/Nyc311GetCapacityApiLam
 import { Nyc311RunSchedulingApiLambda } from "../../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311GetFleetLocationsApiLambda } from "../../lambda/Nyc311GetFleetLocationsApiLambda";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
+import { LiveWorkspaceMetricsTable } from "../../data/LiveWorkspaceMetricsTable";
 import {
   FEATURE_FLAG_API_OPERATIONS,
   Nyc311FeatureFlagApiLambda,
@@ -86,10 +87,14 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
   });
+  const featureFlagsTable = new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName });
+  const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName });
   const workspaceMetricsApiLambda = new Nyc311WorkspaceMetricsApiLambda(stack, "Nyc311WorkspaceMetricsApiLambda", {
     envName,
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
+    featureFlagsTable,
+    liveWorkspaceMetricsTable,
   });
   const usersTable = new UsersTable(stack, "UsersTable", { envName });
   const adminAuth = new Nyc311AdminAuth(stack, "Nyc311AdminAuth", { envName });
@@ -216,7 +221,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
       warehouseBucket,
     }
   );
-  const featureFlagsTable = new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName });
   const featureFlagApiLambdas = Object.fromEntries(
     FEATURE_FLAG_API_OPERATIONS.map((operation) => [
       operation,

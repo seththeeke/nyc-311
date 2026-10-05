@@ -6,12 +6,14 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import { Construct } from "constructs";
 import type { Nyc311OrdersStreamFanOutLambda } from "./Nyc311OrdersStreamFanOutLambda";
 import type { Nyc311OrderEvaluationQueue } from "./Nyc311OrderEvaluationQueue";
+import type { Nyc311LiveWorkspaceMetricsQueue } from "./Nyc311LiveWorkspaceMetricsQueue";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
 export interface Nyc311OrderPipelineAlarmsProps {
   envName: Nyc311Environment;
   ordersStreamFanOutLambda: Nyc311OrdersStreamFanOutLambda;
   orderEvaluationQueue: Nyc311OrderEvaluationQueue;
+  liveWorkspaceMetricsQueue: Nyc311LiveWorkspaceMetricsQueue;
   /** Where every alarm here notifies. */
   failureNotificationEmail: string;
 }
@@ -33,14 +35,16 @@ const ITERATOR_AGE_THRESHOLD_MS = Duration.minutes(30).toMilliseconds();
  * (`5-order-evaluation.md` §6/§7) — the fan-out Lambda's `Errors` and
  * `IteratorAge`, plus the evaluation queue's DLQ depth (any message there
  * is a genuine, already-exhausted-retries failure, worth alarming on
- * immediately, not after a sustained period). One shared, email-subscribed
- * SNS topic for all three, same pattern as `Nyc311PollerSchedule`'s own
+ * immediately, not after a sustained period) and the same for the live
+ * workspace metrics queue's DLQ. One shared, email-subscribed
+ * SNS topic for all four, same pattern as `Nyc311PollerSchedule`'s own
  * dedicated failure topic.
  */
 export class Nyc311OrderPipelineAlarms extends Construct {
   public readonly errorsAlarm: cloudwatch.Alarm;
   public readonly iteratorAgeAlarm: cloudwatch.Alarm;
   public readonly dlqDepthAlarm: cloudwatch.Alarm;
+  public readonly liveMetricsDlqDepthAlarm: cloudwatch.Alarm;
 
   constructor(scope: Construct, id: string, props: Nyc311OrderPipelineAlarmsProps) {
     super(scope, id);
@@ -92,5 +96,19 @@ export class Nyc311OrderPipelineAlarms extends Construct {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
     this.dlqDepthAlarm.addAlarmAction(notify);
+
+    /* A message here is an Order the live workspace tiles never counted — they stay short until it's redriven. */
+    this.liveMetricsDlqDepthAlarm = new cloudwatch.Alarm(this, "LiveWorkspaceMetricsDlqDepthAlarm", {
+      alarmName: `Nyc311LiveWorkspaceMetricsDlqDepthAlarm-${suffix}`,
+      metric: props.liveWorkspaceMetricsQueue.deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+        statistic: "Maximum",
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    this.liveMetricsDlqDepthAlarm.addAlarmAction(notify);
   }
 }

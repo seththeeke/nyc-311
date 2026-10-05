@@ -98,10 +98,11 @@ describe("Nyc311Stack", () => {
      * evaluation Lambda's SQS mapping, the Orders-side fan-out Lambda's
      * own stream mapping, (5-order-evaluation.md §6) the evaluation
      * Lambda's SQS mapping, (7-data-warehousing.md §4) the Locations
-     * fan-out Lambda's stream mapping, and (Leg 6) the Operators fan-out
-     * Lambda's stream mapping.
+     * fan-out Lambda's stream mapping, (Leg 6) the Operators fan-out
+     * Lambda's stream mapping, and the live workspace metrics Lambda's
+     * SQS mapping.
      */
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 6);
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 7);
   });
 
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
@@ -120,6 +121,29 @@ describe("Nyc311Stack", () => {
       Protocol: "sqs",
       RawMessageDelivery: true,
       FilterPolicy: { event_type: ["ORDER_CREATED"] },
+    });
+  });
+
+  it("wires the live workspace metrics leg: table, filtered queue, Lambda, DLQ alarm, and the API Lambda's access", () => {
+    const { template } = testEnv;
+
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "LiveWorkspaceMetrics-Test" });
+    template.hasResourceProperties("AWS::SQS::Queue", { QueueName: "Nyc311LiveWorkspaceMetricsQueue-Test" });
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Protocol: "sqs",
+      RawMessageDelivery: true,
+      FilterPolicy: { event_type: ["ORDER_ACCEPTED", "ORDER_RESOLVED"] },
+    });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311LiveWorkspaceMetrics-Test" });
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311LiveWorkspaceMetricsDlqDepthAlarm-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "Nyc311WorkspaceMetricsApi-Test",
+      Environment: {
+        Variables: Match.objectLike({
+          FEATURE_FLAGS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^FeatureFlagsTable") },
+          LIVE_WORKSPACE_METRICS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^LiveWorkspaceMetricsTable") },
+        }),
+      },
     });
   });
 

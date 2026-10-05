@@ -633,6 +633,47 @@ billing/PITR/removal defaults otherwise.
 
 ---
 
+## LiveWorkspaceMetrics table
+
+Not a `data-model.md` entity — analytics bookkeeping for the secondary
+workspace's live metric tiles (`12-UX-workspace-refactor.md`), like
+`WarehouseJobRuns`. Physical name `LiveWorkspaceMetrics-<env>`
+(`cdk/data/LiveWorkspaceMetricsTable.ts`).
+
+### Key schema
+
+| Attribute | Role | Value |
+|---|---|---|
+| `metric_key` | PK | `DAY#<YYYY-MM-DD>` (a New York calendar day's bucket) or `SEEN#<event_type>#<order_id>` (dedupe marker) |
+
+No sort key, no GSIs, no stream. TTL on `expires_at` (set on `SEEN#` markers
+only, 30 days out); day buckets never expire.
+
+### Items
+
+- **Day bucket** — `day`, `accepted_count`, `resolved_count`,
+  `resolution_seconds_sum`, `total_cost_sum`, `resolution_seconds` (list, one
+  entry per resolved Order, for the exact median), `updated_at`. Each counter
+  exists only once its first `ADD` lands.
+- **Seen marker** — `counted_at`, `expires_at`. Put with
+  `attribute_not_exists(metric_key)` in the same transaction as the bucket
+  update, so a redelivered event cancels instead of double counting.
+
+### Access patterns
+
+- Write: one `TransactWriteItems` (marker `Put` + bucket `Update`) per accepted
+  or resolved Order.
+- Read: one `BatchGetItem` of up to 14 `DAY#` keys (this week to date plus the
+  same days of the week before).
+
+### Design notes
+
+- The 400KB item limit caps a single day at tens of thousands of resolutions;
+  past that the write fails into the DLQ and alarms, and the list should
+  become a histogram.
+
+---
+
 ## Access Pattern Index
 
 Every access pattern identified across `claude-prompt-initial.md`,

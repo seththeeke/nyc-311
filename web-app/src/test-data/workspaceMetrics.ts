@@ -2,6 +2,7 @@ import type { WorkspaceMetrics } from "../models/workspaceMetrics";
 
 /* Baked sample for "mock" data mode — the Test `wbr` job's 2026-09-21 week against 2026-09-14. */
 export const MOCK_WORKSPACE_METRICS: WorkspaceMetrics = {
+  source: "WBR",
   source_job: "wbr",
   job_run_id: "01MOCKWBR",
   computed_at: "2026-09-26T06:00:00.000Z",

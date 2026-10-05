@@ -473,6 +473,37 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
     };
   }
 
+  /**
+   * Every `OrderEvent` appended to one Order, in no guaranteed order — a
+   * strongly consistent `Query` on its partition's `EVENT#` items, so a
+   * consumer reacting to a just-appended event sees that event too.
+   */
+  async listOrderEvents(orderId: string): Promise<OrderEvent[]> {
+    logInfo("OrderDao.listOrderEvents", { table: this.tableName, orderId });
+    const events: OrderEvent[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "order_id = :orderId AND begins_with(sk, :eventPrefix)",
+          ExpressionAttributeValues: { ":orderId": orderId, ":eventPrefix": "EVENT#" },
+          ConsistentRead: true,
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+      for (const item of result.Items ?? []) {
+        const parsed = OrderEventSchema.safeParse(item);
+        if (!parsed.success) {
+          throw new ValidationError(`Failed to validate an OrderEvent item for table ${this.tableName}`, parsed.error.issues);
+        }
+        events.push(parsed.data);
+      }
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+    return events;
+  }
+
   private requirePreviousProjection(orderId: string, previous: Order | null): Order {
     if (!previous) {
       throw new ValidationError(

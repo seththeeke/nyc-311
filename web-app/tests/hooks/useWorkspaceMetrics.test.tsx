@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useWorkspaceMetrics } from "../../src/hooks/useWorkspaceMetrics";
+import { useWorkspaceMetrics, workspaceMetricsRefetchInterval } from "../../src/hooks/useWorkspaceMetrics";
 import { workspaceMetricsService } from "../../src/services/workspaceMetricsService";
 import { MOCK_WORKSPACE_METRICS } from "../../src/test-data/workspaceMetrics";
 
@@ -12,7 +12,7 @@ vi.mock("../../src/services/workspaceMetricsService", () => ({
 const mockedGet = vi.mocked(workspaceMetricsService.getWorkspaceMetrics);
 
 function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: false } } });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
@@ -33,5 +33,16 @@ describe("useWorkspaceMetrics", () => {
     const { result } = renderHook(() => useWorkspaceMetrics(), { wrapper });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe("HTTP 500");
+  });
+});
+
+describe("workspaceMetricsRefetchInterval", () => {
+  it("polls live values at the fleet map's 15-second cadence", () => {
+    expect(workspaceMetricsRefetchInterval("LIVE")).toBe(15_000);
+  });
+
+  it("keeps the 5-minute poll for the daily wbr report, and before the first response", () => {
+    expect(workspaceMetricsRefetchInterval("WBR")).toBe(300_000);
+    expect(workspaceMetricsRefetchInterval(undefined)).toBe(300_000);
   });
 });

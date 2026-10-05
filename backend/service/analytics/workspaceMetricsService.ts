@@ -1,7 +1,14 @@
 import { logInfo, logWarn } from "../../logger";
 import type { JobResult } from "../../models/jobResult";
 import type { WorkspaceMetricId, WorkspaceMetrics, WorkspaceMetricValue } from "../../models/workspaceMetrics";
+import {
+  LIVE_METRICS_CONTROL_TREATMENT,
+  LIVE_METRICS_FLAG_KEY,
+  LIVE_METRICS_LIVE_TREATMENT,
+} from "../../models/liveWorkspaceMetrics";
+import { getTreatment } from "../featureFlag/featureFlagService";
 import { getJobResult } from "./jobResultService";
+import { getLiveWorkspaceMetrics } from "./liveWorkspaceMetricsService";
 
 /** The weekly business report job — one row per `week_start`. */
 export const WBR_JOB_NAME = "wbr";
@@ -26,6 +33,44 @@ type ReportRow = Record<string, string>;
 
 export interface GetWorkspaceMetricsDeps {
   loadJobResult?: (jobName: string) => Promise<JobResult | null>;
+  /** Resolves the `LIVE_METRICS_DASHBOARD` treatment. */
+  loadTreatment?: () => Promise<string>;
+  loadLiveMetrics?: () => Promise<WorkspaceMetrics>;
+}
+
+/*
+ * Control whenever the flag can't say otherwise — missing flag (getTreatment's
+ * fallback) or a failed lookup alike — so the flag can only ever opt in to
+ * the live source, never take the tiles down.
+ */
+async function resolveTreatment(deps: GetWorkspaceMetricsDeps): Promise<string> {
+  const loadTreatment =
+    deps.loadTreatment ?? (() => getTreatment(LIVE_METRICS_FLAG_KEY, {}, { fallback: LIVE_METRICS_CONTROL_TREATMENT }));
+  try {
+    return await loadTreatment();
+  } catch (err) {
+    logWarn("WorkspaceMetricsTreatmentLookupFailed", {
+      flagKey: LIVE_METRICS_FLAG_KEY,
+      fallback: LIVE_METRICS_CONTROL_TREATMENT,
+      error: err instanceof Error ? err.message : err,
+    });
+    return LIVE_METRICS_CONTROL_TREATMENT;
+  }
+}
+
+/**
+ * Backs `GET /workspace/metrics`. `LIVE_METRICS_DASHBOARD` picks the
+ * source: `T1` reads the live week-to-date day buckets, anything else
+ * (`C`, an unknown treatment, no flag) reads the latest `wbr` run exactly
+ * as before the flag existed.
+ */
+export async function getWorkspaceMetrics(deps: GetWorkspaceMetricsDeps = {}): Promise<WorkspaceMetrics> {
+  const treatment = await resolveTreatment(deps);
+  logInfo("GetWorkspaceMetricsTreatmentResolved", { flagKey: LIVE_METRICS_FLAG_KEY, treatment });
+  if (treatment === LIVE_METRICS_LIVE_TREATMENT) {
+    return (deps.loadLiveMetrics ?? getLiveWorkspaceMetrics)();
+  }
+  return getWbrWorkspaceMetrics(deps);
 }
 
 /* Athena returns every value as a string; a blank cell is "no value", not 0. */
@@ -51,13 +96,13 @@ function emptyMetrics(): Record<WorkspaceMetricId, WorkspaceMetricValue> {
 }
 
 /**
- * Backs `GET /workspace/metrics` — reads the latest `wbr` run and returns
+ * The control source — reads the latest `wbr` run and returns
  * its most recent week plus the week before, per metric in
  * {@link METRIC_COLUMNS}. Rows without a `week_start` are skipped. A
  * missing column, no run yet, or an empty run yields null values for the
  * affected metrics, not an error.
  */
-export async function getWorkspaceMetrics(deps: GetWorkspaceMetricsDeps = {}): Promise<WorkspaceMetrics> {
+export async function getWbrWorkspaceMetrics(deps: GetWorkspaceMetricsDeps = {}): Promise<WorkspaceMetrics> {
   const loadJobResult = deps.loadJobResult ?? getJobResult;
 
   logInfo("GetWorkspaceMetricsStarted", { jobName: WBR_JOB_NAME });
@@ -66,6 +111,7 @@ export async function getWorkspaceMetrics(deps: GetWorkspaceMetricsDeps = {}): P
   if (!result) {
     logInfo("GetWorkspaceMetricsNoResult", { jobName: WBR_JOB_NAME });
     return {
+      source: "WBR",
       source_job: WBR_JOB_NAME,
       job_run_id: null,
       computed_at: null,
@@ -97,6 +143,7 @@ export async function getWorkspaceMetrics(deps: GetWorkspaceMetricsDeps = {}): P
   }
 
   const response: WorkspaceMetrics = {
+    source: "WBR",
     source_job: WBR_JOB_NAME,
     job_run_id: result.job_run_id,
     computed_at: result.computed_at,

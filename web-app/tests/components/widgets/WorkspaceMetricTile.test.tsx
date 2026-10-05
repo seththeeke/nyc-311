@@ -36,6 +36,34 @@ describe("the live metric widgets", () => {
   });
 });
 
+describe("the live (week-to-date) source", () => {
+  const LIVE: WorkspaceMetrics = {
+    ...MOCK_WORKSPACE_METRICS,
+    source: "LIVE",
+    source_job: "live",
+    job_run_id: null,
+    week_start: "2026-10-05",
+    previous_week_start: "2026-09-28",
+  };
+
+  it("labels the value as week to date and the comparison as the same days of the week before", () => {
+    loaded(LIVE);
+    render(<ServicedWidget />);
+    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 411, week to date from Oct 5, ↓ 51% vs. last week");
+    expect(screen.getByRole("status")).toHaveAttribute(
+      "data-tooltip",
+      "week to date from Oct 5 vs. the same days of the week before",
+    );
+  });
+
+  it("captions with the week to date when the previous week has no live data yet", () => {
+    loaded({ ...LIVE, metrics: { ...LIVE.metrics, SERVICED: { current: 0, previous: null } } });
+    render(<ServicedWidget />);
+    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 0, week to date from Oct 5");
+    expect(screen.getByText("week to date from Oct 5")).toBeInTheDocument();
+  });
+});
+
 describe("a report missing a widget's column", () => {
   it("shows no data yet for that tile while the others still render", () => {
     loaded({ ...MOCK_WORKSPACE_METRICS, metrics: { ...MOCK_WORKSPACE_METRICS.metrics, TOTAL_COST: { current: null, previous: null } } });

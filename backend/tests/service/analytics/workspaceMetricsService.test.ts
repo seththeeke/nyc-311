@@ -1,11 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getWorkspaceMetrics, WBR_JOB_NAME } from "../../../service/analytics/workspaceMetricsService";
 import { getJobResult } from "../../../service/analytics/jobResultService";
-import { WorkspaceMetricsSchema } from "../../../models/workspaceMetrics";
+import { getLiveWorkspaceMetrics } from "../../../service/analytics/liveWorkspaceMetricsService";
+import { getTreatment } from "../../../service/featureFlag/featureFlagService";
+import { WorkspaceMetricsSchema, type WorkspaceMetrics } from "../../../models/workspaceMetrics";
 import type { JobResult } from "../../../models/jobResult";
 
 vi.mock("../../../service/analytics/jobResultService", () => ({ getJobResult: vi.fn() }));
+vi.mock("../../../service/featureFlag/featureFlagService", () => ({ getTreatment: vi.fn() }));
+vi.mock("../../../service/analytics/liveWorkspaceMetricsService", () => ({ getLiveWorkspaceMetrics: vi.fn() }));
 const mockedGetJobResult = vi.mocked(getJobResult);
+const mockedGetTreatment = vi.mocked(getTreatment);
+const mockedGetLiveWorkspaceMetrics = vi.mocked(getLiveWorkspaceMetrics);
+
+const LIVE_METRICS: WorkspaceMetrics = {
+  source: "LIVE",
+  source_job: "live",
+  job_run_id: null,
+  computed_at: "2026-10-06T15:00:00.000Z",
+  week_start: "2026-10-05",
+  previous_week_start: "2026-09-28",
+  metrics: {
+    REQUESTS_ACCEPTED: { current: 12, previous: 9 },
+    SERVICED: { current: 7, previous: 5 },
+    MEAN_TIME_TO_RESOLVE_HOURS: { current: 1.5, previous: 2 },
+    MEDIAN_TIME_TO_RESOLVE_HOURS: { current: 1.25, previous: 1.75 },
+    TOTAL_COST: { current: 800, previous: 650.5 },
+  },
+};
 
 const COLUMNS = [
   "week_start",
@@ -37,6 +59,8 @@ function wbr(rows: Record<string, string>[]): JobResult {
 
 beforeEach(() => {
   mockedGetJobResult.mockReset();
+  mockedGetTreatment.mockReset().mockResolvedValue("C");
+  mockedGetLiveWorkspaceMetrics.mockReset().mockResolvedValue(LIVE_METRICS);
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -59,6 +83,7 @@ describe("getWorkspaceMetrics", () => {
 
     expect(loadJobResult).toHaveBeenCalledWith(WBR_JOB_NAME);
     expect(result).toEqual({
+      source: "WBR",
       source_job: "wbr",
       job_run_id: "01WBR",
       computed_at: "2026-09-26T06:00:00.000Z",
@@ -142,6 +167,7 @@ describe("getWorkspaceMetrics", () => {
     const result = await getWorkspaceMetrics({ loadJobResult: vi.fn().mockResolvedValue(null) });
 
     expect(result).toEqual({
+      source: "WBR",
       source_job: "wbr",
       job_run_id: null,
       computed_at: null,
@@ -170,5 +196,66 @@ describe("getWorkspaceMetrics", () => {
     const loadJobResult = vi.fn().mockRejectedValue(new Error("S3 down"));
 
     await expect(getWorkspaceMetrics({ loadJobResult })).rejects.toThrow("S3 down");
+  });
+});
+
+describe("getWorkspaceMetrics — LIVE_METRICS_DASHBOARD", () => {
+  const loadJobResult = (): ReturnType<typeof vi.fn> => vi.fn().mockResolvedValue(wbr([row("2026-09-21", "411", "1.02", "0.95")]));
+
+  it("asks for the flag's treatment with C as the missing-flag fallback", async () => {
+    await getWorkspaceMetrics({ loadJobResult: loadJobResult() });
+
+    expect(mockedGetTreatment).toHaveBeenCalledWith("LIVE_METRICS_DASHBOARD", {}, { fallback: "C" });
+  });
+
+  it("C reads the wbr job and never touches the live source", async () => {
+    const result = await getWorkspaceMetrics({ loadJobResult: loadJobResult() });
+
+    expect(result.source).toBe("WBR");
+    expect(result.week_start).toBe("2026-09-21");
+    expect(mockedGetLiveWorkspaceMetrics).not.toHaveBeenCalled();
+  });
+
+  it("T1 returns the live metrics and never loads the wbr job", async () => {
+    mockedGetTreatment.mockResolvedValue("T1");
+    const load = loadJobResult();
+
+    const result = await getWorkspaceMetrics({ loadJobResult: load });
+
+    expect(result).toEqual(LIVE_METRICS);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("T1 uses an injected live loader when given one", async () => {
+    const loadLiveMetrics = vi.fn().mockResolvedValue({ ...LIVE_METRICS, week_start: "2026-10-12" });
+
+    const result = await getWorkspaceMetrics({ loadTreatment: () => Promise.resolve("T1"), loadLiveMetrics });
+
+    expect(result.week_start).toBe("2026-10-12");
+    expect(mockedGetLiveWorkspaceMetrics).not.toHaveBeenCalled();
+  });
+
+  it("treats an unrecognized treatment as control", async () => {
+    mockedGetTreatment.mockResolvedValue("T2");
+
+    const result = await getWorkspaceMetrics({ loadJobResult: loadJobResult() });
+
+    expect(result.source).toBe("WBR");
+  });
+
+  it.each([new Error("DynamoDB down"), "boom"])("falls back to control when the flag lookup fails (%s)", async (failure) => {
+    mockedGetTreatment.mockRejectedValue(failure);
+
+    const result = await getWorkspaceMetrics({ loadJobResult: loadJobResult() });
+
+    expect(result.source).toBe("WBR");
+    expect(mockedGetLiveWorkspaceMetrics).not.toHaveBeenCalled();
+  });
+
+  it("propagates a live-source failure rather than silently serving wbr data", async () => {
+    mockedGetTreatment.mockResolvedValue("T1");
+    mockedGetLiveWorkspaceMetrics.mockRejectedValue(new Error("table gone"));
+
+    await expect(getWorkspaceMetrics()).rejects.toThrow("table gone");
   });
 });

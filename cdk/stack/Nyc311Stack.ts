@@ -15,6 +15,8 @@ import { Nyc311LocationsFanOutLambda } from "../lambda/Nyc311LocationsFanOutLamb
 import { Nyc311LocationEventsTopic } from "../lambda/Nyc311LocationEventsTopic";
 import { Nyc311RequestEvaluationLambda } from "../lambda/Nyc311RequestEvaluationLambda";
 import { Nyc311OrderEventsTopic } from "../lambda/Nyc311OrderEventsTopic";
+import { Nyc311LiveWorkspaceMetricsQueue } from "../lambda/Nyc311LiveWorkspaceMetricsQueue";
+import { Nyc311LiveWorkspaceMetricsLambda } from "../lambda/Nyc311LiveWorkspaceMetricsLambda";
 import { Nyc311OrdersStreamFanOutLambda } from "../lambda/Nyc311OrdersStreamFanOutLambda";
 import { Nyc311OrderProjectionsTopic } from "../lambda/Nyc311OrderProjectionsTopic";
 import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue";
@@ -50,6 +52,7 @@ import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
 import { FeatureFlagsTable } from "../data/FeatureFlagsTable";
+import { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import {
   FEATURE_FLAG_API_OPERATIONS,
   Nyc311FeatureFlagApiLambda,
@@ -350,10 +353,32 @@ export class Nyc311Stack extends Stack {
       orderEvaluationQueue,
     });
 
+    /*
+     * The secondary workspace's live (week-to-date) tiles: a second
+     * filtered subscription (ORDER_ACCEPTED + ORDER_RESOLVED) feeding a
+     * Lambda that increments per-day buckets. Always accumulating;
+     * GET /workspace/metrics only reads them under LIVE_METRICS_DASHBOARD=T1.
+     */
+    const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(this, "LiveWorkspaceMetricsTable", {
+      envName: props.envName,
+    });
+    const liveWorkspaceMetricsQueue = new Nyc311LiveWorkspaceMetricsQueue(this, "Nyc311LiveWorkspaceMetricsQueue", {
+      envName: props.envName,
+      orderEventsTopic,
+    });
+    new Nyc311LiveWorkspaceMetricsLambda(this, "Nyc311LiveWorkspaceMetricsLambda", {
+      envName: props.envName,
+      ordersTable,
+      operatorsTable,
+      liveWorkspaceMetricsTable,
+      liveWorkspaceMetricsQueue,
+    });
+
     new Nyc311OrderPipelineAlarms(this, "Nyc311OrderPipelineAlarms", {
       envName: props.envName,
       ordersStreamFanOutLambda,
       orderEvaluationQueue,
+      liveWorkspaceMetricsQueue,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
@@ -578,6 +603,8 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       warehouseBucket,
+      featureFlagsTable,
+      liveWorkspaceMetricsTable,
     });
 
     /*

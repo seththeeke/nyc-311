@@ -20,6 +20,18 @@ describe("WorkspaceMetricsSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("defaults source to WBR for a response from an API that predates the field", () => {
+    const legacy: Record<string, unknown> = { ...MOCK_WORKSPACE_METRICS };
+    delete legacy.source;
+    expect(WorkspaceMetricsSchema.parse(legacy).source).toBe("WBR");
+  });
+
+  it("accepts a live response and rejects an unknown source", () => {
+    const live = { ...MOCK_WORKSPACE_METRICS, source: "LIVE", source_job: "live", job_run_id: null };
+    expect(WorkspaceMetricsSchema.parse(live).source).toBe("LIVE");
+    expect(WorkspaceMetricsSchema.safeParse({ ...MOCK_WORKSPACE_METRICS, source: "CACHE" }).success).toBe(false);
+  });
+
   it("rejects a response missing a metric", () => {
     const metrics: Record<string, unknown> = { ...MOCK_WORKSPACE_METRICS.metrics };
     delete metrics.SERVICED;
