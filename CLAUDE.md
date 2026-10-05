@@ -558,6 +558,11 @@ copied in.
   workflow and reviewable in a PR. `devx-agent.json` is the worked example
   (branch off `origin/main`, run the Operational Loop, `gh issue/pr create`,
   `Write`/`Edit` — but never `gh pr merge`, never main).
+- **Two agents run this way today.** `devx-agent` finds its own repo-health
+  work. `gen-purpose-dev` works only issues a human assigns it by adding the
+  `gen-purpose-dev` label, tracking each through the label state machine in
+  `scripts/agent-issue-state.sh` and landing it as a draft PR from a
+  `gen-purpose-dev/<issue>-<slug>` branch.
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

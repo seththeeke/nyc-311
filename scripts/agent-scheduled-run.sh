@@ -9,13 +9,21 @@
 #   1. fast-forward the primary checkout (only if on a clean main) and re-run
 #      `npm ci` for any package whose lockfile changed — worktrees CoW-clone
 #      node_modules from here, so it must track origin/main
-#   2. count the agent's open PRs (head branch starts with BRANCH_PREFIX):
-#      below MAX_OPEN_PRS → NEW mode, else REVISE mode (address PR comments)
+#   2. pick the mode, by the schedule's KIND:
+#      pr-limit (default, devx-agent) — count the agent's open PRs (head branch
+#        starts with BRANCH_PREFIX): below MAX_OPEN_PRS → NEW mode, else REVISE
+#      assigned-issue (gen-purpose-dev) — poll for ONE issue carrying the label
+#        named after the agent, in priority order: RESUME (parked, and a human
+#        replied) → REVISE (its PR has unaddressed feedback or a conflict) →
+#        NEW (assigned, unclaimed; skipped at MAX_OPEN_PRS). Claim it via
+#        agent-issue-state.sh. Nothing to do → IDLE, `claude` is never started.
 #   3. `agent-worktree.sh run <agent> "<prompt>"`
 #   4. prune logs > 30 days and this agent's kept worktrees > 7 days
 #
-# Nothing is posted to GitHub by this script — the agent's own tickets/PRs are
-# the only GitHub output. Config: scripts/agent-schedules/<agent>.env. Log per run:
+# A pr-limit run posts nothing to GitHub itself. An assigned-issue run moves
+# labels (the claim, and `agent-done` on closed issues) and, when a run dies
+# without reaching review or parking, parks the issue with a comment — fail
+# closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
 # ~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log (AGENT_LOG_ROOT overrides).
 
 set -u
@@ -97,6 +105,12 @@ rm -f "$latest_config"
 # AGENT_MAX_OPEN_PRS overrides the limit for a manual test (e.g. =0 forces REVISE).
 MAX_OPEN_PRS=${AGENT_MAX_OPEN_PRS:-${MAX_OPEN_PRS:-}}
 : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}"
+KIND=${KIND:-pr-limit}
+case "$KIND" in
+  pr-limit) : ;;
+  assigned-issue) : "${PROMPT_RESUME:?}" ;;
+  *) die "unknown KIND '$KIND' in $agent.env (pr-limit | assigned-issue)" ;;
+esac
 
 # ---- lock: one run per agent at a time ---------------------------------------
 
@@ -125,32 +139,176 @@ open_prs() {
     --jq "[.[] | select(.headRefName | startswith(\"$BRANCH_PREFIX\")) | .number] | map(\"#\" + tostring) | join(\" \")"
 }
 
+# ---- assigned-issue helpers (KIND=assigned-issue) ----------------------------
+
+# The agent posts as the repo owner, so authorship can't tell its comments from
+# a human's; every comment it (or this script) posts starts with this marker.
+MARKER="<!-- $agent -->"
+
+issue_state() { "$script_dir/agent-issue-state.sh" "$agent" "$@"; }
+
+# Closed issues this agent worked → agent-done.
+sweep_done() {
+  gh issue list --repo "$REPO" --state closed --label "$agent" --limit 100 --json number,labels \
+    --jq '.[] | [.labels[].name] as $l
+          | select(($l | index("agent-done") | not)
+              and any($l[]; . == "agent-planning" or . == "agent-in-progress"
+                            or . == "agent-pr-review" or . == "agent-blocked"))
+          | .number' |
+    while IFS= read -r n; do
+      [ -n "$n" ] || continue
+      log "$(issue_state "$n" done 2>&1)"
+    done
+}
+
+# An open issue still in planning/in-progress while no run holds the lock means
+# a run died mid-flight. Park it (fail closed); a human reply resumes it.
+park_orphans() {
+  gh issue list --repo "$REPO" --state open --label "$agent" --limit 100 --json number,labels \
+    --jq '.[] | select(any(.labels[]; .name == "agent-planning" or .name == "agent-in-progress")) | .number' |
+    while IFS= read -r n; do
+      [ -n "$n" ] || continue
+      log "parking #$n: $1"
+      issue_state "$n" blocked >/dev/null || { log "WARN: could not park #$n"; continue; }
+      gh issue comment "$n" --repo "$REPO" --body "$MARKER
+**Parked (\`agent-blocked\`).** $1 Nothing was merged or closed. Any work that was pushed is on the issue's \`${BRANCH_PREFIX}$n-*\` branch.
+
+Reply on this issue to have the next scheduled run pick it back up, or remove the \`$agent\` label to take it back." \
+        >/dev/null || log "WARN: could not comment on #$n"
+    done
+}
+
+# Oldest parked issue whose newest comment is a human's (no marker).
+pick_resume() {
+  gh issue list --repo "$REPO" --state open --label "$agent" --label agent-blocked --limit 100 \
+    --json number,comments |
+    jq -r --arg m "$MARKER" '[.[] | select((.comments | length) > 0
+          and (.comments[-1].body | startswith($m) | not))]
+        | sort_by(.number) | .[0].number // empty'
+}
+
+# Exit 0 when PR $1 has a merge conflict or review feedback newer than the
+# agent's last marked comment. A conflict the agent already gave up on (its
+# last marked comment says `conflict-unresolved`) doesn't count again until a
+# human comments — otherwise every fire would re-run the same failed merge.
+pr_needs_tending() {
+  verdict=$(gh pr view "$1" --repo "$REPO" --json mergeable,comments,reviews |
+    jq -r --arg m "$MARKER" '
+      ([.comments[] | {b: .body, t: .createdAt}]
+        + [.reviews[] | select(.body != "") | {b: .body, t: .submittedAt}] | sort_by(.t)) as $all
+      | [$all[] | select(.b | startswith($m))] as $mine
+      | ($mine | last | .t // "") as $last
+      | ($mine | last | .b // "" | contains("conflict-unresolved")) as $gaveUp
+      | ((.mergeable == "CONFLICTING" and ($gaveUp | not))
+          or any($all[]; (.b | startswith($m) | not) and .t > $last)) as $needs
+      | "\($needs) \($last)"') || return 1
+  [ "${verdict%% *}" = "true" ] && return 0
+  last=${verdict#* }
+  gh api "repos/$REPO/pulls/$1/comments" --paginate |
+    jq -r --arg last "$last" 'any(.[]; .created_at > $last)' | grep -q true
+}
+
+# First open agent PR that needs tending, as "<pr> <issue>".
+pick_revise() {
+  gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName \
+    --jq ".[] | select(.headRefName | startswith(\"$BRANCH_PREFIX\")) | \"\(.number) \(.headRefName)\"" |
+    while read -r pr head; do
+      [ -n "$pr" ] || continue
+      n=${head#"$BRANCH_PREFIX"}
+      n=${n%%-*}
+      case "$n" in '' | *[!0-9]*) continue ;; esac
+      if pr_needs_tending "$pr"; then
+        printf '%s %s\n' "$pr" "$n"
+        break
+      fi
+    done
+}
+
+# Oldest assigned issue no run has claimed yet (assignment label, no state label).
+pick_new() {
+  gh issue list --repo "$REPO" --state open --label "$agent" --limit 100 --json number,labels \
+    --jq '[.[] | select(any(.labels[]; .name == "agent-planning" or .name == "agent-in-progress"
+              or .name == "agent-pr-review" or .name == "agent-blocked"
+              or .name == "agent-done" or .name == "needs-info") | not)]
+          | sort_by(.number) | .[0].number // empty'
+}
+
 # ---- 2. pick the mode --------------------------------------------------------
 
 prs_before=$(open_prs) || die "could not list open PRs"
 count=$(printf '%s' "$prs_before" | wc -w | tr -d ' ')
-if [ "$count" -ge "$MAX_OPEN_PRS" ]; then
+issue=""
+pr=""
+
+if [ "$KIND" = "assigned-issue" ]; then
+  command -v jq >/dev/null 2>&1 || die "'jq' not on PATH"
+  issue_state ensure-labels || die "could not ensure the agent labels exist"
+  sweep_done
+  park_orphans "A previous run ended without reaching review or parking itself."
+
+  mode=IDLE
+  issue=$(pick_resume) || die "could not list parked issues"
+  if [ -n "$issue" ]; then
+    mode=RESUME
+    prompt="$PROMPT_RESUME #$issue"
+    issue_state "$issue" in-progress >/dev/null || die "could not claim #$issue"
+  else
+    revise=$(pick_revise) || die "could not list PRs to revise"
+    if [ -n "$revise" ]; then
+      mode=REVISE
+      pr=${revise%% *}
+      issue=${revise#* }
+      prompt="$PROMPT_REVISE PR #$pr (issue #$issue)"
+    elif [ "$count" -ge "$MAX_OPEN_PRS" ]; then
+      log "open PR limit reached — not claiming a new issue"
+    else
+      issue=$(pick_new) || die "could not list assigned issues"
+      if [ -n "$issue" ]; then
+        mode=NEW
+        prompt="$PROMPT_NEW #$issue"
+        issue_state "$issue" planning >/dev/null || die "could not claim #$issue"
+      fi
+    fi
+  fi
+  log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode${issue:+ #$issue}${pr:+ (PR #$pr)}"
+elif [ "$count" -ge "$MAX_OPEN_PRS" ]; then
   mode=REVISE
   prompt="$PROMPT_REVISE $prs_before"
+  log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode mode"
 else
   mode=NEW
   prompt="$PROMPT_NEW"
+  log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode mode"
 fi
-log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode mode"
 
 # ---- 3. run the agent --------------------------------------------------------
 
-report="${AGENT_SCHED_LOG%.log}.report.md"
-started=$(date +%s)
-"$script_dir/agent-worktree.sh" run "$agent" "$prompt" >"$report"
-status=$?
-elapsed=$(( $(date +%s) - started ))
-log "agent exited $status after $((elapsed / 60))m$((elapsed % 60))s — final report:"
-cat "$report"
-printf '\n'
+status=0
+if [ "$mode" = "IDLE" ]; then
+  log "nothing assigned to $agent needs work — not starting claude"
+else
+  report="${AGENT_SCHED_LOG%.log}.report.md"
+  started=$(date +%s)
+  "$script_dir/agent-worktree.sh" run "$agent" "$prompt" >"$report"
+  status=$?
+  elapsed=$(( $(date +%s) - started ))
+  log "agent exited $status after $((elapsed / 60))m$((elapsed % 60))s — final report:"
+  cat "$report"
+  printf '\n'
 
-prs_after=$(open_prs || echo "?")
-log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
+  prs_after=$(open_prs || echo "?")
+  log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
+
+  if [ "$KIND" = "assigned-issue" ]; then
+    park_orphans "The run exited with status $status without reaching review or parking itself."
+    if [ "$mode" = "REVISE" ] && pr_needs_tending "$pr"; then
+      log "PR #$pr still needs tending after the run — leaving it for a human"
+      gh pr comment "$pr" --repo "$REPO" --body "$MARKER
+**Revision run ended without resolving this PR** (exit $status; conflict-unresolved). Nothing was merged, closed, or force-pushed. A new comment here has the next scheduled run try again." \
+        >/dev/null || log "WARN: could not comment on PR #$pr"
+    fi
+  fi
+fi
 
 # ---- 4. housekeeping ---------------------------------------------------------
 
