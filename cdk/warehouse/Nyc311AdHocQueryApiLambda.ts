@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -44,6 +45,7 @@ export class Nyc311AdHocQueryApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "runAdHocQueryController.ts"),
       handler: "runAdHocQueryController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       /* Synchronous over API Gateway's 29s ceiling — the service's own 20s query budget plus headroom. */
       timeout: Duration.seconds(25),
       memorySize: 256,

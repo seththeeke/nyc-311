@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -43,6 +44,7 @@ export class Nyc311GetWarehouseJobRunResultsApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "postJobRunResultsController.ts"),
       handler: "postJobRunResultsController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       /* A batch of ids fetches its S3 objects concurrently (Promise.all), but still longer than the single-item lambdas' 10s. */
       timeout: Duration.seconds(20),
       memorySize: 256,

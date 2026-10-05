@@ -276,3 +276,9 @@ See [#72](https://github.com/seththeeke/nyc-311/issues/72).
 See [#73](https://github.com/seththeeke/nyc-311/issues/73).
 
 ---
+
+## Lambda bundles are unminified — minify all 36 NodejsFunction constructs via one shared bundling option
+
+See [#74](https://github.com/seththeeke/nyc-311/issues/74).
+
+---

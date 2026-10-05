@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -37,6 +38,7 @@ export class Nyc311GetCapacityApiLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "web-api", "getCapacityController.ts"),
       handler: "getCapacityController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(10),
       memorySize: 256,
       logGroup,

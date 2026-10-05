@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource, SqsDlq } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -54,6 +55,7 @@ export class Nyc311OperatorsStreamFanOutLambda extends NodejsFunction {
       entry: path.join(backendRoot, "controller", "ingestion", "fanOutOperatorEventsController.ts"),
       handler: "fanOutOperatorEventsController",
       runtime: Runtime.NODEJS_22_X,
+      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
       logGroup: fanOutLogGroup,
