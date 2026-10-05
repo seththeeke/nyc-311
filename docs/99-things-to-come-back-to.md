@@ -271,6 +271,12 @@ See [#69](https://github.com/seththeeke/nyc-311/issues/69).
 
 ---
 
+## cdk test suite re-bundles every NodejsFunction Lambda on every synth (528 esbuild bundles per run) — skip bundling in vitest
+
+See [#70](https://github.com/seththeeke/nyc-311/issues/70).
+
+---
+
 ## Prod poller gets intermittent empty SODA pages — add a Socrata app token
 
 See [#72](https://github.com/seththeeke/nyc-311/issues/72).
