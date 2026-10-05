@@ -239,6 +239,12 @@ See [#56](https://github.com/seththeeke/nyc-311/issues/56).
 
 ---
 
+## Bump 29 patch/minor-outdated dependencies across web-app/backend/cdk (within existing semver ranges)
+
+See [#64](https://github.com/seththeeke/nyc-311/issues/64).
+
+---
+
 ## Recurring high-severity brace-expansion DoS advisory has a non-breaking npm audit fix unapplied across web-app/backend/cdk
 
 Third recurrence of the vulnerability class previously fixed in #32 and #38.
@@ -262,5 +268,17 @@ See [#69](https://github.com/seththeeke/nyc-311/issues/69).
 ## cdk test suite re-bundles every NodejsFunction Lambda on every synth (528 esbuild bundles per run) — skip bundling in vitest
 
 See [#70](https://github.com/seththeeke/nyc-311/issues/70).
+
+---
+
+## Prod poller gets intermittent empty SODA pages — add a Socrata app token
+
+See [#72](https://github.com/seththeeke/nyc-311/issues/72).
+
+---
+
+## v1 Part E: post-dial-up validation check-ins (6h / first wbr / 24h / 7d / 30d)
+
+See [#73](https://github.com/seththeeke/nyc-311/issues/73).
 
 ---

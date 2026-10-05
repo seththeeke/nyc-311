@@ -146,7 +146,7 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 **Dial-up**
 
 11. [x] **Forward-only cursor (Q12).** *(2026-10-03: changed to deleting the stale cursor instead of resetting it. The first poll after dial-up backfills `INITIAL_WINDOW_HOURS` (24h): ~8–10k Requests and ~120 accepted Street Condition jobs, so Prod starts with a backlog against its 5 trucks. Verified `GET /ingestion/metrics` shows `cursor: null`.)* Prod's cursor is stale at `last_watermark: 2026-08-13T01:24:08`, checked via the public `GET /ingestion/metrics`. Leaving it would backfill ~47 days. Deleting it would still backfill 24h (`INITIAL_WINDOW_HOURS`). **Immediately before step 12**, overwrite the `CURSOR#NYC_311` item in `Requests-Prod` with `last_watermark` = the current UTC time (SoQL format, no ms/Z) and `resume_offset: null`. Take the exact key/attribute shape from `models/ingestionCursor.ts` and `requestDao.putCursor`. Then confirm `GET /ingestion/metrics` shows `lag_hours` ≈ 0.
-12. [ ] **Flip `POLLER_ENABLED.PROD` to `true`** in `cdk/stack/Nyc311Stack.ts` (F3) in a commit, merge, and let full CD deploy it. Confirm `Nyc311PollerSchedule-Prod` shows `ENABLED`.
+12. [x] **Flip `POLLER_ENABLED.PROD` to `true`** *(2026-10-03: pushed as `8d6bcab`, deploying. Confirm `Nyc311PollerSchedule-Prod` shows `ENABLED` once DeployProd finishes; Part E starts from there.)* in `cdk/stack/Nyc311Stack.ts` (F3) in a commit, merge, and let full CD deploy it. Confirm `Nyc311PollerSchedule-Prod` shows `ENABLED`.
 
 ## Part E — Post-dial-up verification
 
