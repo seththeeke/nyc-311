@@ -48,14 +48,20 @@
 # cutting the worst-case shard by ~24% without changing total test count,
 # coverage collected, or the merge-time threshold check below.
 
+#
+# Shards run concurrently (2026-10, #9): each is its own vitest process
+# with maxForks=1, so the per-process RPC payload that the header above
+# is about is unchanged. Serially they cost ~57s wall-clock locally; in
+# parallel ~19s. Each shard writes coverage to its own reportsDirectory
+# because vitest's v8 provider wipes and rewrites a shared coverage/.tmp
+# on every run, so concurrent shards would delete each other's data.
+
 set -uo pipefail
-# Deliberately no `-e` — each shard's exit status is captured and reported
-# explicitly below, rather than letting a bare `set -e` kill the script
-# silently. `--reporter=blob` alone suppresses Vitest's normal pass/fail
+# No `-e`: every shard's exit status is captured and reported explicitly
+# below. `--reporter=blob` alone suppresses Vitest's normal pass/fail
 # summary, which made a real 2026-08-28 CI failure impossible to diagnose
-# from the CodeBuild log (nothing printed between the coverage table and
-# the shell's own "exit status 1"); `--reporter=default` restores it
-# alongside blob's merge data.
+# from the CodeBuild log; `--reporter=default` restores it alongside
+# blob's merge data.
 
 # SHARD_COUNT itself now lives in scripts/plan-shards.ts, next to the
 # packing logic that depends on it — read the plan's line count below
@@ -79,6 +85,7 @@ DISABLE_PER_SHARD_THRESHOLDS=(
 )
 
 rm -rf .vitest-reports coverage
+mkdir -p coverage
 
 # Reads plan-shards.ts's stdout (one shard's space-separated file list per
 # line) into an array without relying on `mapfile` (bash 4+ only —
@@ -90,24 +97,40 @@ while IFS= read -r line; do
 done < <(npx ts-node --prefer-ts-exts scripts/plan-shards.ts)
 SHARD_COUNT=${#SHARD_FILE_LISTS[@]}
 
+SHARD_PIDS=()
 for i in "${!SHARD_FILE_LISTS[@]}"; do
   shard=$((i + 1))
-  echo "=== Shard ${shard}/${SHARD_COUNT} starting ==="
+  echo "=== Shard ${shard}/${SHARD_COUNT} starting (concurrent) ==="
   # Vitest's blob reporter only auto-names its output per-shard when its
   # own --shard flag is set (`.vitest-reports/blob-<i>-<n>.json`); since
   # this script now picks each shard's explicit file list instead, every
   # invocation would otherwise write the same `blob.json` and silently
   # clobber the previous shard's data before --mergeReports ever runs.
+  # Output goes to a per-shard log (not the terminal) so six interleaved
+  # streams don't mix; logs are printed in order below. Logs live under
+  # coverage/ (not .vitest-reports/, which --mergeReports reads in full).
   # shellcheck disable=SC2086  # intentional word-splitting: a shard's file list
-  npx vitest run ${SHARD_FILE_LISTS[$i]} --reporter=default --reporter=blob --outputFile.blob=".vitest-reports/blob-${shard}.json" --coverage "${SERIAL_POOL[@]}" "${DISABLE_PER_SHARD_THRESHOLDS[@]}"
+  npx vitest run ${SHARD_FILE_LISTS[$i]} --reporter=default --reporter=blob --outputFile.blob=".vitest-reports/blob-${shard}.json" --coverage --coverage.reportsDirectory="coverage/shard-${shard}" "${SERIAL_POOL[@]}" "${DISABLE_PER_SHARD_THRESHOLDS[@]}" > "coverage/shard-${shard}.log" 2>&1 &
+  SHARD_PIDS+=($!)
+done
+
+FAILED=0
+for i in "${!SHARD_PIDS[@]}"; do
+  shard=$((i + 1))
+  wait "${SHARD_PIDS[$i]}"
   status=$?
+  cat "coverage/shard-${shard}.log"
   echo "=== Shard ${shard}/${SHARD_COUNT} exited with status ${status} ==="
   if [ "$status" -ne 0 ]; then
-    echo "Shard ${shard}/${SHARD_COUNT} failed — aborting before merge."
-    exit "$status"
+    FAILED=1
   fi
 done
 
-# The real threshold check: reads all 3 shards' coverage data together.
+if [ "$FAILED" -ne 0 ]; then
+  echo "One or more shards failed — aborting before merge."
+  exit 1
+fi
+
+# The real threshold check: reads all shards' coverage data together.
 echo "=== Merging shard reports and checking the real coverage thresholds ==="
 npx vitest run --mergeReports --coverage
