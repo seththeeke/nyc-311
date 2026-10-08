@@ -308,3 +308,9 @@ same-run change" — migration notes in the issue.
 See [#82](https://github.com/seththeeke/nyc-311/issues/82).
 
 ---
+
+## Fix high-severity npm audit findings (source-map-js, brace-expansion) via non-breaking npm audit fix
+
+**Resolved 2026-10-08** — see [#80](https://github.com/seththeeke/nyc-311/issues/80) (closed).
+
+---
