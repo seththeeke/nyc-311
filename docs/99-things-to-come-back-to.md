@@ -300,3 +300,9 @@ See [#74](https://github.com/seththeeke/nyc-311/issues/74).
 See [#76](https://github.com/seththeeke/nyc-311/issues/76).
 
 ---
+
+## Fix high-severity npm audit findings (source-map-js, brace-expansion) via non-breaking npm audit fix
+
+See [#80](https://github.com/seththeeke/nyc-311/issues/80).
+
+---
