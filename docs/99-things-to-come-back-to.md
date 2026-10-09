@@ -306,3 +306,10 @@ See [#76](https://github.com/seththeeke/nyc-311/issues/76).
 See [#80](https://github.com/seththeeke/nyc-311/issues/80).
 
 ---
+
+## web-app: production main JS chunk re-crossed 500kB — aws-amplify auth SDK loaded eagerly on every page
+
+See [#85](https://github.com/seththeeke/nyc-311/issues/85) — fixed this run,
+closes on merge.
+
+---
