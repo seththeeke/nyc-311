@@ -321,3 +321,10 @@ See [#85](https://github.com/seththeeke/nyc-311/issues/85) — fixed this run,
 closes on merge.
 
 ---
+
+## cdk/: bump aws-cdk-lib 2.272.0 -> 2.273.0 (in-range) to clear the 5th-recurrence high-severity bundled brace-expansion advisory
+
+See [#87](https://github.com/seththeeke/nyc-311/issues/87) — fixed this
+run, closes on merge.
+
+---
