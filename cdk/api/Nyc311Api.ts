@@ -24,6 +24,8 @@ import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWa
 import type { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
 import type { Nyc311GetWarehouseJobRunResultsApiLambda } from "../warehouse/Nyc311GetWarehouseJobRunResultsApiLambda";
 import type { FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
+import type { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
+import type { Nyc311WebhookSinkApiLambda, WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -56,6 +58,10 @@ export interface Nyc311ApiProps {
   getWarehouseJobRunResultsApiLambda: Nyc311GetWarehouseJobRunResultsApiLambda;
   /** `11-street-condition-implementation.md` §4.2 — one Lambda per feature-flag operation. */
   featureFlagApiLambdas: Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
+  /** `13-customer-simulation.md` §5 — no authorizer; the Lambda checks the registration key itself. */
+  registerWebhookSubscriptionApiLambda: Nyc311RegisterWebhookSubscriptionApiLambda;
+  /** The Test-only webhook sink's two routes — omitted in Prod, which then has neither route. */
+  webhookSinkApiLambdas?: Record<WebhookSinkApiOperation, Nyc311WebhookSinkApiLambda>;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -88,6 +94,8 @@ export const DEFAULT_THROTTLE = { rateLimit: 10, burstLimit: 20 };
 export const ROUTE_THROTTLES: Record<string, { rateLimit: number; burstLimit: number }> = {
   "GET /fleet/locations": { rateLimit: 2, burstLimit: 5 },
   "GET /lambda-metrics": { rateLimit: 1, burstLimit: 2 },
+  /* Called once per subscriber deploy (13-customer-simulation.md §5), so far below the stage default. */
+  "POST /webhook-subscriptions": { rateLimit: 1, burstLimit: 5 },
 };
 
 /* Feature-flag routes (§4.2): reads and getTreatment are public, every write is admin-only. */
@@ -260,6 +268,25 @@ export class Nyc311Api extends HttpApi {
       });
     }
 
+    const registerWebhookSubscriptionRoutes = this.addRoutes({
+      path: "/webhook-subscriptions",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration("RegisterWebhookSubscriptionIntegration", props.registerWebhookSubscriptionApiLambda),
+    });
+
+    if (props.webhookSinkApiLambdas) {
+      this.addRoutes({
+        path: "/webhook-sink",
+        methods: [HttpMethod.POST],
+        integration: new HttpLambdaIntegration("ReceiveWebhookSinkIntegration", props.webhookSinkApiLambdas.RECEIVE),
+      });
+      this.addRoutes({
+        path: "/webhook-sink/deliveries",
+        methods: [HttpMethod.GET],
+        integration: new HttpLambdaIntegration("GetWebhookSinkDeliveriesIntegration", props.webhookSinkApiLambdas.LIST),
+      });
+    }
+
     /*
      * The L2 HttpApi exposes no throttle for its auto-created $default
      * stage, so set it on the L1. routeSettings keys must name routes that
@@ -277,7 +304,7 @@ export class Nyc311Api extends HttpApi {
         { ThrottlingRateLimit: limits.rateLimit, ThrottlingBurstLimit: limits.burstLimit },
       ])
     );
-    for (const route of [...fleetLocationsRoutes, ...lambdaMetricsRoutes]) {
+    for (const route of [...fleetLocationsRoutes, ...lambdaMetricsRoutes, ...registerWebhookSubscriptionRoutes]) {
       cfnStage.node.addDependency(route);
     }
   }

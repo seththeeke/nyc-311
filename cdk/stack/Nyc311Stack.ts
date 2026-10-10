@@ -22,6 +22,12 @@ import { Nyc311OrderProjectionsTopic } from "../lambda/Nyc311OrderProjectionsTop
 import { Nyc311OrderEvaluationQueue } from "../lambda/Nyc311OrderEvaluationQueue";
 import { Nyc311OrderEvaluationLambda } from "../lambda/Nyc311OrderEvaluationLambda";
 import { Nyc311OrderPipelineAlarms } from "../lambda/Nyc311OrderPipelineAlarms";
+import { Nyc311WebhookDispatchQueue } from "../lambda/Nyc311WebhookDispatchQueue";
+import { Nyc311WebhookDeliveryQueue } from "../lambda/Nyc311WebhookDeliveryQueue";
+import { Nyc311WebhookDispatchLambda } from "../lambda/Nyc311WebhookDispatchLambda";
+import { Nyc311WebhookDeliveryLambda } from "../lambda/Nyc311WebhookDeliveryLambda";
+import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
+import { Nyc311WebhookSinkApiLambda, type WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkApiLambda";
 import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
 import { Nyc311WarehouseBucket } from "../warehouse/Nyc311WarehouseBucket";
@@ -53,6 +59,8 @@ import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
 import { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
+import { WebhookSubscriptionsTable } from "../data/WebhookSubscriptionsTable";
+import { WebhookSinkDeliveriesTable } from "../data/WebhookSinkDeliveriesTable";
 import {
   FEATURE_FLAG_API_OPERATIONS,
   Nyc311FeatureFlagApiLambda,
@@ -374,11 +382,49 @@ export class Nyc311Stack extends Stack {
       liveWorkspaceMetricsQueue,
     });
 
+    /*
+     * Outbound lifecycle webhooks (13-customer-simulation.md §5): a third
+     * filtered subscription feeds dispatch, which fans each public event
+     * out to the delivery queue, one message per subscription. Test also
+     * gets a sink — a real subscriber, so the path is exercised there.
+     */
+    const webhookSubscriptionsTable = new WebhookSubscriptionsTable(this, "WebhookSubscriptionsTable", {
+      envName: props.envName,
+    });
+    const webhookDispatchQueue = new Nyc311WebhookDispatchQueue(this, "Nyc311WebhookDispatchQueue", {
+      envName: props.envName,
+      orderEventsTopic,
+    });
+    const webhookDeliveryQueue = new Nyc311WebhookDeliveryQueue(this, "Nyc311WebhookDeliveryQueue", {
+      envName: props.envName,
+    });
+    new Nyc311WebhookDispatchLambda(this, "Nyc311WebhookDispatchLambda", {
+      envName: props.envName,
+      ordersTable,
+      requestsTable,
+      webhookSubscriptionsTable,
+      webhookDispatchQueue,
+      webhookDeliveryQueue,
+    });
+    new Nyc311WebhookDeliveryLambda(this, "Nyc311WebhookDeliveryLambda", {
+      envName: props.envName,
+      webhookSubscriptionsTable,
+      webhookDeliveryQueue,
+    });
+    const registerWebhookSubscriptionApiLambda = new Nyc311RegisterWebhookSubscriptionApiLambda(
+      this,
+      "Nyc311RegisterWebhookSubscriptionApiLambda",
+      { envName: props.envName, webhookSubscriptionsTable }
+    );
+    const webhookSinkApiLambdas = props.envName === "TEST" ? this.createWebhookSink(props.envName) : undefined;
+
     new Nyc311OrderPipelineAlarms(this, "Nyc311OrderPipelineAlarms", {
       envName: props.envName,
       ordersStreamFanOutLambda,
       orderEvaluationQueue,
       liveWorkspaceMetricsQueue,
+      webhookDispatchQueue,
+      webhookDeliveryQueue,
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
@@ -740,6 +786,8 @@ export class Nyc311Stack extends Stack {
       getWarehouseJobSqlApiLambda,
       getWarehouseJobRunResultsApiLambda,
       featureFlagApiLambdas,
+      registerWebhookSubscriptionApiLambda,
+      webhookSinkApiLambdas,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,
@@ -767,5 +815,22 @@ export class Nyc311Stack extends Stack {
       userPoolId: adminAuth.userPool.userPoolId,
       userPoolClientId: adminAuth.userPoolClient.userPoolClientId,
     });
+  }
+
+  /** The webhook sink subscriber (13-customer-simulation.md §5): its delivery table and one Lambda per route. Test only. */
+  private createWebhookSink(envName: Nyc311Environment): Record<WebhookSinkApiOperation, Nyc311WebhookSinkApiLambda> {
+    const webhookSinkDeliveriesTable = new WebhookSinkDeliveriesTable(this, "WebhookSinkDeliveriesTable", { envName });
+    return {
+      RECEIVE: new Nyc311WebhookSinkApiLambda(this, "Nyc311ReceiveWebhookSinkApiLambda", {
+        envName,
+        operation: "RECEIVE",
+        webhookSinkDeliveriesTable,
+      }),
+      LIST: new Nyc311WebhookSinkApiLambda(this, "Nyc311GetWebhookSinkDeliveriesApiLambda", {
+        envName,
+        operation: "LIST",
+        webhookSinkDeliveriesTable,
+      }),
+    };
   }
 }

@@ -99,10 +99,11 @@ describe("Nyc311Stack", () => {
      * own stream mapping, (5-order-evaluation.md §6) the evaluation
      * Lambda's SQS mapping, (7-data-warehousing.md §4) the Locations
      * fan-out Lambda's stream mapping, (Leg 6) the Operators fan-out
-     * Lambda's stream mapping, and the live workspace metrics Lambda's
-     * SQS mapping.
+     * Lambda's stream mapping, the live workspace metrics Lambda's SQS
+     * mapping, and (13-customer-simulation.md §5) the webhook dispatch
+     * and delivery Lambdas' SQS mappings.
      */
-    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 7);
+    template.resourceCountIs("AWS::Lambda::EventSourceMapping", 9);
   });
 
   it("wires the order-evaluation fan-out Lambda and its SNS topic (5-order-evaluation.md §3)", () => {
@@ -145,6 +146,35 @@ describe("Nyc311Stack", () => {
         }),
       },
     });
+  });
+
+  it("wires the outbound webhook leg in both environments: table, two queues, three Lambdas, two DLQ alarms and the registration route (13-customer-simulation.md §5)", () => {
+    for (const [env, suffix] of [[testEnv, "Test"], [prodEnv, "Prod"]] as const) {
+      const { template } = env;
+      template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: `WebhookSubscriptions-${suffix}` });
+      for (const queue of ["Nyc311WebhookDispatchQueue", "Nyc311WebhookDeliveryQueue"]) {
+        template.hasResourceProperties("AWS::SQS::Queue", { QueueName: `${queue}-${suffix}` });
+      }
+      for (const fn of ["Nyc311WebhookDispatch", "Nyc311WebhookDelivery", "Nyc311RegisterWebhookSubscriptionApi"]) {
+        template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: `${fn}-${suffix}` });
+      }
+      for (const alarm of ["Nyc311WebhookDispatchDlqDepthAlarm", "Nyc311WebhookDeliveryDlqDepthAlarm"]) {
+        template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: `${alarm}-${suffix}` });
+      }
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /webhook-subscriptions" });
+    }
+  });
+
+  it("creates the webhook sink — table, two Lambdas, two routes — in Test only", () => {
+    testEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WebhookSinkDeliveries-Test" });
+    testEnv.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311ReceiveWebhookSinkApi-Test" });
+    testEnv.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311GetWebhookSinkDeliveriesApi-Test" });
+    testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /webhook-sink" });
+    testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /webhook-sink/deliveries" });
+
+    prodEnv.template.resourcePropertiesCountIs("AWS::DynamoDB::GlobalTable", { TableName: Match.stringLikeRegexp("^WebhookSinkDeliveries") }, 0);
+    prodEnv.template.resourcePropertiesCountIs("AWS::Lambda::Function", { FunctionName: Match.stringLikeRegexp("WebhookSink") }, 0);
+    prodEnv.template.resourcePropertiesCountIs("AWS::ApiGatewayV2::Route", { RouteKey: Match.stringLikeRegexp("webhook-sink") }, 0);
   });
 
   it("wires CloudWatch alarms for the fan-out Lambda and the evaluation DLQ (5-order-evaluation.md §7)", () => {

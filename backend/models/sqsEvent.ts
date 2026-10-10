@@ -5,6 +5,8 @@ import { z } from "zod";
 export const SqsRecordSchema = z.object({
   messageId: z.string().min(1),
   body: z.string(),
+  /* SQS system attributes, e.g. `ApproximateReceiveCount` — optional so a hand-built test event stays valid. */
+  attributes: z.record(z.string(), z.string()).optional(),
 });
 export type SqsRecord = z.infer<typeof SqsRecordSchema>;
 

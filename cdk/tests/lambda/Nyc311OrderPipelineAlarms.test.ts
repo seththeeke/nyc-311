@@ -8,6 +8,8 @@ import { Nyc311OrdersStreamFanOutLambda } from "../../lambda/Nyc311OrdersStreamF
 import { Nyc311OrderEvaluationQueue } from "../../lambda/Nyc311OrderEvaluationQueue";
 import { Nyc311LiveWorkspaceMetricsQueue } from "../../lambda/Nyc311LiveWorkspaceMetricsQueue";
 import { Nyc311OrderPipelineAlarms } from "../../lambda/Nyc311OrderPipelineAlarms";
+import { Nyc311WebhookDeliveryQueue } from "../../lambda/Nyc311WebhookDeliveryQueue";
+import { Nyc311WebhookDispatchQueue } from "../../lambda/Nyc311WebhookDispatchQueue";
 
 const FAILURE_EMAIL = "seththeeke@gmail.com";
 
@@ -36,6 +38,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     ordersStreamFanOutLambda,
     orderEvaluationQueue,
     liveWorkspaceMetricsQueue,
+    webhookDispatchQueue: new Nyc311WebhookDispatchQueue(stack, "Nyc311WebhookDispatchQueue", { envName, orderEventsTopic }),
+    webhookDeliveryQueue: new Nyc311WebhookDeliveryQueue(stack, "Nyc311WebhookDeliveryQueue", { envName }),
     failureNotificationEmail: FAILURE_EMAIL,
   });
   return Template.fromStack(stack);
@@ -87,6 +91,21 @@ describe("Nyc311OrderPipelineAlarms", () => {
     synthesize("PROD").hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311LiveWorkspaceMetricsDlqDepthAlarm-Prod" });
   });
 
+  it("creates a DLQ-depth alarm on each webhook queue's DLQ, alarming on a single occurrence", () => {
+    const template = synthesize("TEST");
+
+    for (const stem of ["Nyc311WebhookDispatch", "Nyc311WebhookDelivery"]) {
+      template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+        AlarmName: `${stem}DlqDepthAlarm-Test`,
+        MetricName: "ApproximateNumberOfMessagesVisible",
+        Dimensions: [{ Name: "QueueName", Value: { "Fn::GetAtt": [Match.stringLikeRegexp(`^${stem}QueueDlq`), "QueueName"] } }],
+        EvaluationPeriods: 1,
+        Threshold: 1,
+      });
+    }
+    synthesize("PROD").hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WebhookDeliveryDlqDepthAlarm-Prod" });
+  });
+
   it("routes every alarm to one shared, email-subscribed SNS topic", () => {
     const template = synthesize("TEST");
 
@@ -96,7 +115,7 @@ describe("Nyc311OrderPipelineAlarms", () => {
       Endpoint: FAILURE_EMAIL,
     });
     const alarms = template.findResources("AWS::CloudWatch::Alarm");
-    expect(Object.keys(alarms)).toHaveLength(4);
+    expect(Object.keys(alarms)).toHaveLength(6);
     for (const alarm of Object.values(alarms)) {
       expect((alarm.Properties as { AlarmActions: unknown[] }).AlarmActions).toHaveLength(1);
     }

@@ -75,3 +75,15 @@ export class ConflictError extends Error {
     this.name = "ConflictError";
   }
 }
+
+/**
+ * The caller did not present a valid credential (e.g. a missing or wrong
+ * webhook registration key — 13-customer-simulation.md §5). API Gateway
+ * controllers should map this to a `401`.
+ */
+export class UnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}

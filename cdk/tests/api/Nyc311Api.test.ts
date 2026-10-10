@@ -42,6 +42,10 @@ import {
   Nyc311FeatureFlagApiLambda,
   type FeatureFlagApiOperation,
 } from "../../lambda/Nyc311FeatureFlagApiLambda";
+import { WebhookSubscriptionsTable } from "../../data/WebhookSubscriptionsTable";
+import { WebhookSinkDeliveriesTable } from "../../data/WebhookSinkDeliveriesTable";
+import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
+import { Nyc311WebhookSinkApiLambda } from "../../lambda/Nyc311WebhookSinkApiLambda";
 import { Nyc311Api, ROUTE_THROTTLES } from "../../api/Nyc311Api";
 
 const SITE_DOMAIN = "test.boroughsim.com";
@@ -232,6 +236,17 @@ function synthesize(envName: "TEST" | "PROD"): Template {
       }),
     ])
   ) as Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
+  const registerWebhookSubscriptionApiLambda = new Nyc311RegisterWebhookSubscriptionApiLambda(
+    stack,
+    "Nyc311RegisterWebhookSubscriptionApiLambda",
+    { envName, webhookSubscriptionsTable: new WebhookSubscriptionsTable(stack, "WebhookSubscriptionsTable", { envName }) }
+  );
+  /* The sink is Test-only, exactly as Nyc311Stack wires it. */
+  const webhookSinkDeliveriesTable = envName === "TEST" ? new WebhookSinkDeliveriesTable(stack, "WebhookSinkDeliveriesTable", { envName }) : undefined;
+  const webhookSinkApiLambdas = webhookSinkDeliveriesTable && {
+    RECEIVE: new Nyc311WebhookSinkApiLambda(stack, "Nyc311ReceiveWebhookSinkApiLambda", { envName, operation: "RECEIVE", webhookSinkDeliveriesTable }),
+    LIST: new Nyc311WebhookSinkApiLambda(stack, "Nyc311GetWebhookSinkDeliveriesApiLambda", { envName, operation: "LIST", webhookSinkDeliveriesTable }),
+  };
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",
     regionalDomainName: "d-abc123.execute-api.us-east-1.amazonaws.com",
@@ -259,6 +274,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     getWarehouseJobSqlApiLambda,
     getWarehouseJobRunResultsApiLambda,
     featureFlagApiLambdas,
+    registerWebhookSubscriptionApiLambda,
+    webhookSinkApiLambdas,
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -311,7 +328,7 @@ describe("Nyc311Api", () => {
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: "GET /ingestion/metrics",
     });
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 25);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", 28);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", {
       IntegrationType: "AWS_PROXY",
       PayloadFormatVersion: "2.0",
@@ -427,17 +444,32 @@ describe("Nyc311Api", () => {
     }
   });
 
-  it("declares exactly twenty-five routes today", () => {
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 25);
+  it("declares exactly twenty-eight routes in Test today, and twenty-six in Prod (no webhook sink)", () => {
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 28);
+    prodTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", 26);
   });
 
-  it("throttles the $default stage, tighter on /fleet/locations and /lambda-metrics (v1-prod-deployment.md B3)", () => {
+  it("wires POST /webhook-subscriptions with no authorizer in both environments — the Lambda checks the key", () => {
+    for (const template of [testTemplate, prodTemplate]) {
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /webhook-subscriptions", AuthorizationType: "NONE" });
+    }
+  });
+
+  it("wires the webhook sink's two public routes in Test only", () => {
+    for (const routeKey of ["POST /webhook-sink", "GET /webhook-sink/deliveries"]) {
+      testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "NONE" });
+      prodTemplate.resourcePropertiesCountIs("AWS::ApiGatewayV2::Route", { RouteKey: routeKey }, 0);
+    }
+  });
+
+  it("throttles the $default stage, tighter on /fleet/locations, /lambda-metrics and webhook registration (v1-prod-deployment.md B3)", () => {
     prodTemplate.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
       StageName: "$default",
       DefaultRouteSettings: { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 },
       RouteSettings: {
         "GET /fleet/locations": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 },
         "GET /lambda-metrics": { ThrottlingRateLimit: 1, ThrottlingBurstLimit: 2 },
+        "POST /webhook-subscriptions": { ThrottlingRateLimit: 1, ThrottlingBurstLimit: 5 },
       },
     });
   });
@@ -448,7 +480,7 @@ describe("Nyc311Api", () => {
     const throttledRouteIds = Object.entries(routes)
       .filter(([, route]) => Object.keys(ROUTE_THROTTLES).includes(route.Properties.RouteKey))
       .map(([id]) => id);
-    expect(throttledRouteIds).toHaveLength(2);
+    expect(throttledRouteIds).toHaveLength(3);
     expect(stage.DependsOn).toEqual(expect.arrayContaining(throttledRouteIds));
   });
 });

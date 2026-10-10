@@ -1,6 +1,12 @@
 # The Customer — Simulated Support-Seekers + Bureau Lifecycle Webhooks
 
-> **Status (2026-10-05): capture draft — nothing built, nothing final.**
+> **Status (2026-10-11): the bureau-side webhook is built (Appendix H);
+> the customer side is not started.** `customer/` is still locked: its
+> `CLAUDE.md` structure sections are proposed in Appendix F, not approved.
+> Everything below this line is the 2026-10-05 capture as amended by the
+> 2026-10-10 webhook review.
+>
+> **Original status (2026-10-05): capture draft — nothing built, nothing final.**
 > Spec for [#58](https://github.com/seththeeke/nyc-311/issues/58), reshaped
 > in-session. This version is a **capture of intent**, restructured into six
 > sections that will each be worked through one at a time, with deliberate
@@ -15,10 +21,10 @@
 | # | Section | Review status |
 |---|---|---|
 | 1 | [Problem Statement](#1-problem-statement) | Considered sufficient |
-| 2 | [Data Model](#2-data-model) | Bureau side (`WebhookSubscription`) agreed 2026-10-10; customer side not reviewed |
+| 2 | [Data Model](#2-data-model) | Bureau side (`WebhookSubscription`) agreed 2026-10-10 and **built**; customer side not reviewed |
 | 3 | [Interaction Model](#3-interaction-model) | Not reviewed |
 | 4 | [UX Design](#4-ux-design) | Not reviewed |
-| 5 | [BoroughSim Webhook Design](#5-boroughsim-webhook-design) | Design decisions (items 5–15) agreed 2026-10-10, see Decision Log; foundations (items 1–4) not walked through |
+| 5 | [BoroughSim Webhook Design](#5-boroughsim-webhook-design) | Design decisions (items 5–15) agreed 2026-10-10 and **built 2026-10-11** (Appendix H); foundations (items 1–4) not walked through |
 | 6 | [Isolation](#6-isolation) | Not reviewed |
 
 ---
@@ -188,7 +194,7 @@ Three flows, end to end:
 ```
 [bureau] Orders table stream -> orders fan-out Lambda -> Nyc311OrderEvents SNS topic   (all exist)
 [bureau] -> dispatch queue, filter {event_type: [ORDER_ACCEPTED, ORDER_RESOLVED]}   (3 attempts -> DLQ + alarm)
-[bureau] -> dispatch Lambda: build the public payload (Order + Request + Location), one message per ACTIVE subscription
+[bureau] -> dispatch Lambda: build the public payload (Order + its Request's own 311 record), one message per ACTIVE subscription
 [bureau] -> delivery queue -> delivery Lambda (max concurrency 2): re-read subscription, sign, HTTPS POST
             failure -> retried every 30 min, 48 attempts (~1 day) -> DLQ + alarm
  ~~~~~~~~~~~~~~~~~~~~~~~ public internet ~~~~~~~~~~~~~~~~~~~~~~~
@@ -351,8 +357,9 @@ first principles and end with a design.
   limits, launch catalogue, testing and code placement.
 
 Payload (agreed 2026-10-10) — a fat event, so the customer never calls the
-bureau back. The dispatch Lambda builds it from the Order, its Request and
-its Location. `address` and `zip` are nullable. Versioning is additive-only:
+bureau back. The dispatch Lambda builds it from the Order and its Request.
+`borough`, `address` and `zip` come from the Request's own 311 record, not
+the Location row (as built — see Appendix H), and are nullable. Versioning is additive-only:
 receivers ignore unknown fields, and a breaking change gets a new event
 name. `webhook-id` is `evt_<order_id>_<sequence_number>`. Excluded on
 purpose: SLA deadline, priority tier, assigned operator, internal stage,
@@ -519,7 +526,7 @@ lost.
 | Public customer API at `customer-api.boroughsim.com`; list + detail pages under Map, using the secondary workspace, behind a feature flag | Captured 2026-10-05, design pending (§4) |
 | `WebhookSubscription` data model (§2, seven decisions) | Agreed 2026-10-10 |
 | CDK placement: no `cdk/webhook/` folder. Webhook queues, DLQs and Lambdas go in `cdk/lambda/`, tables in `cdk/data/`, routes in `cdk/api/`, all in the single `Nyc311Stack`; the sink constructs exist only in Test. `cdk/customer/` is unaffected | Agreed 2026-10-10 |
-| Backend placement: the webhook is an ordinary bureau feature under the existing `CLAUDE.md` rules — HTTP controllers in `controller/web-api/`, queue-triggered controllers in a new `controller/webhook/`, `service/webhook/`, per-entity DAO folders (no carve-out). Recorded in Appendix F; `CLAUDE.md` itself is edited when leg 1 starts | Agreed 2026-10-10 |
+| Backend placement: the webhook is an ordinary bureau feature under the existing `CLAUDE.md` rules — HTTP controllers in `controller/web-api/`, queue-triggered controllers in a new `controller/webhook/`, `service/webhook/`, per-entity DAO folders (no carve-out). Applied to `CLAUDE.md` §5.2 on 2026-10-11 | Agreed 2026-10-10 |
 | `ORDER_RESOLVED` payload: the same order fields as `ORDER_ACCEPTED` plus `resolved_at` — one shared shape and one payload builder; no cost, cost model or crew identity. Receivers must tolerate a resolve arriving before its accept and must not reopen a closed order | Agreed 2026-10-10 |
 | Launch event catalogue: `ORDER_ACCEPTED` and `ORDER_RESOLVED` (the internal name; the earlier "order completed" wording is dropped). The feed's job is to tell the customer which orders are **in play** — open on accept, closed on resolve — and nothing more. Later events (`ORDER_SCHEDULED`, `ORDER_DISPATCHED`, `ORDER_ARRIVED`, `CASE_CREATED`) are added when ideas ask for them | Agreed 2026-10-10 |
 | Limits: registration route throttled to 1 rps / burst 5 via `ROUTE_THROTTLES`; request field limits (`name` ≤ 64, `callback_url` ≤ 2,048, `event_types` 1–10 known names, `secret` 32–128 characters); no payload size cap; delivery Lambda trigger `maxConcurrency` 2 so a backlog cannot flood a subscriber | Agreed 2026-10-10 |
@@ -589,7 +596,7 @@ To be re-cut after the six reviews; UI legs not yet placed.
   the Directory Lock.
 - **§5.1** — the Customers area: second API base URL, and whatever
   secondary-workspace contract §4 lands on.
-- **§5.2** (agreed 2026-10-10; the webhook is an ordinary bureau feature
+- **§5.2** (agreed 2026-10-10, **applied 2026-10-11**; the webhook is an ordinary bureau feature
   and follows the existing rules, no new carve-outs) — add
   `controller/webhook/` for the two queue-triggered entry points (dispatch,
   deliver); the HTTP entry points (register subscription, sink receiver,
@@ -604,6 +611,63 @@ To be re-cut after the six reviews; UI legs not yet placed.
   `backend/`", and the four standard commands.
 - **§2 / §8** — Operational Loop and coverage rollup cover four packages.
 
+**Proposed wording for the customer scaffold — awaiting approval
+(2026-10-11).** Nothing under `customer/` or `cdk/customer/` may be written
+until this is approved and added to `CLAUDE.md` (§1.1). Scoped to the next
+milestone only: a listener that records webhook events.
+
+*§1, top-level directories — add:*
+
+> - `customer/` — the simulated customer (`13-customer-simulation.md`), a
+>   real outsider to the bureau. Holds one package, `customer/backend/`.
+>   Its infrastructure lives in `cdk/customer/`.
+
+*New §5.4 `customer/backend/`:*
+
+> Its own npm package with the same layering, rules and tooling as
+> `backend/` (§5.2): controller → service → DAO, a zod schema at every
+> trust boundary, lazily constructed clients, logging by layer, camelCase
+> files, ESLint with `no-explicit-any` and `local/comment-format`,
+> Vitest with a 90% per-file coverage gate, and the same four commands
+> (`build`, `lint`, `test`, `test:coverage`).
+>
+> **It imports nothing from outside `customer/backend/`**, and nothing in
+> `backend/` imports from `customer/`. Shared helpers (`logger.ts`,
+> `env.ts`, the `Dao` base, the error types) are copied, never imported.
+> Both directions are enforced by `no-restricted-imports` in each
+> package's `eslint.config.js`.
+>
+> ```
+> customer/backend
+>  -> logger.ts, env.ts - copied from backend/
+>  -> controller
+>   -> webhook - the HTTP listener the bureau POSTs lifecycle events to
+>  -> service
+>  -> dao - grouped by the entity stored
+>   -> order - the customer's own record of an order in play
+>  -> models
+>  -> tests - mirrors the structure above
+> ```
+
+*§5.3 `cdk/` — add:*
+
+> -> customer - ALL customer infrastructure and nothing else
+>
+> **Second standing exception to the single-stack rule:**
+> `Nyc311CustomerStack` (under `cdk/customer/`), deployed to **Prod
+> only**. No cross-stack references to `Nyc311Stack` in either direction;
+> the customer reaches the bureau only through public URLs. `cdk/customer/`
+> imports no bureau construct directory, and nothing outside it imports
+> from it except the app/stage entrypoints that instantiate the stack.
+> Prod-only resources keep the `-Prod` suffix.
+
+*§2 / §8:* the Operational Loop and coverage rollup cover four packages.
+
+Four decisions inside this milestone still need a call before building
+(none has been reviewed): the stack and its Prod-only pipeline wiring
+(§6); the listener's host and path (§4 item 11); the order table's shape
+(§2); and whether registration is by hand for now (§3 item 2).
+
 ### G. Differences from #58
 
 - Anchors come from a bureau webhook, not the SODA API.
@@ -613,3 +677,100 @@ To be re-cut after the six reviews; UI legs not yet placed.
 - Infra lives in `cdk/customer/`, not a separate CDK package.
 - No per-persona conversation log.
 - A public API and UI are now in scope.
+
+### H. Build progress and runbook (bureau webhook)
+
+**Built 2026-10-11** — leg 1 of the build order. Not deployed until the
+commit is pushed and the pipeline runs.
+
+| Piece | Where |
+|---|---|
+| Models | `backend/models/webhookSubscription.ts`, `webhookEvent.ts`, `webhookDeliveryTask.ts`, `webhookSinkDelivery.ts`; `UnauthorizedError` in `errors.ts` |
+| DAOs | `backend/dao/webhookSubscription/`, `backend/dao/webhookSinkDelivery/` |
+| Services | `backend/service/webhook/` — subscription (key check, URL allowlist, upsert), dispatch, delivery, sink, signing, SSM secret store |
+| Controllers | `controller/web-api/`: register, sink receive, sink list. `controller/webhook/`: dispatch, deliver |
+| Infrastructure | `cdk/data/WebhookSubscriptionsTable.ts`, `WebhookSinkDeliveriesTable.ts`; `cdk/lambda/Nyc311Webhook*.ts`, `Nyc311RegisterWebhookSubscriptionApiLambda.ts`, `webhookConfig.ts`; two DLQ alarms added to `Nyc311OrderPipelineAlarms`; three routes and one throttle in `cdk/api/Nyc311Api.ts` |
+| Replay | `test-scripts/11-replay-webhook-events.js` |
+| Integration check | `backend/tests/integration/webhookSinkApi.integration.test.ts` (Test target only) |
+| Docs | `CLAUDE.md` §5.2, `data-model.md`, `ddb-design.md` |
+
+**Where the build differs from the design above**
+
+- **Address fields come from the Request, not the Location.** A Location
+  is keyed by BBL and keeps the address of the first complaint ever filed
+  there; the Request's `raw_payload` has this complaint's own
+  `incident_address`, `incident_zip` and `borough`. More accurate, and one
+  read fewer.
+- **`reported_at` is the 311 record's `created_date` as published** — New
+  York local time with no offset (e.g. `2026-10-09T22:41:00.000`), unlike
+  the UTC `accepted_at` / `resolved_at`.
+- **An `ORDER_RESOLVED` for an Order with no `ORDER_ACCEPTED` event is
+  skipped**, since subscribers were never told it was in play.
+- **The integration check tolerates an empty sink.** With no recorded
+  deliveries it warns and passes, so an unregistered sink does not block
+  `DeployProd`. Once deliveries exist it requires every one to be
+  signature-valid and the newest to be under 24 hours old. Sink records
+  expire after a week, so a path that stays broken for a week goes quiet
+  again.
+- **The registration key travels in the `x-api-key` header.**
+- **Prod's callback allowlist is `customer-api.boroughsim.com`**, which
+  assumes §4 item 11 lands on that host for the listener. Change
+  `cdk/lambda/webhookConfig.ts` if it does not.
+- **The sink's `GET` route is in the integration route report** and reads
+  as "not hit" in a Prod report, because the sink exists only in Test.
+- The new Lambdas are not on the Monitoring page's Lambda-health list.
+
+**One-time manual steps, per environment** (all mutate real AWS resources
+— CLAUDE.md §3 applies to each)
+
+Test, after the first deploy:
+
+```sh
+# 1. The registration key
+aws ssm put-parameter --profile nyc311 --type SecureString \
+  --name /nyc311/test/webhook/registration-key --value "$(openssl rand -base64 32)"
+
+# 2. The sink's signing secret
+SINK_SECRET="whsec_$(openssl rand -base64 32)"
+aws ssm put-parameter --profile nyc311 --type SecureString \
+  --name /nyc311/test/webhook-sink/secret --value "$SINK_SECRET"
+
+# 3. Register the sink as a subscriber
+KEY=$(aws ssm get-parameter --profile nyc311 --with-decryption \
+  --name /nyc311/test/webhook/registration-key --query Parameter.Value --output text)
+curl -sS -X POST https://api.test.boroughsim.com/webhook-subscriptions \
+  -H "content-type: application/json" -H "x-api-key: $KEY" \
+  -d "{\"name\":\"test-sink\",\"callback_url\":\"https://api.test.boroughsim.com/webhook-sink\",\"event_types\":[\"ORDER_ACCEPTED\",\"ORDER_RESOLVED\"],\"secret\":\"$SINK_SECRET\"}"
+
+# 4. After the next accepted Order: deliveries should appear, all signature_valid
+curl -sS https://api.test.boroughsim.com/webhook-sink/deliveries
+```
+
+Prod: step 1 only, with `/nyc311/prod/webhook/registration-key`. The
+customer registers itself (or is registered by hand the same way as step
+3) once its listener exists.
+
+**Operating it**
+
+```sh
+# Pause (use ACTIVE to resume). Bump version so a concurrent re-registration fails cleanly.
+aws dynamodb update-item --profile nyc311 --table-name WebhookSubscriptions-Prod \
+  --key '{"subscription_id":{"S":"<id>"}}' \
+  --update-expression 'SET #s = :s, #v = #v + :one, updated_at = :now' \
+  --expression-attribute-names '{"#s":"status","#v":"version"}' \
+  --expression-attribute-values '{":s":{"S":"PAUSED"},":one":{"N":"1"},":now":{"S":"<ISO timestamp>"}}'
+
+# Delete: the row, then its secret
+aws dynamodb delete-item --profile nyc311 --table-name WebhookSubscriptions-Prod --key '{"subscription_id":{"S":"<id>"}}'
+aws ssm delete-parameter --profile nyc311 --name /nyc311/prod/webhook/<id>/secret
+
+# Redrive a DLQ back to its source queue
+aws sqs start-message-move-task --profile nyc311 --source-arn <DLQ ARN>
+
+# Replay specific Orders' events (dry run without --execute)
+node test-scripts/11-replay-webhook-events.js --env prod --execute <order_id> [...]
+```
+
+Rotating the registration key is step 1 again with `--overwrite`, then
+updating the customer's copy. Rotating a subscriber's signing secret is a
+re-registration with the new secret.

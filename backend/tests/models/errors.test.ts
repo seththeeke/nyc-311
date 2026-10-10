@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConflictError, NotFoundError, TerminalError, ValidationError } from "../../models/errors";
+import { ConflictError, NotFoundError, TerminalError, UnauthorizedError, ValidationError } from "../../models/errors";
 
 describe("ValidationError", () => {
   it("sets name, message, and details", () => {
@@ -48,5 +48,14 @@ describe("ConflictError", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("ConflictError");
     expect(err.message).toBe("Operator 01OPERATOR is no longer available to claim");
+  });
+});
+
+describe("UnauthorizedError", () => {
+  it("sets name and message", () => {
+    const err = new UnauthorizedError("bad key");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("UnauthorizedError");
+    expect(err.message).toBe("bad key");
   });
 });

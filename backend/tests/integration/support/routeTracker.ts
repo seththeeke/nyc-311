@@ -26,6 +26,8 @@ export const KNOWN_ROUTES = [
   "/feature-flags/{flag_key}/treatment",
   "/admin/feature-flags",
   "/admin/feature-flags/{flag_key}",
+  /* Test-only route (the webhook sink) — reads as "not hit" in a Prod report. */
+  "/webhook-sink/deliveries",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

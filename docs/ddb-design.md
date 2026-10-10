@@ -35,6 +35,8 @@
 | [Requests](#requests-table) | `Request` | **Agreed** |
 | [Shifts](#shifts-table) | `Shift` | **Agreed** |
 | [Users](#users-table) | `User` | **Agreed** |
+| [WebhookSubscriptions](#webhooksubscriptions-table) | `WebhookSubscription` | **Agreed** (2026-10-10, `13-customer-simulation.md` §2) |
+| [WebhookSinkDeliveries](#webhooksinkdeliveries-table) | `WebhookSinkDelivery` (Test only) | **Agreed** |
 
 ---
 
@@ -674,6 +676,69 @@ only, 30 days out); day buckets never expire.
 
 ---
 
+## WebhookSubscriptions table
+
+Backs `WebhookSubscription` — see `data-model.md#webhooksubscription` and
+`13-customer-simulation.md` §2. Added 2026-10-11. Physical name
+`WebhookSubscriptions-<env>` (`cdk/data/WebhookSubscriptionsTable.ts`).
+
+### Key schema
+
+| Item type | PK (`subscription_id`) | SK |
+|---|---|---|
+| WebhookSubscription | `subscription_id` | *(none)* |
+
+No GSIs, no stream, no TTL.
+
+### Access patterns
+
+- Dispatch: "which `ACTIVE` subscriptions want this event type" — a
+  strongly consistent `Scan`, filtered in code. Run once per accepted or
+  resolved Order.
+- Registration: the same `Scan` to find an existing row for the callback
+  URL and to enforce the cap, then a conditional `PutItem`
+  (`attribute_not_exists` for a create, a `version` check for a replace).
+- Delivery: `GetItem` by `subscription_id` on every attempt, so a pause or
+  delete drops messages already in flight.
+
+### Design notes
+
+- **The Scan is bounded by construction.** At most 25 subscriptions exist,
+  enforced at create — the same deliberate bounded scan as
+  `FeatureFlagDao.listFlags`. A sparse GSI on active subscriptions can be
+  added later without migrating data if this ever grows.
+- **Callback URL uniqueness is checked, not enforced by a key.** The
+  check-then-put is not atomic; a race needs two simultaneous
+  registrations of the same URL, and receivers dedupe on `webhook-id`.
+- **The signing secret is not here.** The row holds an SSM parameter name
+  only, so the row can be scanned and logged freely.
+
+---
+
+## WebhookSinkDeliveries table
+
+Backs `WebhookSinkDelivery` — see `data-model.md#webhooksinkdelivery`.
+Added 2026-10-11. **Test only**; physical name `WebhookSinkDeliveries-Test`
+(`cdk/data/WebhookSinkDeliveriesTable.ts`).
+
+### Key schema
+
+| Item type | PK (`webhook_id`) | SK |
+|---|---|---|
+| WebhookSinkDelivery | `webhook_id` | *(none)* |
+
+No GSIs, no stream. TTL on `expires_at`, one week after receipt. No
+point-in-time recovery, and destroyed with the stack — disposable.
+
+### Access patterns
+
+- Write: one unconditional `PutItem` per delivery received.
+- Read: a `Scan` for `GET /webhook-sink/deliveries`, sorted newest first in
+  code. Bounded by the TTL: about 76 accepted Orders a day in Test, each
+  with an accept and a resolve, is roughly a thousand rows.
+
+---
+
 ## Access Pattern Index
 
 Every access pattern identified across `claude-prompt-initial.md`,
@@ -712,6 +777,9 @@ it yet.
 | 26 | Get User by `cognito_sub` (login) | Users `gsi1-cognito-sub` |
 | 27 | Get/update the NYC 311 ingestion cursor (watermark + resume offset) | Requests table, `GetItem`/`PutItem` on sentinel PK `"CURSOR#nyc_311"` — see Requests table design notes and `1-data-ingestion.md` §2 |
 | 28 | List the NYC 311 poller's full run history, most recent first (public ingestion-metrics API) | Requests `gsi4-poller-metrics` — see Requests table design notes and `1-data-ingestion.md` §8a |
+| 29 | Active webhook subscriptions for an event type (dispatch); existing subscription for a callback URL (registration) | WebhookSubscriptions table, capped `Scan` |
+| 30 | Get WebhookSubscription by `subscription_id` (every delivery attempt) | WebhookSubscriptions table, `GetItem` |
+| 31 | Recent deliveries the Test webhook sink received | WebhookSinkDeliveries table, TTL-bounded `Scan` |
 
 ---
 

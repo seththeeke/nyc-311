@@ -212,6 +212,12 @@ The backend will follow a basic controller, service, and data access object(DAO)
      the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
      — plus the SQS-triggered consumer that folds accepted/resolved Orders into
      the live workspace metric buckets (`12-UX-workspace-refactor.md`)
+  -> webhook - controller endpoints for the bureau's outbound lifecycle
+     webhooks (`13-customer-simulation.md` §5): the SQS-triggered dispatch
+     Lambda (one public event -> one delivery message per ACTIVE
+     subscription) and the SQS-triggered delivery Lambda (sign + POST). The
+     HTTP routes for the same feature (register a subscription, the
+     Test-only sink) live under web-api like every other route
  -> service
   -> grouped into logical processing services, not necessarily by entity
  -> dao - explicitely grouped by entity we store, names matching
@@ -227,6 +233,10 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> location
   -> shift
   -> user
+  -> webhookSubscription
+  -> webhookSinkDelivery - the Test-only webhook sink's delivery record
+     (`13-customer-simulation.md` §5); listed in data-model.md like any
+     other entity rather than carved out
   -> analytics - warehouseJobRunsDao, analyticsRollupsDao, liveWorkspaceMetricsDao
      (see carve-out above; the live workspace metrics table is the same kind
      of non-domain bookkeeping)

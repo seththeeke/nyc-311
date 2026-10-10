@@ -6,6 +6,11 @@ describe("SqsRecordSchema", () => {
     expect(SqsRecordSchema.safeParse({ messageId: "1", body: "{}" }).success).toBe(true);
   });
 
+  it("accepts SQS system attributes", () => {
+    const parsed = SqsRecordSchema.parse({ messageId: "1", body: "{}", attributes: { ApproximateReceiveCount: "3" } });
+    expect(parsed.attributes).toEqual({ ApproximateReceiveCount: "3" });
+  });
+
   it("accepts an empty-string body", () => {
     expect(SqsRecordSchema.safeParse({ messageId: "1", body: "" }).success).toBe(true);
   });

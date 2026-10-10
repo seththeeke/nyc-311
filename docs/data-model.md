@@ -31,6 +31,8 @@
 | [Operator](#operator) | Defined | Persistent, event-sourced; replaces the old "unit" concept 1:1 |
 | [Shift](#shift) | Defined | Plain record — pure time-window + rate container, no longer event-sourced |
 | [User](#user) | Defined | Expanded from `claude-prompt-initial.md` §3.1 with activity/audit fields |
+| [WebhookSubscription](#webhooksubscription) | Defined | One row per subscriber endpoint for the outbound lifecycle webhooks (`13-customer-simulation.md` §2/§5) |
+| [WebhookSinkDelivery](#webhooksinkdelivery) | Defined | Test-only: what the webhook sink subscriber received |
 
 ---
 
@@ -354,6 +356,50 @@ model this round along with the rest of the public write path — see
 | `cognito_sub` | Cognito subject identifier. |
 | `email` | Admin's login email. |
 | `display_name` | Human-readable name surfaced in the Admin UI / audit trails (e.g. "resolved by Jane Doe" on a Case). |
+
+---
+
+## WebhookSubscription
+
+One row per subscriber endpoint for the bureau's outbound lifecycle
+webhooks. Designed question by question in `13-customer-simulation.md` §2;
+the wire contract is in that doc's §5. A plain record, not event-sourced.
+
+### Fields
+
+| Field | Description |
+|---|---|
+| `subscription_id` | Identity. Server-generated ULID. |
+| `name` | Human-readable label (e.g. `the-customer`). Nothing reads it for logic. |
+| `callback_url` | Where deliveries are POSTed. `https` only, hostname on a per-environment allowlist. Immutable: a different URL is a different subscription, and registering a known URL updates its row. |
+| `event_types` | Explicit list from the public catalogue: `order_accepted`, `order_resolved`. No wildcard. |
+| `status` | `active` \| `paused`. Both manual; the system never changes it, and re-registration never touches it. |
+| `secret_parameter_name` | The SSM Parameter Store SecureString holding the signing secret. The secret itself is never on the row. Immutable. |
+| `version` | Bumped on every change; writes are conditioned on it. |
+| `created_at` | Timestamp. |
+| `updated_at` | Timestamp. |
+
+At most 25 subscriptions exist, enforced at create. There is no owner
+entity and no delivery-attempt entity: attempts are logged, not stored.
+
+---
+
+## WebhookSinkDelivery
+
+What the Test-only webhook sink received. The sink is a real subscriber
+that exists so the whole webhook path runs in Test, where there is no
+customer (`13-customer-simulation.md` §5). Test bookkeeping, listed here
+because DAO folders follow this document.
+
+### Fields
+
+| Field | Description |
+|---|---|
+| `webhook_id` | Identity. The delivery's `webhook-id` header (`evt_<order_id>_<sequence_number>`), so a redelivery overwrites. |
+| `event_type` | The payload's `type`, or null when the body could not be read. |
+| `received_at` | Timestamp. |
+| `signature_valid` | Whether the delivery's signature verified against the sink's secret. Invalid deliveries are recorded too. |
+| `expires_at` | TTL, one week after receipt. |
 
 ---
 

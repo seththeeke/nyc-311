@@ -7,6 +7,8 @@ import { Construct } from "constructs";
 import type { Nyc311OrdersStreamFanOutLambda } from "./Nyc311OrdersStreamFanOutLambda";
 import type { Nyc311OrderEvaluationQueue } from "./Nyc311OrderEvaluationQueue";
 import type { Nyc311LiveWorkspaceMetricsQueue } from "./Nyc311LiveWorkspaceMetricsQueue";
+import type { Nyc311WebhookDeliveryQueue } from "./Nyc311WebhookDeliveryQueue";
+import type { Nyc311WebhookDispatchQueue } from "./Nyc311WebhookDispatchQueue";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
 export interface Nyc311OrderPipelineAlarmsProps {
@@ -14,6 +16,8 @@ export interface Nyc311OrderPipelineAlarmsProps {
   ordersStreamFanOutLambda: Nyc311OrdersStreamFanOutLambda;
   orderEvaluationQueue: Nyc311OrderEvaluationQueue;
   liveWorkspaceMetricsQueue: Nyc311LiveWorkspaceMetricsQueue;
+  webhookDispatchQueue: Nyc311WebhookDispatchQueue;
+  webhookDeliveryQueue: Nyc311WebhookDeliveryQueue;
   /** Where every alarm here notifies. */
   failureNotificationEmail: string;
 }
@@ -33,18 +37,19 @@ const ITERATOR_AGE_THRESHOLD_MS = Duration.minutes(30).toMilliseconds();
 /**
  * CloudWatch Alarms for the order-evaluation pipeline
  * (`5-order-evaluation.md` §6/§7) — the fan-out Lambda's `Errors` and
- * `IteratorAge`, plus the evaluation queue's DLQ depth (any message there
- * is a genuine, already-exhausted-retries failure, worth alarming on
- * immediately, not after a sustained period) and the same for the live
- * workspace metrics queue's DLQ. One shared, email-subscribed
- * SNS topic for all four, same pattern as `Nyc311PollerSchedule`'s own
- * dedicated failure topic.
+ * `IteratorAge`, plus a DLQ-depth alarm per queue: evaluation, live
+ * workspace metrics, and the two webhook queues
+ * (`13-customer-simulation.md` §5). A DLQ message has already exhausted
+ * its retries, so those alarm on the first one. One shared,
+ * email-subscribed SNS topic for all six.
  */
 export class Nyc311OrderPipelineAlarms extends Construct {
   public readonly errorsAlarm: cloudwatch.Alarm;
   public readonly iteratorAgeAlarm: cloudwatch.Alarm;
   public readonly dlqDepthAlarm: cloudwatch.Alarm;
   public readonly liveMetricsDlqDepthAlarm: cloudwatch.Alarm;
+  public readonly webhookDispatchDlqDepthAlarm: cloudwatch.Alarm;
+  public readonly webhookDeliveryDlqDepthAlarm: cloudwatch.Alarm;
 
   constructor(scope: Construct, id: string, props: Nyc311OrderPipelineAlarmsProps) {
     super(scope, id);
@@ -110,5 +115,33 @@ export class Nyc311OrderPipelineAlarms extends Construct {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
     this.liveMetricsDlqDepthAlarm.addAlarmAction(notify);
+
+    /* A message here is an accepted/resolved Order no webhook subscriber was told about. */
+    this.webhookDispatchDlqDepthAlarm = new cloudwatch.Alarm(this, "WebhookDispatchDlqDepthAlarm", {
+      alarmName: `Nyc311WebhookDispatchDlqDepthAlarm-${suffix}`,
+      metric: props.webhookDispatchQueue.deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+        statistic: "Maximum",
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    this.webhookDispatchDlqDepthAlarm.addAlarmAction(notify);
+
+    /* A message here is a delivery one subscriber refused for a full day of retries — redrive once it is healthy. */
+    this.webhookDeliveryDlqDepthAlarm = new cloudwatch.Alarm(this, "WebhookDeliveryDlqDepthAlarm", {
+      alarmName: `Nyc311WebhookDeliveryDlqDepthAlarm-${suffix}`,
+      metric: props.webhookDeliveryQueue.deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+        statistic: "Maximum",
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    this.webhookDeliveryDlqDepthAlarm.addAlarmAction(notify);
   }
 }
