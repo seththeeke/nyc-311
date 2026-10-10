@@ -1,10 +1,3 @@
-import { Amplify } from "aws-amplify";
-import {
-  confirmSignIn as amplifyConfirmSignIn,
-  fetchAuthSession,
-  signIn as amplifySignIn,
-  signOut as amplifySignOut,
-} from "aws-amplify/auth";
 import { config } from "../config";
 import { UserSchema, type User } from "../models/user";
 import { MOCK_ADMIN_CREDENTIAL, MOCK_ADMIN_USER } from "../test-data/adminUser";
@@ -31,19 +24,36 @@ export interface AuthService {
   getCurrentUser(): Promise<User | null>;
 }
 
-let amplifyConfigured = false;
+type AmplifyAuthModule = typeof import("aws-amplify/auth");
 
-function ensureAmplifyConfigured(): void {
-  if (amplifyConfigured) return;
-  Amplify.configure({
-    Auth: {
-      Cognito: {
-        userPoolId: config.userPoolId,
-        userPoolClientId: config.userPoolClientId,
-      },
-    },
-  });
-  amplifyConfigured = true;
+let amplifyAuthModulePromise: Promise<AmplifyAuthModule> | null = null;
+
+/**
+ * Cognito's SRP/crypto client (`aws-amplify` + `aws-amplify/auth`) is
+ * ~250 KB pre-minified — dynamic-imported here instead of a static
+ * top-level import so it lands in its own chunk rather than the main
+ * bundle every page pays for just to render the sidebar's logged-in/out
+ * state (`useAuth` runs on every page). Same split pattern as
+ * `AppRoutes.tsx`'s lazy-loaded pages; cached so only the first call per
+ * page load pays the import cost.
+ */
+async function loadAmplifyAuth(): Promise<AmplifyAuthModule> {
+  if (!amplifyAuthModulePromise) {
+    amplifyAuthModulePromise = Promise.all([import("aws-amplify"), import("aws-amplify/auth")]).then(
+      ([{ Amplify }, auth]) => {
+        Amplify.configure({
+          Auth: {
+            Cognito: {
+              userPoolId: config.userPoolId,
+              userPoolClientId: config.userPoolClientId,
+            },
+          },
+        });
+        return auth;
+      }
+    );
+  }
+  return amplifyAuthModulePromise;
 }
 
 /*
@@ -55,13 +65,13 @@ function ensureAmplifyConfigured(): void {
  */
 class LiveAuthService implements AuthService {
   async signIn(email: string, password: string): Promise<SignInResult> {
-    ensureAmplifyConfigured();
+    const { signIn: amplifySignIn } = await loadAmplifyAuth();
     const result = await amplifySignIn({ username: email, password });
     return this.resolveSignInStep(result);
   }
 
   async completeNewPassword(newPassword: string): Promise<User> {
-    ensureAmplifyConfigured();
+    const { confirmSignIn: amplifyConfirmSignIn } = await loadAmplifyAuth();
     const result = await amplifyConfirmSignIn({ challengeResponse: newPassword });
     const outcome = await this.resolveSignInStep(result);
     if (outcome.status !== "SIGNED_IN") {
@@ -85,14 +95,14 @@ class LiveAuthService implements AuthService {
   }
 
   async signOut(): Promise<void> {
-    ensureAmplifyConfigured();
+    const { signOut: amplifySignOut } = await loadAmplifyAuth();
     await amplifySignOut();
   }
 
   async getCurrentUser(): Promise<User | null> {
-    ensureAmplifyConfigured();
     let idToken: string | undefined;
     try {
+      const { fetchAuthSession } = await loadAmplifyAuth();
       const session = await fetchAuthSession();
       idToken = session.tokens?.idToken?.toString();
     } catch {
