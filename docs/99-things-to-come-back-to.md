@@ -301,9 +301,17 @@ See [#76](https://github.com/seththeeke/nyc-311/issues/76).
 
 ---
 
+## vitest 3.2.7 → 5.0.3 major bump needed to clear 2 critical + 2 moderate npm audit findings (web-app/backend/cdk)
+
+Major bump, deferred per CLAUDE.md's "major bumps get a ticket, not a
+same-run change" — migration notes in the issue.
+See [#82](https://github.com/seththeeke/nyc-311/issues/82).
+
+---
+
 ## Fix high-severity npm audit findings (source-map-js, brace-expansion) via non-breaking npm audit fix
 
-See [#80](https://github.com/seththeeke/nyc-311/issues/80).
+**Resolved 2026-10-08** — see [#80](https://github.com/seththeeke/nyc-311/issues/80) (closed).
 
 ---
 
