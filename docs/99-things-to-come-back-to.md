@@ -321,3 +321,10 @@ See [#85](https://github.com/seththeeke/nyc-311/issues/85) — fixed this run,
 closes on merge.
 
 ---
+
+## web-app: main chunk crosses 500 kB again — lazy-load FleetMapWidget (leaflet) out of the eager HomePage route
+
+See [#89](https://github.com/seththeeke/nyc-311/issues/89) — fixed this run,
+closes on merge.
+
+---

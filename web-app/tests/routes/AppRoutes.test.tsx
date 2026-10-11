@@ -30,14 +30,15 @@ function renderAt(path: string) {
 }
 
 describe("AppRoutes", () => {
-  it("renders HomePage (the fleet map) at /", () => {
+  it("renders HomePage (the fleet map) at /", async () => {
     renderAt("/");
-    expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
+    /* FLEET_MAP is lazy() (widgetRegistry.ts, keeps leaflet out of the main chunk); it resolves async. */
+    expect(await screen.findByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
-  it("renders HomePage underneath at /about (the About drawer itself lives in the sidebar footer)", () => {
+  it("renders HomePage underneath at /about (the About drawer itself lives in the sidebar footer)", async () => {
     renderAt("/about");
-    expect(screen.getByText(/OpenStreetMap/)).toBeInTheDocument();
+    expect(await screen.findByText(/OpenStreetMap/)).toBeInTheDocument();
   });
 
   it("renders DataPage at /data", async () => {
