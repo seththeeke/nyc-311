@@ -1,6 +1,5 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
 import { WebhookSinkDeliveryDao } from "../../dao/webhookSinkDelivery/webhookSinkDeliveryDao";
 import { ValidationError } from "../../models/errors";
@@ -15,7 +14,7 @@ export const SINK_LIST_LIMIT = 50;
 
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookSinkDeliveryDao(): WebhookSinkDeliveryDao {
-  return new WebhookSinkDeliveryDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("WEBHOOK_SINK_DELIVERIES_TABLE_NAME"));
+  return new WebhookSinkDeliveryDao(createDocumentClient(), requireEnv("WEBHOOK_SINK_DELIVERIES_TABLE_NAME"));
 }
 
 export interface WebhookSinkDeps {

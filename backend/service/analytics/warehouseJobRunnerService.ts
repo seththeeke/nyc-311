@@ -1,7 +1,5 @@
 import { setTimeout as delayMs } from "node:timers/promises";
 import { ulid } from "ulid";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import {
   AthenaClient,
   StartQueryExecutionCommand,
@@ -11,6 +9,7 @@ import {
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { NotFoundError } from "../../models/errors";
 import { MAX_JOB_RETRIES, type WarehouseJobRun, type WarehouseJobRunTrigger } from "../../models/warehouseJobRun";
@@ -43,9 +42,9 @@ interface ResolvedDeps {
 }
 
 function resolve(deps: WarehouseJobRunnerDeps): ResolvedDeps {
-  const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   return {
-    jobRunsDao: deps.jobRunsDao ?? new WarehouseJobRunsDao(ddb, requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
+    jobRunsDao:
+      deps.jobRunsDao ?? new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
     athenaClient: deps.athenaClient ?? new AthenaClient({}),
     s3Client: deps.s3Client ?? new S3Client({}),
     resultsBucket: deps.resultsBucket ?? requireEnv("JOB_RESULTS_BUCKET"),

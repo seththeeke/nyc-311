@@ -1,6 +1,5 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { logError, logInfo, logWarn } from "../../logger";
 import { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
 import type { WebhookDeliveryTask } from "../../models/webhookDeliveryTask";
@@ -12,7 +11,7 @@ export const WEBHOOK_DELIVERY_TIMEOUT_MS = 10_000;
 
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookSubscriptionDao(): WebhookSubscriptionDao {
-  return new WebhookSubscriptionDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
+  return new WebhookSubscriptionDao(createDocumentClient(), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
 }
 
 export interface WebhookDeliveryDeps {

@@ -1,6 +1,5 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
 import { LiveWorkspaceMetricsDao } from "../../dao/analytics/liveWorkspaceMetricsDao";
 import { OperatorDao } from "../../dao/operator/operatorDao";
@@ -17,20 +16,16 @@ export const LIVE_SOURCE_NAME = "live";
 const SECONDS_PER_HOUR = 3600;
 
 /* All three constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getDocumentClient(): DynamoDBDocumentClient {
-  return DynamoDBDocumentClient.from(new DynamoDBClient({}));
-}
-
 function getLiveWorkspaceMetricsDao(): LiveWorkspaceMetricsDao {
-  return new LiveWorkspaceMetricsDao(getDocumentClient(), requireEnv("LIVE_WORKSPACE_METRICS_TABLE_NAME"));
+  return new LiveWorkspaceMetricsDao(createDocumentClient(), requireEnv("LIVE_WORKSPACE_METRICS_TABLE_NAME"));
 }
 
 function getOrderDao(): OrderDao {
-  return new OrderDao(getDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
+  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
 }
 
 function getOperatorDao(): OperatorDao {
-  return new OperatorDao(getDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
+  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
 }
 
 export interface LiveWorkspaceMetricsDeps {

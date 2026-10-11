@@ -8,12 +8,11 @@ import {
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { FirehoseClient, PutRecordBatchCommand } from "@aws-sdk/client-firehose";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { logInfo, logError } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRun, WarehouseJobRunStatus } from "../../models/warehouseJobRun";
 import type {
@@ -116,10 +115,7 @@ function resolve(deps: WarehouseRebuildDeps): ResolvedDeps {
     now: deps.now ?? (() => new Date()),
     sleep: deps.sleep ?? ((ms) => delayMs(ms)),
     jobRunsDao: () => {
-      dao ??= new WarehouseJobRunsDao(
-        DynamoDBDocumentClient.from(new DynamoDBClient({})),
-        requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")
-      );
+      dao ??= new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
       return dao;
     },
   };

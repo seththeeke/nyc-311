@@ -1,11 +1,10 @@
 import { ulid } from "ulid";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { RequestDao } from "../../dao/request/requestDao";
 import type { Request } from "../../models/request";
 import { Nyc311RawRecordSchema } from "../../models/nyc311RawRecord";
@@ -24,7 +23,7 @@ import { fetchNyc311Page, toSoqlTimestamp } from "./nyc311Client";
  * the fan-out Lambda crashing on every invocation since it shipped.
  */
 function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
+  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
 }
 
 /**

@@ -1,7 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { OrderDao } from "../../dao/order/orderDao";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
@@ -19,16 +18,16 @@ import { ConflictError } from "../../models/errors";
 
 /* Constructed lazily inside scheduleOrders, not at module scope — per CLAUDE.md §5.2. */
 function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("ORDERS_TABLE_NAME"));
+  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
 }
 function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
+  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
 }
 function getDefaultLocationDao(): LocationDao {
-  return new LocationDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("LOCATIONS_TABLE_NAME"));
+  return new LocationDao(createDocumentClient(), requireEnv("LOCATIONS_TABLE_NAME"));
 }
 function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("OPERATORS_TABLE_NAME"));
+  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
 }
 
 /*
