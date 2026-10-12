@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MENU, linkIsActive, sectionContainsPath, type MenuLinkEntry, type MenuSectionEntry } from "../../../src/components/shell/menuConfig";
+import { MENU, linkIsActive, pathIsInAnySection, sectionContainsPath, type MenuLinkEntry, type MenuSectionEntry } from "../../../src/components/shell/menuConfig";
 
 const sections = MENU.filter((e): e is MenuSectionEntry => e.kind === "SECTION");
 const monitoring = sections.find((s) => s.id === "MONITORING")!;
@@ -48,6 +48,17 @@ describe("sectionContainsPath", () => {
     expect(sectionContainsPath(admin, "/administrator")).toBe(false);
     expect(sectionContainsPath(monitoring, "/coverage/index.html")).toBe(false);
     expect(sectionContainsPath(admin, "/login")).toBe(false);
+  });
+});
+
+describe("pathIsInAnySection", () => {
+  it("is true on monitoring and admin routes, false on the map and other pages", () => {
+    expect(pathIsInAnySection("/monitoring/ingestion")).toBe(true);
+    expect(pathIsInAnySection("/data")).toBe(true);
+    expect(pathIsInAnySection("/admin")).toBe(true);
+    expect(pathIsInAnySection("/")).toBe(false);
+    expect(pathIsInAnySection("/about")).toBe(false);
+    expect(pathIsInAnySection("/login")).toBe(false);
   });
 });
 

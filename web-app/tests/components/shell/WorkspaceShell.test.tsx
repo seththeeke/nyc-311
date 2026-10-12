@@ -69,6 +69,26 @@ describe("WorkspaceShell — wide", () => {
   });
 });
 
+describe("WorkspaceShell — secondary workspace follows the menu selection", () => {
+  it("hides on a monitoring item, stays hidden across section items, and returns on Map", async () => {
+    mockViewport(1400);
+    renderShell();
+    const user = userEvent.setup();
+    const secondary = () => screen.queryByRole("complementary", { name: "Secondary workspace" });
+
+    await user.click(screen.getByRole("link", { name: "Pipeline" }));
+    expect(secondary()).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show secondary panel" }));
+    expect(secondary()).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: /^Capacity/ }));
+    expect(secondary()).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: "Map" }));
+    expect(secondary()).toBeInTheDocument();
+  });
+});
+
 describe("WorkspaceShell — narrower viewports", () => {
   it("medium: the secondary workspace auto-collapses but can be re-opened", async () => {
     mockViewport(900);

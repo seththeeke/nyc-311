@@ -83,6 +83,11 @@ export function sectionContainsPath(section: MenuSectionEntry, pathname: string)
   );
 }
 
+/** True on any monitoring/admin route — the pages that take the full width, so the shell hides the secondary panel. */
+export function pathIsInAnySection(pathname: string): boolean {
+  return MENU.some((entry) => entry.kind === "SECTION" && sectionContainsPath(entry, pathname));
+}
+
 export function linkIsActive(entry: MenuLinkEntry, pathname: string): boolean {
   return pathname === entry.to || entry.alsoActiveOn.includes(pathname);
 }
