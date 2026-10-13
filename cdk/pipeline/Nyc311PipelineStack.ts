@@ -7,7 +7,6 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import type { Construct } from "constructs";
 import { Nyc311AppStage } from "./Nyc311AppStage";
-import { Nyc311CustomerStage } from "./Nyc311CustomerStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
 import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
@@ -243,14 +242,6 @@ export class Nyc311PipelineStack extends Stack {
       pre: [prodDiff],
       post: [publishCoverageProd, integrationTestsProd],
     });
-
-    /*
-     * 13-customer-simulation.md — the customer is its own stage, after
-     * DeployProd, so the bureau's Prod deploy has completed before the
-     * customer is touched and a failed customer deploy leaves it as it was.
-     * Prod only: there is no Test customer.
-     */
-    pipeline.addStage(new Nyc311CustomerStage(this, "DeployCustomer", { env }));
 
     /*
      * Must build the pipeline before reaching into the underlying
