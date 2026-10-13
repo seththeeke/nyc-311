@@ -19,16 +19,19 @@ export interface ShellLayout {
 /**
  * Collapse state for the two side panels (12-UX-workspace-refactor.md §3.4).
  * In-memory only — deliberately not in localStorage, that's just the theme.
- * The right panel auto-collapses below 1024px; a manual toggle overrides the
- * auto behaviour until the viewport next crosses a breakpoint.
+ * The right panel auto-collapses below 1024px and on any route flagged
+ * `hidesSecondary` (the monitoring/admin pages); a manual toggle overrides the
+ * auto behaviour until the viewport next crosses a breakpoint or the route
+ * changes — so returning to the map brings the panel back.
  */
-export function useShellLayout(): ShellLayout {
+export function useShellLayout(pathname: string, hidesSecondary: boolean): ShellLayout {
   const isWide = useMediaQuery("(min-width: 1024px)");
   const isMedium = useMediaQuery("(min-width: 768px)");
   const breakpoint: ShellBreakpoint = isWide ? "WIDE" : isMedium ? "MEDIUM" : "NARROW";
   const isOverlay = breakpoint === "NARROW";
 
   const [seenBreakpoint, setSeenBreakpoint] = useState<ShellBreakpoint>(breakpoint);
+  const [seenPathname, setSeenPathname] = useState(pathname);
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
   const [rightOverride, setRightOverride] = useState<boolean | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -39,9 +42,13 @@ export function useShellLayout(): ShellLayout {
     setRightOverride(null);
     setOverlayOpen(false);
   }
+  if (seenPathname !== pathname) {
+    setSeenPathname(pathname);
+    setRightOverride(null);
+  }
 
   const sidebarCollapsed = !isOverlay && (sidebarOverride ?? false);
-  const rightCollapsed = rightOverride ?? breakpoint !== "WIDE";
+  const rightCollapsed = rightOverride ?? (hidesSecondary || breakpoint !== "WIDE");
 
   const toggleSidebar = useCallback((): void => {
     if (isOverlay) setOverlayOpen((open) => !open);

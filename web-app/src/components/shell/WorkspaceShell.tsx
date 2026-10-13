@@ -1,5 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { useShellLayout } from "../../hooks/useShellLayout";
+import { pathIsInAnySection } from "./menuConfig";
 import { SecondaryWorkspace } from "./SecondaryWorkspace";
 import { Sidebar } from "./Sidebar";
 import { TooltipLayer } from "./TooltipLayer";
@@ -17,10 +19,11 @@ const FLOATING_BUTTON_CLASSES =
  * (`children`, the routed page), secondary workspace (right). Owns the
  * viewport — no page-level scroll; the primary and secondary panels scroll
  * independently. Below 768px the menu becomes an overlay drawer opened from
- * a hamburger.
+ * a hamburger. The secondary workspace auto-hides on monitoring/admin routes.
  */
 export function WorkspaceShell({ children }: WorkspaceShellProps): ReactElement {
-  const layout = useShellLayout();
+  const { pathname } = useLocation();
+  const layout = useShellLayout(pathname, pathIsInAnySection(pathname));
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-surface text-fg">
