@@ -102,10 +102,18 @@ describe("AppRoutes", () => {
   });
 
   it("wraps every page in the 3-panel shell: menu, primary workspace, and the secondary workspace", () => {
-    renderAt("/monitoring/pipeline");
+    renderAt("/");
     expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Primary workspace" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
+  });
+
+  it("keeps the shell on a monitoring page, with the secondary workspace collapsed to its handle", () => {
+    renderAt("/monitoring/pipeline");
+    expect(screen.getByRole("complementary", { name: "Menu" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Primary workspace" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Secondary workspace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show secondary panel" })).toBeInTheDocument();
   });
 
   it("keeps the shell around the login page (renders inside the primary workspace)", async () => {
