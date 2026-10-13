@@ -1,8 +1,8 @@
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
-/* hosting-test-coverage.md §2.1/§2.2 — the three packages' coverage/ output, captured off Synth as additional FileSets. */
-const COVERAGE_PACKAGE_DIRS = ["backend/coverage", "cdk/coverage", "web-app/coverage"];
+/* hosting-test-coverage.md §2.1/§2.2 — every package's coverage/ output, captured off Synth as additional FileSets. */
+const COVERAGE_PACKAGE_DIRS = ["backend/coverage", "cdk/coverage", "web-app/coverage", "customer/backend/coverage"];
 
 export interface CoveragePublishStepProps {
   /** Step id, e.g. "PublishCoverageTest" — must be unique within the pipeline. */

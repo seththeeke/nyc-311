@@ -25,7 +25,8 @@ const reports = require("istanbul-reports");
 
 const REPO_ROOT = path.join(__dirname, "..");
 const OUTPUT_DIR = path.join(REPO_ROOT, "coverage-publish");
-const PACKAGE_DIRS = ["backend", "cdk", "web-app"];
+/* "customer/backend" must be listed: its paths also contain "/backend/", and sourceFinder takes the earliest marker. */
+const PACKAGE_DIRS = ["backend", "cdk", "web-app", "customer/backend"];
 
 function loadCoverageFinal(pkgDir) {
   const file = path.join(REPO_ROOT, pkgDir, "coverage", "coverage-final.json");

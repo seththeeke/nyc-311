@@ -1,10 +1,12 @@
 # The Customer — Simulated Support-Seekers + Bureau Lifecycle Webhooks
 
-> **Status (2026-10-11): the bureau-side webhook is built (Appendix H);
-> the customer side is not started.** `customer/` is still locked: its
-> `CLAUDE.md` structure sections are proposed in Appendix F, not approved.
-> Everything below this line is the 2026-10-05 capture as amended by the
-> 2026-10-10 webhook review.
+> **Status (2026-10-13): the bureau-side webhook is built and pushed
+> (Appendix H), and the customer's first milestone — a webhook listener
+> and its order table in their own stack — is built (Appendix J).
+> Neither delivers anything until the manual launch steps in Appendix I
+> are run; those are still open.** Personas, ideas, the read API and the
+> UI are not started. Everything below this line is the 2026-10-05
+> capture as amended by the 2026-10-10 and 2026-10-13 reviews.
 >
 > **Original status (2026-10-05): capture draft — nothing built, nothing final.**
 > Spec for [#58](https://github.com/seththeeke/nyc-311/issues/58), reshaped
@@ -25,7 +27,7 @@
 | 3 | [Interaction Model](#3-interaction-model) | Not reviewed |
 | 4 | [UX Design](#4-ux-design) | Not reviewed |
 | 5 | [BoroughSim Webhook Design](#5-boroughsim-webhook-design) | Design decisions (items 5–15) agreed 2026-10-10 and **built 2026-10-11** (Appendix H); foundations (items 1–4) not walked through |
-| 6 | [Isolation](#6-isolation) | Not reviewed |
+| 6 | [Isolation](#6-isolation) | Enforcement for the listener milestone agreed 2026-10-13 and **built** (Appendix J); the full review (items 1–10) not done |
 
 ---
 
@@ -541,9 +543,13 @@ lost.
 | `ORDER_ACCEPTED` payload: fat event with `address` and `zip` added; additive-only versioning; `webhook-id` = `evt_<order_id>_<sequence_number>` (§5) | Agreed 2026-10-10 |
 | Callback URL validation: must parse, be `https://`, stay under a length cap, and have a hostname on a per-environment allowlist. No address-range checks (the bureau has no VPC). The delivery Lambda does not follow redirects | Agreed 2026-10-10 |
 | Subscription API surface: one route, `POST /webhook-subscriptions`, key-authenticated; creates, or overwrites `name`/`event_types`/secret for a known URL, and returns the row with its `status`. Pause, resume and delete are hand edits from a runbook (delete must also remove the SSM secret parameter). No admin routes, no UI | Agreed 2026-10-10 |
+| Listener: `POST https://customer-api.boroughsim.com/webhooks/bureau`, on the customer stack's **own** HTTP API, certificate and domain — nothing shared with `Nyc311Stack`. The read API of §4 joins the same host later. Route throttled to about 5 rps. Resolves §4 item 11's host question | Agreed 2026-10-13 |
+| Customer order table: `WebhookCustomerFacingOrders-Prod` (named to say it sits on the receiving end of the listener), one row per order keyed by `order_id`: the public payload fields, `status` `OPEN`/`CLOSED`, timestamps, TTL. `ORDER_ACCEPTED` creates the row `OPEN` only if absent; `ORDER_RESOLVED` writes it `CLOSED`, creating it if needed; both idempotent and order-independent, so no dedupe store. No event-log items (the listener's logs cover that). `CLOSED` rows expire 30 days after resolution, `OPEN` rows 60 days after acceptance. No index until the persona work | Agreed 2026-10-13 |
+| Customer secret and registration, this milestone: both by hand, once. The customer's signing secret is a hand-created SSM SecureString at `/customer/prod/webhook/signing-secret` (outside the bureau's `/nyc311/prod/webhook/` prefix); registration is one `curl` with the bureau's Prod registration key. The customer stack does not hold the registration key. Self-registration (§3 item 2) is deferred and additive. Launch plan in Appendix I | Agreed 2026-10-13 |
+| Isolation enforcement for the listener milestone: `no-restricted-imports` bans in all four directions (§6 table); a custom path-string lint rule (`local/customer-boundary`) with `cdk/customer/customerBackendRoot.ts` as the one sanctioned file naming `customer/backend`; a template test (no imported values, no bureau resource names); an IAM test (customer roles reach only the customer's own table and SSM parameter). Fixture tests of the rules themselves wait for the full §6 review. Pipeline build, coverage rollup/publish and the direct-deploy deny policy all cover the fourth package | Agreed 2026-10-13 |
 | Webhook registration auth: an issued API key, sent by the customer on every registration call. No public self-registration, no verification handshake | Agreed 2026-10-10 |
 | Registration key mechanics: one key per environment in an SSM SecureString, created by hand once (CloudFormation cannot create SecureStrings) and copied to the customer's own store; checked in the registration service with a constant-time comparison, no Lambda authorizer; `created_by` dropped from `WebhookSubscription` | Agreed 2026-10-10 |
-| Separate `Nyc311CustomerStack` | Proposed, follows from Prod-only |
+| Separate `Nyc311CustomerStack`, Prod only, deployed by its **own pipeline stage after `DeployProd`** (a `DeployCustomer` stage with its own stage class), so the bureau's Prod deploy completes before the customer is touched. Rejected: sharing the Prod stage, and a second pipeline | Agreed 2026-10-13 |
 | Standard Webhooks wire format, HMAC variant: `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` + base64 HMAC-SHA256 of `{id}.{timestamp}.{body}`), `whsec_` secrets, five-minute replay window. Sign and verify hand-written on each side with `node:crypto`; the `standardwebhooks` package is a test-only dependency used to cross-check | Agreed 2026-10-10 |
 
 Superseded along the way: a UI was originally out of scope for phase 1; the
@@ -611,10 +617,13 @@ To be re-cut after the six reviews; UI legs not yet placed.
   `backend/`", and the four standard commands.
 - **§2 / §8** — Operational Loop and coverage rollup cover four packages.
 
-**Proposed wording for the customer scaffold — awaiting approval
-(2026-10-11).** Nothing under `customer/` or `cdk/customer/` may be written
-until this is approved and added to `CLAUDE.md` (§1.1). Scoped to the next
-milestone only: a listener that records webhook events.
+**`CLAUDE.md` wording for the customer scaffold — approved and applied
+2026-10-13** (§1, §2, §5.3, new §5.4, §8). Scoped to the listener
+milestone; later milestones extend it. Two changes were made while
+applying it: "alarm topic" was dropped from the list of things the stack
+owns, because it creates no alarm; and `cdk/pipeline/` is exempt from the
+path-string rule, because its build commands must name `customer/backend`.
+The text as first approved:
 
 *§1, top-level directories — add:*
 
@@ -627,46 +636,54 @@ milestone only: a listener that records webhook events.
 > Its own npm package with the same layering, rules and tooling as
 > `backend/` (§5.2): controller → service → DAO, a zod schema at every
 > trust boundary, lazily constructed clients, logging by layer, camelCase
-> files, ESLint with `no-explicit-any` and `local/comment-format`,
-> Vitest with a 90% per-file coverage gate, and the same four commands
-> (`build`, `lint`, `test`, `test:coverage`).
+> files with one primary export each, ESLint with `no-explicit-any` and
+> `local/comment-format`, Vitest with a 90% per-file coverage gate, and
+> the same four commands (`build`, `lint`, `test`, `test:coverage`).
 >
-> **It imports nothing from outside `customer/backend/`**, and nothing in
-> `backend/` imports from `customer/`. Shared helpers (`logger.ts`,
+> **It imports nothing from outside `customer/backend/`, and nothing in
+> `backend/` imports from `customer/`.** Shared helpers (`logger.ts`,
 > `env.ts`, the `Dao` base, the error types) are copied, never imported.
-> Both directions are enforced by `no-restricted-imports` in each
-> package's `eslint.config.js`.
+> Both directions are lint errors (`no-restricted-imports`), not review
+> conventions.
 >
 > ```
 > customer/backend
 >  -> logger.ts, env.ts - copied from backend/
 >  -> controller
 >   -> webhook - the HTTP listener the bureau POSTs lifecycle events to
->  -> service
->  -> dao - grouped by the entity stored
->   -> order - the customer's own record of an order in play
->  -> models
+>  -> service - grouped into logical processing services
+>  -> dao - grouped by the entity stored; dao.ts is the copied base
+>   -> webhookCustomerFacingOrder - the customer's own row per order in play
+>  -> models - one file each, TS type + zod schema, plus the error types
 >  -> tests - mirrors the structure above
 > ```
 
-*§5.3 `cdk/` — add:*
+*§5.3 `cdk/` — add to the directory list and the exceptions:*
 
 > -> customer - ALL customer infrastructure and nothing else
 >
 > **Second standing exception to the single-stack rule:**
-> `Nyc311CustomerStack` (under `cdk/customer/`), deployed to **Prod
-> only**. No cross-stack references to `Nyc311Stack` in either direction;
-> the customer reaches the bureau only through public URLs. `cdk/customer/`
-> imports no bureau construct directory, and nothing outside it imports
-> from it except the app/stage entrypoints that instantiate the stack.
+> `Nyc311CustomerStack` (under `cdk/customer/`), **Prod only**, deployed
+> by its own `DeployCustomer` pipeline stage after `DeployProd`. It shares
+> nothing with `Nyc311Stack`: its own HTTP API, certificate and domain,
+> table, Lambdas, alarm topic and roles, with no cross-stack reference in
+> either direction. The customer reaches the bureau only through public
+> URLs. The one shared resource is a DNS record in the `boroughsim.com`
+> hosted zone.
+>
+> **Boundary rules, all lint errors:** nothing outside `cdk/customer/`
+> imports from it, except the stage file that instantiates the stack;
+> `cdk/customer/` imports no bureau construct directory;
+> `local/customer-boundary` bans a `customer` path segment in any string
+> in bureau CDK code and a `backend` path segment in any string under
+> `cdk/customer/`, with `cdk/customer/customerBackendRoot.ts` the one
+> sanctioned file that names `customer/backend`. A template test asserts
+> the stack imports no values and names no bureau resource; an IAM test
+> asserts its roles reach only its own resources.
+>
 > Prod-only resources keep the `-Prod` suffix.
 
-*§2 / §8:* the Operational Loop and coverage rollup cover four packages.
-
-Four decisions inside this milestone still need a call before building
-(none has been reviewed): the stack and its Prod-only pipeline wiring
-(§6); the listener's host and path (§4 item 11); the order table's shape
-(§2); and whether registration is by hand for now (§3 item 2).
+*§2 / §8:* the Operational Loop and the coverage rollup cover four packages.
 
 ### G. Differences from #58
 
@@ -774,3 +791,142 @@ node test-scripts/11-replay-webhook-events.js --env prod --execute <order_id> [.
 Rotating the registration key is step 1 again with `--overwrite`, then
 updating the customer's copy. Rotating a subscriber's signing secret is a
 re-registration with the new secret.
+
+### I. Launch plan — the customer listener (manual steps)
+
+Agreed 2026-10-13: the customer's signing secret and its registration with
+the bureau are done by hand, once. Nothing here is automated, so **the
+listener receives nothing until every step below has been run**. Each
+command mutates real AWS resources or a live subscription — CLAUDE.md §3
+applies to each one.
+
+Status: not started. Tick these off here as they are done.
+
+- [ ] **0. Prerequisites deployed.** The bureau webhook is live in Prod
+      (`Nyc311-Prod`, pushed 2026-10-11) and `Nyc311Customer-Prod` has
+      deployed through the `DeployCustomer` stage (pushed 2026-10-13), so
+      `https://customer-api.boroughsim.com/webhooks/bureau` resolves. Before
+      step 2 it answers `500` to anything, because it has no secret to
+      verify with.
+- [ ] **1. Create the bureau's Prod registration key** (Appendix H, step 1,
+      Prod variant). Independent of the customer; can be done any time.
+
+      ```sh
+      aws ssm put-parameter --profile nyc311 --type SecureString \
+        --name /nyc311/prod/webhook/registration-key --value "$(openssl rand -base64 32)"
+      ```
+- [ ] **2. Create the customer's signing secret.** Keep `$SIGNING_SECRET`
+      in the shell for step 3; it is not recoverable from the bureau side.
+
+      ```sh
+      SIGNING_SECRET="whsec_$(openssl rand -base64 32)"
+      aws ssm put-parameter --profile nyc311 --type SecureString \
+        --name /customer/prod/webhook/signing-secret --value "$SIGNING_SECRET"
+      ```
+- [ ] **3. Register the customer with the bureau.** Expect `201` and a body
+      with `"status":"ACTIVE"`; note the `subscription_id`.
+
+      ```sh
+      KEY=$(aws ssm get-parameter --profile nyc311 --with-decryption \
+        --name /nyc311/prod/webhook/registration-key --query Parameter.Value --output text)
+      curl -sS -X POST https://api.boroughsim.com/webhook-subscriptions \
+        -H "content-type: application/json" -H "x-api-key: $KEY" \
+        -d "{\"name\":\"the-customer\",\"callback_url\":\"https://customer-api.boroughsim.com/webhooks/bureau\",\"event_types\":[\"ORDER_ACCEPTED\",\"ORDER_RESOLVED\"],\"secret\":\"$SIGNING_SECRET\"}"
+      ```
+- [ ] **4. Verify.** Prod accepts an order roughly every 15 minutes. After
+      the next one, rows should appear:
+
+      ```sh
+      aws dynamodb scan --profile nyc311 --table-name WebhookCustomerFacingOrders-Prod \
+        --select COUNT
+      ```
+
+      Also check the bureau's `Nyc311WebhookDeliveryQueueDlq-Prod` is empty
+      and the delivery Lambda's log shows `WebhookDeliveryAttempt` lines
+      with `"outcome":"DELIVERED"`.
+
+**Order matters only for 2 before 3.** Nothing is sent before registration,
+so the listener is never asked to verify without a secret. If step 3 is
+run with a secret that does not match step 2, every delivery is rejected
+and retried for a day; re-running steps 2 and 3 with one fresh value fixes
+it, because re-registration overwrites the bureau's copy.
+
+**To stop deliveries:** pause the subscription (Appendix H, "Operating
+it"). **To rotate the signing secret:** repeat steps 2 (with `--overwrite`)
+and 3 with a new value; deliveries in the gap between the two commands
+fail verification and are retried.
+
+When self-registration (§3 item 2) is built, steps 2 and 3 are what it
+replaces.
+
+### J. Build progress — the customer listener
+
+**Built 2026-10-13.** The first customer milestone: the stack exists and
+is ready to consume webhook events once Appendix I's manual steps are run.
+
+| Piece | Where |
+|---|---|
+| Package | `customer/backend/` — its own `package.json`, ESLint, Vitest (90% per file), copied `logger.ts` / `env.ts` / `Dao` base / error types |
+| Listener | `controller/webhook/receiveWebhookController.ts` → `service/webhook/webhookReceiverService.ts` |
+| Signature check | `service/webhook/webhookSignature.ts` — the customer's own verify, tested against deliveries signed by the `standardwebhooks` reference package |
+| Order table access | `dao/webhookCustomerFacingOrder/`, `models/webhookCustomerFacingOrder.ts`, `models/bureauWebhookEvent.ts` |
+| Infrastructure | `cdk/customer/` — `Nyc311CustomerStack`, `CustomerApi`, `CustomerApiDomain`, `CustomerWebhookListenerLambda`, `WebhookCustomerFacingOrdersTable`, `customerConfig.ts`, `customerBackendRoot.ts` |
+| Deployment | `cdk/pipeline/Nyc311CustomerStage.ts`; `DeployCustomer` added after `DeployProd`; the customer package linted and tested in Synth; the direct-deploy deny policy covers `Nyc311Customer-Prod` |
+| Boundary | Import bans in `backend/`, `customer/backend/` and `cdk/` ESLint configs; `local/customer-boundary` in `cdk/eslint.config.js`; isolation and IAM assertions in `cdk/tests/customer/Nyc311CustomerStack.test.ts` |
+| Coverage tooling | `scripts/rollup-coverage.js`, `scripts/publish-coverage.js` and `Nyc311CoveragePublishStep` include the fourth package |
+
+**`WebhookCustomerFacingOrders-Prod`**
+
+| Attribute | Role | Notes |
+|---|---|---|
+| `order_id` | PK | No sort key, no index, no stream |
+| `status` | | `OPEN` or `CLOSED` |
+| `request_id`, `external_unique_key`, `complaint_type`, `descriptor`, `borough`, `address`, `zip`, `reported_at`, `accepted_at` | | The public payload fields as received |
+| `resolved_at` | | Null while open |
+| `last_webhook_id` | | The `webhook-id` of the delivery that last wrote the row |
+| `updated_at` | | When that delivery was applied |
+| `expires_at` | TTL | Open: 60 days after `accepted_at`. Closed: 30 days after `resolved_at` |
+
+How a delivery is applied:
+
+| Delivery | Write | Result |
+|---|---|---|
+| `ORDER_ACCEPTED`, order unknown | Put if no row exists | Row created `OPEN` |
+| `ORDER_ACCEPTED`, row exists (a repeat, or it arrived after the resolve) | The same put fails its condition | Nothing changes; still answers `200` |
+| `ORDER_RESOLVED` | Unconditional put | Row is `CLOSED`, created if the accept never arrived |
+| Any other event type | None | Acknowledged with `200` and ignored |
+| Bad signature, stale timestamp, or no `webhook-id` | None | `401`; the bureau retries |
+| Signed but unreadable body | None | `400`; the bureau retries, then dead-letters |
+
+**Where the build differs from what was discussed**
+
+- **The table is destroyed with the stack, with no point-in-time
+  recovery and no deletion protection.** Its contents can be rebuilt with
+  the bureau's replay script, and a retained, fixed-name table would block
+  a clean retry if the stack's first deploy failed part-way.
+- **The customer stack has no alarm.** A listener that is down or
+  rejecting deliveries shows up on the bureau side as the delivery DLQ
+  alarm after a day of retries. That keeps the customer stack free of
+  paid alarms, at the cost of a day's delay in noticing.
+- **The listener may only write.** Its role has `PutItem` on its own
+  table and `GetParameter` on its own secret, nothing else. The DAO has a
+  `getOrder` method for later use that the listener's role cannot call.
+- **`cdk/pipeline/` is exempt from the path-string lint rule** (it must
+  name `customer/backend` to build it) but not from the import ban.
+- **Constants the bureau also defines are copied** into
+  `cdk/customer/customerConfig.ts` — the hosted zone id, the root domain,
+  the Lambda bundling options — because `cdk/customer/` imports no bureau
+  directory. If the hosted zone is ever recreated, its id changes in two
+  places.
+- **Local `cdk synth` / `cdk diff` (`bin/app.ts`) do not include the
+  customer stack.** It is only assembled by the pipeline app
+  (`npm run synth:pipeline`).
+- **There is no Test customer**, so the listener's first real traffic is
+  in Prod. Its signature check is tested against the reference
+  implementation, and the bureau's Test sink runs the same protocol.
+
+**Still open**
+
+- [ ] The manual launch steps in Appendix I (bureau Prod registration
+      key, customer signing secret, registration, verification).
+- [ ] The Test sink's manual steps in Appendix H.

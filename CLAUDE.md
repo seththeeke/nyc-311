@@ -9,11 +9,16 @@ gets built — treat it as binding.
 
 ## 1. Repository Structure
 
-The repo root will contain exactly three top-level working directories:
+The repo root will contain exactly four top-level working directories:
 
 - `web-app/` — React + Vite SPA
 - `backend/` — Lambda/application code
 - `cdk/` — AWS CDK (TypeScript) infrastructure
+- `customer/` — the simulated customer (`13-customer-simulation.md`), a
+  real outsider to the bureau. Holds one package, `customer/backend/`
+  (§5.4). Its infrastructure lives in `cdk/customer/` (§5.3). Added
+  2026-10-13; the Directory Lock below applies to it exactly as it does
+  to the other three.
 - `docs/` - design docs, prompts, and other documents for the app
 
 No further structure exists inside any of these yet.
@@ -48,7 +53,8 @@ The documents folder is freeform with few rules and contains design docs, prompt
 
 ## 2. Operational Loop (Definition of Done)
 
-No task touching `web-app/`, `backend/`, or `cdk/` is considered complete
+No task touching `web-app/`, `backend/`, `cdk/`, or `customer/backend/` is
+considered complete
 until ALL of the following have been done, in this run, after the final
 code change — not asserted, not assumed from a prior run:
 
@@ -378,8 +384,36 @@ There is a single stack for the entire application. We will not create another s
 CodePipeline (`aws-code-pipeline-plan.md`) is CI/CD tooling, not
 application infrastructure, and is permitted its own CloudFormation stack
 (`Nyc311PipelineStack`, under `cdk/pipeline/`), separate from `Nyc311Stack`.
-This is the only standing exception to the single-stack rule; any further
-exception still requires the explicit-specification bar this rule sets.
+Any further exception still requires the explicit-specification bar this
+rule sets.
+
+**Second standing exception — the customer.** `Nyc311CustomerStack` (under
+`cdk/customer/`, `13-customer-simulation.md`) is its own stack, **Prod
+only**, deployed by its own `DeployCustomer` pipeline stage after
+`DeployProd`. It shares nothing with `Nyc311Stack`: its own HTTP API,
+certificate and domain, table, Lambdas and roles, with no cross-stack
+reference in either direction. The customer reaches the bureau only
+through public URLs. The one shared resource is a DNS record in the
+`boroughsim.com` hosted zone. Its Prod-only resources keep the `-Prod`
+suffix.
+
+**Customer boundary rules — all lint errors, not review conventions**
+(`cdk/eslint.config.js`):
+- Nothing outside `cdk/customer/` imports from it, except
+  `cdk/pipeline/Nyc311CustomerStage.ts`, the stage file that instantiates
+  the stack.
+- `cdk/customer/` imports no bureau construct directory.
+- `local/customer-boundary` bans a `customer` path segment in any string
+  in bureau CDK code and a `backend` path segment in any string under
+  `cdk/customer/` — a Lambda's code is named by a path string, which an
+  import ban alone would never catch. `cdk/customer/customerBackendRoot.ts`
+  is the one sanctioned file that names `customer/backend`.
+- `cdk/pipeline/` is CI tooling that builds and tests every package, so
+  the string rule does not apply to it (its commands name
+  `customer/backend`); the import ban still does.
+- A template test asserts the customer stack imports no values and names
+  no bureau resource; an IAM test asserts its roles reach only its own
+  resources.
 
 -> cdk
  -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`Nyc311-Test`, `Nyc311-Prod`), per the "single stack" rule above — not two different stack classes. The pipeline's own entrypoint (`bin/pipeline.ts`) is separate, per the standing exception above.
@@ -392,6 +426,7 @@ exception still requires the explicit-specification bar this rule sets.
  -> api - the public API Gateway (HTTP API) and its route/integration constructs, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
+ -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
 **Per-environment physical resource naming.** `Nyc311-Test` and `Nyc311-Prod`
@@ -439,6 +474,43 @@ target account/region is always explicit in the command itself.
 | `npm run synth` | `cdk synth --profile nyc311` — read-only, no Deploy Safety Gate confirmation needed (CLAUDE.md §3) |
 | `npm run diff` | `cdk diff --profile nyc311` — read-only, no confirmation needed |
 | `npm run deploy` | `cdk deploy --profile nyc311` — **mutates real AWS resources; requires explicit user confirmation immediately before every run, per CLAUDE.md §3** |
+
+### 5.4 customer/backend/
+
+The simulated customer's own npm package (`13-customer-simulation.md`). It
+has the same layering, rules and tooling as `backend/` (§5.2): controller →
+service → DAO, a zod schema at every trust boundary, lazily constructed
+clients, logging by layer, camelCase files with one primary export each,
+and ESLint with `no-explicit-any` and `local/comment-format`.
+
+**It imports nothing from outside `customer/backend/`, and nothing in
+`backend/` imports from `customer/`.** Shared helpers (`logger.ts`,
+`env.ts`, the `Dao` base, the error types) are copied, never imported.
+Both directions are lint errors (`no-restricted-imports` in each
+package's `eslint.config.js`), not review conventions.
+
+-> customer/backend
+ -> logger.ts, env.ts - copied from backend/
+ -> controller
+  -> webhook - the HTTP listener the bureau POSTs lifecycle events to
+ -> service - grouped into logical processing services
+ -> dao - grouped by the entity stored; dao.ts is the copied base
+  -> webhookCustomerFacingOrder - the customer's own row per order in play
+ -> models - one file each, TS type + zod schema, plus the error types
+ -> tests - mirrors the structure above
+
+### Building and Testing customer/backend
+
+Same as `backend/`: **Vitest** + `@vitest/coverage-v8`, AWS SDK calls mocked
+via `aws-sdk-client-mock`, **90% coverage gate, per file**. Lambda bundling
+happens in `cdk/customer/`, not here.
+
+| Command | Purpose |
+|---|---|
+| `npm run build` | `tsc --noEmit` — typecheck only, no bundle |
+| `npm run lint` | `eslint .` |
+| `npm run test` | `vitest run` |
+| `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
 
 ## 6. Coding Conventions
 
@@ -515,8 +587,8 @@ unset.
 
 ## 8. Coverage Rollup
 
-`web-app/`, `backend/`, and `cdk/` each produce their own local
-`coverage/index.html` (Vitest v8 HTML reporter, per each package's own
+`web-app/`, `backend/`, `cdk/`, and `customer/backend/` each produce their
+own local `coverage/index.html` (Vitest v8 HTML reporter, per each package's own
 Building-and-Testing section). A repo-root `package.json` — the only file
 at repo root outside `web-app/`, `backend/`, `cdk/`, `docs/` that isn't
 itself one of those locked directories — exposes one script that ties them
@@ -524,7 +596,7 @@ together:
 
 | Command | Purpose |
 |---|---|
-| `npm run coverage:rollup` (repo root) | Runs `scripts/rollup-coverage.js`, which reads whatever `coverage/index.html`/`coverage-summary.json` already exists in each package and writes `build/coverage/index.html` — one page linking to all three, with a package-wide lines/branches/functions/statements % table. |
+| `npm run coverage:rollup` (repo root) | Runs `scripts/rollup-coverage.js`, which reads whatever `coverage/index.html`/`coverage-summary.json` already exists in each package and writes `build/coverage/index.html` — one page linking to all four, with a package-wide lines/branches/functions/statements % table. |
 
 This is a **local dev convenience, not a build/deploy step** — nothing in
 `cdk/pipeline/Nyc311PipelineStack.ts` calls it, and it runs no tests itself

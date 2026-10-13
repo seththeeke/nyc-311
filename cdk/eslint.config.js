@@ -109,16 +109,123 @@ const commentFormatRule = {
   },
 };
 
+/* CLAUDE.md §5.3's customer boundary. A Lambda's code is named by a path
+   string, not an import, so an import ban alone would never catch bureau
+   infrastructure pointing at the customer's package or the reverse. This
+   reports any string or template literal containing the banned word as a
+   whole path segment (`customer/x`, `x/backend`, or the bare word, as
+   passed to path.join) — never a longer word like `customer-api`. */
+function hasPathSegment(text, segment) {
+  return new RegExp(`(^|[\\\\/])${segment}([\\\\/]|$)`).test(text);
+}
+
+/** @type {import("eslint").Rule.RuleModule} */
+const customerBoundaryRule = {
+  meta: {
+    type: "problem",
+    docs: { description: "No path string may cross the bureau/customer boundary." },
+    schema: [{ type: "object", properties: { bannedSegment: { type: "string" } }, required: ["bannedSegment"], additionalProperties: false }],
+    messages: {
+      crossing:
+        "A `{{segment}}` path segment in a string crosses the bureau/customer boundary (CLAUDE.md §5.3). Only cdk/customer/customerBackendRoot.ts may name the customer's package.",
+    },
+  },
+  create(context) {
+    const segment = context.options[0].bannedSegment;
+    const check = (node, text) => {
+      if (typeof text === "string" && hasPathSegment(text, segment)) {
+        context.report({ node, messageId: "crossing", data: { segment } });
+      }
+    };
+    return {
+      Literal(node) {
+        check(node, node.value);
+      },
+      TemplateElement(node) {
+        check(node, node.value.cooked);
+      },
+    };
+  },
+};
+
+/* Bureau application infrastructure and its tests — everything but
+   customer/ and pipeline/ (CI tooling, which must build every package). */
+const BUREAU_CDK_FILES = [
+  "bin/**/*.ts",
+  "stack/**/*.ts",
+  "lambda/**/*.ts",
+  "data/**/*.ts",
+  "api/**/*.ts",
+  "web/**/*.ts",
+  "warehouse/**/*.ts",
+  "auth/**/*.ts",
+  "step-function/**/*.ts",
+  "tests/{stack,lambda,data,api,web,warehouse,auth,step-function}/**/*.ts",
+];
+const CUSTOMER_CDK_FILES = ["customer/**/*.ts", "tests/customer/**/*.ts"];
+/* The one sanctioned file that names customer/backend, and its test. */
+const CUSTOMER_BACKEND_ROOT_FILES = ["customer/customerBackendRoot.ts", "tests/customer/customerBackendRoot.test.ts"];
+const NO_CUSTOMER_IMPORTS = {
+  group: ["**/customer/**"],
+  message: "Only cdk/pipeline/Nyc311CustomerStage.ts may import from cdk/customer/ (CLAUDE.md §5.3).",
+};
+const NO_BUREAU_IMPORTS = {
+  group: [
+    "**/stack/**",
+    "**/lambda/**",
+    "**/data/**",
+    "**/api/**",
+    "**/web/**",
+    "**/warehouse/**",
+    "**/auth/**",
+    "**/step-function/**",
+    "**/pipeline/**",
+    "**/bin/**",
+  ],
+  message: "cdk/customer/ imports no bureau construct directory — copy the constant instead (CLAUDE.md §5.3).",
+};
+
 module.exports = tseslint.config(
   {
     ignores: ["node_modules", "coverage", "cdk.out", "eslint.config.js"],
   },
   ...tseslint.configs.recommended,
   {
-    plugins: { local: { rules: { "comment-format": commentFormatRule } } },
+    plugins: { local: { rules: { "comment-format": commentFormatRule, "customer-boundary": customerBoundaryRule } } },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "local/comment-format": "error",
+    },
+  },
+  {
+    files: BUREAU_CDK_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
+      "local/customer-boundary": ["error", { bannedSegment: "customer" }],
+    },
+  },
+  {
+    /* The pipeline builds and tests every package, so it names them in
+       commands — but it still may not import the customer's constructs. */
+    files: ["pipeline/**/*.ts", "tests/pipeline/**/*.ts"],
+    ignores: ["pipeline/Nyc311CustomerStage.ts", "tests/pipeline/Nyc311CustomerStage.test.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
+    },
+  },
+  {
+    files: CUSTOMER_CDK_FILES,
+    ignores: CUSTOMER_BACKEND_ROOT_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_BUREAU_IMPORTS] }],
+      "local/customer-boundary": ["error", { bannedSegment: "backend" }],
+    },
+  },
+  {
+    /* The one sanctioned file naming customer/backend still imports nothing of the bureau's. */
+    files: CUSTOMER_BACKEND_ROOT_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_BUREAU_IMPORTS] }],
     },
   }
 );

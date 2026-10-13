@@ -109,6 +109,14 @@ const commentFormatRule = {
   },
 };
 
+/* CLAUDE.md §5.4: the bureau imports nothing from the customer's package.
+   Restated in the controller block below, since a later config object
+   replaces this rule's options rather than merging them. */
+const NO_CUSTOMER_IMPORTS = {
+  group: ["**/customer/**"],
+  message: "backend/ imports nothing from customer/ — the customer is a real outsider (CLAUDE.md §5.4).",
+};
+
 module.exports = tseslint.config(
   {
     ignores: ["node_modules", "coverage", "eslint.config.js"],
@@ -119,6 +127,7 @@ module.exports = tseslint.config(
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "local/comment-format": "error",
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
     },
   },
   {
@@ -131,6 +140,7 @@ module.exports = tseslint.config(
         "error",
         {
           patterns: [
+            NO_CUSTOMER_IMPORTS,
             {
               group: ["**/dao/**"],
               message:
