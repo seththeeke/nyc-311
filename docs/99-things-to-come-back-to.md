@@ -335,3 +335,10 @@ See [#87](https://github.com/seththeeke/nyc-311/issues/87) — fixed this
 run, closes on merge.
 
 ---
+
+## Bump 23 patch/minor-outdated deps in web-app/backend/cdk within semver ranges
+
+See [#93](https://github.com/seththeeke/nyc-311/issues/93) — fixed this
+run, closes on merge.
+
+---
