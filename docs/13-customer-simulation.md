@@ -898,6 +898,14 @@ How a delivery is applied:
 | Bad signature, stale timestamp, or no `webhook-id` | None | `401`; the bureau retries |
 | Signed but unreadable body | None | `400`; the bureau retries, then dead-letters |
 
+**Rollout note (2026-10-13/14).** The stage could not be added in one
+push. The pipeline builds with the command list from its previous
+deployment, so the first push (`4a80c55`) had no `npm ci` for
+`customer/backend` and could not bundle the customer Lambda. `9381cfc`
+landed the build command alone, the pipeline updated itself, and the
+`DeployCustomer` stage was restored in the commit after. Any future
+package added to Synth needs the same two steps.
+
 **Where the build differs from what was discussed**
 
 - **The table is destroyed with the stack, with no point-in-time

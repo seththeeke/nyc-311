@@ -211,6 +211,22 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
+  it("deploys the customer as its own stage after DeployProd, so the bureau's Prod deploy finishes first (13-customer-simulation.md)", () => {
+    const [pipeline] = Object.values(template.findResources("AWS::CodePipeline::Pipeline"));
+    const stages = pipeline.Properties.Stages as { Name: string; Actions: { Name: string; Configuration?: { StackName?: string } }[] }[];
+    const names = stages.map((stage) => stage.Name);
+
+    expect(names.indexOf("DeployCustomer")).toBe(names.indexOf("DeployProd") + 1);
+    const customerStage = stages[names.indexOf("DeployCustomer")];
+    const deployedStacks = customerStage.Actions.map((action) => action.Configuration?.StackName).filter(Boolean);
+    expect(new Set(deployedStacks)).toEqual(new Set(["Nyc311Customer-Prod"]));
+    /* And the bureau's stages never deploy it. */
+    for (const stageName of ["DeployTest", "DeployProd"]) {
+      const stage = stages[names.indexOf(stageName)];
+      expect(JSON.stringify(stage)).not.toContain("Nyc311Customer");
+    }
+  });
+
   it("lints and tests the customer package in Synth, returning to the repo root afterwards", () => {
     const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
       JSON.stringify(project.Properties.Source.BuildSpec)
