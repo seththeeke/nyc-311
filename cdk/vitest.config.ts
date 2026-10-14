@@ -60,6 +60,7 @@ export default defineConfig({
         "step-function/**/*.ts",
         "warehouse/**/*.ts",
         "auth/**/*.ts",
+        "customer/**/*.ts",
       ],
       exclude: [
         "**/*.d.ts",

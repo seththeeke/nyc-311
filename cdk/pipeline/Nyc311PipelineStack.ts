@@ -7,6 +7,7 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import type { Construct } from "constructs";
 import { Nyc311AppStage } from "./Nyc311AppStage";
+import { Nyc311CustomerStage } from "./Nyc311CustomerStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
 import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
@@ -89,6 +90,8 @@ export class Nyc311PipelineStack extends Stack {
       input: source,
       commands: [
         "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
+        /* The fourth package (13-customer-simulation.md). `cd ../..` — the shell persists across commands. */
+        "cd customer/backend && npm ci && npm run lint && npm run test:coverage && cd ../..",
         `cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build && cd ..`,
         /*
          * test:coverage:ci (not the plain test:coverage every other
@@ -242,6 +245,14 @@ export class Nyc311PipelineStack extends Stack {
     });
 
     /*
+     * 13-customer-simulation.md — the customer is its own stage, after
+     * DeployProd, so the bureau's Prod deploy has completed before the
+     * customer is touched and a failed customer deploy leaves it as it was.
+     * Prod only: there is no Test customer.
+     */
+    pipeline.addStage(new Nyc311CustomerStage(this, "DeployCustomer", { env }));
+
+    /*
      * Must build the pipeline before reaching into the underlying
      * `codepipeline.Pipeline` for notifications (CDK Pipelines README) —
      * also true for Nyc311PipelineStatusLambda below, which needs
@@ -335,6 +346,7 @@ export class Nyc311PipelineStack extends Stack {
           resources: [
             `arn:aws:cloudformation:${this.region}:${this.account}:stack/Nyc311-Test/*`,
             `arn:aws:cloudformation:${this.region}:${this.account}:stack/Nyc311-Prod/*`,
+            `arn:aws:cloudformation:${this.region}:${this.account}:stack/Nyc311Customer-Prod/*`,
           ],
         }),
       ],

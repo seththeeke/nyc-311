@@ -183,7 +183,7 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("also denies the nyc311 CLI user direct CloudFormation mutation on Nyc311-Test/Nyc311-Prod only, closing the AdministratorAccess fallback", () => {
+  it("also denies the nyc311 CLI user direct CloudFormation mutation on Nyc311-Test, Nyc311-Prod and the customer stack only, closing the AdministratorAccess fallback", () => {
     template.hasResourceProperties("AWS::IAM::Policy", {
       PolicyName: "Nyc311DenyDirectDeploy",
       Users: ["seththeeke-cli"],
@@ -203,11 +203,36 @@ describe("Nyc311PipelineStack", () => {
             Resource: [
               "arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311-Test/*",
               "arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311-Prod/*",
+              "arn:aws:cloudformation:us-east-1:178280182163:stack/Nyc311Customer-Prod/*",
             ],
           }),
         ]),
       }),
     });
+  });
+
+  it("deploys the customer as its own stage after DeployProd, so the bureau's Prod deploy finishes first (13-customer-simulation.md)", () => {
+    const [pipeline] = Object.values(template.findResources("AWS::CodePipeline::Pipeline"));
+    const stages = pipeline.Properties.Stages as { Name: string; Actions: { Name: string; Configuration?: { StackName?: string } }[] }[];
+    const names = stages.map((stage) => stage.Name);
+
+    expect(names.indexOf("DeployCustomer")).toBe(names.indexOf("DeployProd") + 1);
+    const customerStage = stages[names.indexOf("DeployCustomer")];
+    const deployedStacks = customerStage.Actions.map((action) => action.Configuration?.StackName).filter(Boolean);
+    expect(new Set(deployedStacks)).toEqual(new Set(["Nyc311Customer-Prod"]));
+    /* And the bureau's stages never deploy it. */
+    for (const stageName of ["DeployTest", "DeployProd"]) {
+      const stage = stages[names.indexOf(stageName)];
+      expect(JSON.stringify(stage)).not.toContain("Nyc311Customer");
+    }
+  });
+
+  it("lints and tests the customer package in Synth, returning to the repo root afterwards", () => {
+    const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
+      JSON.stringify(project.Properties.Source.BuildSpec)
+    );
+    const synthSpec = buildSpecs.find((spec) => spec.includes("npm run test:coverage:ci"));
+    expect(synthSpec).toContain("cd customer/backend && npm ci && npm run lint && npm run test:coverage && cd ../..");
   });
 
   it("wires the pipeline-status API/Lambda, scoped to this pipeline's own ARN", () => {

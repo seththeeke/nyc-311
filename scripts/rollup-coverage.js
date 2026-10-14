@@ -35,6 +35,7 @@ const PACKAGES = [
   { name: "backend", dir: "backend" },
   { name: "cdk", dir: "cdk" },
   { name: "web-app", dir: "web-app" },
+  { name: "customer/backend", dir: "customer/backend" },
 ];
 
 function readPackageCoverage(pkg) {

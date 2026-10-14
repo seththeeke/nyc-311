@@ -23,9 +23,10 @@ describe("WidgetSlot", () => {
     expect(screen.queryByText("WIP")).not.toBeInTheDocument();
   });
 
-  it("renders a FULL widget bare, with no card frame or badge for a LIVE one", () => {
+  it("renders a FULL widget bare, with no card frame or badge for a LIVE one", async () => {
     render(<WidgetSlot widgetId="FLEET_MAP" size="FULL" />);
-    expect(screen.getByTestId("fleet-map")).toBeInTheDocument();
+    /* FLEET_MAP is lazy() (widgetRegistry.ts); it resolves behind a Suspense boundary, not synchronously. */
+    expect(await screen.findByTestId("fleet-map")).toBeInTheDocument();
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
     expect(screen.queryByText("WIP")).not.toBeInTheDocument();
   });
@@ -53,14 +54,14 @@ describe("WidgetSlot", () => {
     }
   });
 
-  it("badges a WORK_IN_PROGRESS FULL widget in the corner", () => {
+  it("badges a WORK_IN_PROGRESS FULL widget in the corner", async () => {
     /* No FULL widget is WIP today; exercise the branch through a temporary registry entry. */
     const widget = getWidget("FLEET_MAP");
     const original = { status: widget.status };
     widget.status = "WORK_IN_PROGRESS";
     try {
       render(<WidgetSlot widgetId="FLEET_MAP" size="FULL" />);
-      expect(screen.getByText("WIP")).toBeInTheDocument();
+      expect(await screen.findByText("WIP")).toBeInTheDocument();
     } finally {
       widget.status = original.status;
     }

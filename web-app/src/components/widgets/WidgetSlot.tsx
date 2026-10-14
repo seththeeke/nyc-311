@@ -1,12 +1,27 @@
-import type { ReactElement } from "react";
+import { Suspense, type ReactElement } from "react";
 import type { WidgetId, WidgetSize } from "../../models/widget";
 import { getWidget, widgetSupportsSize } from "./widgetRegistry";
 import { WidgetCard } from "./WidgetCard";
 import { WipBadge } from "./WipBadge";
+import { SpinnerIcon } from "../icons";
 
 interface WidgetSlotProps {
   widgetId: WidgetId;
   size: WidgetSize;
+}
+
+/*
+ * A registry entry's component may be `lazy()`-wrapped (FLEET_MAP, to keep
+ * leaflet out of the eager main chunk — see widgetRegistry.ts), so every
+ * widget renders inside a Suspense boundary. The fallback only shows for
+ * that first dynamic-import fetch, not on every mount.
+ */
+function WidgetLoadingFallback(): ReactElement {
+  return (
+    <div className="flex h-full w-full items-center justify-center">
+      <SpinnerIcon className="h-6 w-6" />
+    </div>
+  );
 }
 
 /**
@@ -25,7 +40,9 @@ export function WidgetSlot({ widgetId, size }: WidgetSlotProps): ReactElement {
   if (size === "FULL") {
     return (
       <div className="relative h-full w-full">
-        <Component size={size} />
+        <Suspense fallback={<WidgetLoadingFallback />}>
+          <Component size={size} />
+        </Suspense>
         {isWip && (
           <div className="absolute top-3 right-3 z-[1000]">
             <WipBadge />
@@ -36,7 +53,9 @@ export function WidgetSlot({ widgetId, size }: WidgetSlotProps): ReactElement {
   }
   return (
     <WidgetCard title={widget.title} isWip={isWip} wide={widget.tileSpan === 2}>
-      <Component size={size} />
+      <Suspense fallback={<WidgetLoadingFallback />}>
+        <Component size={size} />
+      </Suspense>
     </WidgetCard>
   );
 }
