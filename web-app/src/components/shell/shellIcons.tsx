@@ -32,6 +32,14 @@ export const MapIcon = (p: IconProps): ReactElement => (
   </StrokeIcon>
 );
 
+export const CustomersIcon = (p: IconProps): ReactElement => (
+  <StrokeIcon {...p}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" />
+    <path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4M17.5 14.3c1.7.7 2.7 2.3 3 4.7" />
+  </StrokeIcon>
+);
+
 export const MonitorIcon = (p: IconProps): ReactElement => (
   <StrokeIcon {...p}>
     <path d="M3 12h4l2.5-6 4 12L16 12h5" />

@@ -948,3 +948,58 @@ package added to Synth needs the same two steps.
 - [ ] The Test sink's manual steps in Appendix H — not needed for now
       (decided 2026-10-13). Until they are run, Test has no subscriber and
       its integration check passes with a warning.
+
+### K. Customers page mock (2026-10-14)
+
+A frontend-only mock of §4, built to settle the experience and the read
+API it needs. No backend changes; nothing here is reviewed design yet.
+
+**Gate.** Flag `CUSTOMERS_TAB` (treatments `C` = hidden, `T1` = shown),
+created in Prod on 2026-10-14 with default `C`. The web-app evaluates it
+once per page load through the public `POST /feature-flags/{key}/treatment`
+route, so a change applies on refresh. While loading, missing or failed it
+reads as off. It gates both the sidebar entry (`FeatureGate`) and the route
+(`FeatureFlagRoute`, which sends a typed `/customers` home). Also created
+in Test on 2026-10-14, identically (default `C`), for local development
+against the Test API.
+Mock mode's sample flags default it to `T1`.
+
+**Layout.** Sidebar entry "Customers" directly under Map. Primary
+workspace: the ideas feed. Secondary workspace: the persona cards — the
+first route to drive that panel, via `components/shell/secondaryContent.tsx`
+(exact path → component; every other route keeps the widget tiles).
+
+**Interactions.** All selection lives in the URL (`?persona=`, `?order=`,
+`?type=`, `?idea=`), so both workspaces stay in step and any view can be
+linked:
+- A persona card focuses the feed on that persona and opens a spotlight
+  (backstory, all five dials, active hours, boroughs, version, and the
+  persona prompt behind a disclosure). Pressing it again clears it.
+- A persona's name on an idea does the same.
+- An idea's order chip narrows the feed to every idea about that order.
+- Type chips filter by idea type, with counts.
+- "Details" expands an idea: model, prompt version, tokens, persona
+  version, the 311 complaint number, and a link to the rest of its order.
+
+**Service contract the mock implies** (`web-app/src/services/customerService.ts`),
+on `https://customer-api.boroughsim.com`, all paginated as
+`{ items, nextCursor }`:
+
+| Route | Use |
+|---|---|
+| `GET /customers` | The persona list |
+| `GET /customers/{id}` | One persona (not yet used by the page) |
+| `GET /customers/{id}/ideas` | One persona's ideas, newest first |
+| `GET /ideas` | **New** — every persona's ideas, newest first, for the feed |
+
+Fields the page needs that §2 did not list: a one-line `tagline` per
+persona, and `idea_count` / `last_idea_at` (the A11 counters). The live
+client exists, but the routes do not, and the customer API has no CORS
+configuration yet — both are needed before the page can read real data.
+
+**Data mode.** The customer service reads `VITE_CUSTOMER_DATA_MODE`, falling
+back to `VITE_DATA_MODE`. Setting it to `mock` lets a live-mode dev server
+(real flags) show the sample customers. The pipeline's live build leaves it
+unset, so the mock and its test data are tree-shaken out and the
+live-bundle guard still passes; in a deployed environment with `T1`, the
+page shows its error state until the API exists.

@@ -7,8 +7,14 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly the three primary entries in order: Map, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "System Monitoring", "Admin"]);
+  it("has exactly four primary entries in order: Map, Customers, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Customers", "System Monitoring", "Admin"]);
+  });
+
+  it("gates only the Customers entry, on CUSTOMERS_TAB = T1", () => {
+    const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]).toMatchObject({ id: "CUSTOMERS", to: "/customers", featureFlag: { key: "CUSTOMERS_TAB", onTreatment: "T1" } });
   });
 
   it("lists the six monitoring items, with Test Coverage flagged external", () => {

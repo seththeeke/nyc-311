@@ -4,10 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { Link, MemoryRouter, useLocation } from "react-router-dom";
 import { Sidebar } from "../../../src/components/shell/Sidebar";
 import { ThemeProvider } from "../../../src/components/shell/ThemeProvider";
+import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
+/* Flagged menu entries (Customers) stay hidden here; their own tests turn them on. */
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
 const mockedUseAuth = vi.mocked(useAuth);
 
 function CurrentPath() {
@@ -247,3 +250,14 @@ describe("Sidebar brand", () => {
   });
 });
 
+describe("Sidebar flagged entries", () => {
+  it("shows Customers under Map only while CUSTOMERS_TAB is on, and highlights it on /customers", () => {
+    vi.mocked(useFeatureEnabled).mockReturnValue(true);
+    renderSidebar({ path: "/customers" });
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links.indexOf("Customers")).toBe(links.indexOf("Map") + 1);
+    expect(screen.getByRole("link", { name: "Customers" })).toHaveAttribute("aria-current", "page");
+    expect(useFeatureEnabled).toHaveBeenCalledWith("CUSTOMERS_TAB", "T1");
+    vi.mocked(useFeatureEnabled).mockReturnValue(false);
+  });
+});

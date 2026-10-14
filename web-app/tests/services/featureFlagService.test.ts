@@ -35,7 +35,7 @@ afterEach(() => {
 describe("featureFlagService — mock mode", () => {
   it("lists the baked flags sorted by key", async () => {
     const service = await loadService("mock");
-    expect((await service.listFeatureFlags()).map((flag) => flag.flag_key)).toEqual(["COST_MODEL", "FAILURE_INJECTION"]);
+    expect((await service.listFeatureFlags()).map((flag) => flag.flag_key)).toEqual(["COST_MODEL", "CUSTOMERS_TAB", "FAILURE_INJECTION"]);
   });
 
   it("creates, updates with a version check, and deletes", async () => {
