@@ -1,8 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { ulid } from "ulid";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
 import { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
 import { ConflictError, UnauthorizedError, ValidationError } from "../../models/errors";
@@ -17,7 +16,7 @@ import { WebhookSecretStore } from "./webhookSecretStore";
 
 /* Both constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookSubscriptionDao(): WebhookSubscriptionDao {
-  return new WebhookSubscriptionDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
+  return new WebhookSubscriptionDao(createDocumentClient(), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
 }
 
 function getSecretStore(): WebhookSecretStore {

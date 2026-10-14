@@ -322,6 +322,13 @@ closes on merge.
 
 ---
 
+## backend/service/ duplicates DynamoDBDocumentClient.from(new DynamoDBClient({})) 27 times across 19 files
+
+See [#91](https://github.com/seththeeke/nyc-311/issues/91) — fixed this run,
+closes on merge.
+
+---
+
 ## web-app: main chunk crosses 500 kB again — lazy-load FleetMapWidget (leaflet) out of the eager HomePage route
 
 See [#89](https://github.com/seththeeke/nyc-311/issues/89) — fixed this run,

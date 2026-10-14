@@ -1,10 +1,9 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { OrderDao } from "../../dao/order/orderDao";
 import { createCase } from "../case/caseService";
 import type { Order, OrderEvent, OrderRejectionReasonCode } from "../../models/order";
@@ -13,7 +12,7 @@ import { MockOrderPriorityAssigner, type OrderPriorityAssigner } from "./orderPr
 
 /* Constructed lazily inside evaluateOrder, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
 function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("ORDERS_TABLE_NAME"));
+  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
 }
 
 /**

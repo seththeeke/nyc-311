@@ -1,5 +1,3 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
   SchedulerClient,
@@ -9,6 +7,7 @@ import {
 } from "@aws-sdk/client-scheduler";
 import { logError, logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { NotFoundError, TerminalError } from "../../models/errors";
 import { warehouseJobDefinitionId, type WarehouseJobDefinition } from "../../models/warehouseJobDefinition";
@@ -41,9 +40,9 @@ interface ResolvedDeps {
 }
 
 function resolve(deps: WarehouseJobDefinitionDeps): ResolvedDeps {
-  const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   return {
-    jobRunsDao: deps.jobRunsDao ?? new WarehouseJobRunsDao(ddb, requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
+    jobRunsDao:
+      deps.jobRunsDao ?? new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
     s3Client: deps.s3Client ?? new S3Client({}),
     schedulerClient: deps.schedulerClient ?? new SchedulerClient({}),
     warehouseBucket: deps.warehouseBucket ?? requireEnv("JOB_RESULTS_BUCKET"),

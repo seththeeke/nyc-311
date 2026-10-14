@@ -1,7 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import type { Operator } from "../../models/operator";
 import type { CapacityStatus } from "../../models/capacityStatus";
@@ -9,7 +8,7 @@ import { NotFoundError, ValidationError } from "../../models/errors";
 
 /* Constructed lazily inside each exported function, not at module scope — per CLAUDE.md §5.2. */
 function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("OPERATORS_TABLE_NAME"));
+  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
 }
 
 /**

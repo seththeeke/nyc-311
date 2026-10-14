@@ -1,14 +1,13 @@
 import { ulid } from "ulid";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { UserDao } from "../../dao/user/userDao";
 import type { User } from "../../models/user";
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getDefaultUserDao(): UserDao {
-  return new UserDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("USERS_TABLE_NAME"));
+  return new UserDao(createDocumentClient(), requireEnv("USERS_TABLE_NAME"));
 }
 
 /** Dependencies for {@link getOrCreateUser} — defaults to this module's own singleton; tests override it with a mock. */

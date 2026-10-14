@@ -1,7 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { FeatureFlagDao } from "../../dao/featureFlag/featureFlagDao";
 import { NotFoundError } from "../../models/errors";
 import type {
@@ -14,7 +13,7 @@ import { evaluateTreatment } from "./treatmentEvaluator";
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getFeatureFlagDao(): FeatureFlagDao {
-  return new FeatureFlagDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("FEATURE_FLAGS_TABLE_NAME"));
+  return new FeatureFlagDao(createDocumentClient(), requireEnv("FEATURE_FLAGS_TABLE_NAME"));
 }
 
 export interface FeatureFlagServiceDeps {
