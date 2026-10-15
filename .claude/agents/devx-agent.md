@@ -132,9 +132,77 @@ acceptable.
 
 Track these as a TodoWrite list so progress is visible.
 
+### Pipeline check — first thing, every run
+
+Before anything else — before step 0, in NEW and REVISE mode alike — check
+whether `Nyc311Pipeline` is broken. A red pipeline blocks every deploy for
+everyone, so a broken pipeline **outranks every other kind of work you do**,
+including tending your open PRs and requested issues.
+
+Use these exact command forms, each run as **one line** (they are wrapped
+here for reading; the allowlist in `.claude/agent-settings/devx-agent.json`
+matches the prefix up to the subcommand). Everything here is read-only:
+
+```
+aws --profile nyc311 --region us-east-1 codepipeline list-pipeline-executions \
+  --pipeline-name Nyc311Pipeline --max-items 10 \
+  --query 'pipelineExecutionSummaries[].[pipelineExecutionId,status,sourceRevisions[0].revisionId,startTime]' \
+  --output text
+```
+
+Ignore `Superseded`, `Cancelled` and `Stopped` executions. The newest
+remaining one decides:
+
+- `Succeeded` or `InProgress` → healthy. Go on to step 0.
+- `Failed` → broken. Find the failing action and read its log:
+
+  ```
+  aws --profile nyc311 --region us-east-1 codepipeline list-action-executions \
+    --pipeline-name Nyc311Pipeline --filter pipelineExecutionId=<id> \
+    --query 'actionExecutionDetails[?status==`Failed`].[stageName,actionName,output.executionResult.externalExecutionId]' \
+    --output text
+  aws --profile nyc311 --region us-east-1 codebuild batch-get-builds --ids <externalExecutionId> \
+    --query 'builds[0].logs.[groupName,streamName]' --output text
+  aws --profile nyc311 --region us-east-1 logs get-log-events --log-group-name <group> \
+    --log-stream-name <stream> --start-from-head --limit 10000 \
+    --query 'events[].message' --output text
+  ```
+
+**Already in hand → don't duplicate it.** Skip the fix, note it in the final
+report, and carry on with the normal workflow if either holds:
+
+- `origin/main` has a commit newer than the failed execution's revision
+  (`git log`): a fix may already be in flight — its own execution decides.
+- An open PR or issue already addresses this failure (search
+  `gh pr list` / `gh issue list` for the failing action or error).
+
+**Otherwise the failure is this run's work.** It replaces both requested
+issues and your own investigation in step 1, and it is the **one exception to
+REVISE mode's no-new-work rule** — fix the pipeline first, then tend PRs.
+Everything else in the workflow still applies, with these specifics:
+
+- **Measure (step 2):** the baseline is the failing execution id, the failing
+  stage/action, and the exact error line from the log. The success criterion
+  is that the failing command passes. A broken build is pass/fail, which
+  satisfies absolute rule 5.
+- **Reproduce first.** Run the failing command locally exactly as the
+  pipeline does — the Synth step's commands are in
+  `cdk/pipeline/Nyc311PipelineStack.ts`. Watch for differences between your
+  machine and CodeBuild: an ignored local file such as `.env.local`, cached
+  `node_modules`, or a test that only fails on timing (an unhandled
+  rejection fails Vitest even when every test passes).
+- **Fix through a PR (steps 3–7)**, never by pushing to `main`, even to
+  unbreak it. Use the `[bugfi]` prefix and say in the PR body that the
+  pipeline stays red until the PR merges.
+- **Can't fix it within the absolute rules** (it needs an infrastructure
+  change, a manual step, or a self-mutation ordering only a human can
+  sequence)? File the ticket with the evidence, make no change, and lead the
+  final report with it.
+
 ### 0. Tend your open PRs first — every run, before any new work
 
-Your open PRs outrank new work. Before step 1, in **every** run (NEW or REVISE
+Your open PRs outrank new work — everything except a broken pipeline (the
+*Pipeline check* above). Before step 1, in **every** run (NEW or REVISE
 mode), list the PRs you own — open PRs whose head branch starts with `devx/`:
 
 ```
@@ -412,6 +480,8 @@ addressed/declined, pushed SHA, loop status.
 
 End your run with:
 
+- Pipeline check: healthy / broken and fixed in this run (PR URL) / broken
+  but already in hand (by what) / broken and not fixable here (ticket URL).
 - Step 0: per open `devx/` PR tended — conflicts resolved/left, comments
   addressed/declined, pushed SHA (or "no open PRs needed tending").
 - Whether this run's work came from a requested issue (and which) or your own

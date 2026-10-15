@@ -356,3 +356,10 @@ See [#99](https://github.com/seththeeke/nyc-311/issues/99) — fixed this
 run, closes on merge.
 
 ---
+
+## scripts/agent-worktree.sh's NODE_PKGS omits customer/backend — every worktree pays a cold npm install instead of the CoW clone the other 3 packages get
+
+See [#95](https://github.com/seththeeke/nyc-311/issues/95) — fixed this
+run, closes on merge.
+
+---
