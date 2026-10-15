@@ -1,9 +1,10 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
-import { AdminIcon, MapIcon, MonitorIcon } from "./shellIcons";
+import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../../models/featureTreatment";
+import { AdminIcon, CustomersIcon, MapIcon, MonitorIcon } from "./shellIcons";
 
 /*
- * The sidebar's three primary entries (12-UX-workspace-refactor.md §3.2),
+ * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
  * data-driven so the menu isn't inlined in JSX. `external` leaves aren't SPA
  * routes (the coverage report is separately hosted static HTML), so they open
  * in a new tab instead of routing inside the shell.
@@ -22,6 +23,8 @@ export interface MenuLinkEntry {
   /* Extra paths that should also highlight this entry (e.g. /about renders the map). */
   alsoActiveOn: readonly string[];
   icon: ComponentType<IconProps>;
+  /* Shown only while this flag resolves to `onTreatment`; the route has the matching FeatureFlagRoute guard. */
+  featureFlag?: { key: string; onTreatment: string };
 }
 
 export interface MenuSectionEntry {
@@ -39,6 +42,15 @@ export type MenuEntry = MenuLinkEntry | MenuSectionEntry;
 
 export const MENU: readonly MenuEntry[] = [
   { kind: "LINK", id: "MAP", label: "Map", to: "/", alsoActiveOn: ["/about"], icon: MapIcon },
+  {
+    kind: "LINK",
+    id: "CUSTOMERS",
+    label: "Customers",
+    to: "/customers",
+    alsoActiveOn: [],
+    icon: CustomersIcon,
+    featureFlag: { key: CUSTOMERS_TAB_FLAG, onTreatment: CUSTOMERS_TAB_ON },
+  },
   {
     kind: "SECTION",
     id: "MONITORING",

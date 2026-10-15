@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { SecondaryWorkspace } from "../../../src/components/shell/SecondaryWorkspace";
 import { WorkspaceProvider } from "../../../src/components/shell/WorkspaceProvider";
 import type { WidgetId } from "../../../src/models/widget";
 
+vi.mock("../../../src/components/customers/PersonaPanel", () => ({
+  PersonaPanel: () => <section aria-label="Customer personas">personas</section>,
+}));
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({
     locations: { operators: [{ current_activity: "WORKING" }, { current_activity: "WORKING" }, { current_activity: "IDLE" }] },
@@ -20,14 +24,30 @@ vi.mock("../../../src/hooks/useWorkspaceMetrics", async () => {
   return { useWorkspaceMetrics: () => ({ data: MOCK_WORKSPACE_METRICS, isPending: false, isError: false }) };
 });
 
-function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn()) {
+function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn(), path = "/") {
   render(
-    <WorkspaceProvider initialSecondaryWidgetIds={ids}>
-      <SecondaryWorkspace onCollapse={onCollapse} />
-    </WorkspaceProvider>,
+    <MemoryRouter initialEntries={[path]}>
+      <WorkspaceProvider initialSecondaryWidgetIds={ids}>
+        <SecondaryWorkspace onCollapse={onCollapse} />
+      </WorkspaceProvider>
+    </MemoryRouter>,
   );
   return onCollapse;
 }
+
+describe("SecondaryWorkspace — route content", () => {
+  it("shows the personas instead of the tiles on /customers", () => {
+    renderPanel(undefined, vi.fn(), "/customers");
+    expect(screen.getByRole("region", { name: "Customer personas" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Capacity" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the tiles on any other route, including /customers sub-paths", () => {
+    renderPanel(undefined, vi.fn(), "/customers/hawthorn");
+    expect(screen.queryByRole("region", { name: "Customer personas" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
+  });
+});
 
 describe("SecondaryWorkspace", () => {
   it("renders the default tiles top-to-bottom: live Capacity, the live metric tiles, Ingestion Volume, then live Fleet Utilization", () => {

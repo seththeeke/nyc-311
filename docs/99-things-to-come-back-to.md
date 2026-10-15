@@ -322,6 +322,13 @@ closes on merge.
 
 ---
 
+## backend/service/ duplicates DynamoDBDocumentClient.from(new DynamoDBClient({})) 27 times across 19 files
+
+See [#91](https://github.com/seththeeke/nyc-311/issues/91) — fixed this run,
+closes on merge.
+
+---
+
 ## web-app: main chunk crosses 500 kB again — lazy-load FleetMapWidget (leaflet) out of the eager HomePage route
 
 See [#89](https://github.com/seththeeke/nyc-311/issues/89) — fixed this run,
@@ -346,6 +353,13 @@ run, closes on merge.
 ## Bump 15 patch/minor-outdated deps in backend/web-app within existing semver ranges
 
 See [#97](https://github.com/seththeeke/nyc-311/issues/97) — fixed this
+run, closes on merge.
+
+---
+
+## scripts/agent-worktree.sh's NODE_PKGS omits customer/backend — every worktree pays a cold npm install instead of the CoW clone the other 3 packages get
+
+See [#95](https://github.com/seththeeke/nyc-311/issues/95) — fixed this
 run, closes on merge.
 
 ---

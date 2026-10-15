@@ -1,8 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { JobResultSchema, type JobResult } from "../../models/jobResult";
 import type { JobRunResultItem } from "../../models/jobRunResults";
@@ -38,10 +37,7 @@ async function fetchResultEnvelope(resultLocation: string, s3Client: S3Client): 
 export async function getJobResult(jobName: string, deps: GetJobResultDeps = {}): Promise<JobResult | null> {
   const jobRunsDao =
     deps.jobRunsDao ??
-    new WarehouseJobRunsDao(
-      DynamoDBDocumentClient.from(new DynamoDBClient({})),
-      requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")
-    );
+    new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
   const s3Client = deps.s3Client ?? new S3Client({});
 
   logInfo("GetJobResultStarted", { jobName });
@@ -70,10 +66,7 @@ export async function getJobResult(jobName: string, deps: GetJobResultDeps = {})
 export async function getJobRunResults(jobRunIds: string[], deps: GetJobResultDeps = {}): Promise<JobRunResultItem[]> {
   const jobRunsDao =
     deps.jobRunsDao ??
-    new WarehouseJobRunsDao(
-      DynamoDBDocumentClient.from(new DynamoDBClient({})),
-      requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")
-    );
+    new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
   const s3Client = deps.s3Client ?? new S3Client({});
 
   logInfo("GetJobRunResultsStarted", { jobRunIds });

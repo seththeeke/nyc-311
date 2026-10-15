@@ -1,15 +1,11 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import type { WarehouseJobRunListResponse } from "../../models/warehouseJobRun";
 
 function getDefaultJobRunsDao(): WarehouseJobRunsDao {
-  return new WarehouseJobRunsDao(
-    DynamoDBDocumentClient.from(new DynamoDBClient({})),
-    requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")
-  );
+  return new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
 }
 
 /* A page big enough to be useful on /data without ever needing pagination at 1 run/day. */

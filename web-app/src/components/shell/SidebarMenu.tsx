@@ -1,7 +1,8 @@
 import { useState, type ReactElement } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { MENU, linkIsActive, sectionContainsPath, type MenuSectionEntry } from "./menuConfig";
+import { MENU, linkIsActive, sectionContainsPath, type MenuLinkEntry, type MenuSectionEntry } from "./menuConfig";
+import { FeatureGate } from "./FeatureGate";
 import { SidebarAccordion } from "./SidebarAccordion";
 import { SidebarLink } from "./SidebarLink";
 
@@ -12,7 +13,7 @@ interface SidebarMenuProps {
 }
 
 /**
- * The three primary entries. Accordion open-state lives here: every section
+ * The primary entries; a flagged link appears only while its flag is on. Accordion open-state lives here: every section
  * starts expanded (plenty of room), and a section also re-opens when the route
  * moves inside it; the user can still close any of them.
  * The Admin lock is a UI cue only — `AdminRoute` and the API's JWT
@@ -45,20 +46,28 @@ export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProp
     setOpenIds(next);
   };
 
+  const renderLink = (entry: MenuLinkEntry): ReactElement => (
+    <SidebarLink
+      to={entry.to}
+      label={entry.label}
+      icon={entry.icon}
+      active={linkIsActive(entry, pathname)}
+      collapsed={collapsed}
+      onNavigate={onNavigate}
+    />
+  );
+
   return (
     <ul className="space-y-1">
       {MENU.map((entry) =>
         entry.kind === "LINK" ? (
-          <li key={entry.id}>
-            <SidebarLink
-              to={entry.to}
-              label={entry.label}
-              icon={entry.icon}
-              active={linkIsActive(entry, pathname)}
-              collapsed={collapsed}
-              onNavigate={onNavigate}
-            />
-          </li>
+          entry.featureFlag ? (
+            <FeatureGate key={entry.id} flagKey={entry.featureFlag.key} onTreatment={entry.featureFlag.onTreatment}>
+              <li>{renderLink(entry)}</li>
+            </FeatureGate>
+          ) : (
+            <li key={entry.id}>{renderLink(entry)}</li>
+          )
         ) : (
           <li key={entry.id}>
             <SidebarAccordion

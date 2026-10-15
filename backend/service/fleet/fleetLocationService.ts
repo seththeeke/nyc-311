@@ -1,7 +1,7 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { OperatorDao } from "../../dao/operator/operatorDao";
 import { OrderDao } from "../../dao/order/orderDao";
 import { LocationDao } from "../../dao/location/locationDao";
@@ -9,15 +9,6 @@ import type { FleetLocations, FleetCurrentOrder } from "../../models/fleetLocati
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { Location } from "../../models/location";
 import type { Order } from "../../models/order";
-
-/*
- * Constructed lazily inside getFleetLocations, not at module scope — per CLAUDE.md §5.2.
- * The three default DAOs share one client (one connection pool, one set of TLS handshakes)
- * and it's destroyed at the end of the call so sockets don't pile up across warm invocations.
- */
-function getDefaultClient(): DynamoDBDocumentClient {
-  return DynamoDBDocumentClient.from(new DynamoDBClient({}));
-}
 
 /* Same "fall back to the depot when a Location record has no lat/lng" rule as orderSchedulingService.ts's resolveJobLocation. */
 function toGpsLocation(location: Location): GpsLocation {
@@ -69,7 +60,7 @@ function buildRecentJobLocations(orders: Order[], locations: Map<string, Locatio
  */
 export async function getFleetLocations(deps: GetFleetLocationsDeps = {}): Promise<FleetLocations> {
   let client: DynamoDBDocumentClient | undefined;
-  const sharedClient = (): DynamoDBDocumentClient => (client ??= getDefaultClient());
+  const sharedClient = (): DynamoDBDocumentClient => (client ??= createDocumentClient());
   try {
     const operatorDao = deps.operatorDao ?? new OperatorDao(sharedClient(), requireEnv("OPERATORS_TABLE_NAME"));
     const orderDao = deps.orderDao ?? new OrderDao(sharedClient(), requireEnv("ORDERS_TABLE_NAME"));

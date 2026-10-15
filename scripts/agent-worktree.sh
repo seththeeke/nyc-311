@@ -46,7 +46,7 @@ COPY_UNTRACKED='.claude/settings.local.json
 web-app/.env.local'
 
 # Packages whose node_modules get CoW-cloned.
-NODE_PKGS='. web-app backend cdk'
+NODE_PKGS='. web-app backend cdk customer/backend'
 
 die() { printf 'agent-worktree: %s\n' "$*" >&2; exit 1; }
 

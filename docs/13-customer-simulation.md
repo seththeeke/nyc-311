@@ -1,12 +1,13 @@
 # The Customer — Simulated Support-Seekers + Bureau Lifecycle Webhooks
 
-> **Status (2026-10-13): the bureau-side webhook is built and pushed
-> (Appendix H), and the customer's first milestone — a webhook listener
-> and its order table in their own stack — is built (Appendix J).
-> Neither delivers anything until the manual launch steps in Appendix I
-> are run; those are still open.** Personas, ideas, the read API and the
-> UI are not started. Everything below this line is the 2026-10-05
-> capture as amended by the 2026-10-10 and 2026-10-13 reviews.
+> **Status (2026-10-14): the bureau webhook and the customer's first
+> milestone are live in Prod, and traffic is flowing.** The bureau
+> delivers `ORDER_ACCEPTED` and `ORDER_RESOLVED` to the customer's
+> listener, which records the orders in play in
+> `WebhookCustomerFacingOrders-Prod` (Appendices H, I and J). Personas,
+> ideas, the read API and the UI are not started. Everything below this
+> line is the 2026-10-05 capture as amended by the 2026-10-10 and
+> 2026-10-13 reviews.
 >
 > **Original status (2026-10-05): capture draft — nothing built, nothing final.**
 > Spec for [#58](https://github.com/seththeeke/nyc-311/issues/58), reshaped
@@ -800,22 +801,24 @@ listener receives nothing until every step below has been run**. Each
 command mutates real AWS resources or a live subscription — CLAUDE.md §3
 applies to each one.
 
-Status: not started. Tick these off here as they are done.
+**Status: complete (2026-10-14).** Steps 1–3 were run on 2026-10-13; delivery was verified the next day.
 
-- [ ] **0. Prerequisites deployed.** The bureau webhook is live in Prod
+- [x] **0. Prerequisites deployed** (confirmed 2026-10-14: `Nyc311Customer-Prod`
+      is `CREATE_COMPLETE`, the listener answers, and the bureau's
+      registration route rejects a call with no key). The bureau webhook is live in Prod
       (`Nyc311-Prod`, pushed 2026-10-11) and `Nyc311Customer-Prod` has
       deployed through the `DeployCustomer` stage (pushed 2026-10-13), so
       `https://customer-api.boroughsim.com/webhooks/bureau` resolves. Before
       step 2 it answers `500` to anything, because it has no secret to
       verify with.
-- [ ] **1. Create the bureau's Prod registration key** (Appendix H, step 1,
+- [x] **1. Create the bureau's Prod registration key** (Appendix H, step 1,
       Prod variant). Independent of the customer; can be done any time.
 
       ```sh
       aws ssm put-parameter --profile nyc311 --type SecureString \
         --name /nyc311/prod/webhook/registration-key --value "$(openssl rand -base64 32)"
       ```
-- [ ] **2. Create the customer's signing secret.** Keep `$SIGNING_SECRET`
+- [x] **2. Create the customer's signing secret.** Keep `$SIGNING_SECRET`
       in the shell for step 3; it is not recoverable from the bureau side.
 
       ```sh
@@ -823,7 +826,9 @@ Status: not started. Tick these off here as they are done.
       aws ssm put-parameter --profile nyc311 --type SecureString \
         --name /customer/prod/webhook/signing-secret --value "$SIGNING_SECRET"
       ```
-- [ ] **3. Register the customer with the bureau.** Expect `201` and a body
+- [x] **3. Register the customer with the bureau** (2026-10-13; subscription
+      `01M4VYGS6AE6TPBH5W39BCENJ1`, `the-customer`, `ACTIVE`, both event
+      types). Expect `201` and a body
       with `"status":"ACTIVE"`; note the `subscription_id`.
 
       ```sh
@@ -833,7 +838,10 @@ Status: not started. Tick these off here as they are done.
         -H "content-type: application/json" -H "x-api-key: $KEY" \
         -d "{\"name\":\"the-customer\",\"callback_url\":\"https://customer-api.boroughsim.com/webhooks/bureau\",\"event_types\":[\"ORDER_ACCEPTED\",\"ORDER_RESOLVED\"],\"secret\":\"$SIGNING_SECRET\"}"
       ```
-- [ ] **4. Verify.** Prod accepts an order roughly every 15 minutes. After
+- [x] **4. Verify** (2026-10-14: 166 rows in
+      `WebhookCustomerFacingOrders-Prod`, 123 `OPEN` and 43 `CLOSED`; 166
+      delivery attempts in the previous 24 hours, every one `DELIVERED`
+      with a `200`; both webhook DLQs empty). Prod accepts an order roughly every 15 minutes. After
       the next one, rows should appear:
 
       ```sh
@@ -933,8 +941,65 @@ package added to Synth needs the same two steps.
   in Prod. Its signature check is tested against the reference
   implementation, and the bureau's Test sink runs the same protocol.
 
-**Still open**
+**Launch**
 
-- [ ] The manual launch steps in Appendix I (bureau Prod registration
-      key, customer signing secret, registration, verification).
-- [ ] The Test sink's manual steps in Appendix H.
+- [x] The manual launch steps in Appendix I — complete 2026-10-14;
+      deliveries verified end to end in Prod.
+- [ ] The Test sink's manual steps in Appendix H — not needed for now
+      (decided 2026-10-13). Until they are run, Test has no subscriber and
+      its integration check passes with a warning.
+
+### K. Customers page mock (2026-10-14)
+
+A frontend-only mock of §4, built to settle the experience and the read
+API it needs. No backend changes; nothing here is reviewed design yet.
+
+**Gate.** Flag `CUSTOMERS_TAB` (treatments `C` = hidden, `T1` = shown),
+created in Prod on 2026-10-14 with default `C`. The web-app evaluates it
+once per page load through the public `POST /feature-flags/{key}/treatment`
+route, so a change applies on refresh. While loading, missing or failed it
+reads as off. It gates both the sidebar entry (`FeatureGate`) and the route
+(`FeatureFlagRoute`, which sends a typed `/customers` home). Also created
+in Test on 2026-10-14, identically (default `C`), for local development
+against the Test API.
+Mock mode's sample flags default it to `T1`.
+
+**Layout.** Sidebar entry "Customers" directly under Map. Primary
+workspace: the ideas feed. Secondary workspace: the persona cards — the
+first route to drive that panel, via `components/shell/secondaryContent.tsx`
+(exact path → component; every other route keeps the widget tiles).
+
+**Interactions.** All selection lives in the URL (`?persona=`, `?order=`,
+`?type=`, `?idea=`), so both workspaces stay in step and any view can be
+linked:
+- A persona card focuses the feed on that persona and opens a spotlight
+  (backstory, all five dials, active hours, boroughs, version, and the
+  persona prompt behind a disclosure). Pressing it again clears it.
+- A persona's name on an idea does the same.
+- An idea's order chip narrows the feed to every idea about that order.
+- Type chips filter by idea type, with counts.
+- "Details" expands an idea: model, prompt version, tokens, persona
+  version, the 311 complaint number, and a link to the rest of its order.
+
+**Service contract the mock implies** (`web-app/src/services/customerService.ts`),
+on `https://customer-api.boroughsim.com`, all paginated as
+`{ items, nextCursor }`:
+
+| Route | Use |
+|---|---|
+| `GET /customers` | The persona list |
+| `GET /customers/{id}` | One persona (not yet used by the page) |
+| `GET /customers/{id}/ideas` | One persona's ideas, newest first |
+| `GET /ideas` | **New** — every persona's ideas, newest first, for the feed |
+
+Fields the page needs that §2 did not list: a one-line `tagline` per
+persona, and `idea_count` / `last_idea_at` (the A11 counters). The live
+client exists, but the routes do not, and the customer API has no CORS
+configuration yet — both are needed before the page can read real data.
+
+**Data mode.** The customer service reads `VITE_CUSTOMER_DATA_MODE`, falling
+back to `VITE_DATA_MODE`. Setting it to `mock` lets a live-mode dev server
+(real flags) show the sample customers. The pipeline's live build leaves it
+unset, so the mock and its test data are tree-shaken out and the
+live-bundle guard still passes; in a deployed environment with `T1`, the
+page shows its error state until the API exists.

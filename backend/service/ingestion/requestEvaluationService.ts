@@ -1,7 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
+import { createDocumentClient } from "../../dynamoClient";
 import { RequestDao } from "../../dao/request/requestDao";
 import { LocationDao } from "../../dao/location/locationDao";
 import { OrderDao } from "../../dao/order/orderDao";
@@ -9,13 +8,13 @@ import type { Request } from "../../models/request";
 
 /* Constructed lazily inside evaluateRequest, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
 function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("REQUESTS_TABLE_NAME"));
+  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
 }
 function getDefaultLocationDao(): LocationDao {
-  return new LocationDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("LOCATIONS_TABLE_NAME"));
+  return new LocationDao(createDocumentClient(), requireEnv("LOCATIONS_TABLE_NAME"));
 }
 function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("ORDERS_TABLE_NAME"));
+  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
 }
 
 /**
