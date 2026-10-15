@@ -349,3 +349,10 @@ See [#93](https://github.com/seththeeke/nyc-311/issues/93) — fixed this
 run, closes on merge.
 
 ---
+
+## web-app test:coverage exits 1: eager Promise.reject in useFeatureTreatment.test.tsx trips Vitest's unhandled-rejection detector
+
+See [#99](https://github.com/seththeeke/nyc-311/issues/99) — fixed this
+run, closes on merge.
+
+---

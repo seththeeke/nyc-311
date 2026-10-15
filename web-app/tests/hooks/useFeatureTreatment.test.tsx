@@ -34,9 +34,18 @@ describe("useFeatureEnabled", () => {
     await waitFor(() => expect(result.current).toBe(true));
   });
 
+  /*
+   * Outcomes are thunks, not promises: a bare `Promise.reject(...)` in the
+   * array literal rejects immediately, before the loop even starts, and sat
+   * unhandled through the prior iterations' `waitFor` cycles — tripping
+   * Vitest's unhandled-rejection detector and failing `test:coverage` even
+   * though every assertion passed. Building it inside the loop means it's
+   * created and awaited by the same `renderHook` call, with no gap.
+   */
   it("stays false for control, a missing flag, or a failed lookup — without retrying", async () => {
-    for (const outcome of [Promise.resolve("C"), Promise.resolve(null), Promise.reject(new Error("HTTP 500"))]) {
-      mockedGet.mockReset().mockReturnValue(outcome);
+    const outcomes = [() => Promise.resolve("C"), () => Promise.resolve(null), () => Promise.reject(new Error("HTTP 500"))];
+    for (const outcome of outcomes) {
+      mockedGet.mockReset().mockReturnValue(outcome());
       const { result } = renderHook(() => useFeatureEnabled("CUSTOMERS_TAB", "T1"), { wrapper });
       await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(1));
       expect(result.current).toBe(false);
