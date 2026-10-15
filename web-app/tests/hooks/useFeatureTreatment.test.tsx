@@ -35,8 +35,14 @@ describe("useFeatureEnabled", () => {
   });
 
   it("stays false for control, a missing flag, or a failed lookup — without retrying", async () => {
-    for (const outcome of [Promise.resolve("C"), Promise.resolve(null), Promise.reject(new Error("HTTP 500"))]) {
-      mockedGet.mockReset().mockReturnValue(outcome);
+    /* Factories, not promises: a rejected promise built up front is an unhandled rejection before the hook ever awaits it. */
+    const outcomes: (() => Promise<string | null>)[] = [
+      () => Promise.resolve("C"),
+      () => Promise.resolve(null),
+      () => Promise.reject(new Error("HTTP 500")),
+    ];
+    for (const outcome of outcomes) {
+      mockedGet.mockReset().mockImplementation(outcome);
       const { result } = renderHook(() => useFeatureEnabled("CUSTOMERS_TAB", "T1"), { wrapper });
       await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(1));
       expect(result.current).toBe(false);
