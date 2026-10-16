@@ -1,6 +1,6 @@
 import type { FeatureFlag } from "../models/featureFlag";
 
-/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Customers page gate, and a plain on/off one. */
+/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Customers and Mapv2 page gates, and a plain on/off one. */
 export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
   {
     flag_key: "COST_MODEL",
@@ -36,6 +36,18 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
     version: 1,
     created_at: "2026-09-27T12:00:00.000Z",
     updated_at: "2026-09-27T12:00:00.000Z",
+    updated_by: "01MOCKADMIN",
+  },
+  {
+    flag_key: "MAP_V2",
+    description: "Mapv2, the 3-D city map. C = hidden, T1 = alongside the classic map, T2 = replaces it. T1 here so mock mode shows both.",
+    treatments: ["C", "T1", "T2"],
+    default_treatment: "T1",
+    overrides: [],
+    allocations: [],
+    version: 1,
+    created_at: "2026-10-15T12:00:00.000Z",
+    updated_at: "2026-10-15T12:00:00.000Z",
     updated_by: "01MOCKADMIN",
   },
 ];

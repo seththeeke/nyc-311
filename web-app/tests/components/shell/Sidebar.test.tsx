@@ -1,16 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link, MemoryRouter, useLocation } from "react-router-dom";
 import { Sidebar } from "../../../src/components/shell/Sidebar";
 import { ThemeProvider } from "../../../src/components/shell/ThemeProvider";
-import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
+import { useFeatureTreatment } from "../../../src/hooks/useFeatureTreatment";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* Flagged menu entries (Residents) stay hidden here; their own tests turn them on. */
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
+/* No flag resolves here, so show-on entries (Mapv2, Residents) stay hidden; their own tests set treatments. */
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
+  useFeatureEnabled: vi.fn(() => false),
+}));
+
+/** Resolves each flag key to the given treatment; any other flag reads as missing. */
+function withTreatments(treatments: Record<string, string>): void {
+  vi.mocked(useFeatureTreatment).mockImplementation((key) => ({ treatment: treatments[key] ?? null, isLoading: false }));
+}
 const mockedUseAuth = vi.mocked(useAuth);
 
 function CurrentPath() {
@@ -251,14 +259,34 @@ describe("Sidebar brand", () => {
 });
 
 describe("Sidebar flagged entries", () => {
+  afterEach(() => withTreatments({}));
+
   it("shows Residents under Map only while CUSTOMERS_TAB is on, and highlights it on an Idea Detail view", () => {
-    vi.mocked(useFeatureEnabled).mockReturnValue(true);
+    withTreatments({ CUSTOMERS_TAB: "T1" });
     renderSidebar({ path: "/residents/hawthorn/ideas/01K7IDEA0014" });
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     expect(links.indexOf("Residents")).toBe(links.indexOf("Map") + 1);
     expect(screen.getByRole("link", { name: "Residents" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Map" })).not.toHaveAttribute("aria-current");
-    expect(useFeatureEnabled).toHaveBeenCalledWith("CUSTOMERS_TAB", "T1");
-    vi.mocked(useFeatureEnabled).mockReturnValue(false);
+    expect(useFeatureTreatment).toHaveBeenCalledWith("CUSTOMERS_TAB");
+  });
+
+  it("MAP_V2 = T1: shows Mapv2 directly under the classic Map, highlighted on a job dive-in", () => {
+    withTreatments({ MAP_V2: "T1" });
+    renderSidebar({ path: "/mapv2/job/01MOCKORDER001" });
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links.indexOf("Mapv2")).toBe(links.indexOf("Map") + 1);
+    expect(links).not.toContain("Residents");
+    expect(screen.getByRole("link", { name: "Mapv2" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("MAP_V2 = T2: hides the classic Map and renames Mapv2 to Map, still at /mapv2 and active on /about", () => {
+    withTreatments({ MAP_V2: "T2" });
+    renderSidebar({ path: "/about" });
+    const maps = screen.getAllByRole("link", { name: "Map" });
+    expect(maps).toHaveLength(1);
+    expect(maps[0]).toHaveAttribute("href", "/mapv2");
+    expect(maps[0]).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("link", { name: "Mapv2" })).not.toBeInTheDocument();
   });
 });

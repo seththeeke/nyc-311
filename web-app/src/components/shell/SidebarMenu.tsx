@@ -2,7 +2,7 @@ import { useState, type ReactElement } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { MENU, linkIsActive, sectionContainsPath, type MenuLinkEntry, type MenuSectionEntry } from "./menuConfig";
-import { FeatureGate } from "./FeatureGate";
+import { FlaggedMenuLink } from "./FlaggedMenuLink";
 import { SidebarAccordion } from "./SidebarAccordion";
 import { SidebarLink } from "./SidebarLink";
 
@@ -13,7 +13,7 @@ interface SidebarMenuProps {
 }
 
 /**
- * The primary entries; a flagged link appears only while its flag is on. Accordion open-state lives here: every section
+ * The primary entries; a flagged link is shown, hidden or relabelled by its flag. Accordion open-state lives here: every section
  * starts expanded (plenty of room), and a section also re-opens when the route
  * moves inside it; the user can still close any of them.
  * The Admin lock is a UI cue only — `AdminRoute` and the API's JWT
@@ -62,9 +62,7 @@ export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProp
       {MENU.map((entry) =>
         entry.kind === "LINK" ? (
           entry.featureFlag ? (
-            <FeatureGate key={entry.id} flagKey={entry.featureFlag.key} onTreatment={entry.featureFlag.onTreatment}>
-              <li>{renderLink(entry)}</li>
-            </FeatureGate>
+            <FlaggedMenuLink key={entry.id} entry={{ ...entry, featureFlag: entry.featureFlag }} render={renderLink} />
           ) : (
             <li key={entry.id}>{renderLink(entry)}</li>
           )

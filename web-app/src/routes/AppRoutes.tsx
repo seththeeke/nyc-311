@@ -1,11 +1,13 @@
 import { lazy, Suspense, type ReactElement } from "react";
-import { Route, Routes } from "react-router-dom";
 import { HomePage } from "../components/pages/HomePage";
 import { PublicRoute } from "./PublicRoute";
 import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
-import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../models/featureTreatment";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON, MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../models/featureTreatment";
+import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
+import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/customers/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
 
@@ -31,6 +33,8 @@ const LambdaMonitoringPage = lazy(() =>
 const IntegrationTestReportPage = lazy(() =>
   import("../components/pages/IntegrationTestReportPage").then((m) => ({ default: m.IntegrationTestReportPage }))
 );
+/* Mapv2 pulls in MapLibre and Three.js. One `/*` route, not one per path, so diving into a job never remounts the city behind it. */
+const MapV2Page = lazy(() => import("../components/pages/MapV2Page").then((m) => ({ default: m.MapV2Page })));
 const ResidentsPage = lazy(() =>
   import("../components/pages/ResidentsPage").then((m) => ({ default: m.ResidentsPage }))
 );
@@ -72,7 +76,7 @@ export function AppRoutes(): ReactElement {
           path="/"
           element={
             <PublicRoute>
-              <HomePage />
+              <MapV2TakeoverRoute classic={<HomePage />} takeover={<Navigate to={MAP_V2_PATH} replace />} />
             </PublicRoute>
           }
         />
@@ -80,14 +84,31 @@ export function AppRoutes(): ReactElement {
           path="/about"
           element={
             <PublicRoute>
-              <HomePage />
+              <MapV2TakeoverRoute
+                classic={<HomePage />}
+                takeover={
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <MapV2Page />
+                  </Suspense>
+                }
+              />
             </PublicRoute>
+          }
+        />
+        <Route
+          path={`${MAP_V2_PATH}/*`}
+          element={
+            <FeatureFlagRoute flagKey={MAP_V2_FLAG} onTreatments={[MAP_V2_ON, MAP_V2_TAKEOVER]}>
+              <Suspense fallback={<PageLoadingFallback />}>
+                <MapV2Page />
+              </Suspense>
+            </FeatureFlagRoute>
           }
         />
         <Route
           path={RESIDENTS_PATH}
           element={
-            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatment={CUSTOMERS_TAB_ON}>
+            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <ResidentsPage />
               </Suspense>
@@ -97,7 +118,7 @@ export function AppRoutes(): ReactElement {
         <Route
           path={IDEA_DETAIL_PATTERN}
           element={
-            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatment={CUSTOMERS_TAB_ON}>
+            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
               <Suspense fallback={<PageLoadingFallback />}>
                 <ResidentIdeaPage />
               </Suspense>
