@@ -69,7 +69,7 @@ if [ -z "${AGENT_SCHED_REEXEC:-}" ]; then
       after=$(git -C "$PRIMARY" rev-parse HEAD)
       if [ "$before" != "$after" ]; then
         log "primary fast-forwarded ${before%"${before#???????}"}..${after%"${after#???????}"}"
-        for pkg in . web-app backend cdk; do
+        for pkg in . web-app backend cdk customer/backend; do
           if git -C "$PRIMARY" diff --quiet "$before" "$after" -- "$pkg/package-lock.json"; then
             continue
           fi

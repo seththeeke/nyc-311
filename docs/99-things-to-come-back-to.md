@@ -363,3 +363,10 @@ See [#95](https://github.com/seththeeke/nyc-311/issues/95) — fixed this
 run, closes on merge.
 
 ---
+
+## scripts/agent-scheduled-run.sh and docs/agent-automation-setup.md still omit customer/backend from npm ci — Operational Loop can't run there in a fresh worktree
+
+See [#103](https://github.com/seththeeke/nyc-311/issues/103) — fixed this
+run, closes on merge.
+
+---
