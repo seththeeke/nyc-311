@@ -5,12 +5,7 @@ import { RemoveCapacityParamsSchema } from "../../models/capacityRequest";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import { removeCapacity } from "../../service/capacity/capacityService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `DELETE /capacity/{operator_id}` (`10-capacity-modeling-and-integration.md`

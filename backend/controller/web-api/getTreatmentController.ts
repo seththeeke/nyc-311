@@ -4,12 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { NotFoundError } from "../../models/errors";
 import { FlagKeyParamsSchema, TreatmentRequestSchema, type TreatmentResponse } from "../../models/featureFlag";
 import { evaluateFeatureFlag } from "../../service/featureFlag/featureFlagService";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `POST /feature-flags/{flag_key}/treatment` (`11-street-condition-implementation.md`

@@ -5,12 +5,7 @@ import { JobRunResultsRequestSchema } from "../../models/warehouseJobRunResultsR
 import { ValidationError } from "../../models/errors";
 import { getJobRunResults } from "../../service/analytics/jobResultService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `POST /admin/warehouse/job-runs/results` (`7-data-warehousing.md` §12b's

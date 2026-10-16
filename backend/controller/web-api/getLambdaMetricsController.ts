@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { getLambdaHealth } from "../../service/monitoring/lambdaMetricsService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /lambda-metrics` entry point — the Lambda health tile added after

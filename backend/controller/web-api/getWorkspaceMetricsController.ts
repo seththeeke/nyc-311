@@ -2,12 +2,7 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
 import { getWorkspaceMetrics } from "../../service/analytics/workspaceMetricsService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /workspace/metrics` — the secondary workspace's metric tiles,
