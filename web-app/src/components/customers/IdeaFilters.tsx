@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { IDEA_TYPES, type IdeaType } from "../../models/customerIdea";
-import { IDEA_TYPE_STYLES } from "./customerFormat";
+import { IDEA_TYPE_LABELS } from "./customerFormat";
 
 interface IdeaFiltersProps {
   ideaType: IdeaType | null;
@@ -29,7 +29,7 @@ export function IdeaFilters({ ideaType, counts, total, onSelectType }: IdeaFilte
           onClick={() => onSelectType(ideaType === type ? null : type)}
           className={chipClass(ideaType === type)}
         >
-          {IDEA_TYPE_STYLES[type].label} {counts[type]}
+          {IDEA_TYPE_LABELS[type]} {counts[type]}
         </button>
       ))}
     </div>

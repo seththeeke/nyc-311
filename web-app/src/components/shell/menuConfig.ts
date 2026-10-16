@@ -1,7 +1,8 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
 import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../../models/featureTreatment";
-import { AdminIcon, CustomersIcon, MapIcon, MonitorIcon } from "./shellIcons";
+import { RESIDENTS_PATH } from "../customers/residentRoutes";
+import { AdminIcon, MapIcon, MonitorIcon, ResidentsIcon } from "./shellIcons";
 
 /*
  * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
@@ -44,11 +45,11 @@ export const MENU: readonly MenuEntry[] = [
   { kind: "LINK", id: "MAP", label: "Map", to: "/", alsoActiveOn: ["/about"], icon: MapIcon },
   {
     kind: "LINK",
-    id: "CUSTOMERS",
-    label: "Customers",
-    to: "/customers",
+    id: "RESIDENTS",
+    label: "Residents",
+    to: RESIDENTS_PATH,
     alsoActiveOn: [],
-    icon: CustomersIcon,
+    icon: ResidentsIcon,
     featureFlag: { key: CUSTOMERS_TAB_FLAG, onTreatment: CUSTOMERS_TAB_ON },
   },
   {
@@ -100,6 +101,8 @@ export function pathIsInAnySection(pathname: string): boolean {
   return MENU.some((entry) => entry.kind === "SECTION" && sectionContainsPath(entry, pathname));
 }
 
+/* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents. */
 export function linkIsActive(entry: MenuLinkEntry, pathname: string): boolean {
-  return pathname === entry.to || entry.alsoActiveOn.includes(pathname);
+  if (pathname === entry.to || entry.alsoActiveOn.includes(pathname)) return true;
+  return entry.to !== "/" && pathname.startsWith(`${entry.to}/`);
 }

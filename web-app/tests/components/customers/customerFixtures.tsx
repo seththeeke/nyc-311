@@ -8,7 +8,7 @@ export function LocationProbe(): ReactElement {
   return <output aria-label="search">{useLocation().search}</output>;
 }
 
-export function inRouter(ui: ReactElement, path = "/customers"): ReactElement {
+export function inRouter(ui: ReactElement, path = "/residents"): ReactElement {
   return (
     <MemoryRouter initialEntries={[path]}>
       {ui}

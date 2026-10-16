@@ -18,13 +18,14 @@ beforeEach(() => {
 });
 
 describe("PersonaPanel", () => {
-  it("lists every persona with status, dials, idea count and active hours", () => {
+  it("lists every resident with dials, idea count and active hours, and no status", () => {
     render(inRouter(<PersonaPanel />));
+    expect(screen.getByRole("heading", { name: "Residents" })).toBeInTheDocument();
     const cards = screen.getAllByRole("button", { pressed: false });
     expect(cards).toHaveLength(3);
     const juniper = screen.getByRole("button", { name: /Juniper/ });
-    expect(within(juniper).getByText("PAUSED")).toBeInTheDocument();
-    expect(within(juniper).getByText("21:00–05:00 (overnight)")).toBeInTheDocument();
+    expect(juniper).not.toHaveTextContent(/ACTIVE|PAUSED/);
+    expect(within(juniper).getByText("21:00–05:00")).toBeInTheDocument();
     expect(within(juniper).getByRole("meter", { name: "Patience 50 out of 100" })).toBeInTheDocument();
     expect(within(screen.getByRole("button", { name: /Hawthorn/ })).getByText(/6 ideas · last/)).toBeInTheDocument();
   });
@@ -47,15 +48,15 @@ describe("PersonaPanel", () => {
   it("shows loading, error and empty states", () => {
     setPersonas({ isLoading: true });
     const { rerender } = render(inRouter(<PersonaPanel />));
-    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading personas…");
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading residents…");
 
     setPersonas({ error: new Error("HTTP 404") });
     rerender(inRouter(<PersonaPanel />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load personas: HTTP 404");
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load residents: HTTP 404");
 
     setPersonas({ data: [] });
     rerender(inRouter(<PersonaPanel />));
-    expect(screen.getByText("No personas yet.")).toBeInTheDocument();
+    expect(screen.getByText("No residents yet.")).toBeInTheDocument();
   });
 
   it("omits the last-idea time for a persona who has never had one", () => {

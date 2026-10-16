@@ -48,6 +48,15 @@ describe("customerService — mock", () => {
     expect(hawthorn.nextCursor).toBeNull();
   });
 
+  it("gets one idea by resident and id, or fails like a 404", async () => {
+    const service = await mockService();
+    await expect(settle(service.getIdea("hawthorn", "01K7IDEA0014"))).resolves.toMatchObject({ idea_type: "ESCALATION" });
+    const wrongResident = service.getIdea("juniper", "01K7IDEA0014");
+    const assertion = expect(wrongResident).rejects.toThrow("HTTP 404");
+    await vi.runAllTimersAsync();
+    await assertion;
+  });
+
   it("is used by a live-mode build when VITE_CUSTOMER_DATA_MODE asks for mocks", async () => {
     vi.stubEnv("VITE_DATA_MODE", "live");
     vi.stubEnv("VITE_CUSTOMER_DATA_MODE", "mock");
@@ -86,6 +95,12 @@ describe("customerService — live", () => {
     expect(fetch).toHaveBeenLastCalledWith("https://customer.example.com/ideas");
     await service.listIdeas({ personaId: "sycamore", cursor: "a b" });
     expect(fetch).toHaveBeenLastCalledWith("https://customer.example.com/customers/sycamore/ideas?cursor=a%20b");
+  });
+
+  it("gets one idea from /customers/{id}/ideas/{ideaId}", async () => {
+    const service = await liveService(MOCK_CUSTOMER_IDEAS[0]);
+    await expect(service.getIdea("hawthorn", "01K7IDEA0014")).resolves.toEqual(MOCK_CUSTOMER_IDEAS[0]);
+    expect(fetch).toHaveBeenLastCalledWith("https://customer.example.com/customers/hawthorn/ideas/01K7IDEA0014");
   });
 
   it("throws on a non-2xx response and on a malformed body", async () => {

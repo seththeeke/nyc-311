@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AboutOverlay } from "../../../src/components/about/AboutOverlay";
-import { ABOUT_SECTIONS } from "../../../src/components/about/aboutSections";
+import { ABOUT_SECTIONS, resolveAboutSections } from "../../../src/components/about/aboutSections";
+import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
+/* The LLMs write-up is gated on the Residents flag; off unless a test turns it on. */
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
 
 describe("AboutOverlay", () => {
   it("renders as a non-modal drawer dialog titled About BoroughSim, docked right at ~40% width", () => {
@@ -139,5 +142,43 @@ describe("AboutOverlay", () => {
 
     expect(() => unmount()).not.toThrow();
     spy.mockRestore();
+  });
+});
+
+describe("AboutOverlay — LLMs write-up behind the Residents flag", () => {
+  it("shows LLMs as work in progress while CUSTOMERS_TAB is off", async () => {
+    render(<AboutOverlay onClose={vi.fn()} />);
+    const llms = screen.getByRole("button", { name: /^LLMs/ });
+    expect(llms).toHaveTextContent("Work In Progress");
+    expect(useFeatureEnabled).toHaveBeenCalledWith("CUSTOMERS_TAB", "T1");
+  });
+
+  it("shows the launched write-up, with no badge, once CUSTOMERS_TAB is on", async () => {
+    vi.mocked(useFeatureEnabled).mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<AboutOverlay onClose={vi.fn()} />);
+    const llms = screen.getByRole("button", { name: /^LLMs/ });
+    expect(llms).not.toHaveTextContent("Work In Progress");
+    expect(llms).toHaveTextContent("Gives the simulated residents their voice.");
+    await user.click(llms);
+    expect(screen.getByText(/low-cost model on Amazon Bedrock/)).toBeVisible();
+    expect(screen.getByRole("list", { name: "LLMs concepts" })).toHaveTextContent("Persona prompts");
+    vi.mocked(useFeatureEnabled).mockReturnValue(false);
+  });
+});
+
+describe("resolveAboutSections", () => {
+  it("swaps a flagged section only when its own flag and treatment are on", () => {
+    const llms = ABOUT_SECTIONS.find((section) => section.id === "llms")!;
+    const on = resolveAboutSections(ABOUT_SECTIONS, (key, treatment) => key === "CUSTOMERS_TAB" && treatment === "T1");
+    expect(on.find((section) => section.id === "llms")).toBe(llms.whenFlagOn?.section);
+    expect(on.filter((section, index) => section !== ABOUT_SECTIONS[index])).toHaveLength(1);
+    const off = resolveAboutSections(ABOUT_SECTIONS, () => false);
+    expect(off).toEqual(ABOUT_SECTIONS);
+  });
+
+  it("never mentions the old name for the system in the launched write-up", () => {
+    const launched = ABOUT_SECTIONS.find((section) => section.id === "llms")!.whenFlagOn!.section;
+    expect(JSON.stringify(launched).toLowerCase()).not.toContain("bureau");
   });
 });

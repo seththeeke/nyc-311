@@ -80,24 +80,42 @@ Constraints that shape everything below:
 | `AcceptedOrder` | Customer | The customer's own copy of public metadata for orders the bureau accepted |
 | `Idea` | Customer | One "I need something", logged `OPEN` |
 
-Proposed persona shape (roster and draft prompts in Appendix B):
+Proposed persona shape — a **resident** in the UI (roster and draft
+prompts in Appendix B). Revised 2026-10-15 from the Residents page mock:
+every attribute the mock shows is to be modelled; `status` is dropped;
+`tagline`, a profile image and the idea counters are added.
 
 ```ts
 type Persona = {
   persona_id: string;           /* the codename, lowercased */
   version: number;              /* bump on any edit; stamped on every idea */
   name: string;
+  tagline: string;              /* one line on who they are, for the resident list */
   backstory: string;
   persona_prompt: string;
+  avatar_image: string | null;  /* profile picture (see below); null falls back to the initial */
   demeanor: { patience: number; hostility: number; verbosity: number };  /* 0-100 */
   activity_level: number;       /* 0-100, per-tick chance of having an idea */
-  active_hours: { start: number; end: number };   /* America/New_York */
+  active_hours: { start: number; end: number };   /* America/New_York; start > end runs across midnight */
   follow_up_propensity: number; /* 0-100, return to a known order vs. a new one */
   idea_type_weights: Record<IdeaType, number>;
   interests: { boroughs: string[]; complaint_types: string[] };
-  status: "ACTIVE" | "PAUSED";
+  idea_count: number;           /* maintained on write (A11), never counted on read */
+  last_idea_at: string | null;  /* maintained on write (A11) */
 };
 ```
+
+**Profile images (design requirement, 2026-10-15).** Every resident gets a
+profile picture. Not built yet; the mock shows the resident's initial in a
+neutral circle. To decide in the §2 review: where images are stored (likely
+the customer stack's own bucket, served through its own domain), how they
+are produced (generated once per persona version, or hand-picked), and
+whether `avatar_image` holds a URL or a storage key. A persona without one
+keeps the initial.
+
+**No status.** Residents are not shown as active or paused. If the
+simulation needs a way to stop one resident having ideas, that is an
+operational switch for the §3 review, not a modelled attribute.
 
 Idea fields so far: `idea_id`, `persona_id`, `persona_version`, `idea_type`
 (`STATUS_CHECK`, `SERVICED_CHECK`, `ETA_REQUEST`, `PRIORITY_INQUIRY`,
@@ -178,6 +196,8 @@ Still open from this review: the callback host is illustrative (§4 item
    persona version?) and what is append-only.
 8. **Reserved-for-later fields** (action, response, conversation) — reserve
    them now, or leave them out entirely until that phase designs them?
+   *2026-10-15: `action` is now modelled from the start (nullable; see
+   Appendix L). Response and conversation remain open.*
 9. **Bureau side:** `WebhookSubscription` shape, where the signing secret
    lives, whether a delivery-attempt log is its own entity, and the
    `data-model.md` / `dao/` placement.
@@ -528,6 +548,8 @@ lost.
 | Conversations deferred to the Case-based interaction model | Agreed (TBD by design) |
 | Public customer API at `customer-api.boroughsim.com`; list + detail pages under Map, using the secondary workspace, behind a feature flag | Captured 2026-10-05, design pending (§4) |
 | `WebhookSubscription` data model (§2, seven decisions) | Agreed 2026-10-10 |
+| Resident actions concept: each idea carries a nullable `action` chosen by personality, shown as a neutral tag on the card and in detail (text, plus an RPA recording for website visits). P0 leaves ideas unactioned; requesting a feature is the first action, which needs a feature intake function (Appendix L) | Captured 2026-10-15 |
+| Residents page (2026-10-15 review of the mock): named Residents; no resident status anywhere; no coloured type tags or avatars; Idea Detail view with the resident in the secondary workspace; every shown resident attribute modelled in §2, plus a profile image; About → LLMs write-up behind `CUSTOMERS_TAB` | Agreed 2026-10-15 |
 | CDK placement: no `cdk/webhook/` folder. Webhook queues, DLQs and Lambdas go in `cdk/lambda/`, tables in `cdk/data/`, routes in `cdk/api/`, all in the single `Nyc311Stack`; the sink constructs exist only in Test. `cdk/customer/` is unaffected | Agreed 2026-10-10 |
 | Backend placement: the webhook is an ordinary bureau feature under the existing `CLAUDE.md` rules — HTTP controllers in `controller/web-api/`, queue-triggered controllers in a new `controller/webhook/`, `service/webhook/`, per-entity DAO folders (no carve-out). Applied to `CLAUDE.md` §5.2 on 2026-10-11 | Agreed 2026-10-10 |
 | `ORDER_RESOLVED` payload: the same order fields as `ORDER_ACCEPTED` plus `resolved_at` — one shared shape and one payload builder; no cost, cost model or crew identity. Receivers must tolerate a resolve arriving before its accept and must not reopen a closed order | Agreed 2026-10-10 |
@@ -949,7 +971,34 @@ package added to Synth needs the same two steps.
       (decided 2026-10-13). Until they are run, Test has no subscriber and
       its integration check passes with a warning.
 
-### K. Customers page mock (2026-10-14)
+### K. Residents page mock (2026-10-14, revised 2026-10-15)
+
+**2026-10-15 revision** (review of the first mock):
+
+- The page is **Residents** (route `/residents`), not Customers. Internal
+  names (`customerService`, the `CUSTOMERS_TAB` flag, the `/customers`
+  API routes) keep the old word for now.
+- No resident status anywhere (dropped from the model, the mocks and the
+  page), and no "(overnight)" label — the time range is enough.
+- No coloured idea-type tags on idea cards; types appear as plain text in
+  the filter chips and the Idea Detail view only. Avatars are neutral, not
+  coloured. No "Preview" badge.
+- Header text: "Simulated residents, backed by LLMs requesting support
+  ideas to the system for the simulation to address."
+- **Idea Detail view.** "View details" on an idea opens
+  `/residents/{persona_id}/ideas/{idea_id}`: the primary workspace shows the
+  idea in full (resident, type, text, the order it concerns, how it was
+  generated, and every other idea about the same order); the secondary
+  workspace shows that resident in full. It replaces the inline expansion.
+  The API gains `GET /customers/{id}/ideas/{ideaId}` to back it.
+- **About → LLMs.** The section stays "Work in progress" until
+  `CUSTOMERS_TAB` is `T1`, then shows a write-up of how the residents use
+  LLMs. Same flag, so it launches with the page.
+- Every resident attribute shown is to be modelled in the eventual spec,
+  plus a profile image — both written into §2's persona shape.
+
+The original 2026-10-14 notes follow; where they conflict, the revision
+above wins.
 
 A frontend-only mock of §4, built to settle the experience and the read
 API it needs. No backend changes; nothing here is reviewed design yet.
@@ -990,6 +1039,7 @@ on `https://customer-api.boroughsim.com`, all paginated as
 | `GET /customers` | The persona list |
 | `GET /customers/{id}` | One persona (not yet used by the page) |
 | `GET /customers/{id}/ideas` | One persona's ideas, newest first |
+| `GET /customers/{id}/ideas/{ideaId}` | **New (2026-10-15)** — one idea, for the Idea Detail view |
 | `GET /ideas` | **New** — every persona's ideas, newest first, for the feed |
 
 Fields the page needs that §2 did not list: a one-line `tagline` per
@@ -1003,3 +1053,49 @@ back to `VITE_DATA_MODE`. Setting it to `mock` lets a live-mode dev server
 unset, so the mock and its test data are tree-shaken out and the
 live-bundle guard still passes; in a deployed environment with `T1`, the
 page shows its error state until the API exists.
+
+### L. Resident actions (concept, 2026-10-15)
+
+Captured from the Residents mock; not yet a reviewed design.
+
+**The idea.** Each idea can lead to an **action** — something the resident
+does about it, chosen by their personality: look on the website, call an
+API to check status, file a feature request, and more over time (phone,
+email, an MCP client). The action is what turns an idea into pressure on
+the system. It is recorded on the idea (`action`, nullable) with what was
+done, what came of it, and evidence of the attempt.
+
+**Phasing.**
+
+| Phase | Actions | Needs |
+|---|---|---|
+| P0 | None — every idea is `Not actioned yet` | Nothing new |
+| First action | `REQUEST_FEATURE` for every resident | A **feature intake function** that accepts and records requests (not built) |
+| Later | `CHECK_STATUS_API`, `BROWSE_WEBSITE` (RPA), others | A public status API; an RPA runner that records sessions |
+
+**Shape** (`web-app/src/models/customerIdea.ts`): a discriminated union on
+`type`, each with `status` (`COMPLETED` / `FAILED`), `started_at`,
+`completed_at`, a plain-words `summary` and an `outcome`, plus evidence:
+
+| Type | Evidence |
+|---|---|
+| `REQUEST_FEATURE` | The request filed (`title`, `description`) and the intake's `reference_id`, null until accepted |
+| `CHECK_STATUS_API` | The request (`method`, `url`) and the response (`status_code`, `body`) |
+| `BROWSE_WEBSITE` | An RPA `recording`: `video_url` and `captions_url` (null until captured), `duration_seconds`, and a timestamped step log |
+
+**In the mock.** Every idea card shows one neutral action tag ("Requested a
+feature", "Checked status via API", "Browsed the website", or "Not
+actioned yet"; a failed attempt adds "· failed"). The Idea Detail view adds
+a "What they did" section: the action in words, then its evidence — the
+filed request, the API exchange, or a recording player. With no captured
+video, the player replays the session's step log in a browser-frame
+stand-in; with a `video_url` it plays the video. Sample data matches
+personality: Sycamore browses the website, Hawthorn and Juniper call the
+status API (Juniper's attempt fails with a 404, since no such API exists
+yet), and all three file feature requests; most ideas are unactioned.
+
+**For the §2/§3 reviews:** how personality maps to action choice (a weight
+per action type, like `idea_type_weights`?); whether a failed action
+retries or becomes its own idea; where recordings are stored (the
+customer stack's own bucket); and whether one idea can lead to more than
+one action.

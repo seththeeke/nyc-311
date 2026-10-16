@@ -4,7 +4,7 @@ export interface AppConfig {
   /** Cognito User Pool / app client ids (`9-admin-auth-integration.md` §3) — same runtime-injected shape as `apiBaseUrl`. */
   userPoolId: string;
   userPoolClientId: string;
-  /** The customer stack's own API (`13-customer-simulation.md` §4) — one host for every environment, since the customer exists only in Prod. */
+  /** The residents' own API (`13-customer-simulation.md` §4) — one host for every environment, since the simulation runs only in Prod. */
   customerApiBaseUrl: string;
 }
 

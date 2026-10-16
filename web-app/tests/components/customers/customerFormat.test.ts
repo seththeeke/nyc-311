@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeHoursLabel, avatarClasses, IDEA_TYPE_STYLES, relativeTime, titleCase } from "../../../src/components/customers/customerFormat";
+import { activeHoursLabel, IDEA_TYPE_LABELS, relativeTime, titleCase } from "../../../src/components/customers/customerFormat";
 import { IDEA_TYPES } from "../../../src/models/customerIdea";
 
 const NOW = new Date("2026-10-14T12:00:00.000Z");
@@ -20,9 +20,9 @@ describe("relativeTime", () => {
 });
 
 describe("activeHoursLabel", () => {
-  it("pads hours and marks a window that runs overnight", () => {
+  it("pads hours, and shows a window across midnight the same way", () => {
     expect(activeHoursLabel({ start: 5, end: 18 })).toBe("05:00–18:00");
-    expect(activeHoursLabel({ start: 21, end: 5 })).toBe("21:00–05:00 (overnight)");
+    expect(activeHoursLabel({ start: 21, end: 5 })).toBe("21:00–05:00");
   });
 });
 
@@ -32,11 +32,18 @@ describe("titleCase", () => {
   });
 });
 
-describe("styles", () => {
-  it("has a label for every idea type, and a stable avatar colour per persona", () => {
-    for (const type of IDEA_TYPES) expect(IDEA_TYPE_STYLES[type].label.length).toBeGreaterThan(0);
-    expect(avatarClasses("hawthorn")).toBe(avatarClasses("hawthorn"));
-    const launchColours = new Set(["hawthorn", "sycamore", "juniper"].map(avatarClasses));
-    expect(launchColours.size).toBe(3);
+describe("IDEA_TYPE_LABELS", () => {
+  it("has a plain label for every idea type", () => {
+    for (const type of IDEA_TYPES) expect(IDEA_TYPE_LABELS[type].length).toBeGreaterThan(0);
+  });
+});
+
+describe("action labels and clock time", () => {
+  it("labels every action in the past tense, and formats seconds as m:ss", async () => {
+    const { ACTION_TYPE_LABELS, NOT_ACTIONED_LABEL, clockTime } = await import("../../../src/components/customers/customerFormat");
+    expect(Object.values(ACTION_TYPE_LABELS)).toEqual(["Requested a feature", "Checked status via API", "Browsed the website"]);
+    expect(NOT_ACTIONED_LABEL).toBe("Not actioned yet");
+    expect(clockTime(0)).toBe("0:00");
+    expect(clockTime(65.9)).toBe("1:05");
   });
 });

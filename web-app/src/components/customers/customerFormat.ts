@@ -1,6 +1,6 @@
-import type { IdeaType } from "../../models/customerIdea";
+import type { ActionType, IdeaType } from "../../models/customerIdea";
 
-/* Shared display helpers for the Customers page. */
+/* Shared display helpers for the Residents page. */
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -15,10 +15,10 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
   return `${Math.floor(elapsed / DAY_MS)}d ago`;
 }
 
-/** "05:00–18:00", or "21:00–05:00 (overnight)" when the window wraps midnight. */
+/** "05:00–18:00"; a window that wraps midnight reads the same way ("21:00–05:00"). */
 export function activeHoursLabel(hours: { start: number; end: number }): string {
   const pad = (hour: number): string => `${String(hour).padStart(2, "0")}:00`;
-  return `${pad(hours.start)}–${pad(hours.end)}${hours.start > hours.end ? " (overnight)" : ""}`;
+  return `${pad(hours.start)}–${pad(hours.end)}`;
 }
 
 /** "BROOKLYN" -> "Brooklyn". */
@@ -26,31 +26,26 @@ export function titleCase(value: string): string {
   return value.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-interface IdeaTypeStyle {
-  label: string;
-  classes: string;
-}
-
-export const IDEA_TYPE_STYLES: Record<IdeaType, IdeaTypeStyle> = {
-  STATUS_CHECK: { label: "Status check", classes: "bg-sky-500/15 text-hue-sky ring-sky-400/30" },
-  SERVICED_CHECK: { label: "Serviced?", classes: "bg-emerald-500/15 text-hue-emerald ring-emerald-400/30" },
-  ETA_REQUEST: { label: "ETA request", classes: "bg-indigo-500/15 text-hue-indigo ring-indigo-400/30" },
-  PRIORITY_INQUIRY: { label: "Priority", classes: "bg-amber-500/15 text-hue-amber ring-amber-400/30" },
-  ESCALATION: { label: "Escalation", classes: "bg-rose-500/15 text-hue-rose ring-rose-400/30" },
-  FEATURE_REQUEST: { label: "Feature request", classes: "bg-violet-500/15 text-hue-violet ring-violet-400/30" },
+/* Plain labels only — idea types are not colour-coded, since none is more urgent than another. */
+export const IDEA_TYPE_LABELS: Record<IdeaType, string> = {
+  STATUS_CHECK: "Status check",
+  SERVICED_CHECK: "Serviced?",
+  ETA_REQUEST: "ETA request",
+  PRIORITY_INQUIRY: "Priority",
+  ESCALATION: "Escalation",
+  FEATURE_REQUEST: "Feature request",
 };
 
-const AVATAR_CLASSES = [
-  "bg-orange-500/20 text-hue-orange",
-  "bg-cyan-500/20 text-hue-cyan",
-  "bg-violet-500/20 text-hue-violet",
-  "bg-emerald-500/20 text-hue-emerald",
-  "bg-rose-500/20 text-hue-rose",
-];
+/* What a resident did about an idea, as a short past-tense tag. */
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  REQUEST_FEATURE: "Requested a feature",
+  CHECK_STATUS_API: "Checked status via API",
+  BROWSE_WEBSITE: "Browsed the website",
+};
+export const NOT_ACTIONED_LABEL = "Not actioned yet";
 
-/** A stable colour per persona, so the same customer looks the same in both workspaces. */
-export function avatarClasses(personaId: string): string {
-  /* djb2 — a plain character sum gave two of the three launch personas the same colour. */
-  const hash = [...personaId].reduce((acc, char) => (acc * 33 + char.charCodeAt(0)) >>> 0, 5381);
-  return AVATAR_CLASSES[hash % AVATAR_CLASSES.length];
+/** "1:05" for 65 seconds. */
+export function clockTime(totalSeconds: number): string {
+  const seconds = Math.floor(totalSeconds);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

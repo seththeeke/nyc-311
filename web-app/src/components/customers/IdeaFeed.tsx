@@ -14,9 +14,9 @@ function countByType(ideas: CustomerIdea[]): Record<IdeaType, number> {
 }
 
 /**
- * The Customers page's primary workspace: every idea, newest first,
- * narrowed by whatever is selected — a persona (from either workspace), an
- * order, or an idea type.
+ * The Residents page's primary workspace: every idea, newest first,
+ * narrowed by whatever is selected — a resident (from either workspace),
+ * an order, or an idea type.
  */
 export function IdeaFeed(): ReactElement {
   const selection = useCustomerSelection();
@@ -27,8 +27,6 @@ export function IdeaFeed(): ReactElement {
   const inScope = (ideas ?? []).filter((idea) => !selection.orderId || idea.anchor?.order_id === selection.orderId);
   const shown = inScope.filter((idea) => !selection.ideaType || idea.idea_type === selection.ideaType);
   const orderAnchor = inScope.find((idea) => idea.anchor)?.anchor;
-  const relatedCount = (idea: CustomerIdea): number =>
-    (ideas ?? []).filter((other) => other.idea_id !== idea.idea_id && idea.anchor && other.anchor?.order_id === idea.anchor.order_id).length;
 
   return (
     <div className="space-y-4">
@@ -61,9 +59,6 @@ export function IdeaFeed(): ReactElement {
             <IdeaCard
               idea={idea}
               persona={personas?.find((candidate) => candidate.persona_id === idea.persona_id)}
-              expanded={selection.ideaId === idea.idea_id}
-              relatedCount={relatedCount(idea)}
-              onToggle={() => selection.toggleIdea(idea.idea_id)}
               onSelectPersona={() => selection.selectPersona(idea.persona_id)}
               onSelectOrder={() => selection.selectOrder(idea.anchor?.order_id ?? null)}
             />
