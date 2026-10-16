@@ -84,7 +84,12 @@ cmd_new() {
 
   for pkg in $NODE_PKGS; do
     src="$PRIMARY/$pkg/node_modules"
-    [ -d "$src" ] || continue
+    if [ ! -d "$src" ]; then
+      # A missing source used to continue silently (#103: NODE_PKGS listed
+      # customer/backend but the primary checkout never had it installed).
+      printf 'agent-worktree: WARN: %s has no node_modules in primary — %s will cold-install\n' "$pkg" "$pkg" >&2
+      continue
+    fi
     cp -c -R "$src" "$dest/$pkg/node_modules" \
       || die "cp -c failed for $pkg/node_modules (APFS copy-on-write required)"
   done
