@@ -1,6 +1,6 @@
 import type { CustomerPersona } from "../models/customerPersona";
 
-/* The launch roster (13-customer-simulation.md Appendix B), with draft prompts, for the customer mocks. */
+/* The launch roster of residents (13-customer-simulation.md Appendix B), with draft prompts, for the Residents mocks. */
 export const MOCK_CUSTOMER_PERSONAS: CustomerPersona[] = [
   {
     persona_id: "hawthorn",
@@ -16,7 +16,6 @@ export const MOCK_CUSTOMER_PERSONAS: CustomerPersona[] = [
     active_hours: { start: 5, end: 18 },
     follow_up_propensity: 60,
     interests: { boroughs: ["BROOKLYN"] },
-    status: "ACTIVE",
     idea_count: 6,
     last_idea_at: "2026-10-14T16:42:00.000Z",
   },
@@ -34,7 +33,6 @@ export const MOCK_CUSTOMER_PERSONAS: CustomerPersona[] = [
     active_hours: { start: 7, end: 19 },
     follow_up_propensity: 85,
     interests: { boroughs: ["QUEENS"] },
-    status: "ACTIVE",
     idea_count: 4,
     last_idea_at: "2026-10-14T14:05:00.000Z",
   },
@@ -52,7 +50,6 @@ export const MOCK_CUSTOMER_PERSONAS: CustomerPersona[] = [
     active_hours: { start: 21, end: 5 },
     follow_up_propensity: 40,
     interests: { boroughs: ["BRONX"] },
-    status: "PAUSED",
     idea_count: 4,
     last_idea_at: "2026-10-14T05:12:00.000Z",
   },

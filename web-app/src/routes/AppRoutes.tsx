@@ -6,6 +6,7 @@ import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../models/featureTreatment";
+import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/customers/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
 
 /*
@@ -30,8 +31,11 @@ const LambdaMonitoringPage = lazy(() =>
 const IntegrationTestReportPage = lazy(() =>
   import("../components/pages/IntegrationTestReportPage").then((m) => ({ default: m.IntegrationTestReportPage }))
 );
-const CustomersPage = lazy(() =>
-  import("../components/pages/CustomersPage").then((m) => ({ default: m.CustomersPage }))
+const ResidentsPage = lazy(() =>
+  import("../components/pages/ResidentsPage").then((m) => ({ default: m.ResidentsPage }))
+);
+const ResidentIdeaPage = lazy(() =>
+  import("../components/pages/ResidentIdeaPage").then((m) => ({ default: m.ResidentIdeaPage }))
 );
 const LoginPage = lazy(() => import("../components/pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const AdminPage = lazy(() => import("../components/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
@@ -81,11 +85,21 @@ export function AppRoutes(): ReactElement {
           }
         />
         <Route
-          path="/customers"
+          path={RESIDENTS_PATH}
           element={
             <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatment={CUSTOMERS_TAB_ON}>
               <Suspense fallback={<PageLoadingFallback />}>
-                <CustomersPage />
+                <ResidentsPage />
+              </Suspense>
+            </FeatureFlagRoute>
+          }
+        />
+        <Route
+          path={IDEA_DETAIL_PATTERN}
+          element={
+            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatment={CUSTOMERS_TAB_ON}>
+              <Suspense fallback={<PageLoadingFallback />}>
+                <ResidentIdeaPage />
               </Suspense>
             </FeatureFlagRoute>
           }

@@ -9,10 +9,13 @@ describe("CustomerPersonaSchema", () => {
     for (const persona of MOCK_CUSTOMER_PERSONAS) expect(CustomerPersonaSchema.parse(persona)).toEqual(persona);
   });
 
-  it("rejects a dial outside 0-100, an hour past 23 and an unknown status", () => {
+  it("rejects a dial outside 0-100 and an hour past 23", () => {
     expect(CustomerPersonaSchema.safeParse({ ...hawthorn, activity_level: 101 }).success).toBe(false);
     expect(CustomerPersonaSchema.safeParse({ ...hawthorn, active_hours: { start: 5, end: 24 } }).success).toBe(false);
-    expect(CustomerPersonaSchema.safeParse({ ...hawthorn, status: "RETIRED" }).success).toBe(false);
+  });
+
+  it("has no status field — residents are not shown as active or paused", () => {
+    expect(CustomerPersonaSchema.parse({ ...hawthorn, status: "PAUSED" })).not.toHaveProperty("status");
   });
 
   it("allows a persona that has never had an idea", () => {

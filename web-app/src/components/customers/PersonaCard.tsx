@@ -10,9 +10,8 @@ interface PersonaCardProps {
   onSelect: () => void;
 }
 
-/** One persona in the secondary workspace. Pressing it focuses the ideas feed on them; pressing again clears it. */
+/** One resident in the secondary workspace. Pressing it focuses the ideas feed on them; pressing again clears it. */
 export function PersonaCard({ persona, selected, onSelect }: PersonaCardProps): ReactElement {
-  const paused = persona.status === "PAUSED";
   return (
     <button
       type="button"
@@ -23,18 +22,9 @@ export function PersonaCard({ persona, selected, onSelect }: PersonaCardProps): 
       }`}
     >
       <div className="flex items-start gap-3">
-        <PersonaAvatar personaId={persona.persona_id} name={persona.name} />
+        <PersonaAvatar name={persona.name} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-fg">{persona.name}</span>
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ring-1 ${
-                paused ? "bg-amber-500/15 text-hue-amber ring-amber-400/30" : "bg-emerald-500/15 text-hue-emerald ring-emerald-400/30"
-              }`}
-            >
-              {paused ? "PAUSED" : "ACTIVE"}
-            </span>
-          </div>
+          <span className="font-semibold text-fg">{persona.name}</span>
           <p className="mt-0.5 text-xs text-fg-muted">{persona.tagline}</p>
         </div>
       </div>

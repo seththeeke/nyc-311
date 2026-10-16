@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /*
  * `POST /feature-flags/{flag_key}/treatment` (11-street-condition-implementation.md
- * §4.2) — the bureau's public flag evaluation, as the web-app reads it.
+ * §4.2) — the public flag evaluation, as the web-app reads it.
  */
 export const FeatureTreatmentSchema = z.object({
   flag_key: z.string().min(1),
@@ -10,6 +10,6 @@ export const FeatureTreatmentSchema = z.object({
 });
 export type FeatureTreatment = z.infer<typeof FeatureTreatmentSchema>;
 
-/* Flags the web-app itself evaluates, and the treatment that turns each one on. */
+/* Flags the web-app itself evaluates, and the treatment that turns each one on. CUSTOMERS_TAB gates the Residents page (named before the rename). */
 export const CUSTOMERS_TAB_FLAG = "CUSTOMERS_TAB";
 export const CUSTOMERS_TAB_ON = "T1";

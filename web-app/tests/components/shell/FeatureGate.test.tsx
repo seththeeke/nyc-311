@@ -10,18 +10,18 @@ describe("FeatureGate", () => {
     vi.mocked(useFeatureEnabled).mockReturnValue(true);
     const { rerender } = render(
       <FeatureGate flagKey="CUSTOMERS_TAB" onTreatment="T1">
-        <p>Customers</p>
+        <p>Residents</p>
       </FeatureGate>,
     );
-    expect(screen.getByText("Customers")).toBeInTheDocument();
+    expect(screen.getByText("Residents")).toBeInTheDocument();
     expect(useFeatureEnabled).toHaveBeenCalledWith("CUSTOMERS_TAB", "T1");
 
     vi.mocked(useFeatureEnabled).mockReturnValue(false);
     rerender(
       <FeatureGate flagKey="CUSTOMERS_TAB" onTreatment="T1">
-        <p>Customers</p>
+        <p>Residents</p>
       </FeatureGate>,
     );
-    expect(screen.queryByText("Customers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Residents")).not.toBeInTheDocument();
   });
 });

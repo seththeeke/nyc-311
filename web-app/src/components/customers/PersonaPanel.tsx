@@ -4,7 +4,7 @@ import { useCustomerSelection } from "../../hooks/useCustomerSelection";
 import { PersonaCard } from "./PersonaCard";
 
 /**
- * The Customers page's secondary workspace: every persona, as cards.
+ * The Residents feed's secondary workspace: every resident, as cards.
  * Selecting one focuses the primary workspace's ideas on them; the
  * selection lives in the URL, so both panels stay in step.
  */
@@ -13,9 +13,9 @@ export function PersonaPanel(): ReactElement {
   const { personaId, selectPersona } = useCustomerSelection();
 
   return (
-    <section aria-label="Customer personas" className="flex flex-col gap-2 px-3 pb-3">
+    <section aria-label="Residents" className="flex flex-col gap-2 px-3 pb-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold text-fg">Personas</h2>
+        <h2 className="text-sm font-semibold text-fg">Residents</h2>
         {personaId && (
           <button type="button" onClick={() => selectPersona(null)} className="text-xs text-fg-muted hover:text-fg">
             Show everyone
@@ -24,15 +24,15 @@ export function PersonaPanel(): ReactElement {
       </div>
       {isLoading && (
         <p role="status" className="text-xs text-fg-muted">
-          Loading personas…
+          Loading residents…
         </p>
       )}
       {error && (
         <p role="alert" className="rounded-lg bg-danger-soft p-2 text-xs text-danger">
-          Couldn&apos;t load personas: {error.message}
+          Couldn&apos;t load residents: {error.message}
         </p>
       )}
-      {personas?.length === 0 && <p className="text-xs text-fg-muted">No personas yet.</p>}
+      {personas?.length === 0 && <p className="text-xs text-fg-muted">No residents yet.</p>}
       <ul className="space-y-2">
         {personas?.map((persona) => (
           <li key={persona.persona_id}>

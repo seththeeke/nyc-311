@@ -1,13 +1,14 @@
 import { config } from "../config";
-import { CustomerIdeaPageSchema, type CustomerIdeaPage } from "../models/customerIdea";
+import { CustomerIdeaPageSchema, CustomerIdeaSchema, type CustomerIdea, type CustomerIdeaPage } from "../models/customerIdea";
 import { CustomerPersonaPageSchema, CustomerPersonaSchema, type CustomerPersona, type CustomerPersonaPage } from "../models/customerPersona";
 import { MOCK_CUSTOMER_IDEAS } from "../test-data/customerIdeas";
 import { MOCK_CUSTOMER_PERSONAS } from "../test-data/customerPersonas";
 
 /*
- * The customer read API as the Customers page needs it
- * (13-customer-simulation.md §4) — the contract this mock is here to
- * settle before the API is built. Paginated lists use an opaque cursor.
+ * The resident read API as the Residents page needs it
+ * (13-customer-simulation.md §4, Appendix K) — the contract this mock is
+ * here to settle before the API is built. Paginated lists use an opaque
+ * cursor. Route names still say "customers", as the API was first sketched.
  */
 export interface IdeaQuery {
   /** Only this persona's ideas (`GET /customers/{id}/ideas`); omit for every persona's (`GET /ideas`). */
@@ -19,6 +20,8 @@ export interface CustomerService {
   listPersonas(): Promise<CustomerPersonaPage>;
   getPersona(personaId: string): Promise<CustomerPersona>;
   listIdeas(query?: IdeaQuery): Promise<CustomerIdeaPage>;
+  /** One idea, addressed by its resident — `GET /customers/{id}/ideas/{ideaId}`. */
+  getIdea(personaId: string, ideaId: string): Promise<CustomerIdea>;
 }
 
 async function getJson(path: string): Promise<unknown> {
@@ -31,7 +34,7 @@ function withCursor(path: string, cursor: string | undefined): string {
   return cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path;
 }
 
-/* Against the customer stack's own API — not built yet, so in a live build this page shows its error state. */
+/* Against the resident API — not built yet, so in a live build the page shows its error state. */
 class LiveCustomerService implements CustomerService {
   async listPersonas(): Promise<CustomerPersonaPage> {
     return CustomerPersonaPageSchema.parse(await getJson("/customers"));
@@ -44,6 +47,10 @@ class LiveCustomerService implements CustomerService {
   async listIdeas(query: IdeaQuery = {}): Promise<CustomerIdeaPage> {
     const path = query.personaId ? `/customers/${encodeURIComponent(query.personaId)}/ideas` : "/ideas";
     return CustomerIdeaPageSchema.parse(await getJson(withCursor(path, query.cursor)));
+  }
+
+  async getIdea(personaId: string, ideaId: string): Promise<CustomerIdea> {
+    return CustomerIdeaSchema.parse(await getJson(`/customers/${encodeURIComponent(personaId)}/ideas/${encodeURIComponent(ideaId)}`));
   }
 }
 
@@ -73,6 +80,13 @@ class MockCustomerService implements CustomerService {
       .map((idea) => ({ ...idea }))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     return { items, nextCursor: null };
+  }
+
+  async getIdea(personaId: string, ideaId: string): Promise<CustomerIdea> {
+    await delay();
+    const idea = MOCK_CUSTOMER_IDEAS.find((candidate) => candidate.persona_id === personaId && candidate.idea_id === ideaId);
+    if (!idea) throw new Error(`Customer API /customers/${personaId}/ideas/${ideaId} failed: HTTP 404`);
+    return { ...idea };
   }
 }
 

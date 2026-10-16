@@ -7,14 +7,14 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly four primary entries in order: Map, Customers, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "Customers", "System Monitoring", "Admin"]);
+  it("has exactly four primary entries in order: Map, Residents, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Residents", "System Monitoring", "Admin"]);
   });
 
-  it("gates only the Customers entry, on CUSTOMERS_TAB = T1", () => {
+  it("gates only the Residents entry, on CUSTOMERS_TAB = T1", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
     expect(flagged).toHaveLength(1);
-    expect(flagged[0]).toMatchObject({ id: "CUSTOMERS", to: "/customers", featureFlag: { key: "CUSTOMERS_TAB", onTreatment: "T1" } });
+    expect(flagged[0]).toMatchObject({ id: "RESIDENTS", to: "/residents", featureFlag: { key: "CUSTOMERS_TAB", onTreatment: "T1" } });
   });
 
   it("lists the six monitoring items, with Test Coverage flagged external", () => {
@@ -73,5 +73,12 @@ describe("linkIsActive", () => {
     expect(linkIsActive(map, "/")).toBe(true);
     expect(linkIsActive(map, "/about")).toBe(true);
     expect(linkIsActive(map, "/data")).toBe(false);
+  });
+
+  it("keeps a non-root link active on its sub-pages, but not on a look-alike path", () => {
+    const residents = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "RESIDENTS")!;
+    expect(linkIsActive(residents, "/residents")).toBe(true);
+    expect(linkIsActive(residents, "/residents/hawthorn/ideas/01K7IDEA0014")).toBe(true);
+    expect(linkIsActive(residents, "/residentsx")).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../../models/featureTreatment";
+
 export type AboutSectionStatus = "BUILT" | "IN_PROGRESS";
 
 export interface AboutSection {
@@ -11,6 +13,15 @@ export interface AboutSection {
   body: string[] | null;
   /** Concepts and technologies, shown as a row of tags under the body. */
   tags: string[];
+  /** Shown in place of this section only while the flag resolves to `onTreatment` — a feature's write-up launches with it. */
+  whenFlagOn?: { flagKey: string; onTreatment: string; section: AboutSection };
+}
+
+/** Swaps in each flagged section's launched version wherever `isOn` says its flag is on. */
+export function resolveAboutSections(sections: AboutSection[], isOn: (flagKey: string, onTreatment: string) => boolean): AboutSection[] {
+  return sections.map((section) =>
+    section.whenFlagOn && isOn(section.whenFlagOn.flagKey, section.whenFlagOn.onTreatment) ? section.whenFlagOn.section : section,
+  );
 }
 
 /* Always shown, un-collapsed, directly under the title. */
@@ -75,7 +86,31 @@ export const ABOUT_SECTIONS: AboutSection[] = [
     tags: ["S3", "Kinesis Firehose", "Glue", "Athena", "SQL"],
   },
   { id: "machine-learning", title: "Machine Learning", summary: "Not built yet.", status: "IN_PROGRESS", body: null, tags: [] },
-  { id: "llms", title: "LLMs", summary: "Not built yet.", status: "IN_PROGRESS", body: null, tags: [] },
+  {
+    id: "llms",
+    title: "LLMs",
+    summary: "Not built yet.",
+    status: "IN_PROGRESS",
+    body: null,
+    tags: [],
+    /* Launches with the Residents page (13-customer-simulation.md), under the same flag. */
+    whenFlagOn: {
+      flagKey: CUSTOMERS_TAB_FLAG,
+      onTreatment: CUSTOMERS_TAB_ON,
+      section: {
+        id: "llms",
+        title: "LLMs",
+        summary: "Gives the simulated residents their voice.",
+        status: "BUILT",
+        body: [
+          "The Residents page is populated by a small roster of simulated New Yorkers. Each resident is defined by a backstory, a written persona prompt, and a set of 0–100 dials — patience, hostility, verbosity, activity and follow-up — along with the hours they are active and the boroughs they care about.",
+          "On an irregular cadence a resident may have an idea: something they want from the system about a real street-condition order they are following, or about the service itself. Ordinary code decides when an idea happens, which order it concerns and what kind of need it is; a low-cost model on Amazon Bedrock only writes the idea in that resident's voice. Every idea records the model, prompt version and token counts, so a model change can be judged on data.",
+          "Residents learn which orders are in play from signed lifecycle webhooks, the same way any outside system would, rather than by reading the simulation's data. Their ideas are the demand side of the simulation: what they ask for decides which support capabilities get built next.",
+        ],
+        tags: ["Amazon Bedrock", "Persona prompts", "Prompt versioning", "Agent simulation", "Webhooks"],
+      },
+    },
+  },
   {
     id: "testing",
     title: "Testing & Quality",

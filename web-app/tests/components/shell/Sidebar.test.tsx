@@ -9,7 +9,7 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* Flagged menu entries (Customers) stay hidden here; their own tests turn them on. */
+/* Flagged menu entries (Residents) stay hidden here; their own tests turn them on. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
 const mockedUseAuth = vi.mocked(useAuth);
 
@@ -251,12 +251,13 @@ describe("Sidebar brand", () => {
 });
 
 describe("Sidebar flagged entries", () => {
-  it("shows Customers under Map only while CUSTOMERS_TAB is on, and highlights it on /customers", () => {
+  it("shows Residents under Map only while CUSTOMERS_TAB is on, and highlights it on an Idea Detail view", () => {
     vi.mocked(useFeatureEnabled).mockReturnValue(true);
-    renderSidebar({ path: "/customers" });
+    renderSidebar({ path: "/residents/hawthorn/ideas/01K7IDEA0014" });
     const links = screen.getAllByRole("link").map((link) => link.textContent);
-    expect(links.indexOf("Customers")).toBe(links.indexOf("Map") + 1);
-    expect(screen.getByRole("link", { name: "Customers" })).toHaveAttribute("aria-current", "page");
+    expect(links.indexOf("Residents")).toBe(links.indexOf("Map") + 1);
+    expect(screen.getByRole("link", { name: "Residents" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Map" })).not.toHaveAttribute("aria-current");
     expect(useFeatureEnabled).toHaveBeenCalledWith("CUSTOMERS_TAB", "T1");
     vi.mocked(useFeatureEnabled).mockReturnValue(false);
   });

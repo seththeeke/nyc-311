@@ -38,7 +38,11 @@ describe("IdeaFeed — everyone", () => {
     expect(screen.getAllByRole("article")).toHaveLength(MOCK_CUSTOMER_IDEAS.length);
     const first = screen.getAllByRole("article")[0];
     expect(within(first).getByRole("button", { name: "Hawthorn" })).toBeInTheDocument();
-    expect(within(first).getByText("Escalation")).toBeInTheDocument();
+    expect(first).not.toHaveTextContent("Escalation");
+    expect(within(first).getByText("Not actioned yet")).toBeInTheDocument();
+    expect(screen.getAllByText("Requested a feature")).toHaveLength(3);
+    expect(screen.getByText("Browsed the website")).toBeInTheDocument();
+    expect(within(first).getByRole("link", { name: "View details" })).toHaveAttribute("href", "/residents/hawthorn/ideas/01K7IDEA0014");
     expect(within(first).getByRole("button", { name: "Pothole · 412 ATLANTIC AVENUE, Brooklyn" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `All ${MOCK_CUSTOMER_IDEAS.length}` })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Feature request 3" })).toBeInTheDocument();
@@ -85,28 +89,6 @@ describe("IdeaFeed — focusing", () => {
     expect(screen.getAllByRole("article")).toHaveLength(MOCK_CUSTOMER_IDEAS.length);
   });
 
-  it("expanding an idea shows where it came from and links to the rest of its order", async () => {
-    const user = userEvent.setup();
-    render(inRouter(<IdeaFeed />));
-    const first = screen.getAllByRole("article")[0];
-    await user.click(within(first).getByRole("button", { name: "Details" }));
-    expect(within(first).getByRole("button", { name: "Hide details" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(first).getByText("amazon.nova-micro-v1:0")).toBeInTheDocument();
-    expect(within(first).getByText("#69860415")).toBeInTheDocument();
-    await user.click(within(first).getByRole("button", { name: "See all 3 ideas about this order" }));
-    expect(search()).toHaveTextContent("?order=01K7A1ATLANTIC000000000000");
-  });
-
-  it("an expanded idea with no other ideas about its order offers to show just that order, and a feature request offers none", async () => {
-    const user = userEvent.setup();
-    const lone = { ...MOCK_CUSTOMER_IDEAS[0], anchor: { ...MOCK_CUSTOMER_IDEAS[0].anchor!, order_id: "LONE" } };
-    const feature = MOCK_CUSTOMER_IDEAS.find((idea) => idea.anchor === null)!;
-    setIdeas({ data: [lone, feature] });
-    render(inRouter(<IdeaFeed />, `/customers?idea=${lone.idea_id}`));
-    expect(screen.getByRole("button", { name: "Show only this order" })).toBeInTheDocument();
-    await user.click(within(screen.getAllByRole("article")[1]).getByRole("button", { name: "Details" }));
-    expect(within(screen.getAllByRole("article")[1]).queryByRole("button", { name: /order/ })).not.toBeInTheDocument();
-  });
 });
 
 describe("IdeaFeed — states", () => {
@@ -130,14 +112,14 @@ describe("IdeaFeed — states", () => {
     expect(screen.getByRole("button", { name: "ghost" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Order · address unknown" })).toBeInTheDocument();
     unmount();
-    render(inRouter(<IdeaFeed />, "/customers?order=NOWHERE"));
+    render(inRouter(<IdeaFeed />, "/residents?order=NOWHERE"));
     expect(screen.getByText("Ideas about one order")).toBeInTheDocument();
   });
 
   it("labels an order whose ideas lack a descriptor and address", () => {
     const bare = { ...MOCK_CUSTOMER_IDEAS[0], anchor: { ...MOCK_CUSTOMER_IDEAS[0].anchor!, descriptor: null, address: null } };
     setIdeas({ data: [bare] });
-    render(inRouter(<IdeaFeed />, `/customers?order=${bare.anchor.order_id}`));
+    render(inRouter(<IdeaFeed />, `/residents?order=${bare.anchor.order_id}`));
     expect(screen.getByText("Ideas about order at an unknown address")).toBeInTheDocument();
   });
 });

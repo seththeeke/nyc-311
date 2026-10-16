@@ -7,7 +7,10 @@ import { WorkspaceProvider } from "../../../src/components/shell/WorkspaceProvid
 import type { WidgetId } from "../../../src/models/widget";
 
 vi.mock("../../../src/components/customers/PersonaPanel", () => ({
-  PersonaPanel: () => <section aria-label="Customer personas">personas</section>,
+  PersonaPanel: () => <section aria-label="Residents">residents</section>,
+}));
+vi.mock("../../../src/components/customers/ResidentDetailPanel", () => ({
+  ResidentDetailPanel: () => <section aria-label="Resident details">resident</section>,
 }));
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({
@@ -36,15 +39,20 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn(), path = "/"
 }
 
 describe("SecondaryWorkspace — route content", () => {
-  it("shows the personas instead of the tiles on /customers", () => {
-    renderPanel(undefined, vi.fn(), "/customers");
-    expect(screen.getByRole("region", { name: "Customer personas" })).toBeInTheDocument();
+  it("shows the residents instead of the tiles on /residents, and the resident on an Idea Detail view", () => {
+    renderPanel(undefined, vi.fn(), "/residents/hawthorn/ideas/01K7IDEA0014");
+    expect(screen.getByRole("region", { name: "Resident details" })).toBeInTheDocument();
+  });
+
+  it("shows the residents instead of the tiles on /residents", () => {
+    renderPanel(undefined, vi.fn(), "/residents");
+    expect(screen.getByRole("region", { name: "Residents" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Capacity" })).not.toBeInTheDocument();
   });
 
-  it("keeps the tiles on any other route, including /customers sub-paths", () => {
-    renderPanel(undefined, vi.fn(), "/customers/hawthorn");
-    expect(screen.queryByRole("region", { name: "Customer personas" })).not.toBeInTheDocument();
+  it("keeps the tiles on any other route, including unrecognised /residents sub-paths", () => {
+    renderPanel(undefined, vi.fn(), "/residents/hawthorn");
+    expect(screen.queryByRole("region", { name: "Residents" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
   });
 });

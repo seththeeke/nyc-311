@@ -2,24 +2,22 @@ import { useSearchParams } from "react-router-dom";
 import { IDEA_TYPES, type IdeaType } from "../models/customerIdea";
 
 /*
- * What the Customers page is focused on, kept in the URL so both
+ * What the Residents feed is focused on, kept in the URL so both
  * workspaces read the same state and any view can be linked to:
- * `?persona=` (a persona), `?order=` (one order's ideas), `?type=` (one
- * idea type), `?idea=` (the expanded idea).
+ * `?persona=` (a resident), `?order=` (one order's ideas) and `?type=`
+ * (one idea type). An idea's own detail view is a route of its own.
  */
 export interface CustomerSelection {
   personaId: string | null;
   orderId: string | null;
   ideaType: IdeaType | null;
-  ideaId: string | null;
   selectPersona: (personaId: string | null) => void;
   selectOrder: (orderId: string | null) => void;
   selectIdeaType: (ideaType: IdeaType | null) => void;
-  toggleIdea: (ideaId: string) => void;
   clearAll: () => void;
 }
 
-type SelectionKey = "persona" | "order" | "type" | "idea";
+type SelectionKey = "persona" | "order" | "type";
 
 function asIdeaType(value: string | null): IdeaType | null {
   return IDEA_TYPES.find((type) => type === value) ?? null;
@@ -27,7 +25,6 @@ function asIdeaType(value: string | null): IdeaType | null {
 
 export function useCustomerSelection(): CustomerSelection {
   const [params, setParams] = useSearchParams();
-  const ideaId = params.get("idea");
 
   const update = (changes: Partial<Record<SelectionKey, string | null>>): void => {
     setParams((current) => {
@@ -44,12 +41,10 @@ export function useCustomerSelection(): CustomerSelection {
     personaId: params.get("persona"),
     orderId: params.get("order"),
     ideaType: asIdeaType(params.get("type")),
-    ideaId,
-    /* Picking a persona starts a fresh view of them: any order filter or open idea is dropped. */
-    selectPersona: (personaId) => update({ persona: personaId, order: null, idea: null }),
-    selectOrder: (orderId) => update({ order: orderId, idea: null }),
+    /* Picking a resident starts a fresh view of them: any order filter is dropped. */
+    selectPersona: (personaId) => update({ persona: personaId, order: null }),
+    selectOrder: (orderId) => update({ order: orderId }),
     selectIdeaType: (ideaType) => update({ type: ideaType }),
-    toggleIdea: (id) => update({ idea: ideaId === id ? null : id }),
-    clearAll: () => update({ persona: null, order: null, type: null, idea: null }),
+    clearAll: () => update({ persona: null, order: null, type: null }),
   };
 }

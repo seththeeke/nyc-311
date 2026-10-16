@@ -16,7 +16,7 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
   },
   {
     flag_key: "CUSTOMERS_TAB",
-    description: "Shows the Customers page under Map (13-customer-simulation.md §4). C = hidden, T1 = shown. On here so mock mode shows the page.",
+    description: "Shows the Residents page under Map (13-customer-simulation.md §4). C = hidden, T1 = shown. On here so mock mode shows the page.",
     treatments: ["C", "T1"],
     default_treatment: "T1",
     overrides: [],

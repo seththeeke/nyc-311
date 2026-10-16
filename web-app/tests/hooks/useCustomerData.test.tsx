@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useCustomerIdea } from "../../src/hooks/useCustomerIdea";
 import { useCustomerIdeas } from "../../src/hooks/useCustomerIdeas";
 import { useCustomerPersonas } from "../../src/hooks/useCustomerPersonas";
 import { customerService } from "../../src/services/customerService";
@@ -9,7 +10,7 @@ import { MOCK_CUSTOMER_IDEAS } from "../../src/test-data/customerIdeas";
 import { MOCK_CUSTOMER_PERSONAS } from "../../src/test-data/customerPersonas";
 
 vi.mock("../../src/services/customerService", () => ({
-  customerService: { listPersonas: vi.fn(), listIdeas: vi.fn(), getPersona: vi.fn() },
+  customerService: { listPersonas: vi.fn(), listIdeas: vi.fn(), getPersona: vi.fn(), getIdea: vi.fn() },
 }));
 const mocked = vi.mocked(customerService);
 
@@ -44,5 +45,14 @@ describe("useCustomerIdeas", () => {
     mocked.listIdeas.mockRejectedValue(new Error("HTTP 404"));
     const { result } = renderHook(() => useCustomerIdeas(null), { wrapper });
     await waitFor(() => expect(result.current.error?.message).toBe("HTTP 404"));
+  });
+});
+
+describe("useCustomerIdea", () => {
+  it("asks for one idea by resident and id", async () => {
+    mocked.getIdea.mockResolvedValue(MOCK_CUSTOMER_IDEAS[0]);
+    const { result } = renderHook(() => useCustomerIdea("hawthorn", "01K7IDEA0014"), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(MOCK_CUSTOMER_IDEAS[0]));
+    expect(mocked.getIdea).toHaveBeenCalledWith("hawthorn", "01K7IDEA0014");
   });
 });

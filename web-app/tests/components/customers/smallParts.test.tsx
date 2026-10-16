@@ -2,16 +2,15 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PersonaAvatar } from "../../../src/components/customers/PersonaAvatar";
 import { DemeanorBars } from "../../../src/components/customers/DemeanorBars";
-import { IdeaTypeBadge } from "../../../src/components/customers/IdeaTypeBadge";
 import { MOCK_CUSTOMER_PERSONAS } from "../../../src/test-data/customerPersonas";
 
 describe("PersonaAvatar", () => {
-  it("shows the initial, decoratively, in either size", () => {
-    const { container, rerender } = render(<PersonaAvatar personaId="hawthorn" name="Hawthorn" />);
+  it("shows the initial on a neutral background, decoratively, in either size", () => {
+    const { container, rerender } = render(<PersonaAvatar name="Hawthorn" />);
     expect(container.firstChild).toHaveTextContent("H");
     expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
-    expect(container.firstChild).toHaveClass("h-8");
-    rerender(<PersonaAvatar personaId="hawthorn" name="Hawthorn" size="LG" />);
+    expect(container.firstChild).toHaveClass("h-8", "bg-panel-strong");
+    rerender(<PersonaAvatar name="Hawthorn" size="LG" />);
     expect(container.firstChild).toHaveClass("h-12");
   });
 });
@@ -24,13 +23,6 @@ describe("DemeanorBars", () => {
     rerender(<DemeanorBars persona={MOCK_CUSTOMER_PERSONAS[0]} detailed />);
     expect(screen.getAllByRole("meter")).toHaveLength(5);
     expect(screen.getByRole("meter", { name: "Follow-up 60 out of 100" })).toBeInTheDocument();
-  });
-});
-
-describe("IdeaTypeBadge", () => {
-  it("labels the idea type", () => {
-    render(<IdeaTypeBadge type="SERVICED_CHECK" />);
-    expect(screen.getByText("Serviced?")).toBeInTheDocument();
   });
 });
 

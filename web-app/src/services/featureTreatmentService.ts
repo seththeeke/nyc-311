@@ -3,7 +3,7 @@ import { FeatureTreatmentSchema } from "../models/featureTreatment";
 import { MOCK_FEATURE_FLAGS } from "../test-data/featureFlags";
 
 /*
- * Asks the bureau which treatment a flag resolves to, through its public
+ * Asks the API which treatment a flag resolves to, through the public
  * evaluation route (11-street-condition-implementation.md §4.2). The
  * web-app sends no context, so allocations and the default decide.
  */

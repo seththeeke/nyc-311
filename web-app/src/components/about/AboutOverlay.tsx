@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
-import { ABOUT_OVERVIEW, ABOUT_SECTIONS } from "./aboutSections";
+import { useFeatureEnabled } from "../../hooks/useFeatureTreatment";
+import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../../models/featureTreatment";
+import { ABOUT_OVERVIEW, ABOUT_SECTIONS, resolveAboutSections } from "./aboutSections";
 import { AboutSectionItem } from "./AboutSectionItem";
 
 export interface AboutOverlayProps {
@@ -16,6 +18,11 @@ export interface AboutOverlayProps {
 export function AboutOverlay({ onClose }: AboutOverlayProps): ReactElement {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+  /* The only flagged section today is LLMs, under the Residents page's flag. */
+  const residentsOn = useFeatureEnabled(CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON);
+  const sections = resolveAboutSections(ABOUT_SECTIONS, (flagKey, onTreatment) =>
+    flagKey === CUSTOMERS_TAB_FLAG && onTreatment === CUSTOMERS_TAB_ON && residentsOn,
+  );
 
   const toggleSection = (id: string): void =>
     setExpandedIds((current) => {
@@ -78,7 +85,7 @@ export function AboutOverlay({ onClose }: AboutOverlayProps): ReactElement {
           </div>
 
           <div className="mt-8 border-b border-line">
-            {ABOUT_SECTIONS.map((section) => (
+            {sections.map((section) => (
               <AboutSectionItem
                 key={section.id}
                 section={section}
