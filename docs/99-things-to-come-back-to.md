@@ -350,6 +350,13 @@ run, closes on merge.
 
 ---
 
+## Bump 15 patch/minor-outdated deps in backend/web-app within existing semver ranges
+
+See [#97](https://github.com/seththeeke/nyc-311/issues/97) — fixed this
+run, closes on merge.
+
+---
+
 ## web-app test:coverage exits 1: eager Promise.reject in useFeatureTreatment.test.tsx trips Vitest's unhandled-rejection detector
 
 See [#99](https://github.com/seththeeke/nyc-311/issues/99) — fixed this
