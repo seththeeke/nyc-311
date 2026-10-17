@@ -373,6 +373,8 @@ run, closes on merge.
 
 ## Rename the customer's webhook path `/webhooks/bureau` → `/webhooks/boroughsim`
 
+Tracked as [#109](https://github.com/seththeeke/nyc-311/issues/109).
+
 Deferred on 2026-10-17. The code, comments and docs no longer say
 "bureau". The one exception is this registered URL, kept in
 `cdk/customer/customerConfig.ts` (`CUSTOMER_WEBHOOK_PATH`), together with

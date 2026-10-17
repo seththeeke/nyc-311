@@ -1,8 +1,10 @@
 # The Customer — Simulated Support-Seekers + BoroughSim Lifecycle Webhooks
 
-> **Status (2026-10-17): residents and idea generation built (Appendix O);
-> the BoroughSim webhook and the customer listener are live in Prod since
-> 2026-10-14.** BoroughSim
+> **Status (2026-10-17): #58 complete.** Residents generate ideas on
+> their schedules (Appendix O), have Three.js models (Appendix P), and show
+> on the Residents page (`CUSTOMERS_TAB`, on in Test). The BoroughSim webhook
+> and the customer listener have been live in Prod since 2026-10-14.
+> Follow-ups and deferred items: Appendix R. BoroughSim
 > delivers `ORDER_ACCEPTED` and `ORDER_RESOLVED` to the customer's
 > listener, which records the orders in play in
 > `WebhookCustomerFacingOrders-Prod` (Appendices H, I and J). Personas,
@@ -1555,4 +1557,40 @@ dark cropped hair), Sycamore (olive cardigan, sand trousers, grey hair, flat
 cap, round glasses), Juniper (slight; teal scrubs, navy trousers, slate bike
 helmet over a bun, reflective sash). Their seeds now carry `model_key`, so
 the next deploy syncs each to version 2.
+
+### R. Follow-ups and deferred items (#58 closed 2026-10-17)
+
+**Follow-up issues.**
+
+| Issue | What |
+|---|---|
+| [#108](https://github.com/seththeeke/nyc-311/issues/108) | Customer stack monitoring, end to end, with its own section in the Monitoring tab |
+| [#109](https://github.com/seththeeke/nyc-311/issues/109) | Migrate the webhook path `/webhooks/bureau` → `/webhooks/boroughsim` (new Prod subscription) |
+| [#110](https://github.com/seththeeke/nyc-311/issues/110) | Contacts: a generic `Contact` entity on BoroughSim, first type `FEATURE_REQUEST`, with a feature request component |
+| [#111](https://github.com/seththeeke/nyc-311/issues/111) | Resident actions: tools to act on ideas, first `REQUEST_FEATURE` via Contacts (depends on #110) |
+
+Also open: [#107](https://github.com/seththeeke/nyc-311/issues/107),
+switching between mock and live data in the browser.
+
+**Deferred, not ticketed.**
+
+- **Prompt `idea-generator@2`.** The first forced runs (2026-10-17) showed:
+  - "nothing to say" chosen two times in three, including once where the stated reason was itself a request;
+  - an idea written as a greeted message rather than a thought;
+  - "not raised before" misread.
+
+  Tighten all three. A new prompt version re-versions every resident.
+- **Turning the page on in Prod:** set `CUSTOMERS_TAB` to `T1` in Prod. That also switches About → LLMs from "Work in progress" to the write-up.
+- **Leftover dials:** `active_hours` no longer drives anything now that each resident's cron sets the timing; decide whether it goes or gains a meaning. No daily idea cap exists in code (Appendix O).
+- **Later tools:** `CHECK_STATUS_API` (needs a public status API) and `BROWSE_WEBSITE` (RPA runner, recordings bucket, and how a recording's result hands back to the loop). Configuring action weights from an Admin screen.
+- **Conversations and responses** on ideas wait for the Case/Contact model.
+- **`Recruiter`,** creating residents automatically, is still a no-op; residents come only from seed files and need hand-written models (Appendix P).
+- **The §6 isolation review:** tests that the lint boundary rules still catch violations.
+- **Remaining §3 items:**
+  - a failure-mode table per hop;
+  - the infrastructure inventory;
+  - ordering once more event types exist.
+- **Partial filter counts.** The feed pages through ideas (3d0b998), but filter counts cover only the loaded pages; server-side counts are a later option.
+- **Paging the resident list.** The list loads one page of 20 residents, which is fine at three.
+- **The Test sink registration** (Appendix H's manual steps), left undone on purpose.
 
