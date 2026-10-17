@@ -1,5 +1,5 @@
 import { App, Stack } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { WebhookCustomerFacingOrdersTable } from "../../customer/WebhookCustomerFacingOrdersTable";
 
@@ -14,7 +14,7 @@ describe("WebhookCustomerFacingOrdersTable", () => {
     synthesize().hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       TableName: "WebhookCustomerFacingOrders-Prod",
       KeySchema: [{ AttributeName: "order_id", KeyType: "HASH" }],
-      TimeToLiveSpecification: { AttributeName: "expires_at", Enabled: false },
+      TimeToLiveSpecification: { Enabled: false, AttributeName: Match.absent() },
     });
   });
 

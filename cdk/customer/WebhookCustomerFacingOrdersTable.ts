@@ -27,7 +27,11 @@ export class WebhookCustomerFacingOrdersTable extends TableV2 {
       ],
       removalPolicy: RemovalPolicy.DESTROY,
     });
-    /* Explicitly off, not just omitted: rows written before 2026-10-17 still carry `expires_at`. */
-    (this.node.defaultChild as CfnGlobalTable).timeToLiveSpecification = { attributeName: "expires_at", enabled: false };
+    /*
+     * Explicitly off, not just omitted: rows written before 2026-10-17 still
+     * carry `expires_at`. CloudFormation refuses an attribute name on a
+     * disabled TTL, so none is given.
+     */
+    (this.node.defaultChild as CfnGlobalTable).timeToLiveSpecification = { enabled: false };
   }
 }
