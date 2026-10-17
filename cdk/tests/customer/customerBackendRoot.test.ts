@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CUSTOMER_BACKEND_ROOT } from "../../customer/customerBackendRoot";
 
 describe("CUSTOMER_BACKEND_ROOT", () => {
-  it("points at the customer's own package, not the bureau's", () => {
+  it("points at the customer's own package, not BoroughSim's", () => {
     const repoRoot = path.join(__dirname, "..", "..", "..");
     expect(path.relative(repoRoot, CUSTOMER_BACKEND_ROOT)).toBe(path.join("customer", "backend"));
   });

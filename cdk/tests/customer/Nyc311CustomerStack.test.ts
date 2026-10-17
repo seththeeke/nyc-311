@@ -44,7 +44,7 @@ describe("Nyc311CustomerStack", () => {
     expect(bedrock[0].Resource).toBe("arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0");
   });
 
-  it("outputs the callback URL to register with the bureau", () => {
+  it("outputs the callback URL to register with BoroughSim", () => {
     template.hasOutput("CustomerWebhookUrl", { Value: "https://customer-api.boroughsim.com/webhooks/bureau" });
     expect(stack.webhookUrlOutput).toBeDefined();
   });
@@ -60,13 +60,13 @@ describe("Nyc311CustomerStack isolation", () => {
     expect(templateJson).not.toContain("Fn::ImportValue");
   });
 
-  it("names no bureau resource anywhere in its template", () => {
+  it("names no BoroughSim resource anywhere in its template", () => {
     /*
-     * Physical-name stems and prefixes that only the bureau's stacks use.
+     * Physical-name stems and prefixes that only BoroughSim's stacks use.
      * Table names are matched as whole JSON strings, since the customer's
      * own table name ends in "Orders-Prod".
      */
-    const bureauMarkers = [
+    const boroughSimMarkers = [
       "Nyc311-Prod",
       "Nyc311-Test",
       "Nyc311Api-",
@@ -81,10 +81,10 @@ describe("Nyc311CustomerStack isolation", () => {
       "Nyc311Order",
       "/nyc311/",
     ];
-    for (const marker of bureauMarkers) {
+    for (const marker of boroughSimMarkers) {
       expect(templateJson.includes(marker), `template mentions ${marker}`).toBe(false);
     }
-    /* The bureau's API host, as distinct from the customer's own `customer-api` name. */
+    /* BoroughSim's API host, as distinct from the customer's own `customer-api` name. */
     expect(templateJson).not.toMatch(/[^-]api\.boroughsim\.com/);
   });
 

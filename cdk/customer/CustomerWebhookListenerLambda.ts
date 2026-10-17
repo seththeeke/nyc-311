@@ -46,7 +46,7 @@ export class CustomerWebhookListenerLambda extends NodejsFunction {
       },
     });
 
-    /* Least privilege: put rows in its own table, and read its own one secret. Nothing of the bureau's. */
+    /* Least privilege: put rows in its own table, and read its own one secret. Nothing of BoroughSim's. */
     props.ordersTable.grant(this, "dynamodb:PutItem");
     this.addToRolePolicy(
       new iam.PolicyStatement({

@@ -11,7 +11,7 @@ describe("webhookConfig", () => {
     expect(WEBHOOK_ALLOWED_CALLBACK_HOSTS.TEST).toEqual([DOMAIN_CONFIG.TEST.apiDomain]);
   });
 
-  it("never allows a Prod callback to the bureau's own API", () => {
+  it("never allows a Prod callback to BoroughSim's own API", () => {
     expect(WEBHOOK_ALLOWED_CALLBACK_HOSTS.PROD).not.toContain(DOMAIN_CONFIG.PROD.apiDomain);
     expect(WEBHOOK_ALLOWED_CALLBACK_HOSTS.PROD).toEqual(["customer-api.boroughsim.com"]);
   });

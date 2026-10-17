@@ -370,3 +370,23 @@ See [#103](https://github.com/seththeeke/nyc-311/issues/103) — fixed this
 run, closes on merge.
 
 ---
+
+## Rename the customer's webhook path `/webhooks/bureau` → `/webhooks/boroughsim`
+
+Deferred on 2026-10-17. The code, comments and docs no longer say
+"bureau". The one exception is this registered URL, kept in
+`cdk/customer/customerConfig.ts` (`CUSTOMER_WEBHOOK_PATH`), together with
+the stack output's description text.
+
+A subscription's `callback_url` is immutable (13-customer-simulation.md §2
+BoroughSim side, decision 6), so this is a migration, not an edit:
+
+1. **Deploy:** the listener serves both paths, and the output text changes.
+2. **Register:** a new Prod subscription for `…/webhooks/boroughsim`, with the same customer signing secret (runbook, Appendix H).
+3. **Verify:** deliveries arrive on the new path. Both subscriptions deliver meanwhile, which is harmless because the listener is idempotent.
+4. **Delete:** the old subscription row and its `/nyc311/prod/webhook/<id>/secret` parameter (runbook, Appendix H).
+5. **Remove:** the old route, then deploy.
+
+Steps 2 and 4 write to Prod (Deploy Safety Gate).
+
+---

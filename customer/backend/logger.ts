@@ -1,7 +1,7 @@
 /**
  * Structured JSON logging, one JSON object per line, shared across
  * controller/service/dao. Copied from `backend/logger.ts`, never imported
- * (CLAUDE.md §5.4) — the customer shares no code with the bureau.
+ * (CLAUDE.md §5.4) — the customer shares no code with BoroughSim.
  */
 
 export interface LogContext {

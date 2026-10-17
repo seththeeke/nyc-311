@@ -948,7 +948,7 @@ is ready to consume webhook events once Appendix I's manual steps are run.
 | Package | `customer/backend/` — its own `package.json`, ESLint, Vitest (90% per file), copied `logger.ts` / `env.ts` / `Dao` base / error types |
 | Listener | `controller/webhook/receiveWebhookController.ts` → `service/webhook/webhookReceiverService.ts` |
 | Signature check | `service/webhook/webhookSignature.ts` — the customer's own verify, tested against deliveries signed by the `standardwebhooks` reference package |
-| Order table access | `dao/webhookCustomerFacingOrder/`, `models/webhookCustomerFacingOrder.ts`, `models/bureauWebhookEvent.ts` |
+| Order table access | `dao/webhookCustomerFacingOrder/`, `models/webhookCustomerFacingOrder.ts`, `models/boroughSimWebhookEvent.ts` |
 | Infrastructure | `cdk/customer/` — `Nyc311CustomerStack`, `CustomerApi`, `CustomerApiDomain`, `CustomerWebhookListenerLambda`, `WebhookCustomerFacingOrdersTable`, `customerConfig.ts`, `customerBackendRoot.ts` |
 | Deployment | `cdk/pipeline/Nyc311CustomerStage.ts`; `DeployCustomer` added after `DeployProd`; the customer package linted and tested in Synth; the direct-deploy deny policy covers `Nyc311Customer-Prod` |
 | Boundary | Import bans in `backend/`, `customer/backend/` and `cdk/` ESLint configs; `local/customer-boundary` in `cdk/eslint.config.js`; isolation and IAM assertions in `cdk/tests/customer/Nyc311CustomerStack.test.ts` |

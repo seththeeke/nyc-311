@@ -8,7 +8,7 @@ import { CUSTOMER_API_DOMAIN, CUSTOMER_HOSTED_ZONE_ID, CUSTOMER_ROOT_DOMAIN } fr
 /**
  * The customer API's own custom domain: its own DNS-validated ACM
  * certificate, its own API Gateway `DomainName`, and alias records. The
- * hosted zone is the single resource shared with the bureau — referenced
+ * hosted zone is the single resource shared with BoroughSim — referenced
  * by its pinned id, so there is no stack-to-stack dependency. Separate
  * from `CustomerApi` because `defaultDomainMapping` is a constructor prop.
  */

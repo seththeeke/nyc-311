@@ -211,7 +211,7 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("deploys the customer as its own stage after DeployProd, so the bureau's Prod deploy finishes first (13-customer-simulation.md)", () => {
+  it("deploys the customer as its own stage after DeployProd, so BoroughSim's Prod deploy finishes first (13-customer-simulation.md)", () => {
     const [pipeline] = Object.values(template.findResources("AWS::CodePipeline::Pipeline"));
     const stages = pipeline.Properties.Stages as { Name: string; Actions: { Name: string; Configuration?: { StackName?: string } }[] }[];
     const names = stages.map((stage) => stage.Name);
@@ -220,7 +220,7 @@ describe("Nyc311PipelineStack", () => {
     const customerStage = stages[names.indexOf("DeployCustomer")];
     const deployedStacks = customerStage.Actions.map((action) => action.Configuration?.StackName).filter(Boolean);
     expect(new Set(deployedStacks)).toEqual(new Set(["Nyc311Customer-Prod"]));
-    /* And the bureau's stages never deploy it. */
+    /* And BoroughSim's stages never deploy it. */
     for (const stageName of ["DeployTest", "DeployProd"]) {
       const stage = stages[names.indexOf(stageName)];
       expect(JSON.stringify(stage)).not.toContain("Nyc311Customer");

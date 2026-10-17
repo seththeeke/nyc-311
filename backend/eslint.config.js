@@ -109,7 +109,7 @@ const commentFormatRule = {
   },
 };
 
-/* CLAUDE.md §5.4: the bureau imports nothing from the customer's package.
+/* CLAUDE.md §5.4: BoroughSim imports nothing from the customer's package.
    Restated in the controller block below, since a later config object
    replaces this rule's options rather than merging them. */
 const NO_CUSTOMER_IMPORTS = {

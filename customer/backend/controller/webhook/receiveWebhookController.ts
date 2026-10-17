@@ -2,7 +2,7 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { UnauthorizedError, ValidationError } from "../../models/errors";
-import { receiveBureauWebhook } from "../../service/webhook/webhookReceiverService";
+import { receiveBoroughSimWebhook } from "../../service/webhook/webhookReceiverService";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -11,10 +11,10 @@ function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructu
 }
 
 /**
- * `POST /webhooks/bureau` — where the bureau delivers lifecycle events
+ * `POST /webhooks/bureau` — where BoroughSim delivers lifecycle events
  * (docs/13-customer-simulation.md §3 Flow A). `200` once the delivery is
  * verified and applied, including a repeat; `401` for a bad signature;
- * `400` for an unreadable body. Anything but `2xx` makes the bureau retry.
+ * `400` for an unreadable body. Anything but `2xx` makes BoroughSim retry.
  */
 export const receiveWebhookController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("ReceiveWebhookControllerInvoked", { event });
@@ -26,7 +26,7 @@ export const receiveWebhookController = async (event: unknown): Promise<APIGatew
   }
 
   try {
-    const outcome = await receiveBureauWebhook(parsed.data.headers ?? {}, parsed.data.body ?? "");
+    const outcome = await receiveBoroughSimWebhook(parsed.data.headers ?? {}, parsed.data.body ?? "");
     const response = jsonResponse(200, { received: true, outcome });
     logInfo("ReceiveWebhookControllerCompleted", { response });
     return response;

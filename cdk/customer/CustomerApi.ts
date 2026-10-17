@@ -13,9 +13,9 @@ export interface CustomerApiProps {
   apiDomainName: IDomainName;
 }
 
-/* Crude, free abuse protection, same approach as the bureau's API: a stage default plus a route limit. */
+/* Crude, free abuse protection, same approach as BoroughSim's API: a stage default plus a route limit. */
 export const CUSTOMER_DEFAULT_THROTTLE = { rateLimit: 10, burstLimit: 20 };
-/* The bureau sends at most two deliveries at once, so this only ever limits strangers. */
+/* BoroughSim sends at most two deliveries at once, so this only ever limits strangers. */
 export const CUSTOMER_WEBHOOK_THROTTLE = { rateLimit: 5, burstLimit: 10 };
 
 /**

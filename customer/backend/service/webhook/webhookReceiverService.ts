@@ -4,11 +4,11 @@ import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import {
-  BUREAU_ORDER_ACCEPTED,
-  BUREAU_ORDER_RESOLVED,
-  BureauWebhookEventSchema,
-  type BureauWebhookEvent,
-} from "../../models/bureauWebhookEvent";
+  BOROUGHSIM_ORDER_ACCEPTED,
+  BOROUGHSIM_ORDER_RESOLVED,
+  BoroughSimWebhookEventSchema,
+  type BoroughSimWebhookEvent,
+} from "../../models/boroughSimWebhookEvent";
 import { UnauthorizedError, ValidationError } from "../../models/errors";
 import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFacingOrder";
 import { newPickKey } from "../idea/ulid";
@@ -30,9 +30,9 @@ export interface WebhookReceiverDeps {
 /** What one delivery did to the customer's view of its orders. */
 export type WebhookReceiptOutcome = "OPENED" | "ALREADY_KNOWN" | "CLOSED" | "IGNORED";
 
-function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date, pickKey: () => string): WebhookCustomerFacingOrder {
+function toOrder(event: BoroughSimWebhookEvent, webhookId: string, now: Date, pickKey: () => string): WebhookCustomerFacingOrder {
   const { data } = event;
-  const closed = event.type === BUREAU_ORDER_RESOLVED;
+  const closed = event.type === BOROUGHSIM_ORDER_RESOLVED;
   /* A resolve with no resolved_at still closes the order, at the event's own time. */
   const resolvedAt = closed ? (data.resolved_at ?? event.timestamp) : null;
   return {
@@ -56,7 +56,7 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date, pickKe
 }
 
 /**
- * Handles one delivery from the bureau: verify the signature against the
+ * Handles one delivery from BoroughSim: verify the signature against the
  * customer's own secret, read the payload, and open or close the order.
  * Repeats and out-of-order arrivals are harmless.
  *
@@ -65,7 +65,7 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date, pickKe
  * @throws {@link UnauthorizedError} if the signature does not verify.
  * @throws {@link ValidationError} if the body is not a readable event.
  */
-export async function receiveBureauWebhook(
+export async function receiveBoroughSimWebhook(
   headers: Record<string, string | undefined>,
   body: string,
   deps: WebhookReceiverDeps = {}
@@ -74,7 +74,7 @@ export async function receiveBureauWebhook(
   const webhookId = headers[WEBHOOK_ID_HEADER];
   const secret = await (deps.secretStore ?? new SigningSecretStore()).getSecret(requireEnv("CUSTOMER_SIGNING_SECRET_PARAMETER_NAME"));
   if (!webhookId || !verifyWebhook({ secret, headers, body, now })) {
-    logWarn("BureauWebhookSignatureRejected", { webhookId: webhookId ?? null });
+    logWarn("BoroughSimWebhookSignatureRejected", { webhookId: webhookId ?? null });
     throw new UnauthorizedError("Invalid webhook signature");
   }
 
@@ -82,21 +82,21 @@ export async function receiveBureauWebhook(
   try {
     rawEvent = JSON.parse(body);
   } catch {
-    logWarn("BureauWebhookBodyNotJson", { webhookId });
+    logWarn("BoroughSimWebhookBodyNotJson", { webhookId });
     throw new ValidationError("Webhook body is not JSON");
   }
-  const parsed = BureauWebhookEventSchema.safeParse(rawEvent);
+  const parsed = BoroughSimWebhookEventSchema.safeParse(rawEvent);
   if (!parsed.success) {
-    logWarn("BureauWebhookBodyInvalid", { webhookId, issues: parsed.error.issues });
+    logWarn("BoroughSimWebhookBodyInvalid", { webhookId, issues: parsed.error.issues });
     throw new ValidationError("Webhook body failed validation", parsed.error.issues);
   }
   const event = parsed.data;
   const context = { webhookId, eventType: event.type, orderId: event.data.order_id };
-  logInfo("BureauWebhookVerified", context);
+  logInfo("BoroughSimWebhookVerified", context);
 
-  if (event.type !== BUREAU_ORDER_ACCEPTED && event.type !== BUREAU_ORDER_RESOLVED) {
-    /* Acknowledged, not rejected: refusing it would only make the bureau retry for a day. */
-    logWarn("BureauWebhookEventTypeIgnored", context);
+  if (event.type !== BOROUGHSIM_ORDER_ACCEPTED && event.type !== BOROUGHSIM_ORDER_RESOLVED) {
+    /* Acknowledged, not rejected: refusing it would only make BoroughSim retry for a day. */
+    logWarn("BoroughSimWebhookEventTypeIgnored", context);
     return "IGNORED";
   }
 

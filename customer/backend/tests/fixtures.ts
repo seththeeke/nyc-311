@@ -1,4 +1,4 @@
-import type { BureauWebhookEvent } from "../models/bureauWebhookEvent";
+import type { BoroughSimWebhookEvent } from "../models/boroughSimWebhookEvent";
 import type { WebhookCustomerFacingOrder } from "../models/webhookCustomerFacingOrder";
 
 /* Shared across the customer package's tests. */
@@ -6,7 +6,7 @@ import type { WebhookCustomerFacingOrder } from "../models/webhookCustomerFacing
 /* `whsec_` + base64 of 32 bytes, the Standard Webhooks secret format. */
 export const SECRET = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSwMfKQ9r8GKYo=";
 
-export const acceptedEvent: BureauWebhookEvent = {
+export const acceptedEvent: BoroughSimWebhookEvent = {
   type: "ORDER_ACCEPTED",
   timestamp: "2026-10-10T14:03:11.000Z",
   data: {
@@ -23,7 +23,7 @@ export const acceptedEvent: BureauWebhookEvent = {
   },
 };
 
-export const resolvedEvent: BureauWebhookEvent = {
+export const resolvedEvent: BoroughSimWebhookEvent = {
   type: "ORDER_RESOLVED",
   timestamp: "2026-10-11T09:27:40.000Z",
   data: { ...acceptedEvent.data, resolved_at: "2026-10-11T09:27:40.000Z" },

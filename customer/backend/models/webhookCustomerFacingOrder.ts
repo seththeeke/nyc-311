@@ -3,7 +3,7 @@ import { z } from "zod";
 /*
  * The customer's own row per order in play
  * (docs/13-customer-simulation.md, decision 2026-10-13). `OPEN` from the
- * bureau's ORDER_ACCEPTED until its ORDER_RESOLVED makes it `CLOSED`; a
+ * BoroughSim's ORDER_ACCEPTED until its ORDER_RESOLVED makes it `CLOSED`; a
  * closed row stays as a marker so a late accept can never reopen it. Rows
  * never expire (decision 6, 2026-10-17): ideas reference orders by id.
  * Enum values ALL_CAPS per CLAUDE.md §6.

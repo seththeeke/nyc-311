@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { receiveWebhookController } from "../../../controller/webhook/receiveWebhookController";
 import { UnauthorizedError, ValidationError } from "../../../models/errors";
-import { receiveBureauWebhook } from "../../../service/webhook/webhookReceiverService";
+import { receiveBoroughSimWebhook } from "../../../service/webhook/webhookReceiverService";
 
-vi.mock("../../../service/webhook/webhookReceiverService", () => ({ receiveBureauWebhook: vi.fn() }));
-const mockedReceive = vi.mocked(receiveBureauWebhook);
+vi.mock("../../../service/webhook/webhookReceiverService", () => ({ receiveBoroughSimWebhook: vi.fn() }));
+const mockedReceive = vi.mocked(receiveBoroughSimWebhook);
 
 const headers = { "webhook-id": "evt_01ORDER_1", "webhook-timestamp": "1791641000", "webhook-signature": "v1,abc" };
 
@@ -30,7 +30,7 @@ describe("receiveWebhookController", () => {
     expect(mockedReceive).toHaveBeenCalledWith(headers, "{}");
   });
 
-  it("returns 200 for a repeat too, so the bureau stops retrying", async () => {
+  it("returns 200 for a repeat too, so BoroughSim stops retrying", async () => {
     mockedReceive.mockResolvedValue("ALREADY_KNOWN");
     expect((await receiveWebhookController(event())).statusCode).toBe(200);
   });

@@ -24,7 +24,7 @@ import { WebhookCustomerFacingOrdersTable } from "./WebhookCustomerFacingOrdersT
  * BoroughSim's web-app. No actions yet.
  */
 export class Nyc311CustomerStack extends Stack {
-  /** The callback URL to register with the bureau. */
+  /** The callback URL to register with BoroughSim. */
   public readonly webhookUrlOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: StackProps) {
@@ -55,6 +55,7 @@ export class Nyc311CustomerStack extends Stack {
 
     this.webhookUrlOutput = new CfnOutput(this, "CustomerWebhookUrl", {
       value: `${apiDomain.url}${CUSTOMER_WEBHOOK_PATH}`,
+      /* Unchanged deployed text: renaming it is an infrastructure change, deferred with the path itself. */
       description: "The callback URL to register with the bureau (13-customer-simulation.md Appendix I)",
     });
   }

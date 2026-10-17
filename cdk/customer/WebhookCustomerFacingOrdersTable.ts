@@ -10,7 +10,7 @@ import { CUSTOMER_ENV_SUFFIX } from "./customerConfig";
  * (decision 6, 2026-10-17): ideas reference orders by id. The sparse
  * `OpenByBorough` index holds only open orders, at a random `pick_key`,
  * so the idea worker samples fairly (decision 5). Rebuildable from
- * the bureau's replay script, so it is destroyed with the stack rather
+ * BoroughSim's replay script, so it is destroyed with the stack rather
  * than retained.
  */
 export class WebhookCustomerFacingOrdersTable extends TableV2 {

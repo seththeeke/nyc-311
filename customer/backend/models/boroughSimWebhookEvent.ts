@@ -1,17 +1,17 @@
 import { z } from "zod";
 
 /*
- * The customer's own reading of the bureau's public webhook payload
+ * The customer's own reading of BoroughSim's public webhook payload
  * (docs/13-customer-simulation.md §5) — written from the published
  * contract, not shared with the sender. Unknown fields are ignored, per
  * the contract's additive-only versioning. `type` stays a plain string so
  * an event type added later is acknowledged and ignored, not rejected.
  */
 
-export const BUREAU_ORDER_ACCEPTED = "ORDER_ACCEPTED";
-export const BUREAU_ORDER_RESOLVED = "ORDER_RESOLVED";
+export const BOROUGHSIM_ORDER_ACCEPTED = "ORDER_ACCEPTED";
+export const BOROUGHSIM_ORDER_RESOLVED = "ORDER_RESOLVED";
 
-export const BureauOrderDataSchema = z.object({
+export const BoroughSimOrderDataSchema = z.object({
   order_id: z.string().min(1),
   request_id: z.string().min(1),
   external_unique_key: z.string().min(1),
@@ -24,11 +24,11 @@ export const BureauOrderDataSchema = z.object({
   accepted_at: z.string().min(1),
   resolved_at: z.string().min(1).optional(),
 });
-export type BureauOrderData = z.infer<typeof BureauOrderDataSchema>;
+export type BoroughSimOrderData = z.infer<typeof BoroughSimOrderDataSchema>;
 
-export const BureauWebhookEventSchema = z.object({
+export const BoroughSimWebhookEventSchema = z.object({
   type: z.string().min(1),
   timestamp: z.string().min(1),
-  data: BureauOrderDataSchema,
+  data: BoroughSimOrderDataSchema,
 });
-export type BureauWebhookEvent = z.infer<typeof BureauWebhookEventSchema>;
+export type BoroughSimWebhookEvent = z.infer<typeof BoroughSimWebhookEventSchema>;
