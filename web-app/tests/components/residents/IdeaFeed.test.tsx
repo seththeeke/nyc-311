@@ -14,15 +14,17 @@ vi.mock("../../../src/hooks/useResidentPersonas", () => ({ useResidentPersonas: 
 const mockedIdeas = vi.mocked(useResidentIdeas);
 const mockedPersonas = vi.mocked(useResidentPersonas);
 
-function setIdeas(state: { data?: ResidentIdea[]; isLoading?: boolean; error?: Error | null }) {
-  mockedIdeas.mockImplementation(
-    (personaId) =>
-      ({
-        data: state.data?.filter((idea) => !personaId || idea.persona_id === personaId),
-        isLoading: state.isLoading ?? false,
-        error: state.error ?? null,
-      }) as ReturnType<typeof useResidentIdeas>,
-  );
+const loadMore = vi.fn();
+
+function setIdeas(state: { data?: ResidentIdea[]; isLoading?: boolean; error?: Error | null; hasMore?: boolean; isLoadingMore?: boolean }) {
+  mockedIdeas.mockImplementation((personaId) => ({
+    data: state.data?.filter((idea) => !personaId || idea.persona_id === personaId),
+    isLoading: state.isLoading ?? false,
+    error: state.error ?? null,
+    hasMore: state.hasMore ?? false,
+    loadMore,
+    isLoadingMore: state.isLoadingMore ?? false,
+  }));
 }
 
 const search = () => screen.getByRole("status", { name: "search" });
@@ -89,6 +91,27 @@ describe("IdeaFeed — focusing", () => {
     expect(screen.getAllByRole("article")).toHaveLength(MOCK_RESIDENT_IDEAS.length);
   });
 
+});
+
+describe("IdeaFeed — paging", () => {
+  it("offers older ideas while more remain, says counts are partial, and shows when it is fetching", async () => {
+    const user = userEvent.setup();
+    setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true });
+    const { rerender } = render(inRouter(<IdeaFeed />));
+    expect(screen.getByText("Counts cover the 10 newest ideas loaded so far.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Load older ideas" }));
+    expect(loadMore).toHaveBeenCalled();
+    setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true, isLoadingMore: true });
+    rerender(inRouter(<IdeaFeed />));
+    expect(screen.getByRole("button", { name: "Loading older ideas…" })).toBeDisabled();
+  });
+
+  it("offers nothing more on the last page", () => {
+    setIdeas({ data: MOCK_RESIDENT_IDEAS });
+    render(inRouter(<IdeaFeed />));
+    expect(screen.queryByRole("button", { name: "Load older ideas" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Counts cover/)).not.toBeInTheDocument();
+  });
 });
 
 describe("IdeaFeed — states", () => {

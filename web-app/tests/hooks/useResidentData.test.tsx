@@ -36,9 +36,23 @@ describe("useResidentIdeas", () => {
     const all = renderHook(() => useResidentIdeas(null), { wrapper });
     await waitFor(() => expect(all.result.current.data).toEqual(MOCK_RESIDENT_IDEAS));
     expect(mocked.listIdeas).toHaveBeenLastCalledWith({});
+    expect(all.result.current.hasMore).toBe(false);
 
     renderHook(() => useResidentIdeas("juniper"), { wrapper });
     await waitFor(() => expect(mocked.listIdeas).toHaveBeenLastCalledWith({ personaId: "juniper" }));
+  });
+
+  it("follows the cursor page by page, appending older ideas", async () => {
+    mocked.listIdeas
+      .mockResolvedValueOnce({ items: MOCK_RESIDENT_IDEAS.slice(0, 2), nextCursor: "next" })
+      .mockResolvedValueOnce({ items: MOCK_RESIDENT_IDEAS.slice(2, 3), nextCursor: null });
+    const { result } = renderHook(() => useResidentIdeas("hawthorn"), { wrapper });
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    result.current.loadMore();
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    expect(mocked.listIdeas).toHaveBeenLastCalledWith({ personaId: "hawthorn", cursor: "next" });
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.isLoadingMore).toBe(false);
   });
 
   it("surfaces a failure", async () => {

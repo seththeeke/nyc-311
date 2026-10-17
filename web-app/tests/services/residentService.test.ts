@@ -40,9 +40,14 @@ describe("residentService — mock", () => {
 
   it("lists every idea newest first, or one persona's", async () => {
     const service = await mockService();
-    const all = await settle(service.listIdeas());
-    expect(all.items).toHaveLength(MOCK_RESIDENT_IDEAS.length);
-    expect(all.items.map((idea) => idea.created_at)).toEqual([...all.items.map((idea) => idea.created_at)].sort().reverse());
+    const first = await settle(service.listIdeas());
+    expect(first.items).toHaveLength(10);
+    expect(first.nextCursor).toBe("10");
+    const rest = await settle(service.listIdeas({ cursor: first.nextCursor ?? undefined }));
+    expect(rest.nextCursor).toBeNull();
+    const all = [...first.items, ...rest.items];
+    expect(all).toHaveLength(MOCK_RESIDENT_IDEAS.length);
+    expect(all.map((idea) => idea.created_at)).toEqual([...all.map((idea) => idea.created_at)].sort().reverse());
     const hawthorn = await settle(service.listIdeas({ personaId: "hawthorn" }));
     expect(hawthorn.items.every((idea) => idea.persona_id === "hawthorn")).toBe(true);
     expect(hawthorn.nextCursor).toBeNull();

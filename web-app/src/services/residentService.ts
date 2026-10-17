@@ -56,6 +56,8 @@ class LiveResidentService implements ResidentService {
 
 /* Long enough to see loading states while iterating, short enough not to annoy. */
 const MOCK_LATENCY_MS = 250;
+/* Smaller than the API's 20, so the 14 sample ideas exercise paging. */
+export const MOCK_IDEA_PAGE_SIZE = 10;
 
 function delay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
@@ -76,10 +78,13 @@ class MockResidentService implements ResidentService {
 
   async listIdeas(query: IdeaQuery = {}): Promise<ResidentIdeaPage> {
     await delay();
-    const items = MOCK_RESIDENT_IDEAS.filter((idea) => !query.personaId || idea.persona_id === query.personaId)
+    const all = MOCK_RESIDENT_IDEAS.filter((idea) => !query.personaId || idea.persona_id === query.personaId)
       .map((idea) => ({ ...idea }))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return { items, nextCursor: null };
+    /* The mock's cursor is just the offset of the next page. */
+    const start = query.cursor ? Number(query.cursor) : 0;
+    const end = start + MOCK_IDEA_PAGE_SIZE;
+    return { items: all.slice(start, end), nextCursor: end < all.length ? String(end) : null };
   }
 
   async getIdea(personaId: string, ideaId: string): Promise<ResidentIdea> {

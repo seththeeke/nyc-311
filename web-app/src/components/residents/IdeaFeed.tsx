@@ -27,7 +27,7 @@ function countByType(ideas: ResidentIdea[]): Record<IdeaType, number> {
  */
 export function IdeaFeed(): ReactElement {
   const selection = useResidentSelection();
-  const { data: ideas, isLoading, error } = useResidentIdeas(selection.personaId);
+  const { data: ideas, isLoading, error, hasMore, loadMore, isLoadingMore } = useResidentIdeas(selection.personaId);
   const { data: personas } = useResidentPersonas();
   const persona = personas?.find((candidate) => candidate.persona_id === selection.personaId);
 
@@ -49,6 +49,7 @@ export function IdeaFeed(): ReactElement {
         </div>
       )}
       <IdeaFilters ideaType={selection.ideaType} counts={countByType(inScope)} total={inScope.length} onSelectType={selection.selectIdeaType} />
+      {hasMore && ideas && <p className="text-xs text-fg-subtle">Counts cover the {ideas.length} newest ideas loaded so far.</p>}
       {isLoading && (
         <p role="status" className="text-sm text-fg-muted">
           Loading ideas…
@@ -72,6 +73,16 @@ export function IdeaFeed(): ReactElement {
           </li>
         ))}
       </ul>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={isLoadingMore}
+          className="w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-fg-muted hover:bg-panel-hover hover:text-fg disabled:opacity-60"
+        >
+          {isLoadingMore ? "Loading older ideas…" : "Load older ideas"}
+        </button>
+      )}
     </div>
   );
 }
