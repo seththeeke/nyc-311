@@ -1,3 +1,5 @@
+import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResidentDao } from "../../../dao/resident/residentDao";
 import type { ResidentIdeaDao } from "../../../dao/residentIdea/residentIdeaDao";
@@ -91,4 +93,19 @@ describe("runIdeaWorker", () => {
     vi.stubEnv("RESIDENT_IDEAS_TABLE_NAME", "");
     await expect(runIdeaWorker({ persona_id: "hawthorn" }, { ...deps, ideaDao: undefined })).rejects.toThrow("RESIDENT_IDEAS_TABLE_NAME");
   });
+
+  it("asks Bedrock itself when no generator is given, at the current time", async () => {
+    const bedrockMock = mockClient(BedrockRuntimeClient);
+    bedrockMock.on(ConverseCommand).resolves({
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      output: { message: { role: "assistant", content: [{ toolUse: { toolUseId: "t", name: "nothing_to_say", input: { reason: "quiet" } } }] } },
+    });
+    const { deps } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: null, text: "unused", ...tokens });
+    await expect(runIdeaWorker({ persona_id: "hawthorn" }, { ...deps, generate: undefined, now: undefined })).resolves.toEqual({
+      outcome: "SKIPPED_NOTHING_TO_SAY",
+    });
+    expect(bedrockMock.commandCalls(ConverseCommand)[0].args[0].input.modelId).toBe(current.model_id);
+    bedrockMock.restore();
+  });
 });
+
