@@ -30,10 +30,10 @@ export type IdeaAnchor = z.infer<typeof IdeaAnchorSchema>;
 
 /*
  * What the resident did about the idea (13-customer-simulation.md
- * Appendix L) — chosen by their personality. In the first phase ideas go
- * unactioned (`action: null`); requesting a feature is planned to be the
- * first action, with checking status through the API and browsing the
- * website (recorded as RPA) to follow.
+ * Appendix L, §3 Flow B decision 5) — tools the resident chose to call,
+ * in order; one idea can have several. For now no tool is granted, so
+ * every idea has `actions: []`; requesting a feature comes first, then
+ * checking status through an API and browsing the website (RPA).
  */
 export const ACTION_TYPES = ["REQUEST_FEATURE", "CHECK_STATUS_API", "BROWSE_WEBSITE"] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
@@ -109,8 +109,8 @@ export const ResidentIdeaSchema = z.object({
   prompt_version: z.string().min(1),
   input_tokens: z.number().int().min(0),
   output_tokens: z.number().int().min(0),
-  /* null = not actioned yet. */
-  action: IdeaActionSchema.nullable(),
+  /* In the order they were taken; empty = not actioned yet. */
+  actions: z.array(IdeaActionSchema),
 });
 export type ResidentIdea = z.infer<typeof ResidentIdeaSchema>;
 

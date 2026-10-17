@@ -34,7 +34,7 @@ function withCursor(path: string, cursor: string | undefined): string {
   return cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path;
 }
 
-/* Against the resident API — not built yet, so in a live build the page shows its error state. */
+/* Against the resident API on the customer stack. */
 class LiveResidentService implements ResidentService {
   async listPersonas(): Promise<ResidentPersonaPage> {
     return ResidentPersonaPageSchema.parse(await getJson("/residents"));

@@ -40,7 +40,7 @@ describe("IdeaFeed — everyone", () => {
     expect(within(first).getByRole("button", { name: "Hawthorn" })).toBeInTheDocument();
     expect(first).not.toHaveTextContent("Escalation");
     expect(within(first).getByText("Not actioned yet")).toBeInTheDocument();
-    expect(screen.getAllByText("Requested a feature")).toHaveLength(3);
+    expect(screen.getAllByText("Requested a feature")).toHaveLength(4);
     expect(screen.getByText("Browsed the website")).toBeInTheDocument();
     expect(within(first).getByRole("link", { name: "View details" })).toHaveAttribute("href", "/residents/hawthorn/ideas/01K7IDEA0014");
     expect(within(first).getByRole("button", { name: "Pothole · 412 ATLANTIC AVENUE, Brooklyn" })).toBeInTheDocument();

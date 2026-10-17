@@ -18,10 +18,18 @@ describe("WebhookCustomerFacingOrdersTable", () => {
     });
   });
 
-  it("has no index and no stream, and is destroyed with the stack", () => {
+  it("has only the sparse OpenByBorough sampling index, no stream, and is destroyed with the stack", () => {
     const template = synthesize();
     const table = Object.values(template.findResources("AWS::DynamoDB::GlobalTable"))[0];
-    expect(table.Properties.GlobalSecondaryIndexes).toBeUndefined();
+    expect(table.Properties.GlobalSecondaryIndexes).toEqual([
+      expect.objectContaining({
+        IndexName: "OpenByBorough",
+        KeySchema: [
+          { AttributeName: "open_borough", KeyType: "HASH" },
+          { AttributeName: "pick_key", KeyType: "RANGE" },
+        ],
+      }),
+    ]);
     expect(table.Properties.StreamSpecification).toBeUndefined();
     template.hasResource("AWS::DynamoDB::GlobalTable", { DeletionPolicy: "Delete" });
   });

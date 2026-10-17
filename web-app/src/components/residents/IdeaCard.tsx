@@ -39,7 +39,11 @@ export function IdeaCard({ idea, persona, onSelectPersona, onSelectOrder }: Idea
         ) : (
           <span className="text-xs text-fg-subtle">About the service, not an order</span>
         )}
-        <IdeaActionTag action={idea.action} />
+        {idea.actions.length > 0 ? (
+          idea.actions.map((action, i) => <IdeaActionTag key={`${action.type}-${i}`} action={action} />)
+        ) : (
+          <IdeaActionTag action={null} />
+        )}
         <Link to={ideaDetailPath(idea.persona_id, idea.idea_id)} className="ml-auto text-xs font-medium text-fg-muted hover:text-fg">
           View details
         </Link>

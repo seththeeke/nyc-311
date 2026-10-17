@@ -494,11 +494,21 @@ package's `eslint.config.js`), not review conventions.
 
 -> customer/backend
  -> logger.ts, env.ts - copied from backend/
+ -> residents - one JSON seed file per resident (`13-customer-simulation.md`
+    §2 customer side, decision 2), bundled into the seed-sync Lambda; each
+    must also be listed in `service/resident/residentSeeds.ts` (a test checks)
  -> controller
-  -> webhook - the HTTP listener the bureau POSTs lifecycle events to
- -> service - grouped into logical processing services
- -> dao - grouped by the entity stored; dao.ts is the copied base
+  -> webhook - the HTTP listener BoroughSim POSTs lifecycle events to
+  -> resident - the seed-sync custom resource (CloudFormation, on deploy)
+  -> idea - the idea worker, one EventBridge schedule per resident
+  -> read - the public read API, one Lambda for every GET route
+ -> service - grouped into logical processing services (webhook, resident,
+    idea, read)
+ -> dao - grouped by the entity stored; dao.ts is the copied base, cursor.ts
+    the shared page-cursor codec
   -> webhookCustomerFacingOrder - the customer's own row per order in play
+  -> resident - `Residents`: CURRENT plus immutable version rows
+  -> residentIdea - `ResidentIdeas`: ideas and per-order thread rows
  -> models - one file each, TS type + zod schema, plus the error types
  -> tests - mirrors the structure above
 

@@ -7,3 +7,13 @@ import * as path from "node:path";
  * contain a `backend` path segment, so none can point at the bureau's.
  */
 export const CUSTOMER_BACKEND_ROOT = path.join(__dirname, "..", "..", "customer", "backend");
+
+/* The resident seed files (13-customer-simulation.md §2 customer side, decision 2), read at synth for their schedules and models. */
+export const CUSTOMER_RESIDENT_SEEDS_DIR = path.join(CUSTOMER_BACKEND_ROOT, "residents");
+
+/* What the seed sync writes depends on these; a change to any re-runs the sync on the next deploy. */
+export const CUSTOMER_RESIDENT_SYNC_INPUTS = [
+  CUSTOMER_RESIDENT_SEEDS_DIR,
+  path.join(CUSTOMER_BACKEND_ROOT, "service", "resident"),
+  path.join(CUSTOMER_BACKEND_ROOT, "models"),
+];

@@ -24,13 +24,14 @@ describe("ResidentIdeaPageSchema", () => {
 });
 
 describe("IdeaActionSchema", () => {
-  const byType = (type: string) => MOCK_RESIDENT_IDEAS.find((idea) => idea.action?.type === type)!.action!;
+  const byType = (type: string) => MOCK_RESIDENT_IDEAS.flatMap((idea) => idea.actions).find((action) => action.type === type)!;
 
   it("reads every kind of action in the sample data, and an unactioned idea", () => {
     for (const type of ["REQUEST_FEATURE", "CHECK_STATUS_API", "BROWSE_WEBSITE"]) {
       expect(IdeaActionSchema.parse(byType(type))).toEqual(byType(type));
     }
-    expect(MOCK_RESIDENT_IDEAS.some((idea) => idea.action === null)).toBe(true);
+    expect(MOCK_RESIDENT_IDEAS.some((idea) => idea.actions.length === 0)).toBe(true);
+    expect(MOCK_RESIDENT_IDEAS.some((idea) => idea.actions.length > 1)).toBe(true);
   });
 
   it("rejects an unknown action type, a recording with no steps, and a non-URL video", () => {
@@ -41,9 +42,10 @@ describe("IdeaActionSchema", () => {
     expect(IdeaActionSchema.safeParse({ ...browse, recording: { ...browse.recording, video_url: "not a url" } }).success).toBe(false);
   });
 
-  it("requires every idea to say whether it was actioned", () => {
-    const withoutAction: Partial<typeof first> = { ...first };
-    delete withoutAction.action;
-    expect(ResidentIdeaSchema.safeParse(withoutAction).success).toBe(false);
+  it("requires every idea to list its actions, even when there are none", () => {
+    const withoutActions: Partial<typeof first> = { ...first };
+    delete withoutActions.actions;
+    expect(ResidentIdeaSchema.safeParse(withoutActions).success).toBe(false);
+    expect(ResidentIdeaSchema.safeParse({ ...first, actions: [] }).success).toBe(true);
   });
 });

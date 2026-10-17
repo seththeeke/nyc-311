@@ -21,6 +21,18 @@ export const CUSTOMER_WEBHOOK_PATH = "/webhooks/bureau";
 /* The customer's signing secret, a SecureString created by hand at launch (the doc's Appendix I). Outside the bureau's own prefix. */
 export const CUSTOMER_SIGNING_SECRET_PARAMETER_NAME = "/customer/prod/webhook/signing-secret";
 
+/* Who may read the resident API from a browser: BoroughSim's two sites and the local dev server. */
+export const CUSTOMER_API_ALLOWED_ORIGINS = ["https://boroughsim.com", "https://test.boroughsim.com", "http://localhost:5173"];
+
+/* The public read routes (13-customer-simulation.md §4, Appendix K), all served by one Lambda. */
+export const CUSTOMER_READ_ROUTES = [
+  "/residents",
+  "/residents/{personaId}",
+  "/residents/{personaId}/ideas",
+  "/residents/{personaId}/ideas/{ideaId}",
+  "/ideas",
+];
+
 /* Same esbuild options the bureau's Lambdas use: minified, names kept. */
 export const CUSTOMER_LAMBDA_BUNDLING: BundlingOptions = {
   minify: true,

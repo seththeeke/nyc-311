@@ -41,6 +41,7 @@ function mocks(): Mocks {
       webhookCustomerFacingOrderDao: { openOrder, closeOrder } as unknown as WebhookCustomerFacingOrderDao,
       secretStore: { getSecret } as unknown as SigningSecretStore,
       now: () => NOW,
+      pickKey: () => "a1b2c3d4e5f60718",
     },
     openOrder,
     closeOrder,
@@ -61,7 +62,7 @@ afterEach(() => {
 });
 
 describe("receiveBureauWebhook — ORDER_ACCEPTED", () => {
-  it("opens the order with every public field and a 60-day expiry from acceptance", async () => {
+  it("opens the order with every public field and its sampling keys", async () => {
     const m = mocks();
     const { headers, body } = signed("evt_01ORDER_1", acceptedEvent);
     await expect(receiveBureauWebhook(headers, body, m.deps)).resolves.toBe("OPENED");
@@ -82,8 +83,24 @@ describe("receiveBureauWebhook — ORDER_ACCEPTED", () => {
       resolved_at: null,
       last_webhook_id: "evt_01ORDER_1",
       updated_at: NOW.toISOString(),
+      open_borough: "BROOKLYN",
+      pick_key: "a1b2c3d4e5f60718",
     });
     expect(m.closeOrder).not.toHaveBeenCalled();
+  });
+
+  it("leaves an order with no borough out of sampling, and draws a random pick key by default", async () => {
+    const m = mocks();
+    const { headers, body } = signed("evt_01ORDER_1", { ...acceptedEvent, data: { ...acceptedEvent.data, borough: null } });
+    await receiveBureauWebhook(headers, body, m.deps);
+    expect(m.openOrder.mock.calls[0][0]).not.toHaveProperty("open_borough");
+    expect(m.openOrder.mock.calls[0][0]).not.toHaveProperty("pick_key");
+
+    const fresh = mocks();
+    delete fresh.deps.pickKey;
+    const second = signed("evt_01ORDER_1", acceptedEvent);
+    await receiveBureauWebhook(second.headers, second.body, fresh.deps);
+    expect(fresh.openOrder.mock.calls[0][0].pick_key).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it("reports a repeat, or an accept arriving after the resolve, as already known", async () => {
@@ -109,6 +126,7 @@ describe("receiveBureauWebhook — ORDER_RESOLVED", () => {
       })
     );
     expect(m.openOrder).not.toHaveBeenCalled();
+    expect(m.closeOrder.mock.calls[0][0]).not.toHaveProperty("pick_key");
   });
 
   it("uses the event's own time when a resolve carries no resolved_at", async () => {

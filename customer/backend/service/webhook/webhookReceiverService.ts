@@ -11,6 +11,7 @@ import {
 } from "../../models/bureauWebhookEvent";
 import { UnauthorizedError, ValidationError } from "../../models/errors";
 import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFacingOrder";
+import { newPickKey } from "../idea/ulid";
 import { SigningSecretStore } from "./signingSecretStore";
 import { WEBHOOK_ID_HEADER, verifyWebhook } from "./webhookSignature";
 
@@ -23,12 +24,13 @@ export interface WebhookReceiverDeps {
   webhookCustomerFacingOrderDao?: WebhookCustomerFacingOrderDao;
   secretStore?: SigningSecretStore;
   now?: () => Date;
+  pickKey?: () => string;
 }
 
 /** What one delivery did to the customer's view of its orders. */
 export type WebhookReceiptOutcome = "OPENED" | "ALREADY_KNOWN" | "CLOSED" | "IGNORED";
 
-function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): WebhookCustomerFacingOrder {
+function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date, pickKey: () => string): WebhookCustomerFacingOrder {
   const { data } = event;
   const closed = event.type === BUREAU_ORDER_RESOLVED;
   /* A resolve with no resolved_at still closes the order, at the event's own time. */
@@ -48,6 +50,8 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): Webho
     resolved_at: resolvedAt,
     last_webhook_id: webhookId,
     updated_at: now.toISOString(),
+    /* Sampling keys only while open, so the OpenByBorough index holds open orders only; a close drops them. */
+    ...(!closed && data.borough ? { open_borough: data.borough, pick_key: pickKey() } : {}),
   };
 }
 
@@ -97,7 +101,7 @@ export async function receiveBureauWebhook(
   }
 
   const dao = deps.webhookCustomerFacingOrderDao ?? getWebhookCustomerFacingOrderDao();
-  const order = toOrder(event, webhookId, now);
+  const order = toOrder(event, webhookId, now, deps.pickKey ?? (() => newPickKey()));
   if (order.status === "CLOSED") {
     await dao.closeOrder(order);
     logInfo("CustomerOrderClosed", context);

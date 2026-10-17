@@ -65,7 +65,7 @@ export function ResidentIdeaPage(): ReactElement {
             </time>
           </div>
           <blockquote className="mt-3 rounded-xl border border-line bg-panel p-4 text-base leading-relaxed text-fg">{idea.text}</blockquote>
-          <IdeaActionDetail action={idea.action} />
+          <IdeaActionDetail actions={idea.actions} />
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {idea.anchor ? (
               <Facts

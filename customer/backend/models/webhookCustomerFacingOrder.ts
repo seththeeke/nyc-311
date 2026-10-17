@@ -28,5 +28,12 @@ export const WebhookCustomerFacingOrderSchema = z.object({
   /* The `webhook-id` of the delivery that last wrote this row. */
   last_webhook_id: z.string().min(1),
   updated_at: z.string().min(1),
+  /*
+   * Only while OPEN (§2 customer side, decision 5): the sparse
+   * OpenByBorough index's keys. `pick_key` is random, so reading from a
+   * random point samples open orders fairly.
+   */
+  open_borough: z.string().min(1).optional(),
+  pick_key: z.string().min(1).optional(),
 });
 export type WebhookCustomerFacingOrder = z.infer<typeof WebhookCustomerFacingOrderSchema>;

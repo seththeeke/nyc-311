@@ -1,5 +1,5 @@
 import { ConditionalCheckFailedException, DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchGetCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebhookCustomerFacingOrderDao } from "../../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
@@ -61,5 +61,35 @@ describe("WebhookCustomerFacingOrderDao.closeOrder", () => {
     const input = ddbMock.commandCalls(PutCommand)[0].args[0].input;
     expect(input.ConditionExpression).toBeUndefined();
     expect(input.Item).toEqual(closedOrder);
+  });
+});
+
+describe("WebhookCustomerFacingOrderDao sampling reads", () => {
+  it("reads from the pick key onward and stops once it has enough", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [openOrder, openOrder] });
+    await expect(dao.sampleOpenOrders("BROOKLYN", "8f", 2)).resolves.toHaveLength(2);
+    const calls = ddbMock.commandCalls(QueryCommand);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args[0].input).toMatchObject({ IndexName: "OpenByBorough", ExpressionAttributeValues: { ":borough": "BROOKLYN", ":pick": "8f" }, Limit: 2 });
+  });
+
+  it("wraps to the start of the index when the read runs off the end", async () => {
+    ddbMock.on(QueryCommand).resolvesOnce({ Items: [openOrder] }).resolvesOnce({});
+    await expect(dao.sampleOpenOrders("BRONX", "ff", 3)).resolves.toHaveLength(1);
+    const second = ddbMock.commandCalls(QueryCommand)[1].args[0].input;
+    expect(second.KeyConditionExpression).toContain("pick_key < :pick");
+    expect(second.Limit).toBe(2);
+  });
+
+  it("batch-gets distinct ids in chunks of 100, retrying unprocessed keys once", async () => {
+    ddbMock
+      .on(BatchGetCommand)
+      .resolvesOnce({ Responses: { [TABLE_NAME]: [openOrder] }, UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ order_id: "B" }] } } })
+      .resolvesOnce({ Responses: { [TABLE_NAME]: [closedOrder] } })
+      .resolves({});
+    const ids = ["A", "A", "B", ...Array.from({ length: 100 }, (_, i) => `X${i}`)];
+    await expect(dao.batchGetOrders(ids)).resolves.toEqual([openOrder, closedOrder]);
+    expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(3);
+    await expect(dao.batchGetOrders([])).resolves.toEqual([]);
   });
 });

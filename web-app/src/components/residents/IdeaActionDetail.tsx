@@ -28,28 +28,38 @@ function ActionBody({ action }: { action: IdeaAction }): ReactElement {
   }
 }
 
+function ActionStep({ action }: { action: IdeaAction }): ReactElement {
+  return (
+    <li className="mt-3 first:mt-2">
+      <p className="text-sm text-fg">
+        {ACTION_TYPE_LABELS[action.type]}
+        {action.status === "FAILED" && <span className="text-fg-muted"> — it didn&apos;t work</span>}
+      </p>
+      <p className="mt-1 text-sm text-fg-muted">{action.summary}</p>
+      {action.outcome && <p className="mt-1 text-sm text-fg-muted">{action.outcome}</p>}
+      <p className="mt-1 text-xs text-fg-subtle">{new Date(action.started_at).toLocaleString()}</p>
+      <div className="mt-3">
+        <ActionBody action={action} />
+      </div>
+    </li>
+  );
+}
+
 /**
- * "What they did" on the Idea Detail view: the action the resident's
- * personality led to, in words, then its evidence — the RPA recording, the
- * API exchange, or the feature request filed.
+ * "What they did" on the Idea Detail view: each tool the resident chose
+ * to use, in order, in words and then its evidence — the RPA recording,
+ * the API exchange, or the feature request filed.
  */
-export function IdeaActionDetail({ action }: { action: IdeaAction | null }): ReactElement {
+export function IdeaActionDetail({ actions }: { actions: IdeaAction[] }): ReactElement {
   return (
     <section aria-label="What they did" className="mt-4 rounded-xl border border-line bg-panel p-4">
       <h2 className="text-sm font-semibold text-fg">What they did</h2>
-      {action ? (
-        <>
-          <p className="mt-2 text-sm text-fg">
-            {ACTION_TYPE_LABELS[action.type]}
-            {action.status === "FAILED" && <span className="text-fg-muted"> — it didn&apos;t work</span>}
-          </p>
-          <p className="mt-1 text-sm text-fg-muted">{action.summary}</p>
-          {action.outcome && <p className="mt-1 text-sm text-fg-muted">{action.outcome}</p>}
-          <p className="mt-1 text-xs text-fg-subtle">{new Date(action.started_at).toLocaleString()}</p>
-          <div className="mt-3">
-            <ActionBody action={action} />
-          </div>
-        </>
+      {actions.length > 0 ? (
+        <ol aria-label="Actions taken">
+          {actions.map((action, i) => (
+            <ActionStep key={`${action.type}-${i}`} action={action} />
+          ))}
+        </ol>
       ) : (
         <p className="mt-2 text-sm text-fg-muted">
           Nothing yet. For now ideas are recorded but not acted on; requesting a feature will be the first thing residents can do.

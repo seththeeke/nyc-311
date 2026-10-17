@@ -1,7 +1,8 @@
 # The Customer — Simulated Support-Seekers + BoroughSim Lifecycle Webhooks
 
-> **Status (2026-10-14): the BoroughSim webhook and the customer's first
-> milestone are live in Prod, and traffic is flowing.** BoroughSim
+> **Status (2026-10-17): residents and idea generation built (Appendix O);
+> the BoroughSim webhook and the customer listener are live in Prod since
+> 2026-10-14.** BoroughSim
 > delivers `ORDER_ACCEPTED` and `ORDER_RESOLVED` to the customer's
 > listener, which records the orders in play in
 > `WebhookCustomerFacingOrders-Prod` (Appendices H, I and J). Personas,
@@ -103,7 +104,7 @@ type Persona = {
   idea_type_weights: Record<IdeaType, number>;
   action_buckets: ActionBucket[];               /* tools granted so far (decision 7); [] in P0 */
   action_weights: Record<ActionType, number>;   /* preference among granted tools */
-  interests: { boroughs: string[]; complaint_types: string[] };
+  interests: { boroughs: string[]; descriptors: string[] };  /* order `descriptor` values; every complaint_type is "Street Condition" */
   idea_count: number;           /* maintained on write (A11), never counted on read */
   last_idea_at: string | null;  /* maintained on write (A11) */
 };
@@ -183,7 +184,7 @@ Reviewed question by question, the same way as the BoroughSim side above.
 | # | Question | Decision |
 |---|---|---|
 | 1 | Customer vs. Persona: one entity or two | One entity, the resident, with **its version history kept in the same table**. Partition key `persona_id`. Sort key `CURRENT` is the live row; `V#0001`, `V#0002`, ... are frozen copies, one per version. A version row is written once, conditioned on `attribute_not_exists`, and never changed. An edit writes the new version row and updates `CURRENT` (conditioned on the old `version`) in one transaction. Counters (`idea_count`, `last_idea_at`) live only on `CURRENT`. An idea's `persona_version` resolves to its exact prompt and dials with one `GetItem`. Rejected: overwriting in place (old ideas lose their prompt) and separate Customer and Persona tables (too much structure for the roster's size) |
-| 2 | Where residents come from | **Seed files in the repo are the source of truth**: one JSON file per resident in `customer/backend/personas/`, zod-validated in tests and at sync. A CloudFormation custom resource in the customer stack syncs them on deploy. The sync hashes each file's content and writes the next `V#` row when the hash changes, so version numbers are assigned by the sync, never typed in a file. Removing a seed file never deletes the resident (ideas still point at it); stopping a resident's ideas is the §3 operational switch. Rejected: hand edits in DynamoDB (unreviewed, easy to skip the version row) and an admin edit API (auth and writes on the customer side for three residents) |
+| 2 | Where residents come from | **Seed files in the repo are the source of truth**: one JSON file per resident in `customer/backend/residents/`, zod-validated in tests and at sync. A CloudFormation custom resource in the customer stack syncs them on deploy. The sync hashes each file's content and writes the next `V#` row when the hash changes, so version numbers are assigned by the sync, never typed in a file. Removing a seed file never deletes the resident (ideas still point at it); stopping a resident's ideas is the §3 operational switch. Rejected: hand edits in DynamoDB (unreviewed, easy to skip the version row) and an admin edit API (auth and writes on the customer side for three residents) |
 | 3 | Profile images | **Each resident is a hand-authored Three.js model file in the repo**, written when the resident is created locally (e.g. `web-app/src/components/residents/models/sycamore.ts` exporting `buildSycamore(): Group`) and bundled into the frontend. No generated looks, no look spec, no runtime procedural generation, no image bucket. `avatar_image` becomes `model_key: string \| null` (e.g. `"sycamore"`); a web-app registry maps keys to model files, and a null or unknown key falls back to the initial. Model files are held to the linter and a written style guide: built only from the shared `threeKit` helpers (same flat-shaded low-poly look as the Mapv2 trucks and crew), colours from a fixed palette, a size cap, and a per-model test that it builds under a triangle budget. The avatar is a head-and-shoulders snapshot of the same model from one shared offscreen renderer, cached and shown as an `<img>`; Three.js is lazy-loaded; no WebGL falls back to the initial. A model change is a frontend change, not resident data, so it creates no new `V#` |
 | 4 | Ideas table keys | **Its own `Ideas` table** (residents stay one table per entity); the idea put and the resident's `CURRENT` counter update share one transaction. Partition key `persona_id`. Sort key `IDEA#<ulid>` serves A3 (query, newest first) and A4 (`GetItem`; the route carries both ids). A **thread row** per resident per order, sort key `ORDER#<order_id>` with `idea_count` and `last_idea_at`, written in the same transaction, serves A6 with one prefix query. Sparse index `ByOrder` (partition `persona_id#order_id`, sort ULID) on anchored ideas serves A5. Index `Feed` (partition `ALL`, sort ULID) serves the new A12, every resident's ideas newest first, for `GET /ideas`; a few writes an hour is far under one partition's limit, and it can be split by day later without an API change. A8 is deferred until an actioner exists. No TTL on ideas. Public routes are `/residents/...`, not `/customers/...` |
 | 5 | A7: picking a fresh order | **Sparse random-key index on `WebhookCustomerFacingOrders-Prod`.** When an order opens, the listener also writes `open_borough` (the borough) and `pick_key` (a random value); when it closes, it removes both, so index `OpenByBorough` (partition `open_borough`, sort `pick_key`) holds only open orders. The planner picks a borough from the resident's `interests.boroughs`, draws a random value, reads the next 20 entries from it (wrapping to the start), drops orders that have an `ORDER#` thread row for that resident, prefers their `complaint_types`, and picks one. Nothing open in that borough: try the resident's next borough, then log a "no candidate" skip (§3 item 3). The listener knows nothing about residents. Supersedes "no index until the persona work" (2026-10-13). Rejected: newest-first sort (residents would only ever notice brand-new orders) and per-resident candidate lists filled by the listener (couples the listener to residents, fans out writes, needs backfills) |
@@ -634,7 +635,7 @@ customer API was originally going to stay off the `boroughsim.com` domain.
 | **Hawthorn** | Owns a bakery in Brooklyn; deliveries depend on the street | patience 15, hostility 70, verbosity 35; activity 35; 05–18; follow-up 60 | "You are Hawthorn, who owns a bakery in Brooklyn. Broken streets cost you money: delivery vans, customers, your own time. You are blunt, impatient and businesslike, and you think in deadlines and dollars. You are not rude for sport, but you do not soften things, and when something drags you say so and want to know who is responsible." |
 | **Juniper** | Night-shift hospital porter in the Bronx, commutes by bike | patience 50, hostility 20, verbosity 10; activity 20; 21–05; follow-up 40 | "You are Juniper, a night-shift hospital porter in the Bronx who cycles to work. You are tired, practical and terse — short sentences, no pleasantries. You care about hazards you hit in the dark. You are comfortable with technology and would rather have a tool or a notification than talk to anyone, so you often think about what the service should let you do yourself." |
 
-Seeds are one JSON file per persona in `customer/backend/personas/`,
+Seeds are one JSON file per persona in `customer/backend/residents/`,
 zod-validated and synced at deploy (§2 customer side, decision 2).
 
 ### C. Inspiration from `agent-social`
@@ -1437,3 +1438,48 @@ flowchart LR
   get no special path in.
 - The one shared resource between the halves is the account's Bedrock
   quota (decision 9).
+
+### O. Build progress — residents and idea generation (2026-10-17)
+
+First iteration of the customer side beyond the listener: residents
+generate ideas on their schedules, and BoroughSim's web-app reads
+residents and ideas from the customer API. **No actions**: no tool bucket
+is granted, every idea is written with `actions: []`, and no
+`IdeaActions` queue exists yet (§3 Flow B decision 5 is designed, not
+built). Contacts and the feature request tool wait for their own design.
+
+| Area | Built |
+|---|---|
+| Seeds | `customer/backend/residents/{hawthorn,juniper,sycamore}.json`, the mock's attributes plus `model_id` (`amazon.nova-micro-v1:0`, the cheapest on-demand text model in the account, verified with one Converse tool-use call), `schedule` (`cron(0 10,18 * * ? *)`, New York), `idea_type_weights`, `interests.descriptors`, empty `action_buckets` |
+| Seed sync | `controller/resident/syncResidentsController.ts` behind a CDK `Provider` custom resource (`Custom::ResidentSeedSync`), keyed on a hash of the seeds, `service/resident/` and `models/`; a malformed seed fails the deploy |
+| Prompt | `service/resident/ideaPrompt.ts` (`idea-generator@1`): the persona prompt, backstory, temperament, interests, what BoroughSim offers today, the idea kinds with how often this resident leans to each, length guidance from verbosity, and the `nothing_to_say` escape. Assembled at sync and stored on the resident |
+| Idea worker | `controller/idea/generateIdeaController.ts`: roll `activity_level` (an event's `force: true` skips it), sample up to five fresh open orders from `OpenByBorough` (preferred descriptors first, unseen orders only), add the eight latest ideas and their orders' current state, one Converse call with two tools (`record_idea`, whose `order_id` must be one of the offered ids or `NONE`, and `nothing_to_say`), then one transaction: idea, thread row, resident counters |
+| Read API | `controller/read/residentApiController.ts`, one Lambda for `GET /residents`, `/residents/{personaId}`, `/residents/{personaId}/ideas`, `/residents/{personaId}/ideas/{ideaId}`, `/ideas`; CORS for `boroughsim.com`, `test.boroughsim.com`, `localhost:5173`; 30-second public caching |
+| Listener | Writes `open_borough` and a random `pick_key` when an order opens; a close drops them |
+| Tables | `Residents-Prod` (+ sparse `Roster` index, so A1 lists residents without a scan), `ResidentIdeas-Prod` (`ByOrder`, `Feed`), both retained; `OpenByBorough` added to `WebhookCustomerFacingOrders-Prod` |
+| Schedules | `CustomerResident-<persona>-Prod`, one per seed, 15-minute flexible window, 2 retries within an hour, via `CustomerResidentScheduler-Prod`. **Kill switch:** disable the schedules in the console |
+| Web-app | Ideas carry `actions[]` (cards show one tag per action, Idea Detail lists them in order); the live service reads the customer API |
+| Script | `test-scripts/12-backfill-open-order-pick-keys.js` keys orders opened before this change (dry run by default) |
+
+**Deviations from the design.**
+
+- `interests.complaint_types` became `interests.descriptors`: every order's
+  `complaint_type` is "Street Condition"; the variety is in `descriptor`.
+- A1 (list residents) uses a sparse `Roster` index on `CURRENT` rows; the
+  §2 review had not placed it.
+- No daily idea cap in code: the schedule bounds firings (two a day each),
+  and the roll bounds ideas further. The kill switch is the schedules'
+  state, not a parameter.
+
+**Expected volume.** Two firings a day per resident at activity 35, 15
+and 20 is about 1.4 ideas a day across all three, at roughly 600 input
+and 50 output tokens each.
+
+**Launch steps (manual, after the pipeline deploys the customer stack).**
+
+1. Backfill sampling keys on already-open orders:
+   `node test-scripts/12-backfill-open-order-pick-keys.js --execute`.
+2. Optionally force one thought per resident to see ideas immediately:
+   `aws lambda invoke --profile nyc311 --region us-east-1 --function-name CustomerIdeaWorker-Prod --cli-binary-format raw-in-base64-out --payload '{"persona_id":"juniper","force":true}' /dev/stdout`.
+3. Set `CUSTOMERS_TAB` to `T1` where the Residents page should show.
+
