@@ -40,7 +40,8 @@ export function ResidentDetailPanel(): ReactElement {
           </div>
           <ResidentProfile persona={persona} compact />
           <p className="mt-3 text-xs text-fg-subtle">
-            {persona.idea_count} ideas{persona.last_idea_at ? ` · last ${relativeTime(persona.last_idea_at)}` : ""}
+            {persona.idea_count === 0 ? "No ideas yet" : `${persona.idea_count} ideas`}
+            {persona.last_idea_at ? ` · last ${relativeTime(persona.last_idea_at)}` : ""}
           </p>
           <Link to={residentFeedPath(persona.persona_id)} className="mt-2 inline-block text-xs font-medium text-hue-blue hover:underline">
             See all of {persona.name}&apos;s ideas

@@ -32,7 +32,7 @@ describe("ResidentDetailPanel", () => {
   it("leaves out the last-idea time for a resident who has never had one", () => {
     setPersonas({ data: [{ ...MOCK_RESIDENT_PERSONAS[1], idea_count: 0, last_idea_at: null }] });
     render(inRouter(<ResidentDetailPanel />, IDEA_PATH));
-    expect(screen.getByText("0 ideas")).toBeInTheDocument();
+    expect(screen.getByText("No ideas yet")).toBeInTheDocument();
   });
 
   it("shows loading, error and missing-resident states", () => {

@@ -101,6 +101,16 @@ describe("IdeaFeed — states", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load ideas: HTTP 404");
     setIdeas({ data: [] });
     rerender(inRouter(<IdeaFeed />));
+    expect(screen.getByText(/^No ideas yet\. Residents think about ideas on their own schedule/)).toBeInTheDocument();
+  });
+
+  it("tells a selected resident with no ideas apart from a filter that matches nothing", () => {
+    setIdeas({ data: [] });
+    const { unmount } = render(inRouter(<IdeaFeed />, "/residents?persona=juniper"));
+    expect(screen.getByText("Juniper hasn't had an idea yet.")).toBeInTheDocument();
+    unmount();
+    setIdeas({ data: MOCK_RESIDENT_IDEAS });
+    render(inRouter(<IdeaFeed />, "/residents?type=ESCALATION&persona=juniper"));
     expect(screen.getByText("No ideas match what's selected.")).toBeInTheDocument();
   });
 

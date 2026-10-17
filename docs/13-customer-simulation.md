@@ -1458,7 +1458,7 @@ built). Contacts and the feature request tool wait for their own design.
 | Listener | Writes `open_borough` and a random `pick_key` when an order opens; a close drops them |
 | Tables | `Residents-Prod` (+ sparse `Roster` index, so A1 lists residents without a scan), `ResidentIdeas-Prod` (`ByOrder`, `Feed`), both retained; `OpenByBorough` added to `WebhookCustomerFacingOrders-Prod` |
 | Schedules | `CustomerResident-<persona>-Prod`, one per seed, 15-minute flexible window, 2 retries within an hour, via `CustomerResidentScheduler-Prod`. **Kill switch:** disable the schedules in the console |
-| Web-app | Ideas carry `actions[]` (cards show one tag per action, Idea Detail lists them in order); the live service reads the customer API |
+| Web-app | Ideas carry `actions[]` (cards show one tag per action, Idea Detail lists them in order); the live service reads the customer API; residents show their model and the problems they care about; empty states say when nobody, or one resident, has had an idea yet, separately from a filter matching nothing. Local dev reads the live API too (the `VITE_RESIDENT_DATA_MODE=mock` override is gone from `.env.local`) |
 | Script | `test-scripts/12-backfill-open-order-pick-keys.js` keys orders opened before this change (dry run by default) |
 
 **Deviations from the design.**

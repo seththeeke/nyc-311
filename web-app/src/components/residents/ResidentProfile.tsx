@@ -26,6 +26,14 @@ export function ResidentProfile({ persona, compact = false }: ResidentProfilePro
             <dd className="text-fg-muted">{persona.interests.boroughs.map(titleCase).join(", ") || "Anywhere"}</dd>
           </div>
           <div className="flex gap-2">
+            <dt className="text-fg-subtle">Cares about</dt>
+            <dd className="text-fg-muted">{persona.interests.descriptors.join("; ") || "Any street problem"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-fg-subtle">Model</dt>
+            <dd className="font-mono text-fg-muted">{persona.model_id}</dd>
+          </div>
+          <div className="flex gap-2">
             <dt className="text-fg-subtle">Version</dt>
             <dd className="text-fg-muted">v{persona.version}</dd>
           </div>

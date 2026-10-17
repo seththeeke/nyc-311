@@ -33,7 +33,8 @@ export function PersonaCard({ persona, selected, onSelect }: PersonaCardProps): 
       </div>
       <p className="mt-2 flex justify-between text-[11px] text-fg-subtle">
         <span>
-          {persona.idea_count} ideas{persona.last_idea_at ? ` · last ${relativeTime(persona.last_idea_at)}` : ""}
+          {persona.idea_count === 0 ? "No ideas yet" : `${persona.idea_count} ideas`}
+          {persona.last_idea_at ? ` · last ${relativeTime(persona.last_idea_at)}` : ""}
         </span>
         <span>{activeHoursLabel(persona.active_hours)}</span>
       </p>

@@ -7,6 +7,13 @@ import { IdeaCard } from "./IdeaCard";
 import { IdeaFilters } from "./IdeaFilters";
 import { PersonaSpotlight } from "./PersonaSpotlight";
 
+/* Nothing at all is not the same as nothing matching a filter. */
+function emptyMessage(hasAny: boolean, personaName: string | undefined): string {
+  if (hasAny) return "No ideas match what's selected.";
+  if (personaName) return `${personaName} hasn't had an idea yet.`;
+  return "No ideas yet. Residents think about ideas on their own schedule, and not every thought becomes one.";
+}
+
 function countByType(ideas: ResidentIdea[]): Record<IdeaType, number> {
   const counts = Object.fromEntries(IDEA_TYPES.map((type) => [type, 0])) as Record<IdeaType, number>;
   for (const idea of ideas) counts[idea.idea_type] += 1;
@@ -52,7 +59,7 @@ export function IdeaFeed(): ReactElement {
           Couldn&apos;t load ideas: {error.message}
         </p>
       )}
-      {ideas && shown.length === 0 && <p className="text-sm text-fg-muted">No ideas match what&apos;s selected.</p>}
+      {ideas && shown.length === 0 && <p className="text-sm text-fg-muted">{emptyMessage(ideas.length > 0, persona?.name)}</p>}
       <ul className="space-y-3">
         {shown.map((idea) => (
           <li key={idea.idea_id}>

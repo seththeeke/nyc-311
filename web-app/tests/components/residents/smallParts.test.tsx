@@ -29,7 +29,9 @@ describe("DemeanorBars", () => {
 describe("PersonaSpotlight", () => {
   it("says a persona with no borough interests follows anywhere", async () => {
     const { PersonaSpotlight } = await import("../../../src/components/residents/PersonaSpotlight");
-    render(<PersonaSpotlight persona={{ ...MOCK_RESIDENT_PERSONAS[0], interests: { boroughs: [] } }} onClose={() => undefined} />);
+    render(<PersonaSpotlight persona={{ ...MOCK_RESIDENT_PERSONAS[0], interests: { boroughs: [], descriptors: [] } }} onClose={() => undefined} />);
     expect(screen.getByText("Anywhere")).toBeInTheDocument();
+    expect(screen.getByText("Any street problem")).toBeInTheDocument();
+    expect(screen.getByText("amazon.nova-micro-v1:0")).toBeInTheDocument();
   });
 });

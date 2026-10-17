@@ -62,6 +62,6 @@ describe("PersonaPanel", () => {
   it("omits the last-idea time for a persona who has never had one", () => {
     setPersonas({ data: [{ ...MOCK_RESIDENT_PERSONAS[0], idea_count: 0, last_idea_at: null }] });
     render(inRouter(<PersonaPanel />));
-    expect(screen.getByText("0 ideas")).toBeInTheDocument();
+    expect(screen.getByText("No ideas yet")).toBeInTheDocument();
   });
 });
