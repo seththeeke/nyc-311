@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { getCursorStatus, listPollerMetrics } from "../../service/ingestion/nyc311RequestService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /ingestion/metrics` entry point (1-data-ingestion.md §8a, cursor

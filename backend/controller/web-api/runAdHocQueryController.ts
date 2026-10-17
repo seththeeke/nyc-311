@@ -5,12 +5,7 @@ import { AdHocQueryRequestSchema } from "../../models/adHocQueryRequest";
 import { ValidationError } from "../../models/errors";
 import { runAdHocQuery } from "../../service/analytics/adHocQueryService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `POST /admin/warehouse/query` (`7-data-warehousing.md` §12a, Leg 7) —

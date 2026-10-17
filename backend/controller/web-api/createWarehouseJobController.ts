@@ -5,12 +5,7 @@ import { CreateWarehouseJobRequestSchema } from "../../models/warehouseJobReques
 import { TerminalError, ValidationError } from "../../models/errors";
 import { createWarehouseJob } from "../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `POST /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —
