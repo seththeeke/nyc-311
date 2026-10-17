@@ -10,11 +10,11 @@ function synthesize(): Template {
 }
 
 describe("WebhookCustomerFacingOrdersTable", () => {
-  it("is keyed by order_id alone and expires rows by TTL on expires_at", () => {
+  it("is keyed by order_id alone and has TTL explicitly disabled", () => {
     synthesize().hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       TableName: "WebhookCustomerFacingOrders-Prod",
       KeySchema: [{ AttributeName: "order_id", KeyType: "HASH" }],
-      TimeToLiveSpecification: { AttributeName: "expires_at", Enabled: true },
+      TimeToLiveSpecification: { AttributeName: "expires_at", Enabled: false },
     });
   });
 

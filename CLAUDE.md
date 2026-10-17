@@ -157,8 +157,8 @@ go the other way):**
   `import.meta.env.VITE_DATA_MODE === "live"` directly in each service (not
   via `config.ts`), so a live build folds it to a constant and tree-shakes
   the mock class and `test-data/` out. One service may also read its own
-  override, falling back to `VITE_DATA_MODE`: `customerService` reads
-  `VITE_CUSTOMER_DATA_MODE`, so a live dev server can show customer mocks
+  override, falling back to `VITE_DATA_MODE`: `residentService` reads
+  `VITE_RESIDENT_DATA_MODE`, so a live dev server can show resident mocks
   while their API does not exist; the pipeline never sets it. Mock state lives on the Mock class
   instance, never module scope. `vite.config.ts`'s `liveBundleGuard` fails
   any live build that still ships test-data or a mock credential. Keeping

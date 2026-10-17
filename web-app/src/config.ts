@@ -5,7 +5,7 @@ export interface AppConfig {
   userPoolId: string;
   userPoolClientId: string;
   /** The residents' own API (`13-customer-simulation.md` §4) — one host for every environment, since the simulation runs only in Prod. */
-  customerApiBaseUrl: string;
+  residentApiBaseUrl: string;
 }
 
 /*
@@ -33,7 +33,7 @@ export const config: AppConfig = {
   pipelineApiBaseUrl: import.meta.env.VITE_PIPELINE_API_BASE_URL || "",
   userPoolId: import.meta.env.VITE_USER_POOL_ID || "",
   userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
-  customerApiBaseUrl: import.meta.env.VITE_CUSTOMER_API_BASE_URL || "https://customer-api.boroughsim.com",
+  residentApiBaseUrl: import.meta.env.VITE_RESIDENT_API_BASE_URL || "https://customer-api.boroughsim.com",
 };
 
 interface RuntimeEnvConfig {

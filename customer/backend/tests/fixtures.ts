@@ -44,5 +44,4 @@ export const openOrder: WebhookCustomerFacingOrder = {
   resolved_at: null,
   last_webhook_id: "evt_01ORDER_1",
   updated_at: "2026-10-10T14:03:12.000Z",
-  expires_at: 1796479391,
 };

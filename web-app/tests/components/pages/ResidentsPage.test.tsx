@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ResidentsPage } from "../../../src/components/pages/ResidentsPage";
 
-vi.mock("../../../src/components/customers/IdeaFeed", () => ({ IdeaFeed: () => <p>idea feed</p> }));
+vi.mock("../../../src/components/residents/IdeaFeed", () => ({ IdeaFeed: () => <p>idea feed</p> }));
 
 describe("ResidentsPage", () => {
   it("titles the page Residents with the one-line description, no preview badge, and the idea feed", () => {

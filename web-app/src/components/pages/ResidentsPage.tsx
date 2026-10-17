@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { IdeaFeed } from "../customers/IdeaFeed";
+import { IdeaFeed } from "../residents/IdeaFeed";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 /**

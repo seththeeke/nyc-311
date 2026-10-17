@@ -14,12 +14,6 @@ import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFac
 import { SigningSecretStore } from "./signingSecretStore";
 import { WEBHOOK_ID_HEADER, verifyWebhook } from "./webhookSignature";
 
-const SECONDS_PER_DAY = 24 * 60 * 60;
-/* An order the bureau never resolves leaves play this long after it was accepted. */
-export const OPEN_ORDER_TTL_DAYS = 60;
-/* A closed marker must outlive the bureau's retry day plus its 14-day DLQ, or a late accept could reopen the order. */
-export const CLOSED_ORDER_TTL_DAYS = 30;
-
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookCustomerFacingOrderDao(): WebhookCustomerFacingOrderDao {
   return new WebhookCustomerFacingOrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
@@ -33,13 +27,6 @@ export interface WebhookReceiverDeps {
 
 /** What one delivery did to the customer's view of its orders. */
 export type WebhookReceiptOutcome = "OPENED" | "ALREADY_KNOWN" | "CLOSED" | "IGNORED";
-
-/* Epoch seconds `days` after `fromIso`; falls back to `now` for a timestamp that won't parse. */
-function expiresAt(fromIso: string, days: number, now: Date): number {
-  const fromMs = Date.parse(fromIso);
-  const baseMs = Number.isNaN(fromMs) ? now.getTime() : fromMs;
-  return Math.floor(baseMs / 1000) + days * SECONDS_PER_DAY;
-}
 
 function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): WebhookCustomerFacingOrder {
   const { data } = event;
@@ -61,7 +48,6 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): Webho
     resolved_at: resolvedAt,
     last_webhook_id: webhookId,
     updated_at: now.toISOString(),
-    expires_at: resolvedAt === null ? expiresAt(data.accepted_at, OPEN_ORDER_TTL_DAYS, now) : expiresAt(resolvedAt, CLOSED_ORDER_TTL_DAYS, now),
   };
 }
 

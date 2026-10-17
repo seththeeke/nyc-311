@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PersonaPanel } from "../../../src/components/customers/PersonaPanel";
-import { ResidentDetailPanel } from "../../../src/components/customers/ResidentDetailPanel";
+import { PersonaPanel } from "../../../src/components/residents/PersonaPanel";
+import { ResidentDetailPanel } from "../../../src/components/residents/ResidentDetailPanel";
 import { secondaryContentFor } from "../../../src/components/shell/secondaryContent";
 
 describe("secondaryContentFor", () => {
@@ -9,6 +9,6 @@ describe("secondaryContentFor", () => {
     expect(secondaryContentFor("/residents/hawthorn/ideas/01K7IDEA0014")).toBe(ResidentDetailPanel);
     expect(secondaryContentFor("/residents/hawthorn")).toBeNull();
     expect(secondaryContentFor("/")).toBeNull();
-    expect(secondaryContentFor("/customers")).toBeNull();
+    expect(secondaryContentFor("/unknown")).toBeNull();
   });
 });

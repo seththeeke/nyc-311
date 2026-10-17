@@ -1,6 +1,6 @@
 import type { FeatureFlag } from "../models/featureFlag";
 
-/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Customers and Mapv2 page gates, and a plain on/off one. */
+/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Residents and Mapv2 page gates, and a plain on/off one. */
 export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
   {
     flag_key: "COST_MODEL",

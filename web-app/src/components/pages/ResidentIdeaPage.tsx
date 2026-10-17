@@ -1,12 +1,12 @@
 import type { ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useCustomerIdea } from "../../hooks/useCustomerIdea";
-import { useCustomerPersonas } from "../../hooks/useCustomerPersonas";
-import { IdeaActionDetail } from "../customers/IdeaActionDetail";
-import { PersonaAvatar } from "../customers/PersonaAvatar";
-import { RelatedIdeas } from "../customers/RelatedIdeas";
-import { IDEA_TYPE_LABELS, titleCase } from "../customers/customerFormat";
-import { RESIDENTS_PATH, residentFeedPath } from "../customers/residentRoutes";
+import { useResidentIdea } from "../../hooks/useResidentIdea";
+import { useResidentPersonas } from "../../hooks/useResidentPersonas";
+import { IdeaActionDetail } from "../residents/IdeaActionDetail";
+import { PersonaAvatar } from "../residents/PersonaAvatar";
+import { RelatedIdeas } from "../residents/RelatedIdeas";
+import { IDEA_TYPE_LABELS, titleCase } from "../residents/residentFormat";
+import { RESIDENTS_PATH, residentFeedPath } from "../residents/residentRoutes";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 function Facts({ title, rows }: { title: string; rows: [string, string][] }): ReactElement {
@@ -32,8 +32,8 @@ function Facts({ title, rows }: { title: string; rows: [string, string][] }): Re
  */
 export function ResidentIdeaPage(): ReactElement {
   const { personaId = "", ideaId = "" } = useParams();
-  const { data: idea, isLoading, error } = useCustomerIdea(personaId, ideaId);
-  const persona = useCustomerPersonas().data?.find((candidate) => candidate.persona_id === personaId);
+  const { data: idea, isLoading, error } = useResidentIdea(personaId, ideaId);
+  const persona = useResidentPersonas().data?.find((candidate) => candidate.persona_id === personaId);
   const name = persona?.name ?? personaId;
 
   return (

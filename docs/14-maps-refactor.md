@@ -273,9 +273,9 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
   ```
   Then open `http://localhost:5180/mapv2`. Mock flags default `MAP_V2` to `T1`. To try `T2`, change its `default_treatment` in `src/test-data/featureFlags.ts` locally, and don't commit that.
 - **Visual checks in an automated browser:** the window must be visible. A hidden tab pauses `requestAnimationFrame`, and MapLibre 6 won't even load its style.
-- **Production build locally:** your `.env.local` sets `VITE_CUSTOMER_DATA_MODE=mock`, which trips the live-bundle guard. Build the way the pipeline does:
+- **Production build locally:** your `.env.local` sets `VITE_RESIDENT_DATA_MODE=mock`, which trips the live-bundle guard. Build the way the pipeline does:
   ```
-  VITE_DATA_MODE=live VITE_CUSTOMER_DATA_MODE=live npm run build
+  VITE_DATA_MODE=live VITE_RESIDENT_DATA_MODE=live npm run build
   ```
   This is unrelated to Mapv2.
 

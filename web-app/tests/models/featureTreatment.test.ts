@@ -7,7 +7,7 @@ describe("FeatureTreatmentSchema", () => {
     expect(FeatureTreatmentSchema.safeParse({ flag_key: "CUSTOMERS_TAB" }).success).toBe(false);
   });
 
-  it("names the Customers page flag and its on treatment", () => {
+  it("names the Residents page flag and its on treatment", () => {
     expect([CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON]).toEqual(["CUSTOMERS_TAB", "T1"]);
   });
 });

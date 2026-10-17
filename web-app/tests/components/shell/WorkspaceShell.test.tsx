@@ -10,7 +10,7 @@ import { authResult } from "../../testUtils/authFixtures";
 import { mockViewport } from "../../testUtils/viewport";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* Flagged menu entries (Customers) stay hidden here; their own tests turn them on. */
+/* Flagged menu entries (Residents) stay hidden here; their own tests turn them on. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
   useFeatureEnabled: vi.fn(() => false),
   useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),

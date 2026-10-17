@@ -11,7 +11,6 @@ import { receiveBureauWebhook, type WebhookReceiverDeps } from "../../../service
 import { SECRET, acceptedEvent, resolvedEvent } from "../../fixtures";
 
 const NOW = new Date("2026-10-11T09:27:41.000Z");
-const DAY = 24 * 60 * 60;
 
 /* Signed by the Standard Webhooks reference implementation, exactly as the bureau's deliveries are. */
 function signed(webhookId: string, payload: unknown, at: Date = NOW): { headers: Record<string, string>; body: string } {
@@ -83,7 +82,6 @@ describe("receiveBureauWebhook — ORDER_ACCEPTED", () => {
       resolved_at: null,
       last_webhook_id: "evt_01ORDER_1",
       updated_at: NOW.toISOString(),
-      expires_at: Math.floor(Date.parse("2026-10-10T14:03:11.000Z") / 1000) + 60 * DAY,
     });
     expect(m.closeOrder).not.toHaveBeenCalled();
   });
@@ -95,16 +93,10 @@ describe("receiveBureauWebhook — ORDER_ACCEPTED", () => {
     await expect(receiveBureauWebhook(headers, body, m.deps)).resolves.toBe("ALREADY_KNOWN");
   });
 
-  it("falls back to the receive time for an expiry when accepted_at will not parse", async () => {
-    const m = mocks();
-    const { headers, body } = signed("evt_01ORDER_1", { ...acceptedEvent, data: { ...acceptedEvent.data, accepted_at: "not a date" } });
-    await receiveBureauWebhook(headers, body, m.deps);
-    expect(m.openOrder).toHaveBeenCalledWith(expect.objectContaining({ expires_at: Math.floor(NOW.getTime() / 1000) + 60 * DAY }));
-  });
 });
 
 describe("receiveBureauWebhook — ORDER_RESOLVED", () => {
-  it("closes the order with a 30-day expiry from resolution, whether or not the accept ever arrived", async () => {
+  it("closes the order, whether or not the accept ever arrived", async () => {
     const m = mocks();
     const { headers, body } = signed("evt_01ORDER_7", resolvedEvent);
     await expect(receiveBureauWebhook(headers, body, m.deps)).resolves.toBe("CLOSED");
@@ -114,7 +106,6 @@ describe("receiveBureauWebhook — ORDER_RESOLVED", () => {
         status: "CLOSED",
         resolved_at: "2026-10-11T09:27:40.000Z",
         last_webhook_id: "evt_01ORDER_7",
-        expires_at: Math.floor(Date.parse("2026-10-11T09:27:40.000Z") / 1000) + 30 * DAY,
       })
     );
     expect(m.openOrder).not.toHaveBeenCalled();
