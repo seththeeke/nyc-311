@@ -10,6 +10,16 @@ import { ThemeProvider } from "../../src/components/shell/ThemeProvider";
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
+/* Every flag resolves to `treatment` (T1 unless a test says otherwise), so flag-gated routes render; Mapv2 shows its fallback here — its real map has its own tests. */
+let treatment = "T1";
+vi.mock("../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureTreatment: () => ({ treatment, isLoading: false }),
+  useFeatureEnabled: () => true,
+}));
+let webGl = false;
+/* The T2 takeover mounts the real city view; a fake map stands in for MapLibre, which needs WebGL2. */
+vi.mock("maplibre-gl", async () => ({ Map: (await import("../components/mapv2/fakeMapLibre")).FakeMap, setWorkerUrl: () => undefined }));
+vi.mock("../../src/components/mapv2/webgl", () => ({ isWebGlAvailable: () => webGl }));
 vi.mock("../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
 }));
@@ -39,6 +49,33 @@ describe("AppRoutes", () => {
   it("renders HomePage underneath at /about (the About drawer itself lives in the sidebar footer)", async () => {
     renderAt("/about");
     expect(await screen.findByText(/OpenStreetMap/)).toBeInTheDocument();
+  });
+
+  it("renders MapV2Page at /mapv2 while MAP_V2 is on", async () => {
+    renderAt("/mapv2");
+    expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
+  });
+
+  it("keeps the same MapV2Page on a /mapv2/job/:orderId deep link", async () => {
+    renderAt("/mapv2/job/01MOCKORDER001");
+    expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
+  });
+
+  it("MAP_V2 = T2: sends / to the 3-D map and puts it under the About drawer", async () => {
+    treatment = "T2";
+    webGl = true;
+    try {
+      const { unmount } = renderAt("/");
+      expect(await screen.findByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("href", "/mapv2");
+      unmount();
+      renderAt("/about");
+      expect(await screen.findByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
+      expect(screen.queryByText(/OpenStreetMap/)).not.toBeInTheDocument();
+    } finally {
+      treatment = "T1";
+      webGl = false;
+    }
   });
 
   it("renders DataPage at /data", async () => {

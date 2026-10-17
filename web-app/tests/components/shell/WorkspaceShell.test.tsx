@@ -11,7 +11,10 @@ import { mockViewport } from "../../testUtils/viewport";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
 /* Flagged menu entries (Customers) stay hidden here; their own tests turn them on. */
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureEnabled: vi.fn(() => false),
+  useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
+}));
 vi.mock("../../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
@@ -23,11 +26,11 @@ vi.mock("../../../src/hooks/useWorkspaceMetrics", async () => {
   return { useWorkspaceMetrics: () => ({ data: MOCK_WORKSPACE_METRICS, isPending: false, isError: false }) };
 });
 
-function renderShell() {
+function renderShell(path = "/") {
   vi.mocked(useAuth).mockReturnValue(authResult());
   return render(
     <ThemeProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <WorkspaceProvider>
           <WorkspaceShell>
             <p>page content</p>
@@ -88,6 +91,16 @@ describe("WorkspaceShell — secondary workspace follows the menu selection", ()
 
     await user.click(screen.getByRole("link", { name: "Map" }));
     expect(secondary()).toBeInTheDocument();
+  });
+});
+
+describe("WorkspaceShell — Mapv2", () => {
+  it("opens with the secondary workspace collapsed, but it can be re-opened", async () => {
+    mockViewport(1400);
+    renderShell("/mapv2");
+    expect(screen.queryByRole("complementary", { name: "Secondary workspace" })).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Show secondary panel" }));
+    expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 });
 

@@ -32,6 +32,14 @@ export const MapIcon = (p: IconProps): ReactElement => (
   </StrokeIcon>
 );
 
+/* An isometric cube — the 3-D city map. */
+export const CityIcon = (p: IconProps): ReactElement => (
+  <StrokeIcon {...p}>
+    <path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" />
+    <path d="m4 7 8 4 8-4M12 11v10" />
+  </StrokeIcon>
+);
+
 export const ResidentsIcon = (p: IconProps): ReactElement => (
   <StrokeIcon {...p}>
     <circle cx="9" cy="8" r="3.2" />

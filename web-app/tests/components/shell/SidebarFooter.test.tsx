@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { SidebarFooter } from "../../../src/components/shell/SidebarFooter";
 /* The LLMs write-up is gated on the Residents flag; off unless a test turns it on. */
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureEnabled: vi.fn(() => false),
+  useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
+}));
 import { ThemeProvider } from "../../../src/components/shell/ThemeProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { THEME_STORAGE_KEY } from "../../../src/models/theme";

@@ -16,7 +16,7 @@ function renderAt(state: { treatment: string | null | undefined; isLoading: bool
         <Route
           path="/customers"
           element={
-            <FeatureFlagRoute flagKey="CUSTOMERS_TAB" onTreatment="T1">
+            <FeatureFlagRoute flagKey="CUSTOMERS_TAB" onTreatments={["T1", "T2"]}>
               <p>Customers</p>
             </FeatureFlagRoute>
           }
@@ -31,6 +31,11 @@ describe("FeatureFlagRoute", () => {
     renderAt({ treatment: "T1", isLoading: false });
     expect(screen.getByText("Customers")).toBeInTheDocument();
     expect(mockedTreatment).toHaveBeenCalledWith("CUSTOMERS_TAB");
+  });
+
+  it("shows the page on any of its treatments", () => {
+    renderAt({ treatment: "T2", isLoading: false });
+    expect(screen.getByText("Customers")).toBeInTheDocument();
   });
 
   it("renders nothing while the flag is loading", () => {

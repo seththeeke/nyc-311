@@ -13,3 +13,11 @@ export type FeatureTreatment = z.infer<typeof FeatureTreatmentSchema>;
 /* Flags the web-app itself evaluates, and the treatment that turns each one on. CUSTOMERS_TAB gates the Residents page (named before the rename). */
 export const CUSTOMERS_TAB_FLAG = "CUSTOMERS_TAB";
 export const CUSTOMERS_TAB_ON = "T1";
+
+/*
+ * MAP_V2 gates Mapv2, the 3-D city map: T1 shows it alongside the classic
+ * map, T2 makes it the map — the classic entry and `/` give way to it.
+ */
+export const MAP_V2_FLAG = "MAP_V2";
+export const MAP_V2_ON = "T1";
+export const MAP_V2_TAKEOVER = "T2";

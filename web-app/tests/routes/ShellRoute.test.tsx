@@ -7,7 +7,10 @@ import { useAuth } from "../../src/hooks/useAuth";
 import { authResult } from "../testUtils/authFixtures";
 
 vi.mock("../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-vi.mock("../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
+vi.mock("../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureEnabled: vi.fn(() => false),
+  useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
+}));
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));

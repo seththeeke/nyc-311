@@ -1,8 +1,9 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
-import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON } from "../../models/featureTreatment";
+import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON, MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../../models/featureTreatment";
+import { MAP_V2_PATH } from "../mapv2/mapV2Routes";
 import { RESIDENTS_PATH } from "../customers/residentRoutes";
-import { AdminIcon, MapIcon, MonitorIcon, ResidentsIcon } from "./shellIcons";
+import { AdminIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon } from "./shellIcons";
 
 /*
  * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
@@ -16,6 +17,21 @@ export interface MenuLeaf {
   external?: boolean;
 }
 
+/**
+ * How a flag shapes a link. With `showOn`, the link appears only on those
+ * treatments (loading, missing and failed flags read as off). With
+ * `hideOn`, it appears unless the flag is on one of those (loading,
+ * missing and failed read as on, so nothing blinks out). `labelOn` and
+ * `alsoActiveOnFor` adjust the label and highlighted paths per treatment.
+ */
+export interface MenuFlagRule {
+  key: string;
+  showOn?: readonly string[];
+  hideOn?: readonly string[];
+  labelOn?: Readonly<Record<string, string>>;
+  alsoActiveOnFor?: Readonly<Record<string, readonly string[]>>;
+}
+
 export interface MenuLinkEntry {
   kind: "LINK";
   id: string;
@@ -24,8 +40,8 @@ export interface MenuLinkEntry {
   /* Extra paths that should also highlight this entry (e.g. /about renders the map). */
   alsoActiveOn: readonly string[];
   icon: ComponentType<IconProps>;
-  /* Shown only while this flag resolves to `onTreatment`; the route has the matching FeatureFlagRoute guard. */
-  featureFlag?: { key: string; onTreatment: string };
+  /* A `showOn` rule needs the matching FeatureFlagRoute guard on the route; the menu entry alone is only a cue. */
+  featureFlag?: MenuFlagRule;
 }
 
 export interface MenuSectionEntry {
@@ -42,7 +58,29 @@ export interface MenuSectionEntry {
 export type MenuEntry = MenuLinkEntry | MenuSectionEntry;
 
 export const MENU: readonly MenuEntry[] = [
-  { kind: "LINK", id: "MAP", label: "Map", to: "/", alsoActiveOn: ["/about"], icon: MapIcon },
+  {
+    kind: "LINK",
+    id: "MAP",
+    label: "Map",
+    to: "/",
+    alsoActiveOn: ["/about"],
+    icon: MapIcon,
+    featureFlag: { key: MAP_V2_FLAG, hideOn: [MAP_V2_TAKEOVER] },
+  },
+  {
+    kind: "LINK",
+    id: "MAP_V2",
+    label: "Mapv2",
+    to: MAP_V2_PATH,
+    alsoActiveOn: [],
+    icon: CityIcon,
+    featureFlag: {
+      key: MAP_V2_FLAG,
+      showOn: [MAP_V2_ON, MAP_V2_TAKEOVER],
+      labelOn: { [MAP_V2_TAKEOVER]: "Map" },
+      alsoActiveOnFor: { [MAP_V2_TAKEOVER]: ["/about"] },
+    },
+  },
   {
     kind: "LINK",
     id: "RESIDENTS",
@@ -50,7 +88,7 @@ export const MENU: readonly MenuEntry[] = [
     to: RESIDENTS_PATH,
     alsoActiveOn: [],
     icon: ResidentsIcon,
-    featureFlag: { key: CUSTOMERS_TAB_FLAG, onTreatment: CUSTOMERS_TAB_ON },
+    featureFlag: { key: CUSTOMERS_TAB_FLAG, showOn: [CUSTOMERS_TAB_ON] },
   },
   {
     kind: "SECTION",
@@ -84,6 +122,26 @@ export const MENU: readonly MenuEntry[] = [
   },
 ];
 
+/**
+ * The link as it should render for `treatment` (`undefined` while loading,
+ * `null` when the flag is missing or failed), or `null` when it's hidden.
+ */
+export function resolveFlaggedLink(entry: MenuLinkEntry, treatment: string | null | undefined): MenuLinkEntry | null {
+  const rule = entry.featureFlag;
+  if (!rule) return entry;
+  const resolved = treatment ?? null;
+  const visible = rule.showOn
+    ? resolved !== null && rule.showOn.includes(resolved)
+    : resolved === null || !(rule.hideOn ?? []).includes(resolved);
+  if (!visible) return null;
+  if (resolved === null) return entry;
+  return {
+    ...entry,
+    label: rule.labelOn?.[resolved] ?? entry.label,
+    alsoActiveOn: [...entry.alsoActiveOn, ...(rule.alsoActiveOnFor?.[resolved] ?? [])],
+  };
+}
+
 function pathIsWithin(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
@@ -99,6 +157,11 @@ export function sectionContainsPath(section: MenuSectionEntry, pathname: string)
 /** True on any monitoring/admin route — the pages that take the full width, so the shell hides the secondary panel. */
 export function pathIsInAnySection(pathname: string): boolean {
   return MENU.some((entry) => entry.kind === "SECTION" && sectionContainsPath(entry, pathname));
+}
+
+/** Routes that open with the secondary panel collapsed: the full-width sections, plus Mapv2, whose 3-D city wants the room. */
+export function pathStartsSecondaryCollapsed(pathname: string): boolean {
+  return pathIsInAnySection(pathname) || pathIsWithin(pathname, MAP_V2_PATH);
 }
 
 /* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents. */

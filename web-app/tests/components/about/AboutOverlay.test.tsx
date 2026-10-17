@@ -5,7 +5,10 @@ import { AboutOverlay } from "../../../src/components/about/AboutOverlay";
 import { ABOUT_SECTIONS, resolveAboutSections } from "../../../src/components/about/aboutSections";
 import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
 /* The LLMs write-up is gated on the Residents flag; off unless a test turns it on. */
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => false) }));
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
+  useFeatureEnabled: vi.fn(() => false),
+  useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
+}));
 
 describe("AboutOverlay", () => {
   it("renders as a non-modal drawer dialog titled About BoroughSim, docked right at ~40% width", () => {
