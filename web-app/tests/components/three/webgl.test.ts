@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isWebGlAvailable } from "../../../src/components/mapv2/webgl";
+import { isWebGlAvailable } from "../../../src/components/three/webgl";
 
 describe("isWebGlAvailable", () => {
   afterEach(() => vi.restoreAllMocks());

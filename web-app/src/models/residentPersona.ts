@@ -16,6 +16,8 @@ export const ResidentPersonaSchema = z.object({
   tagline: z.string().min(1),
   backstory: z.string().min(1),
   persona_prompt: z.string().min(1),
+  /* Names the resident's Three.js model in components/residents/models; null shows the initial. */
+  model_key: z.string().min(1).nullable(),
   /* The Bedrock model the resident thinks with. */
   model_id: z.string().min(1),
   demeanor: z.object({ patience: DialSchema, hostility: DialSchema, verbosity: DialSchema }),

@@ -55,7 +55,7 @@ export function ResidentIdeaPage(): ReactElement {
       {idea && (
         <>
           <div className="mt-4 flex items-center gap-2">
-            <PersonaAvatar name={name} />
+            <PersonaAvatar name={name} modelKey={persona?.model_key} />
             <Link to={residentFeedPath(personaId)} className="font-semibold text-fg hover:underline">
               {name}
             </Link>

@@ -22,7 +22,7 @@ export function IdeaCard({ idea, persona, onSelectPersona, onSelectOrder }: Idea
     <article aria-label={`${name}: ${idea.text}`} className="rounded-xl border border-line bg-panel p-4">
       <header className="flex items-center gap-2">
         <button type="button" onClick={onSelectPersona} className="flex items-center gap-2 rounded-lg font-semibold text-fg hover:underline">
-          <PersonaAvatar name={name} />
+          <PersonaAvatar name={name} modelKey={persona?.model_key} />
           {name}
         </button>
         <time dateTime={idea.created_at} className="ml-auto text-xs text-fg-subtle">

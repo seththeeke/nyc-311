@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AdditiveBlending, BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from "three";
-import { approachAngle, box, createPuffPool, disposeObject, glow, mesh, place, solid } from "../../../../src/components/mapv2/three/threeKit";
+import { approachAngle, box, createPuffPool, disposeObject, glow, mesh, place, solid } from "../../../src/components/three/threeKit";
 
 describe("materials", () => {
   it("solid is flat-shaded with sensible defaults and honours options", () => {

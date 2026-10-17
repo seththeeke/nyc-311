@@ -6,7 +6,7 @@ import { ThemeProvider } from "../../../src/components/shell/ThemeProvider";
 import { IDLE_OPERATOR, WORKING_OPERATOR } from "../mapv2/fixtures";
 
 let webGl = true;
-vi.mock("../../../src/components/mapv2/webgl", () => ({ isWebGlAvailable: () => webGl }));
+vi.mock("../../../src/components/three/webgl", () => ({ isWebGlAvailable: () => webGl }));
 let fleet = { locations: { operators: [IDLE_OPERATOR, WORKING_OPERATOR] }, isLoading: false, error: null };
 vi.mock("../../../src/hooks/useFleetLocations", () => ({ useFleetLocations: () => fleet }));
 

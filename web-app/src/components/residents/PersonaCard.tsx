@@ -22,7 +22,7 @@ export function PersonaCard({ persona, selected, onSelect }: PersonaCardProps): 
       }`}
     >
       <div className="flex items-start gap-3">
-        <PersonaAvatar name={persona.name} />
+        <PersonaAvatar name={persona.name} modelKey={persona.model_key} />
         <div className="min-w-0 flex-1">
           <span className="font-semibold text-fg">{persona.name}</span>
           <p className="mt-0.5 text-xs text-fg-muted">{persona.tagline}</p>

@@ -32,7 +32,7 @@ export function ResidentDetailPanel(): ReactElement {
       {persona && (
         <div className="rounded-xl border border-line bg-panel p-3">
           <div className="mb-3 flex items-center gap-3">
-            <PersonaAvatar name={persona.name} size="LG" />
+            <PersonaAvatar name={persona.name} modelKey={persona.model_key} size="LG" />
             <div className="min-w-0">
               <h2 className="font-semibold text-fg">{persona.name}</h2>
               <p className="text-xs text-fg-muted">{persona.tagline}</p>

@@ -185,7 +185,7 @@ Reviewed question by question, the same way as the BoroughSim side above.
 |---|---|---|
 | 1 | Customer vs. Persona: one entity or two | One entity, the resident, with **its version history kept in the same table**. Partition key `persona_id`. Sort key `CURRENT` is the live row; `V#0001`, `V#0002`, ... are frozen copies, one per version. A version row is written once, conditioned on `attribute_not_exists`, and never changed. An edit writes the new version row and updates `CURRENT` (conditioned on the old `version`) in one transaction. Counters (`idea_count`, `last_idea_at`) live only on `CURRENT`. An idea's `persona_version` resolves to its exact prompt and dials with one `GetItem`. Rejected: overwriting in place (old ideas lose their prompt) and separate Customer and Persona tables (too much structure for the roster's size) |
 | 2 | Where residents come from | **Seed files in the repo are the source of truth**: one JSON file per resident in `customer/backend/residents/`, zod-validated in tests and at sync. A CloudFormation custom resource in the customer stack syncs them on deploy. The sync hashes each file's content and writes the next `V#` row when the hash changes, so version numbers are assigned by the sync, never typed in a file. Removing a seed file never deletes the resident (ideas still point at it); stopping a resident's ideas is the §3 operational switch. Rejected: hand edits in DynamoDB (unreviewed, easy to skip the version row) and an admin edit API (auth and writes on the customer side for three residents) |
-| 3 | Profile images | **Each resident is a hand-authored Three.js model file in the repo**, written when the resident is created locally (e.g. `web-app/src/components/residents/models/sycamore.ts` exporting `buildSycamore(): Group`) and bundled into the frontend. No generated looks, no look spec, no runtime procedural generation, no image bucket. `avatar_image` becomes `model_key: string \| null` (e.g. `"sycamore"`); a web-app registry maps keys to model files, and a null or unknown key falls back to the initial. Model files are held to the linter and a written style guide: built only from the shared `threeKit` helpers (same flat-shaded low-poly look as the Mapv2 trucks and crew), colours from a fixed palette, a size cap, and a per-model test that it builds under a triangle budget. The avatar is a head-and-shoulders snapshot of the same model from one shared offscreen renderer, cached and shown as an `<img>`; Three.js is lazy-loaded; no WebGL falls back to the initial. A model change is a frontend change, not resident data, so it creates no new `V#` |
+| 3 | Profile images | **Each resident is a hand-authored Three.js model file in the repo**, written when the resident is created locally (e.g. `web-app/src/components/residents/models/sycamore.ts` exporting `buildSycamore(): Group`) and bundled into the frontend. No generated looks, no look spec, no runtime procedural generation, no image bucket. `avatar_image` becomes `model_key: string \| null` (e.g. `"sycamore"`); a web-app registry maps keys to model files, and a null or unknown key falls back to the initial. Model files are held to the linter and a written style guide: built only from the shared `threeKit` helpers (same flat-shaded low-poly look as the Mapv2 trucks and crew), colours from a fixed palette, a size cap, and a per-model test that it builds under a triangle budget. The avatar is a head-and-shoulders snapshot of the same model from one shared offscreen renderer, cached and shown as an `<img>`; Three.js is lazy-loaded; no WebGL falls back to the initial. A model change is a frontend change, not resident data, so it creates no new `V#`. *2026-10-17: two views of the one model — the snapshot avatar everywhere small, and a live, Mii-style full-body view, standing and waving, beside the resident's profile; built and styled per Appendix P.* |
 | 4 | Ideas table keys | **Its own `Ideas` table** (residents stay one table per entity); the idea put and the resident's `CURRENT` counter update share one transaction. Partition key `persona_id`. Sort key `IDEA#<ulid>` serves A3 (query, newest first) and A4 (`GetItem`; the route carries both ids). A **thread row** per resident per order, sort key `ORDER#<order_id>` with `idea_count` and `last_idea_at`, written in the same transaction, serves A6 with one prefix query. Sparse index `ByOrder` (partition `persona_id#order_id`, sort ULID) on anchored ideas serves A5. Index `Feed` (partition `ALL`, sort ULID) serves the new A12, every resident's ideas newest first, for `GET /ideas`; a few writes an hour is far under one partition's limit, and it can be split by day later without an API change. A8 is deferred until an actioner exists. No TTL on ideas. Public routes are `/residents/...`, not `/customers/...` |
 | 5 | A7: picking a fresh order | **Sparse random-key index on `WebhookCustomerFacingOrders-Prod`.** When an order opens, the listener also writes `open_borough` (the borough) and `pick_key` (a random value); when it closes, it removes both, so index `OpenByBorough` (partition `open_borough`, sort `pick_key`) holds only open orders. The planner picks a borough from the resident's `interests.boroughs`, draws a random value, reads the next 20 entries from it (wrapping to the start), drops orders that have an `ORDER#` thread row for that resident, prefers their `complaint_types`, and picks one. Nothing open in that borough: try the resident's next borough, then log a "no candidate" skip (§3 item 3). The listener knows nothing about residents. Supersedes "no index until the persona work" (2026-10-13). Rejected: newest-first sort (residents would only ever notice brand-new orders) and per-resident candidate lists filled by the listener (couples the listener to residents, fans out writes, needs backfills) |
 | 6 | Does an idea keep a copy of its order | **No copy; order rows no longer expire.** The 2026-10-13 TTL on `WebhookCustomerFacingOrders-Prod` is rolled back: the listener stops writing `expires_at` and TTL is explicitly disabled on the table (rows written before 2026-10-17 still carry the attribute). An idea stores `order_id` (and `external_unique_key`); the read API builds the response's `anchor` from the order row, one `BatchGetItem` per page, so the mock's response shape is unchanged. Growth is a few hundred rows a day, small for a table that never shrinks. Rejected: an immutable copy on each idea, and reference-only with the order expiring ("order no longer tracked") |
@@ -1482,4 +1482,77 @@ and 50 output tokens each.
 2. Optionally force one thought per resident to see ideas immediately:
    `aws lambda invoke --profile nyc311 --region us-east-1 --function-name CustomerIdeaWorker-Prod --cli-binary-format raw-in-base64-out --payload '{"persona_id":"juniper","force":true}' /dev/stdout`.
 3. Set `CUSTOMERS_TAB` to `T1` where the Residents page should show.
+
+### P. Resident models — style guide and build (2026-10-17)
+
+Each resident has a hand-written Three.js model (§2 customer side,
+decision 3), shown two ways:
+
+- **Avatar** — a still head-and-shoulders snapshot, everywhere a resident
+  appears small (cards, the feed, Idea Detail). One shared offscreen
+  renderer draws each model once into a PNG; the page shows it as an
+  `<img>`. Without WebGL, or before it is drawn, the initial shows.
+- **Stage** — the resident in full, standing and waving beside their
+  profile when they are selected (the spotlight at the top of the feed): a
+  live canvas that waves for about 2.4 s, stands for about 2.2 s, and turns
+  gently. With reduced motion it draws one still frame mid-wave. Without
+  WebGL or a model, the large avatar stands in.
+
+**Where it lives** (`web-app/src/components/`):
+
+| File | Role |
+|---|---|
+| `residents/models/residentPalette.ts` | The only colours a model may use; the one file there allowed a colour literal |
+| `residents/models/residentFigure.ts` | The shared body (`buildFigure`), `hairCap`, and `poseResident` (`IDLE`, `WAVE`) |
+| `residents/models/<persona_id>.ts` | One file per resident, exporting `build<Name>(): ResidentRig` |
+| `residents/models/residentModels.ts` | The registry: `model_key` → builder |
+| `residents/models/residentScene.ts` | Studio lighting, the portrait camera and the full-body camera |
+| `residents/models/avatarSnapshot.ts` | The shared offscreen renderer behind the avatar |
+| `residents/useResidentStage.ts`, `ResidentStage.tsx` | The live stage, lazy-loaded |
+| `hooks/useResidentAvatar.ts` | Draws each avatar once per page load and caches it |
+| `three/threeKit.ts`, `three/webgl.ts` | Shared with Mapv2 (moved out of `mapv2/`) |
+
+**Style rules.**
+
+1. **Mii-like proportions from the shared figure.** Every resident starts
+   from `buildFigure`: a big round head (radius 0.27) on a short, rounded
+   body, about 1.4 m, facing +x with y up. A resident's file changes only
+   build (`SLIGHT`, `AVERAGE`, `BROAD`), height (0.9–1.1) and colours, then
+   adds hair, clothes and props. No custom bodies.
+2. **The same face for everyone.** White eyes with dark pupils, brows, a
+   small smile. Glasses and the like line up with `EYE_HEIGHT` and
+   `EYE_SPACING`.
+3. **Flat-shaded low-poly**, using the `threeKit` helpers (`solid`, `box`,
+   `mesh`, `place`), the same look as the Mapv2 trucks and crew.
+4. **Colours from the palette only, muted.** At most one bright note per
+   resident (Juniper's reflective sash and helmet stripe).
+5. **Readable at 32 px.** A resident's character should come through in
+   the avatar: a hat, glasses or hair silhouette, not small details.
+6. **Nothing real or official.** No text, logos, badges or uniforms that
+   read as a real agency; no likeness of a real person.
+7. **Poses are rotations only**, so `poseResident` can run every frame;
+   the joint layout matches the Mapv2 crew's, for a later dive-in.
+
+**Enforced, not reviewed.**
+
+- Lint (`web-app/eslint.config.js`) rejects any colour literal in
+  `residents/models/` outside the palette file, and caps each file there
+  at 120 lines.
+- `residentModels.test.ts` builds every registered model and checks it is
+  a full rig, stays under 3,000 triangles, and uses only palette colours;
+  every sample resident's `model_key` must have a model.
+- Three.js loads only with the avatar renderer or the stage (a separate
+  chunk), never in the main bundle.
+
+**Adding a resident's model.**
+
+1. Write `residents/models/<persona_id>.ts` from `buildFigure`.
+2. Register it in `residentModels.ts`.
+3. Set `"model_key": "<persona_id>"` in their seed.
+
+The launch three: Hawthorn (broad; rust shirt, cream apron and baker's cap,
+dark cropped hair), Sycamore (olive cardigan, sand trousers, grey hair, flat
+cap, round glasses), Juniper (slight; teal scrubs, navy trousers, slate bike
+helmet over a bun, reflective sash). Their seeds now carry `model_key`, so
+the next deploy syncs each to version 2.
 

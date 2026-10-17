@@ -19,7 +19,7 @@ vi.mock("../../src/hooks/useFeatureTreatment", () => ({
 let webGl = false;
 /* The T2 takeover mounts the real city view; a fake map stands in for MapLibre, which needs WebGL2. */
 vi.mock("maplibre-gl", async () => ({ Map: (await import("../components/mapv2/fakeMapLibre")).FakeMap, setWorkerUrl: () => undefined }));
-vi.mock("../../src/components/mapv2/webgl", () => ({ isWebGlAvailable: () => webGl }));
+vi.mock("../../src/components/three/webgl", () => ({ isWebGlAvailable: () => webGl }));
 vi.mock("../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
 }));

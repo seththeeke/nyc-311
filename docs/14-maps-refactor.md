@@ -109,9 +109,9 @@ React components and hooks are tested against a fake MapLibre map (`tests/compon
 |---|---|
 | Page and routing | `pages/MapV2Page.tsx`, `routes/MapV2TakeoverRoute.tsx`, `routes/FeatureFlagRoute.tsx` (now `onTreatments`), `routes/AppRoutes.tsx`, `mapv2/mapV2Routes.ts` |
 | Menu and shell | `shell/menuConfig.ts` (`MenuFlagRule`, `resolveFlaggedLink`, `pathStartsSecondaryCollapsed`), `shell/FlaggedMenuLink.tsx`, `shell/SidebarMenu.tsx`, `shell/WorkspaceShell.tsx`, `shell/shellIcons.tsx` (`CityIcon`); `shell/FeatureGate.tsx` deleted |
-| City view | `mapv2/CityView.tsx`, `useCityMap.ts`, `useCityCamera.ts`, `mapStyle.ts`, `fleetOverlays.ts`, `picking.ts`, `geo.ts`, `truckMotion.ts`, `three/fleetLayer.ts`, `three/fleetScene.ts`, `three/truckModel.ts`, `three/crewModel.ts`, `three/props.ts`, `three/threeKit.ts` |
+| City view | `mapv2/CityView.tsx`, `useCityMap.ts`, `useCityCamera.ts`, `mapStyle.ts`, `fleetOverlays.ts`, `picking.ts`, `geo.ts`, `truckMotion.ts`, `three/fleetLayer.ts`, `three/fleetScene.ts`, `three/truckModel.ts`, `three/crewModel.ts`, `three/props.ts`; shared with the Residents avatars: `components/three/threeKit.ts` (moved 2026-10-17) |
 | Dive-in | `mapv2/DiveView.tsx`, `useDiveRenderer.ts`, `JobHud.tsx`, `repairTimeline.ts`, `three/diveScene.ts`, `three/diveEnvironment.ts`, `three/diveCast.ts`, `three/diveChoreography.ts` |
-| HUD | `mapv2/CityHud.tsx`, `FleetRoster.tsx`, `OperatorCard.tsx`, `CameraControls.tsx`, `MapV2Glyph.tsx`, `hudStyle.ts`, `WebGlFallback.tsx`, `webgl.ts` |
+| HUD | `mapv2/CityHud.tsx`, `FleetRoster.tsx`, `OperatorCard.tsx`, `CameraControls.tsx`, `MapV2Glyph.tsx`, `hudStyle.ts`, `WebGlFallback.tsx`; `components/three/webgl.ts` (moved 2026-10-17, shared) |
 | Flag | `models/featureTreatment.ts` (`MAP_V2_FLAG`, `MAP_V2_ON`, `MAP_V2_TAKEOVER`), `test-data/featureFlags.ts` |
 | Styles | `index.css`: `mapv2-dive-in` keyframe |
 

@@ -170,5 +170,20 @@ export default tseslint.config(
   {
     files: ["src/**/*.{ts,tsx}"],
     rules: { "local/no-raw-palette": "error" },
+  },
+  {
+    /* Resident models (13-customer-simulation.md Appendix P): small files, colours only from residentPalette.ts. */
+    files: ["src/components/residents/models/**/*.ts"],
+    ignores: ["src/components/residents/models/residentPalette.ts"],
+    rules: {
+      "max-lines": ["error", { max: 120, skipBlankLines: true, skipComments: true }],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
+          message: "Resident models take colours from residentPalette.ts only (Appendix P style guide).",
+        },
+      ],
+    },
   }
 );
