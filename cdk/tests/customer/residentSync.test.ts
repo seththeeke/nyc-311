@@ -18,10 +18,9 @@ describe("resident seed files", () => {
   it("summarises every committed seed: one schedule and one model each", () => {
     const seeds = loadResidentSeeds();
     expect(seeds.map((seed) => seed.personaId)).toEqual(["hawthorn", "juniper", "sycamore"]);
-    for (const seed of seeds) {
-      expect(seed.schedule).toBe("cron(0 10,18 * * ? *)");
-      expect(seed.modelId).toBe("amazon.nova-micro-v1:0");
-    }
+    /* Every 3 hours each, offset an hour apart, so one resident thinks every hour. */
+    expect(seeds.map((seed) => seed.schedule)).toEqual(["cron(0 0/3 * * ? *)", "cron(0 1/3 * * ? *)", "cron(0 2/3 * * ? *)"]);
+    for (const seed of seeds) expect(seed.modelId).toBe("amazon.nova-micro-v1:0");
     expect(CUSTOMER_RESIDENT_SYNC_INPUTS[0]).toBe(CUSTOMER_RESIDENT_SEEDS_DIR);
   });
 
