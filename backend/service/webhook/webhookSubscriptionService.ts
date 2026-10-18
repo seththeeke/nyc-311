@@ -56,7 +56,7 @@ function keysMatch(presented: string, expected: string): boolean {
 
 /**
  * Shape checks plus the per-environment hostname allowlist — no address
- * range checks, since the bureau has no VPC to protect.
+ * range checks, since BoroughSim has no VPC to protect.
  *
  * @throws {@link ValidationError} for an unparseable, non-https or non-allowlisted URL.
  */

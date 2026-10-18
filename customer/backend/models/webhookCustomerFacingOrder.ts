@@ -3,8 +3,9 @@ import { z } from "zod";
 /*
  * The customer's own row per order in play
  * (docs/13-customer-simulation.md, decision 2026-10-13). `OPEN` from the
- * bureau's ORDER_ACCEPTED until its ORDER_RESOLVED makes it `CLOSED`; a
- * closed row stays as a marker so a late accept can never reopen it.
+ * BoroughSim's ORDER_ACCEPTED until its ORDER_RESOLVED makes it `CLOSED`; a
+ * closed row stays as a marker so a late accept can never reopen it. Rows
+ * never expire (decision 6, 2026-10-17): ideas reference orders by id.
  * Enum values ALL_CAPS per CLAUDE.md §6.
  */
 
@@ -27,7 +28,12 @@ export const WebhookCustomerFacingOrderSchema = z.object({
   /* The `webhook-id` of the delivery that last wrote this row. */
   last_webhook_id: z.string().min(1),
   updated_at: z.string().min(1),
-  /* The table's TTL attribute, epoch seconds. */
-  expires_at: z.number().int().positive(),
+  /*
+   * Only while OPEN (§2 customer side, decision 5): the sparse
+   * OpenByBorough index's keys. `pick_key` is random, so reading from a
+   * random point samples open orders fairly.
+   */
+  open_borough: z.string().min(1).optional(),
+  pick_key: z.string().min(1).optional(),
 });
 export type WebhookCustomerFacingOrder = z.infer<typeof WebhookCustomerFacingOrderSchema>;

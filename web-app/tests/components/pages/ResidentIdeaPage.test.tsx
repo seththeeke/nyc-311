@@ -2,22 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ResidentIdeaPage } from "../../../src/components/pages/ResidentIdeaPage";
-import { useCustomerIdea } from "../../../src/hooks/useCustomerIdea";
-import { useCustomerIdeas } from "../../../src/hooks/useCustomerIdeas";
-import { useCustomerPersonas } from "../../../src/hooks/useCustomerPersonas";
-import type { CustomerIdea } from "../../../src/models/customerIdea";
-import { MOCK_CUSTOMER_IDEAS } from "../../../src/test-data/customerIdeas";
-import { MOCK_CUSTOMER_PERSONAS } from "../../../src/test-data/customerPersonas";
+import { useResidentIdea } from "../../../src/hooks/useResidentIdea";
+import { useResidentIdeas } from "../../../src/hooks/useResidentIdeas";
+import { useResidentPersonas } from "../../../src/hooks/useResidentPersonas";
+import type { ResidentIdea } from "../../../src/models/residentIdea";
+import { MOCK_RESIDENT_IDEAS } from "../../../src/test-data/residentIdeas";
+import { MOCK_RESIDENT_PERSONAS } from "../../../src/test-data/residentPersonas";
 
-vi.mock("../../../src/hooks/useCustomerIdea", () => ({ useCustomerIdea: vi.fn() }));
-vi.mock("../../../src/hooks/useCustomerIdeas", () => ({ useCustomerIdeas: vi.fn() }));
-vi.mock("../../../src/hooks/useCustomerPersonas", () => ({ useCustomerPersonas: vi.fn() }));
+vi.mock("../../../src/hooks/useResidentIdea", () => ({ useResidentIdea: vi.fn() }));
+vi.mock("../../../src/hooks/useResidentIdeas", () => ({ useResidentIdeas: vi.fn() }));
+vi.mock("../../../src/hooks/useResidentPersonas", () => ({ useResidentPersonas: vi.fn() }));
 
-const ATLANTIC_ESCALATION = MOCK_CUSTOMER_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0014")!;
-const FEATURE_REQUEST = MOCK_CUSTOMER_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0011")!;
+const ATLANTIC_ESCALATION = MOCK_RESIDENT_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0014")!;
+const FEATURE_REQUEST = MOCK_RESIDENT_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0011")!;
 
-function setIdea(state: { data?: CustomerIdea; isLoading?: boolean; error?: Error | null }) {
-  vi.mocked(useCustomerIdea).mockReturnValue({ data: state.data, isLoading: state.isLoading ?? false, error: state.error ?? null } as ReturnType<typeof useCustomerIdea>);
+function setIdea(state: { data?: ResidentIdea; isLoading?: boolean; error?: Error | null }) {
+  vi.mocked(useResidentIdea).mockReturnValue({ data: state.data, isLoading: state.isLoading ?? false, error: state.error ?? null } as ReturnType<typeof useResidentIdea>);
 }
 
 function renderAt(personaId: string, ideaId: string) {
@@ -31,15 +31,15 @@ function renderAt(personaId: string, ideaId: string) {
 }
 
 beforeEach(() => {
-  vi.mocked(useCustomerIdeas).mockReturnValue({ data: MOCK_CUSTOMER_IDEAS } as ReturnType<typeof useCustomerIdeas>);
-  vi.mocked(useCustomerPersonas).mockReturnValue({ data: MOCK_CUSTOMER_PERSONAS } as ReturnType<typeof useCustomerPersonas>);
+  vi.mocked(useResidentIdeas).mockReturnValue({ data: MOCK_RESIDENT_IDEAS } as ReturnType<typeof useResidentIdeas>);
+  vi.mocked(useResidentPersonas).mockReturnValue({ data: MOCK_RESIDENT_PERSONAS } as ReturnType<typeof useResidentPersonas>);
   setIdea({ data: ATLANTIC_ESCALATION });
 });
 
 describe("ResidentIdeaPage", () => {
   it("shows the idea in full: who, what kind of need, the text, the order and how it was generated", () => {
     renderAt("hawthorn", "01K7IDEA0014");
-    expect(useCustomerIdea).toHaveBeenCalledWith("hawthorn", "01K7IDEA0014");
+    expect(useResidentIdea).toHaveBeenCalledWith("hawthorn", "01K7IDEA0014");
     expect(screen.getByRole("heading", { level: 1, name: "Idea Detail" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← All ideas" })).toHaveAttribute("href", "/residents");
     expect(screen.getByRole("link", { name: "Hawthorn" })).toHaveAttribute("href", "/residents?persona=hawthorn");
@@ -64,7 +64,7 @@ describe("ResidentIdeaPage", () => {
   });
 
   it("says when no one else has had an idea about the order yet", () => {
-    vi.mocked(useCustomerIdeas).mockReturnValue({ data: undefined } as ReturnType<typeof useCustomerIdeas>);
+    vi.mocked(useResidentIdeas).mockReturnValue({ data: undefined } as ReturnType<typeof useResidentIdeas>);
     renderAt("hawthorn", "01K7IDEA0014");
     expect(within(screen.getByRole("region", { name: "Other ideas about this order" })).getByText("None yet.")).toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe("ResidentIdeaPage", () => {
 
   it("marks unknown order fields, and falls back to the resident id when their name is unknown", () => {
     setIdea({ data: { ...ATLANTIC_ESCALATION, anchor: { ...ATLANTIC_ESCALATION.anchor!, descriptor: null, address: null, borough: null } } });
-    vi.mocked(useCustomerPersonas).mockReturnValue({ data: undefined } as ReturnType<typeof useCustomerPersonas>);
+    vi.mocked(useResidentPersonas).mockReturnValue({ data: undefined } as ReturnType<typeof useResidentPersonas>);
     renderAt("hawthorn", "01K7IDEA0014");
     expect(within(screen.getByRole("region", { name: "The order" })).getAllByText("Unknown")).toHaveLength(3);
     expect(screen.getByRole("link", { name: "hawthorn" })).toBeInTheDocument();
@@ -107,6 +107,6 @@ describe("ResidentIdeaPage", () => {
         <ResidentIdeaPage />
       </MemoryRouter>,
     );
-    expect(useCustomerIdea).toHaveBeenLastCalledWith("", "");
+    expect(useResidentIdea).toHaveBeenLastCalledWith("", "");
   });
 });

@@ -1,7 +1,7 @@
 import { Color, ConeGeometry, CylinderGeometry, Group, type Mesh, type MeshBasicMaterial, type MeshStandardMaterial, RingGeometry, CircleGeometry } from "three";
 import type { OperatorActivity } from "../../../models/fleetLocation";
 import { ACTIVITY_COLOR } from "../../fleetActivityStyle";
-import { box, createPuffPool, glow, mesh, type PuffPool, solid } from "./threeKit";
+import { box, createPuffPool, glow, mesh, type PuffPool, solid } from "../../three/threeKit";
 
 /*
  * A city utility truck (~8.5 m, faces +x) whose look follows its

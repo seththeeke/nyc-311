@@ -10,14 +10,14 @@ const mockedTreatment = vi.mocked(useFeatureTreatment);
 function renderAt(state: { treatment: string | null | undefined; isLoading: boolean }) {
   mockedTreatment.mockReturnValue(state);
   render(
-    <MemoryRouter initialEntries={["/customers"]}>
+    <MemoryRouter initialEntries={["/residents"]}>
       <Routes>
         <Route path="/" element={<p>Home</p>} />
         <Route
-          path="/customers"
+          path="/residents"
           element={
             <FeatureFlagRoute flagKey="CUSTOMERS_TAB" onTreatments={["T1", "T2"]}>
-              <p>Customers</p>
+              <p>Residents</p>
             </FeatureFlagRoute>
           }
         />
@@ -29,18 +29,18 @@ function renderAt(state: { treatment: string | null | undefined; isLoading: bool
 describe("FeatureFlagRoute", () => {
   it("shows the page when the flag is on", () => {
     renderAt({ treatment: "T1", isLoading: false });
-    expect(screen.getByText("Customers")).toBeInTheDocument();
+    expect(screen.getByText("Residents")).toBeInTheDocument();
     expect(mockedTreatment).toHaveBeenCalledWith("CUSTOMERS_TAB");
   });
 
   it("shows the page on any of its treatments", () => {
     renderAt({ treatment: "T2", isLoading: false });
-    expect(screen.getByText("Customers")).toBeInTheDocument();
+    expect(screen.getByText("Residents")).toBeInTheDocument();
   });
 
   it("renders nothing while the flag is loading", () => {
     renderAt({ treatment: undefined, isLoading: true });
-    expect(screen.queryByText("Customers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Residents")).not.toBeInTheDocument();
     expect(screen.queryByText("Home")).not.toBeInTheDocument();
   });
 

@@ -18,17 +18,33 @@ beforeAll(() => {
 });
 
 describe("Nyc311CustomerStack", () => {
-  it("wires the listener milestone: one table, one Lambda, one API with one route, its own domain", () => {
-    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WebhookCustomerFacingOrders-Prod" });
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "CustomerWebhookListener-Prod" });
+  it("wires the listener, the residents and their ideas, and one API on its own domain", () => {
+    for (const name of ["WebhookCustomerFacingOrders-Prod", "Residents-Prod", "ResidentIdeas-Prod"]) {
+      template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: name });
+    }
+    for (const name of ["CustomerWebhookListener-Prod", "CustomerResidentSync-Prod", "CustomerIdeaWorker-Prod", "CustomerReadApi-Prod"]) {
+      template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: name });
+    }
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311CustomerApi-Prod" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /webhooks/bureau" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /ideas" });
     template.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "customer-api.boroughsim.com" });
-    template.resourceCountIs("AWS::DynamoDB::GlobalTable", 1);
+    template.resourceCountIs("AWS::DynamoDB::GlobalTable", 3);
     template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
+    template.resourceCountIs("Custom::ResidentSeedSync", 1);
   });
 
-  it("outputs the callback URL to register with the bureau", () => {
+  it("schedules every seeded resident, and lets the idea worker call only their models", () => {
+    for (const persona of ["hawthorn", "juniper", "sycamore"]) {
+      template.hasResourceProperties("AWS::Scheduler::Schedule", { Name: `CustomerResident-${persona}-Prod` });
+    }
+    template.resourceCountIs("AWS::Scheduler::Schedule", 3);
+    const bedrock = statements(template).filter((statement) => actionsOf(statement).includes("bedrock:InvokeModel"));
+    expect(bedrock).toHaveLength(1);
+    expect(bedrock[0].Resource).toBe("arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0");
+  });
+
+  it("outputs the callback URL to register with BoroughSim", () => {
     template.hasOutput("CustomerWebhookUrl", { Value: "https://customer-api.boroughsim.com/webhooks/bureau" });
     expect(stack.webhookUrlOutput).toBeDefined();
   });
@@ -44,13 +60,13 @@ describe("Nyc311CustomerStack isolation", () => {
     expect(templateJson).not.toContain("Fn::ImportValue");
   });
 
-  it("names no bureau resource anywhere in its template", () => {
+  it("names no BoroughSim resource anywhere in its template", () => {
     /*
-     * Physical-name stems and prefixes that only the bureau's stacks use.
+     * Physical-name stems and prefixes that only BoroughSim's stacks use.
      * Table names are matched as whole JSON strings, since the customer's
      * own table name ends in "Orders-Prod".
      */
-    const bureauMarkers = [
+    const boroughSimMarkers = [
       "Nyc311-Prod",
       "Nyc311-Test",
       "Nyc311Api-",
@@ -65,14 +81,14 @@ describe("Nyc311CustomerStack isolation", () => {
       "Nyc311Order",
       "/nyc311/",
     ];
-    for (const marker of bureauMarkers) {
+    for (const marker of boroughSimMarkers) {
       expect(templateJson.includes(marker), `template mentions ${marker}`).toBe(false);
     }
-    /* The bureau's API host, as distinct from the customer's own `customer-api` name. */
+    /* BoroughSim's API host, as distinct from the customer's own `customer-api` name. */
     expect(templateJson).not.toMatch(/[^-]api\.boroughsim\.com/);
   });
 
-  it("grants its roles access only to its own table and its own SSM parameter", () => {
+  it("grants its roles access only to its own tables, secret, Lambdas and the residents' models", () => {
     const all = statements(template);
     expect(all.length).toBeGreaterThan(0);
     for (const statement of all) {
@@ -80,15 +96,22 @@ describe("Nyc311CustomerStack isolation", () => {
       const resource = JSON.stringify(statement.Resource);
       for (const action of actionsOf(statement)) {
         if (action.startsWith("dynamodb:")) {
-          expect(resource).toMatch(/"Fn::GetAtt":\["WebhookCustomerFacingOrdersTable[0-9A-F]{8}","Arn"\]/);
+          const tables = [...resource.matchAll(/"Fn::GetAtt":\["([A-Za-z]+)[0-9A-F]{8}","Arn"\]/g)].map((match) => match[1]);
+          expect(tables.length).toBeGreaterThan(0);
+          for (const table of tables) expect(["WebhookCustomerFacingOrdersTable", "ResidentsTable", "ResidentIdeasTable"]).toContain(table);
         } else if (action.startsWith("ssm:")) {
           expect(action).toBe("ssm:GetParameter");
           expect(resource).toContain(":parameter/customer/prod/webhook/signing-secret");
+        } else if (action === "lambda:InvokeFunction" || action === "lambda:GetFunction") {
+          expect(resource).toMatch(/"Fn::GetAtt":\["(CustomerResidentSyncLambda|CustomerIdeaWorkerLambda)[0-9A-F]{8}","Arn"\]/);
+        } else if (action === "bedrock:InvokeModel") {
+          expect(resource).toMatch(/^"arn:aws:bedrock:us-east-1::foundation-model\/[a-z0-9.:-]+"$/);
         } else {
           throw new Error(`Unexpected action granted in the customer stack: ${action}`);
         }
       }
-      expect(resource).not.toContain("*");
+      /* The only wildcards: a table's own indexes and a function's own versions. */
+      expect(resource.replaceAll('"/index/*"', "").replaceAll('":*"', "")).not.toContain("*");
     }
   });
 

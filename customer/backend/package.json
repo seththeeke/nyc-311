@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "commonjs",
-  "description": "The simulated customer (docs/13-customer-simulation.md) — a real outsider to the bureau. Imports nothing from outside this package (CLAUDE.md §5.4).",
+  "description": "The simulated customer (docs/13-customer-simulation.md) — a real outsider to BoroughSim. Imports nothing from outside this package (CLAUDE.md §5.4).",
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint .",
@@ -11,6 +11,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
     "@aws-sdk/client-dynamodb": "^3.1144.0",
     "@aws-sdk/client-ssm": "^3.1149.0",
     "@aws-sdk/lib-dynamodb": "^3.1144.0",

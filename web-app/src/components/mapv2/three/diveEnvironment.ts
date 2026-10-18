@@ -1,7 +1,7 @@
 import { Color, DirectionalLight, Fog, Group, HemisphereLight, PlaneGeometry, PointLight, type Scene } from "three";
 import type { ThemeName } from "../../../models/theme";
 import { buildBuilding, buildHydrant, buildStreetLamp, buildTree } from "./props";
-import { box, mesh, solid } from "./threeKit";
+import { box, mesh, solid } from "../../three/threeKit";
 
 /*
  * The stylised New York block the dive-in plays out on: a two-lane

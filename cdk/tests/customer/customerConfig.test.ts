@@ -15,12 +15,12 @@ describe("customerConfig", () => {
     expect(CUSTOMER_WEBHOOK_PATH).toBe("/webhooks/bureau");
   });
 
-  it("keeps the signing secret outside the bureau's own parameter prefix", () => {
+  it("keeps the signing secret outside BoroughSim's own parameter prefix", () => {
     expect(CUSTOMER_SIGNING_SECRET_PARAMETER_NAME).toBe("/customer/prod/webhook/signing-secret");
     expect(CUSTOMER_SIGNING_SECRET_PARAMETER_NAME.startsWith("/nyc311/")).toBe(false);
   });
 
-  it("names the stack distinctly from the bureau's and minifies its bundles", () => {
+  it("names the stack distinctly from BoroughSim's and minifies its bundles", () => {
     expect(CUSTOMER_STACK_NAME).toBe("Nyc311Customer-Prod");
     expect(CUSTOMER_LAMBDA_BUNDLING).toEqual({ minify: true, keepNames: true });
   });

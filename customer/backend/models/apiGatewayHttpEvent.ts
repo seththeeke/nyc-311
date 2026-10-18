@@ -8,6 +8,8 @@ import { z } from "zod";
 
 export const ApiGatewayHttpEventSchema = z.object({
   rawPath: z.string().min(1),
+  /* e.g. `GET /residents/{personaId}` — names the matched route, so one Lambda can serve several. */
+  routeKey: z.string().min(1).optional(),
   requestContext: z.object({
     http: z.object({
       method: z.string().min(1),

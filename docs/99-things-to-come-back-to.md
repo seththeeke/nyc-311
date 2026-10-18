@@ -377,3 +377,25 @@ See [#105](https://github.com/seththeeke/nyc-311/issues/105) — needs a
 human-reviewed NestedStack (or similar) plan; no code change this run.
 
 ---
+
+## Rename the customer's webhook path `/webhooks/bureau` → `/webhooks/boroughsim`
+
+Tracked as [#109](https://github.com/seththeeke/nyc-311/issues/109).
+
+Deferred on 2026-10-17. The code, comments and docs no longer say
+"bureau". The one exception is this registered URL, kept in
+`cdk/customer/customerConfig.ts` (`CUSTOMER_WEBHOOK_PATH`), together with
+the stack output's description text.
+
+A subscription's `callback_url` is immutable (13-customer-simulation.md §2
+BoroughSim side, decision 6), so this is a migration, not an edit:
+
+1. **Deploy:** the listener serves both paths, and the output text changes.
+2. **Register:** a new Prod subscription for `…/webhooks/boroughsim`, with the same customer signing secret (runbook, Appendix H).
+3. **Verify:** deliveries arrive on the new path. Both subscriptions deliver meanwhile, which is harmless because the listener is idempotent.
+4. **Delete:** the old subscription row and its `/nyc311/prod/webhook/<id>/secret` parameter (runbook, Appendix H).
+5. **Remove:** the old route, then deploy.
+
+Steps 2 and 4 write to Prod (Deploy Safety Gate).
+
+---

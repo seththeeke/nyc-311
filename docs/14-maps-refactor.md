@@ -109,9 +109,9 @@ React components and hooks are tested against a fake MapLibre map (`tests/compon
 |---|---|
 | Page and routing | `pages/MapV2Page.tsx`, `routes/MapV2TakeoverRoute.tsx`, `routes/FeatureFlagRoute.tsx` (now `onTreatments`), `routes/AppRoutes.tsx`, `mapv2/mapV2Routes.ts` |
 | Menu and shell | `shell/menuConfig.ts` (`MenuFlagRule`, `resolveFlaggedLink`, `pathStartsSecondaryCollapsed`), `shell/FlaggedMenuLink.tsx`, `shell/SidebarMenu.tsx`, `shell/WorkspaceShell.tsx`, `shell/shellIcons.tsx` (`CityIcon`); `shell/FeatureGate.tsx` deleted |
-| City view | `mapv2/CityView.tsx`, `useCityMap.ts`, `useCityCamera.ts`, `mapStyle.ts`, `fleetOverlays.ts`, `picking.ts`, `geo.ts`, `truckMotion.ts`, `three/fleetLayer.ts`, `three/fleetScene.ts`, `three/truckModel.ts`, `three/crewModel.ts`, `three/props.ts`, `three/threeKit.ts` |
+| City view | `mapv2/CityView.tsx`, `useCityMap.ts`, `useCityCamera.ts`, `mapStyle.ts`, `fleetOverlays.ts`, `picking.ts`, `geo.ts`, `truckMotion.ts`, `three/fleetLayer.ts`, `three/fleetScene.ts`, `three/truckModel.ts`, `three/crewModel.ts`, `three/props.ts`; shared with the Residents avatars: `components/three/threeKit.ts` (moved 2026-10-17) |
 | Dive-in | `mapv2/DiveView.tsx`, `useDiveRenderer.ts`, `JobHud.tsx`, `repairTimeline.ts`, `three/diveScene.ts`, `three/diveEnvironment.ts`, `three/diveCast.ts`, `three/diveChoreography.ts` |
-| HUD | `mapv2/CityHud.tsx`, `FleetRoster.tsx`, `OperatorCard.tsx`, `CameraControls.tsx`, `MapV2Glyph.tsx`, `hudStyle.ts`, `WebGlFallback.tsx`, `webgl.ts` |
+| HUD | `mapv2/CityHud.tsx`, `FleetRoster.tsx`, `OperatorCard.tsx`, `CameraControls.tsx`, `MapV2Glyph.tsx`, `hudStyle.ts`, `WebGlFallback.tsx`; `components/three/webgl.ts` (moved 2026-10-17, shared) |
 | Flag | `models/featureTreatment.ts` (`MAP_V2_FLAG`, `MAP_V2_ON`, `MAP_V2_TAKEOVER`), `test-data/featureFlags.ts` |
 | Styles | `index.css`: `mapv2-dive-in` keyframe |
 
@@ -273,9 +273,9 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
   ```
   Then open `http://localhost:5180/mapv2`. Mock flags default `MAP_V2` to `T1`. To try `T2`, change its `default_treatment` in `src/test-data/featureFlags.ts` locally, and don't commit that.
 - **Visual checks in an automated browser:** the window must be visible. A hidden tab pauses `requestAnimationFrame`, and MapLibre 6 won't even load its style.
-- **Production build locally:** your `.env.local` sets `VITE_CUSTOMER_DATA_MODE=mock`, which trips the live-bundle guard. Build the way the pipeline does:
+- **Production build locally:** your `.env.local` sets `VITE_RESIDENT_DATA_MODE=mock`, which trips the live-bundle guard. Build the way the pipeline does:
   ```
-  VITE_DATA_MODE=live VITE_CUSTOMER_DATA_MODE=live npm run build
+  VITE_DATA_MODE=live VITE_RESIDENT_DATA_MODE=live npm run build
   ```
   This is unrelated to Mapv2.
 

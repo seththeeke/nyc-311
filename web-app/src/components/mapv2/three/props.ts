@@ -1,5 +1,5 @@
 import { CircleGeometry, ConeGeometry, CylinderGeometry, DodecahedronGeometry, Group, type Mesh, SphereGeometry } from "three";
-import { box, glow, mesh, solid } from "./threeKit";
+import { box, glow, mesh, solid } from "../../three/threeKit";
 
 /* The street furniture and work-zone kit, all procedural. Each builder returns a fresh Group at the origin. */
 

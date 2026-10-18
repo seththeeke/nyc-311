@@ -9,8 +9,11 @@ describe("WebhookCustomerFacingOrderSchema", () => {
     expect(WebhookCustomerFacingOrderSchema.safeParse(closed).success).toBe(true);
   });
 
-  it("rejects an unknown status and a non-positive TTL", () => {
+  it("rejects an unknown status", () => {
     expect(WebhookCustomerFacingOrderSchema.safeParse({ ...openOrder, status: "PENDING" }).success).toBe(false);
-    expect(WebhookCustomerFacingOrderSchema.safeParse({ ...openOrder, expires_at: 0 }).success).toBe(false);
+  });
+
+  it("drops an expires_at left on a row written before rows stopped expiring", () => {
+    expect(WebhookCustomerFacingOrderSchema.parse({ ...openOrder, expires_at: 1796479391 })).toEqual(openOrder);
   });
 });

@@ -1,7 +1,7 @@
 import { type ReactElement, useState } from "react";
 import { useFeatureTreatment } from "../hooks/useFeatureTreatment";
 import { MAP_V2_FLAG, MAP_V2_TAKEOVER } from "../models/featureTreatment";
-import { isWebGlAvailable } from "../components/mapv2/webgl";
+import { isWebGlAvailable } from "../components/three/webgl";
 
 interface MapV2TakeoverRouteProps {
   classic: ReactElement;

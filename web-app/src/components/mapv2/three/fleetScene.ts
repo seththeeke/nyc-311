@@ -4,7 +4,7 @@ import { metersPerPixel, type SceneOrigin, toScene } from "../geo";
 import { createMotion, retargetMotion, sampleMotion, type TruckMotion } from "../truckMotion";
 import { buildCrew, type CrewRig, poseCrew } from "./crewModel";
 import { buildCone } from "./props";
-import { approachAngle, disposeObject } from "./threeKit";
+import { approachAngle, disposeObject } from "../../three/threeKit";
 import { buildTruck, TRUCK_LENGTH_M, type TruckRig } from "./truckModel";
 
 /*

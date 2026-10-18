@@ -110,7 +110,7 @@ const commentFormatRule = {
 };
 
 /* CLAUDE.md §5.3's customer boundary. A Lambda's code is named by a path
-   string, not an import, so an import ban alone would never catch bureau
+   string, not an import, so an import ban alone would never catch BoroughSim
    infrastructure pointing at the customer's package or the reverse. This
    reports any string or template literal containing the banned word as a
    whole path segment (`customer/x`, `x/backend`, or the bare word, as
@@ -123,11 +123,11 @@ function hasPathSegment(text, segment) {
 const customerBoundaryRule = {
   meta: {
     type: "problem",
-    docs: { description: "No path string may cross the bureau/customer boundary." },
+    docs: { description: "No path string may cross the BoroughSim/customer boundary." },
     schema: [{ type: "object", properties: { bannedSegment: { type: "string" } }, required: ["bannedSegment"], additionalProperties: false }],
     messages: {
       crossing:
-        "A `{{segment}}` path segment in a string crosses the bureau/customer boundary (CLAUDE.md §5.3). Only cdk/customer/customerBackendRoot.ts may name the customer's package.",
+        "A `{{segment}}` path segment in a string crosses the BoroughSim/customer boundary (CLAUDE.md §5.3). Only cdk/customer/customerBackendRoot.ts may name the customer's package.",
     },
   },
   create(context) {
@@ -148,9 +148,9 @@ const customerBoundaryRule = {
   },
 };
 
-/* Bureau application infrastructure and its tests — everything but
+/* BoroughSim application infrastructure and its tests — everything but
    customer/ and pipeline/ (CI tooling, which must build every package). */
-const BUREAU_CDK_FILES = [
+const BOROUGHSIM_CDK_FILES = [
   "bin/**/*.ts",
   "stack/**/*.ts",
   "lambda/**/*.ts",
@@ -169,7 +169,7 @@ const NO_CUSTOMER_IMPORTS = {
   group: ["**/customer/**"],
   message: "Only cdk/pipeline/Nyc311CustomerStage.ts may import from cdk/customer/ (CLAUDE.md §5.3).",
 };
-const NO_BUREAU_IMPORTS = {
+const NO_BOROUGHSIM_IMPORTS = {
   group: [
     "**/stack/**",
     "**/lambda/**",
@@ -182,7 +182,7 @@ const NO_BUREAU_IMPORTS = {
     "**/pipeline/**",
     "**/bin/**",
   ],
-  message: "cdk/customer/ imports no bureau construct directory — copy the constant instead (CLAUDE.md §5.3).",
+  message: "cdk/customer/ imports no BoroughSim construct directory — copy the constant instead (CLAUDE.md §5.3).",
 };
 
 module.exports = tseslint.config(
@@ -198,7 +198,7 @@ module.exports = tseslint.config(
     },
   },
   {
-    files: BUREAU_CDK_FILES,
+    files: BOROUGHSIM_CDK_FILES,
     rules: {
       "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
       "local/customer-boundary": ["error", { bannedSegment: "customer" }],
@@ -217,15 +217,15 @@ module.exports = tseslint.config(
     files: CUSTOMER_CDK_FILES,
     ignores: CUSTOMER_BACKEND_ROOT_FILES,
     rules: {
-      "no-restricted-imports": ["error", { patterns: [NO_BUREAU_IMPORTS] }],
+      "no-restricted-imports": ["error", { patterns: [NO_BOROUGHSIM_IMPORTS] }],
       "local/customer-boundary": ["error", { bannedSegment: "backend" }],
     },
   },
   {
-    /* The one sanctioned file naming customer/backend still imports nothing of the bureau's. */
+    /* The one sanctioned file naming customer/backend still imports nothing of BoroughSim's. */
     files: CUSTOMER_BACKEND_ROOT_FILES,
     rules: {
-      "no-restricted-imports": ["error", { patterns: [NO_BUREAU_IMPORTS] }],
+      "no-restricted-imports": ["error", { patterns: [NO_BOROUGHSIM_IMPORTS] }],
     },
   }
 );

@@ -4,7 +4,7 @@ import type { JobScript, TimelineState } from "../repairTimeline";
 import { buildDiveEnvironment } from "./diveEnvironment";
 import { buildDiveCast, type DiveCast, SITE } from "./diveCast";
 import { choreograph } from "./diveChoreography";
-import { disposeObject } from "./threeKit";
+import { disposeObject } from "../../three/threeKit";
 
 /*
  * The dive-in: the stylised block, its cast, and a camera that drops out

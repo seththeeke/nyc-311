@@ -6,10 +6,10 @@ import { SecondaryWorkspace } from "../../../src/components/shell/SecondaryWorks
 import { WorkspaceProvider } from "../../../src/components/shell/WorkspaceProvider";
 import type { WidgetId } from "../../../src/models/widget";
 
-vi.mock("../../../src/components/customers/PersonaPanel", () => ({
+vi.mock("../../../src/components/residents/PersonaPanel", () => ({
   PersonaPanel: () => <section aria-label="Residents">residents</section>,
 }));
-vi.mock("../../../src/components/customers/ResidentDetailPanel", () => ({
+vi.mock("../../../src/components/residents/ResidentDetailPanel", () => ({
   ResidentDetailPanel: () => <section aria-label="Resident details">resident</section>,
 }));
 vi.mock("../../../src/hooks/useFleetLocations", () => ({

@@ -1,5 +1,5 @@
 import { CapsuleGeometry, CylinderGeometry, Group, SphereGeometry } from "three";
-import { box, mesh, place, solid } from "./threeKit";
+import { box, mesh, place, solid } from "../../three/threeKit";
 
 /*
  * A jointed low-poly road worker (~1.8 m): hips and shoulders are pivot

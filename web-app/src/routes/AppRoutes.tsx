@@ -8,7 +8,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON, MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../models/featureTreatment";
 import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
 import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
-import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/customers/residentRoutes";
+import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
 
 /*

@@ -1,32 +1,46 @@
-import { CfnStage, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
+import { Duration } from "aws-cdk-lib";
+import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import type { Construct } from "constructs";
-import { CUSTOMER_ENV_SUFFIX, CUSTOMER_WEBHOOK_PATH } from "./customerConfig";
+import { CUSTOMER_API_ALLOWED_ORIGINS, CUSTOMER_ENV_SUFFIX, CUSTOMER_READ_ROUTES, CUSTOMER_WEBHOOK_PATH } from "./customerConfig";
+import type { CustomerReadApiLambda } from "./CustomerReadApiLambda";
 import type { CustomerWebhookListenerLambda } from "./CustomerWebhookListenerLambda";
 
 export interface CustomerApiProps {
   webhookListenerLambda: CustomerWebhookListenerLambda;
+  readApiLambda: CustomerReadApiLambda;
   /** The customer API's own custom domain (`CustomerApiDomain`) — mapped as the default domain. */
   apiDomainName: IDomainName;
 }
 
-/* Crude, free abuse protection, same approach as the bureau's API: a stage default plus a route limit. */
+/* Crude, free abuse protection, same approach as BoroughSim's API: a stage default plus a route limit. */
 export const CUSTOMER_DEFAULT_THROTTLE = { rateLimit: 10, burstLimit: 20 };
-/* The bureau sends at most two deliveries at once, so this only ever limits strangers. */
+/* BoroughSim sends at most two deliveries at once, so this only ever limits strangers. */
 export const CUSTOMER_WEBHOOK_THROTTLE = { rateLimit: 5, burstLimit: 10 };
 
 /**
- * The customer's own API Gateway (an HTTP API) — nothing shared with the
- * bureau's. One route today, the webhook listener; it has no authorizer
- * because every delivery is authenticated by its signature. The public
- * read routes of `13-customer-simulation.md` §4 join it later.
+ * The customer's own API Gateway (an HTTP API), nothing shared with
+ * BoroughSim's. The webhook listener has no authorizer because every
+ * delivery is authenticated by its signature; the public, read-only
+ * resident routes (`13-customer-simulation.md` §4) are open, with CORS for
+ * BoroughSim's sites.
  */
 export class CustomerApi extends HttpApi {
   constructor(scope: Construct, id: string, props: CustomerApiProps) {
     super(scope, id, {
       apiName: `Nyc311CustomerApi-${CUSTOMER_ENV_SUFFIX}`,
       defaultDomainMapping: { domainName: props.apiDomainName },
+      corsPreflight: {
+        allowOrigins: CUSTOMER_API_ALLOWED_ORIGINS,
+        allowMethods: [CorsHttpMethod.GET],
+        maxAge: Duration.days(1),
+      },
     });
+
+    const readIntegration = new HttpLambdaIntegration("ResidentReadIntegration", props.readApiLambda);
+    for (const path of CUSTOMER_READ_ROUTES) {
+      this.addRoutes({ path, methods: [HttpMethod.GET], integration: readIntegration });
+    }
 
     const webhookRoutes = this.addRoutes({
       path: CUSTOMER_WEBHOOK_PATH,

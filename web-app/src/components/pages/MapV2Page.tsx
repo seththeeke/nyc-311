@@ -10,7 +10,7 @@ import { FleetRoster } from "../mapv2/FleetRoster";
 import { MAP_V2_JOB_PATTERN, MAP_V2_PATH, mapV2JobPath } from "../mapv2/mapV2Routes";
 import { OperatorCard } from "../mapv2/OperatorCard";
 import { WebGlFallback } from "../mapv2/WebGlFallback";
-import { isWebGlAvailable } from "../mapv2/webgl";
+import { isWebGlAvailable } from "../three/webgl";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 

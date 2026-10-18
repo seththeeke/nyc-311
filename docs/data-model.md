@@ -361,7 +361,7 @@ model this round along with the rest of the public write path — see
 
 ## WebhookSubscription
 
-One row per subscriber endpoint for the bureau's outbound lifecycle
+One row per subscriber endpoint for BoroughSim's outbound lifecycle
 webhooks. Designed question by question in `13-customer-simulation.md` §2;
 the wire contract is in that doc's §5. A plain record, not event-sourced.
 

@@ -13,7 +13,7 @@ interface SecondaryWorkspaceProps {
  * The thin right panel — present on every route. By default it shows
  * workspace state (a list of widget ids, 12-UX-workspace-refactor.md
  * §4.2) through `WidgetSlot`, two tiles per row; a route listed in
- * `secondaryContent` (the Customers page) supplies its own content instead.
+ * `secondaryContent` (the Residents page) supplies its own content instead.
  */
 export function SecondaryWorkspace({ onCollapse }: SecondaryWorkspaceProps): ReactElement {
   const { secondaryWidgetIds } = useWorkspace();

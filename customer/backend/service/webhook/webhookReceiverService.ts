@@ -4,21 +4,16 @@ import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import {
-  BUREAU_ORDER_ACCEPTED,
-  BUREAU_ORDER_RESOLVED,
-  BureauWebhookEventSchema,
-  type BureauWebhookEvent,
-} from "../../models/bureauWebhookEvent";
+  BOROUGHSIM_ORDER_ACCEPTED,
+  BOROUGHSIM_ORDER_RESOLVED,
+  BoroughSimWebhookEventSchema,
+  type BoroughSimWebhookEvent,
+} from "../../models/boroughSimWebhookEvent";
 import { UnauthorizedError, ValidationError } from "../../models/errors";
 import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFacingOrder";
+import { newPickKey } from "../idea/ulid";
 import { SigningSecretStore } from "./signingSecretStore";
 import { WEBHOOK_ID_HEADER, verifyWebhook } from "./webhookSignature";
-
-const SECONDS_PER_DAY = 24 * 60 * 60;
-/* An order the bureau never resolves leaves play this long after it was accepted. */
-export const OPEN_ORDER_TTL_DAYS = 60;
-/* A closed marker must outlive the bureau's retry day plus its 14-day DLQ, or a late accept could reopen the order. */
-export const CLOSED_ORDER_TTL_DAYS = 30;
 
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookCustomerFacingOrderDao(): WebhookCustomerFacingOrderDao {
@@ -29,21 +24,15 @@ export interface WebhookReceiverDeps {
   webhookCustomerFacingOrderDao?: WebhookCustomerFacingOrderDao;
   secretStore?: SigningSecretStore;
   now?: () => Date;
+  pickKey?: () => string;
 }
 
 /** What one delivery did to the customer's view of its orders. */
 export type WebhookReceiptOutcome = "OPENED" | "ALREADY_KNOWN" | "CLOSED" | "IGNORED";
 
-/* Epoch seconds `days` after `fromIso`; falls back to `now` for a timestamp that won't parse. */
-function expiresAt(fromIso: string, days: number, now: Date): number {
-  const fromMs = Date.parse(fromIso);
-  const baseMs = Number.isNaN(fromMs) ? now.getTime() : fromMs;
-  return Math.floor(baseMs / 1000) + days * SECONDS_PER_DAY;
-}
-
-function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): WebhookCustomerFacingOrder {
+function toOrder(event: BoroughSimWebhookEvent, webhookId: string, now: Date, pickKey: () => string): WebhookCustomerFacingOrder {
   const { data } = event;
-  const closed = event.type === BUREAU_ORDER_RESOLVED;
+  const closed = event.type === BOROUGHSIM_ORDER_RESOLVED;
   /* A resolve with no resolved_at still closes the order, at the event's own time. */
   const resolvedAt = closed ? (data.resolved_at ?? event.timestamp) : null;
   return {
@@ -61,12 +50,13 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): Webho
     resolved_at: resolvedAt,
     last_webhook_id: webhookId,
     updated_at: now.toISOString(),
-    expires_at: resolvedAt === null ? expiresAt(data.accepted_at, OPEN_ORDER_TTL_DAYS, now) : expiresAt(resolvedAt, CLOSED_ORDER_TTL_DAYS, now),
+    /* Sampling keys only while open, so the OpenByBorough index holds open orders only; a close drops them. */
+    ...(!closed && data.borough ? { open_borough: data.borough, pick_key: pickKey() } : {}),
   };
 }
 
 /**
- * Handles one delivery from the bureau: verify the signature against the
+ * Handles one delivery from BoroughSim: verify the signature against the
  * customer's own secret, read the payload, and open or close the order.
  * Repeats and out-of-order arrivals are harmless.
  *
@@ -75,7 +65,7 @@ function toOrder(event: BureauWebhookEvent, webhookId: string, now: Date): Webho
  * @throws {@link UnauthorizedError} if the signature does not verify.
  * @throws {@link ValidationError} if the body is not a readable event.
  */
-export async function receiveBureauWebhook(
+export async function receiveBoroughSimWebhook(
   headers: Record<string, string | undefined>,
   body: string,
   deps: WebhookReceiverDeps = {}
@@ -84,7 +74,7 @@ export async function receiveBureauWebhook(
   const webhookId = headers[WEBHOOK_ID_HEADER];
   const secret = await (deps.secretStore ?? new SigningSecretStore()).getSecret(requireEnv("CUSTOMER_SIGNING_SECRET_PARAMETER_NAME"));
   if (!webhookId || !verifyWebhook({ secret, headers, body, now })) {
-    logWarn("BureauWebhookSignatureRejected", { webhookId: webhookId ?? null });
+    logWarn("BoroughSimWebhookSignatureRejected", { webhookId: webhookId ?? null });
     throw new UnauthorizedError("Invalid webhook signature");
   }
 
@@ -92,26 +82,26 @@ export async function receiveBureauWebhook(
   try {
     rawEvent = JSON.parse(body);
   } catch {
-    logWarn("BureauWebhookBodyNotJson", { webhookId });
+    logWarn("BoroughSimWebhookBodyNotJson", { webhookId });
     throw new ValidationError("Webhook body is not JSON");
   }
-  const parsed = BureauWebhookEventSchema.safeParse(rawEvent);
+  const parsed = BoroughSimWebhookEventSchema.safeParse(rawEvent);
   if (!parsed.success) {
-    logWarn("BureauWebhookBodyInvalid", { webhookId, issues: parsed.error.issues });
+    logWarn("BoroughSimWebhookBodyInvalid", { webhookId, issues: parsed.error.issues });
     throw new ValidationError("Webhook body failed validation", parsed.error.issues);
   }
   const event = parsed.data;
   const context = { webhookId, eventType: event.type, orderId: event.data.order_id };
-  logInfo("BureauWebhookVerified", context);
+  logInfo("BoroughSimWebhookVerified", context);
 
-  if (event.type !== BUREAU_ORDER_ACCEPTED && event.type !== BUREAU_ORDER_RESOLVED) {
-    /* Acknowledged, not rejected: refusing it would only make the bureau retry for a day. */
-    logWarn("BureauWebhookEventTypeIgnored", context);
+  if (event.type !== BOROUGHSIM_ORDER_ACCEPTED && event.type !== BOROUGHSIM_ORDER_RESOLVED) {
+    /* Acknowledged, not rejected: refusing it would only make BoroughSim retry for a day. */
+    logWarn("BoroughSimWebhookEventTypeIgnored", context);
     return "IGNORED";
   }
 
   const dao = deps.webhookCustomerFacingOrderDao ?? getWebhookCustomerFacingOrderDao();
-  const order = toOrder(event, webhookId, now);
+  const order = toOrder(event, webhookId, now, deps.pickKey ?? (() => newPickKey()));
   if (order.status === "CLOSED") {
     await dao.closeOrder(order);
     logInfo("CustomerOrderClosed", context);

@@ -1,7 +1,10 @@
-# The Customer — Simulated Support-Seekers + Bureau Lifecycle Webhooks
+# The Customer — Simulated Support-Seekers + BoroughSim Lifecycle Webhooks
 
-> **Status (2026-10-14): the bureau webhook and the customer's first
-> milestone are live in Prod, and traffic is flowing.** The bureau
+> **Status (2026-10-17): #58 complete.** Residents generate ideas on
+> their schedules (Appendix O), have Three.js models (Appendix P), and show
+> on the Residents page (`CUSTOMERS_TAB`, on in Test). The BoroughSim webhook
+> and the customer listener have been live in Prod since 2026-10-14.
+> Follow-ups and deferred items: Appendix R. BoroughSim
 > delivers `ORDER_ACCEPTED` and `ORDER_RESOLVED` to the customer's
 > listener, which records the orders in play in
 > `WebhookCustomerFacingOrders-Prod` (Appendices H, I and J). Personas,
@@ -24,7 +27,7 @@
 | # | Section | Review status |
 |---|---|---|
 | 1 | [Problem Statement](#1-problem-statement) | Considered sufficient |
-| 2 | [Data Model](#2-data-model) | Bureau side (`WebhookSubscription`) agreed 2026-10-10 and **built**; customer side not reviewed |
+| 2 | [Data Model](#2-data-model) | BoroughSim side (`WebhookSubscription`) agreed 2026-10-10 and **built**; customer side not reviewed |
 | 3 | [Interaction Model](#3-interaction-model) | Not reviewed |
 | 4 | [UX Design](#4-ux-design) | Not reviewed |
 | 5 | [BoroughSim Webhook Design](#5-boroughsim-webhook-design) | Design decisions (items 5–15) agreed 2026-10-10 and **built 2026-10-11** (Appendix H); foundations (items 1–4) not walked through |
@@ -42,26 +45,26 @@ nothing in the system currently *wants* anything from it.
 LLM-driven personas that behave like real New Yorkers following their 311
 complaints. Each persona has a personality, a custom prompt and an activity
 level, and on a believable, irregular cadence it has an **Idea** — *"I need
-something"* — about an order the bureau has accepted, or about the service
+something"* — about an order BoroughSim has accepted, or about the service
 itself ("I wish it would text me when the crew is on the way").
 
 Phase 1 produces and logs Ideas, and makes the customers and their ideas
 visible. Nothing acts on an idea yet. Later, a persona *actions* an idea
 through some channel — a phone call, a text, driving the website, an MCP
 server — and **that pressure is what drives which support capabilities the
-bureau has to grow**. The customer is the source of product ideas; the bureau
+BoroughSim has to grow**. The customer is the source of product ideas; BoroughSim
 evolves to meet them.
 
 Constraints that shape everything below:
 
 - **A real outsider.** The customer exists once, against **Prod only**, and
-  reaches the bureau only the way a real user could. Changes to the bureau
+  reaches BoroughSim only the way a real user could. Changes to BoroughSim
   are tested in Test; the customer is where the ideas for them come from.
 - **Pure isolation.** Own backend package, own infrastructure directory,
   own data. Enforced by lint and tests, not by convention (§6).
 - **Pluggable.** Anchor source, idea planning, idea generation, recruiting
   and the Idea → action hand-off are separate components.
-- **Phase 1 scope:** 1–3 personas; the bureau webhook; idea generation and
+- **Phase 1 scope:** 1–3 personas; the BoroughSim webhook; idea generation and
   storage; a public read API and a feature-flagged UI. No actioning, no
   answering, no conversations.
 
@@ -75,9 +78,9 @@ Constraints that shape everything below:
 
 | Entity | Owner | Purpose |
 |---|---|---|
-| `WebhookSubscription` | Bureau | Who gets which events, at what URL, signed with what secret |
+| `WebhookSubscription` | BoroughSim | Who gets which events, at what URL, signed with what secret |
 | Customer / Persona | Customer | The roster: identity, backstory, prompt, dials |
-| `AcceptedOrder` | Customer | The customer's own copy of public metadata for orders the bureau accepted |
+| `AcceptedOrder` | Customer | The customer's own copy of public metadata for orders BoroughSim accepted |
 | `Idea` | Customer | One "I need something", logged `OPEN` |
 
 Proposed persona shape — a **resident** in the UI (roster and draft
@@ -93,25 +96,27 @@ type Persona = {
   tagline: string;              /* one line on who they are, for the resident list */
   backstory: string;
   persona_prompt: string;
-  avatar_image: string | null;  /* profile picture (see below); null falls back to the initial */
+  model_key: string | null;     /* names the resident's bundled Three.js model (decision 3); null falls back to the initial */
   demeanor: { patience: number; hostility: number; verbosity: number };  /* 0-100 */
-  activity_level: number;       /* 0-100, per-tick chance of having an idea */
+  activity_level: number;       /* 0-100, chance a scheduled firing becomes an idea (§3 Flow B decision 6) */
+  model_id: string;             /* Bedrock model for this resident (§3 Flow B decision 2) */
+  schedule: string;             /* EventBridge cron for this resident (§3 Flow B decision 6) */
   active_hours: { start: number; end: number };   /* America/New_York; start > end runs across midnight */
   follow_up_propensity: number; /* 0-100, return to a known order vs. a new one */
   idea_type_weights: Record<IdeaType, number>;
-  interests: { boroughs: string[]; complaint_types: string[] };
+  action_buckets: ActionBucket[];               /* tools granted so far (decision 7); [] in P0 */
+  action_weights: Record<ActionType, number>;   /* preference among granted tools */
+  interests: { boroughs: string[]; descriptors: string[] };  /* order `descriptor` values; every complaint_type is "Street Condition" */
   idea_count: number;           /* maintained on write (A11), never counted on read */
   last_idea_at: string | null;  /* maintained on write (A11) */
 };
 ```
 
-**Profile images (design requirement, 2026-10-15).** Every resident gets a
-profile picture. Not built yet; the mock shows the resident's initial in a
-neutral circle. To decide in the §2 review: where images are stored (likely
-the customer stack's own bucket, served through its own domain), how they
-are produced (generated once per persona version, or hand-picked), and
-whether `avatar_image` holds a URL or a storage key. A persona without one
-keeps the initial.
+**Profile images (design requirement, 2026-10-15; decided 2026-10-17).**
+Every resident gets a picture: a snapshot of their own hand-authored
+Three.js model, bundled into the web-app (customer side, decision 3). Not
+built yet; the mock shows the resident's initial in a neutral circle, which
+stays as the fallback.
 
 **No status.** Residents are not shown as active or paused. If the
 simulation needs a way to stop one resident having ideas, that is an
@@ -136,10 +141,10 @@ Idea fields so far: `idea_id`, `persona_id`, `persona_version`, `idea_type`
 | A7 | Pick a *fresh* accepted order weighted by interests | Planner | **Hardest one** — a random pick must not be a table scan |
 | A8 | `OPEN` ideas, oldest first | Future actioner | Sparse index |
 | A9 | Upsert an accepted order idempotently | Webhook listener | Conditional put on the event id |
-| A10 | Active subscriptions for an event type | Bureau dispatcher | Tiny today |
+| A10 | Active subscriptions for an event type | BoroughSim dispatcher | Tiny today |
 | A11 | Per-customer idea count / last-idea time | UI list page | Counter maintained on write, never counted on read |
 
-### Agreed — bureau side: `WebhookSubscription` (2026-10-10)
+### Agreed — BoroughSim side: `WebhookSubscription` (2026-10-10)
 
 Reviewed question by question; resolves "To go deep on" item 9 below. The
 customer is realistically the only subscriber, so every choice leans
@@ -174,20 +179,34 @@ Stored row:
 Still open from this review: the callback host is illustrative (§4 item
 11).
 
+### Agreed — customer side (review started 2026-10-17)
+
+Reviewed question by question, the same way as the BoroughSim side above.
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Customer vs. Persona: one entity or two | One entity, the resident, with **its version history kept in the same table**. Partition key `persona_id`. Sort key `CURRENT` is the live row; `V#0001`, `V#0002`, ... are frozen copies, one per version. A version row is written once, conditioned on `attribute_not_exists`, and never changed. An edit writes the new version row and updates `CURRENT` (conditioned on the old `version`) in one transaction. Counters (`idea_count`, `last_idea_at`) live only on `CURRENT`. An idea's `persona_version` resolves to its exact prompt and dials with one `GetItem`. Rejected: overwriting in place (old ideas lose their prompt) and separate Customer and Persona tables (too much structure for the roster's size) |
+| 2 | Where residents come from | **Seed files in the repo are the source of truth**: one JSON file per resident in `customer/backend/residents/`, zod-validated in tests and at sync. A CloudFormation custom resource in the customer stack syncs them on deploy. The sync hashes each file's content and writes the next `V#` row when the hash changes, so version numbers are assigned by the sync, never typed in a file. Removing a seed file never deletes the resident (ideas still point at it); stopping a resident's ideas is the §3 operational switch. Rejected: hand edits in DynamoDB (unreviewed, easy to skip the version row) and an admin edit API (auth and writes on the customer side for three residents) |
+| 3 | Profile images | **Each resident is a hand-authored Three.js model file in the repo**, written when the resident is created locally (e.g. `web-app/src/components/residents/models/sycamore.ts` exporting `buildSycamore(): Group`) and bundled into the frontend. No generated looks, no look spec, no runtime procedural generation, no image bucket. `avatar_image` becomes `model_key: string \| null` (e.g. `"sycamore"`); a web-app registry maps keys to model files, and a null or unknown key falls back to the initial. Model files are held to the linter and a written style guide: built only from the shared `threeKit` helpers (same flat-shaded low-poly look as the Mapv2 trucks and crew), colours from a fixed palette, a size cap, and a per-model test that it builds under a triangle budget. The avatar is a head-and-shoulders snapshot of the same model from one shared offscreen renderer, cached and shown as an `<img>`; Three.js is lazy-loaded; no WebGL falls back to the initial. A model change is a frontend change, not resident data, so it creates no new `V#`. *2026-10-17: two views of the one model — the snapshot avatar everywhere small, and a live, Mii-style full-body view, standing and waving, beside the resident's profile; built and styled per Appendix P.* |
+| 4 | Ideas table keys | **Its own `Ideas` table** (residents stay one table per entity); the idea put and the resident's `CURRENT` counter update share one transaction. Partition key `persona_id`. Sort key `IDEA#<ulid>` serves A3 (query, newest first) and A4 (`GetItem`; the route carries both ids). A **thread row** per resident per order, sort key `ORDER#<order_id>` with `idea_count` and `last_idea_at`, written in the same transaction, serves A6 with one prefix query. Sparse index `ByOrder` (partition `persona_id#order_id`, sort ULID) on anchored ideas serves A5. Index `Feed` (partition `ALL`, sort ULID) serves the new A12, every resident's ideas newest first, for `GET /ideas`; a few writes an hour is far under one partition's limit, and it can be split by day later without an API change. A8 is deferred until an actioner exists. No TTL on ideas. Public routes are `/residents/...`, not `/customers/...` |
+| 5 | A7: picking a fresh order | **Sparse random-key index on `WebhookCustomerFacingOrders-Prod`.** When an order opens, the listener also writes `open_borough` (the borough) and `pick_key` (a random value); when it closes, it removes both, so index `OpenByBorough` (partition `open_borough`, sort `pick_key`) holds only open orders. The planner picks a borough from the resident's `interests.boroughs`, draws a random value, reads the next 20 entries from it (wrapping to the start), drops orders that have an `ORDER#` thread row for that resident, prefers their `complaint_types`, and picks one. Nothing open in that borough: try the resident's next borough, then log a "no candidate" skip (§3 item 3). The listener knows nothing about residents. Supersedes "no index until the persona work" (2026-10-13). Rejected: newest-first sort (residents would only ever notice brand-new orders) and per-resident candidate lists filled by the listener (couples the listener to residents, fans out writes, needs backfills) |
+| 6 | Does an idea keep a copy of its order | **No copy; order rows no longer expire.** The 2026-10-13 TTL on `WebhookCustomerFacingOrders-Prod` is rolled back: the listener stops writing `expires_at` and TTL is explicitly disabled on the table (rows written before 2026-10-17 still carry the attribute). An idea stores `order_id` (and `external_unique_key`); the read API builds the response's `anchor` from the order row, one `BatchGetItem` per page, so the mock's response shape is unchanged. Growth is a few hundred rows a day, small for a table that never shrinks. Rejected: an immutable copy on each idea, and reference-only with the order expiring ("order no longer tracked") |
+| 7 | Resident actions | **Actions are tools, granted in buckets.** A bucket is a named set of action types; buckets are granted to residents incrementally as each capability is built (first `REQUEST_FEATURE`, once feature intake exists; then `CHECK_STATUS_API`; then `BROWSE_WEBSITE`). A resident carries `action_buckets` (the buckets granted) and `action_weights: Record<ActionType, number>` (their preference among granted tools, like `idea_type_weights`), both frozen into each `V#`. **Many actions per idea:** the resident works its idea like an MCP client — offered its granted tools, it chooses which to call, in what order and with what input, in its own words; the freedom is deliberate. Each call is one entry in `actions[]` (P0: `[]`). **A failed action is recorded `FAILED` and that is all** — no retry machinery. **Stored on the idea row** as an array of objects. Larger artifacts (RPA output and the like) will later move to their own store, e.g. a customer-side S3 bucket, referenced from the entry; until then the row holds everything, and a cap on entries and evidence size keeps it well under DynamoDB's 400 KB item limit. Still for §3: the per-idea step cap and cost cap, and how weights shape which tools are offered |
+| 8 | Feature intake | **A BoroughSim website feature built on a new, generic `Contact` entity.** A contact is someone reaching BoroughSim; `contact_type` says what kind, and the first type is `FEATURE_REQUEST`. The web-app gets a feature request component that creates a contact of that type. A resident's `REQUEST_FEATURE` tool submits through the same public contact route the component uses, so a resident reaches BoroughSim the way a person would; the returned contact id is the evidence's `reference_id`. **Contact is the start of what was previously called Cases**: inbound contact is where the case concept now begins, rather than only system-raised Cases (`data-model.md` § Case). The Contact design itself (fields, statuses, the route and its abuse limits, the component, how it relates to the existing Case entity) is BoroughSim-side work for its own design pass, not this review. Rejected: a customer-side-only intake (records requests no one receives) and opening GitHub issues directly (could become a later triage step) |
+| 9 | Pagination and naming | **Pagination**, every list route: an opaque base64url cursor over the DynamoDB position, returned as `{ items, nextCursor }`; `limit` defaults to 20, at most 50; on `/residents/{id}/ideas` a cursor from another resident is a `400`. Pages are ordered by ULID, so they stay stable while ideas arrive; new ideas show on refresh. **Naming:** "Idea" stays. New tables `Residents-Prod` (`CURRENT` and `V#` rows) and `ResidentIdeas-Prod` (`IDEA#` and `ORDER#` rows). **Code says "resident", infrastructure keeps "customer":** web-app and backend code use resident names (`residentService`, `ResidentPersona`, `ResidentIdea`, `components/residents/`, `VITE_RESIDENT_DATA_MODE`, `VITE_RESIDENT_API_BASE_URL`; renamed 2026-10-17), and new customer-side code (residents, ideas) is named for residents from the start. Existing customer infrastructure is not renamed: `Nyc311CustomerStack`, `cdk/customer/`, `customer/backend/`, `customer-api.boroughsim.com`, `WebhookCustomerFacingOrders-Prod` with its DAO/model, the Lambda environment variables and SSM paths. The `CUSTOMERS_TAB` flag keeps its name; it goes away once the page launches |
+
 ### To go deep on
 
-1. **Customer vs. Persona.** One entity or two? A Customer with a current
-   Persona plus a version history would let an idea point at the exact
-   prompt that produced it — is that worth the second entity?
+1. ~~**Customer vs. Persona.**~~ Resolved 2026-10-17, decision 1 above.
 2. **Key design per table**, written out as PK/SK/GSI with every access
    pattern above mapped to exactly one query — no scans, no filters on
    large result sets.
-3. **A7 at scale.** How to sample a random accepted order matching a
+3. *(Resolved 2026-10-17, decision 5.)* **A7 at scale.** How to sample a random accepted order matching a
    persona's interests in bounded reads (bucketed partitions with a random
    sort key? a per-persona candidate list filled at webhook time?).
-4. **TTL vs. references.** Accepted orders expire; ideas don't. Does an idea
+4. *(Resolved 2026-10-17, decision 6: orders no longer expire.)* **TTL vs. references.** Accepted orders expire; ideas don't. Does an idea
    carry a snapshot of its anchor so the UI still renders after expiry?
-5. **Pagination contract** for the public API: opaque cursors, page-size
+5. *(Resolved 2026-10-17, decision 9.)* **Pagination contract** for the public API: opaque cursors, page-size
    caps, and what "newest first" means under concurrent writes.
 6. **Growth model.** Ideas per persona per day × personas × retention —
    what are the real numbers at 3, 10 and 100 personas, and where does the
@@ -198,10 +217,10 @@ Still open from this review: the callback host is illustrative (§4 item
    them now, or leave them out entirely until that phase designs them?
    *2026-10-15: `action` is now modelled from the start (nullable; see
    Appendix L). Response and conversation remain open.*
-9. **Bureau side:** `WebhookSubscription` shape, where the signing secret
+9. **BoroughSim side:** `WebhookSubscription` shape, where the signing secret
    lives, whether a delivery-attempt log is its own entity, and the
    `data-model.md` / `dao/` placement.
-10. **Naming.** Is "Idea" the right word (vs. Need, Intent)? Prod-only
+10. *(Resolved 2026-10-17, decision 9.)* **Naming.** Is "Idea" the right word (vs. Need, Intent)? Prod-only
     table names without an env suffix?
 
 ---
@@ -215,25 +234,31 @@ Three flows, end to end:
 **Flow A — an accepted or resolved order reaches the customer**
 
 ```
-[bureau] Orders table stream -> orders fan-out Lambda -> Nyc311OrderEvents SNS topic   (all exist)
-[bureau] -> dispatch queue, filter {event_type: [ORDER_ACCEPTED, ORDER_RESOLVED]}   (3 attempts -> DLQ + alarm)
-[bureau] -> dispatch Lambda: build the public payload (Order + its Request's own 311 record), one message per ACTIVE subscription
-[bureau] -> delivery queue -> delivery Lambda (max concurrency 2): re-read subscription, sign, HTTPS POST
+[boroughsim] Orders table stream -> orders fan-out Lambda -> Nyc311OrderEvents SNS topic   (all exist)
+[boroughsim] -> dispatch queue, filter {event_type: [ORDER_ACCEPTED, ORDER_RESOLVED]}   (3 attempts -> DLQ + alarm)
+[boroughsim] -> dispatch Lambda: build the public payload (Order + its Request's own 311 record), one message per ACTIVE subscription
+[boroughsim] -> delivery queue -> delivery Lambda (max concurrency 2): re-read subscription, sign, HTTPS POST
             failure -> retried every 30 min, 48 attempts (~1 day) -> DLQ + alarm
  ~~~~~~~~~~~~~~~~~~~~~~~ public internet ~~~~~~~~~~~~~~~~~~~~~~~
 [customer] HTTP API -> receiveWebhookController: verify signature, dedupe, open or close the order
 ```
 
-**Flow B — a persona has an idea**
+**Flow B — a resident has an idea** (revised 2026-10-17, see "Agreed — Flow B" below)
 
 ```
-[customer] EventBridge Scheduler, hourly -> tickController
-             per ACTIVE persona inside active_hours: roll activity_level, check caps
-             on a hit: create a one-time schedule at now + random(0-60 min)
-[customer] -> ideaWorkerController
-             IdeaPlanner (code): choose anchor (follow-up vs fresh) and idea type
-             IdeaGenerator (Bedrock, Converse API): the need, in the persona's voice
-             write Idea (OPEN), update persona counters
+[customer] EventBridge Scheduler: one schedule per resident, its own cron  -> ideaWorkerController
+             load the resident (CURRENT: prompt, model_id), check kill switch + caps
+             roll activity_level: a miss is a logged skip
+             gather context (code): a few sampled candidate orders (A7), the resident's
+                                    open threads and recent ideas
+             IdeaGenerator (Bedrock Converse, the resident's model_id): the model decides —
+                                    what the idea is, about which order or none, what type,
+                                    in the resident's voice — or that there is nothing to say
+             write Idea (OPEN) + thread row + CURRENT counters, one transaction
+[customer] -> (once tools are granted) IdeaActions queue -> actionWorkerController
+             Converse with the granted tools; the model picks a tool + its inputs,
+             the tool runs its fixed recipe (API or RPA), the result goes back;
+             each invocation appended to actions[]; stops at per-tool / per-idea caps
 ```
 
 **Flow C — someone looks at it**
@@ -255,12 +280,26 @@ Points already settled or proposed:
   `Recruiter` (no-op), and the Ideas table as the hand-off to a future
   actioner.
 
+### Agreed — Flow B (2026-10-17)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Who decides the idea | **The model.** Code gathers context (a few candidate orders sampled per decision 5, the resident's open threads and recent ideas, the idea types) and enforces the limits (kill switch, caps, which orders are eligible); the model decides what the idea is, which order it is about or none, its type, and its wording, so residents can bring creative ideas. `idea_type_weights` become guidance in the prompt, not a code-side roll. Supersedes "planning is deterministic code" |
+| 2 | Which model | **Configured per resident**: `model_id` on the resident, in the seed and frozen into each `V#`. Every resident starts on the cheapest Bedrock text model, confirmed against the pricing page and the account's model access at build time; the first choice is a placeholder until then |
+| 3 | Prompt assembly | **In the codebase, deployed by the seed sync custom resource** (decision 2 of §2). The full prompt for a resident is small enough to store on the resident entity, so the `V#` row holds exactly what was sent, and the content hash covers it. Each idea's `persona_version` therefore identifies its prompt |
+| 4 | Output handling | **Flexible.** No tight limits on what an idea may say; only basic sanity (non-empty, a generous length cap). The model has an explicit **"nothing to say"** outcome, logged and counted as a skip, not an error |
+| 5 | The action loop | **Async, in its own bundle of logic**: after an idea is written, the idea worker enqueues `{ persona_id, idea_id }` on an `IdeaActions` queue (with a DLQ) and a separate action worker runs the loop. One Converse conversation: the resident's prompt, their idea, and their granted tools. **Tools are fixed recipes (SOPs)**: each is a rigidly defined sequence of steps in code, of one of two kinds, **API** (HTTP calls to BoroughSim's public URLs) or **RPA** (scripted browser steps on the BoroughSim website). The model only chooses which tool to invoke and supplies the tool's declared inputs; the tool runs its steps and returns their output. The model never improvises steps. Each invocation is appended to `actions[]` as it finishes; a failed one is returned to the model as an error and recorded `FAILED`, and the model may try another tool or stop. **Caps are per tool** (each tool declares its maximum invocations per idea) plus a **maximum number of actions per idea**, which stands in for token and cost caps; no token budgets. **Weights:** every granted tool with `action_weights` above 0 is offered, and the weights are described in the system prompt as preference, steering without forcing. Later: configuring these weights from an Admin screen |
+| 6 | Cadence | **One EventBridge schedule per resident, with its own cron**: how often the resident *thinks about* ideas. Each firing rolls `activity_level`: a hit runs the idea generator, a miss is logged as a skip. So a resident firing 50 times a day with a low `activity_level` may produce only two ideas. The launch three share one cron, **twice a day**. Replaces the hourly tick and the random-offset one-time schedules |
+| 7 | RPA runs apart from the action worker | The action worker is **orchestration only**. API recipes run inline (short HTTP calls); RPA recipes go on their own queue to a separate **RPA runner** (a container Lambda with a browser, recordings in a customer-side S3 bucket) whose result is fed back into the loop. Keeps the browser's weight off the function that runs every action loop. Needed before `BROWSE_WEBSITE` is granted; shapes the action worker now |
+| 8 | Spreading load | Each resident's schedule uses EventBridge Scheduler's **flexible time window** (e.g. 15 minutes), so residents sharing a cron do not all start in the same minute. The `IdeaActions` queue's Lambda trigger has a **`maxConcurrency`**, so a burst of ideas queues instead of fanning out |
+| 9 | Bedrock quota | The account's Bedrock request and token limits are the one resource the two halves share. Decision 8's concurrency limits are the first protection; a throttled call is a **retry, not a failure** (the queue redelivers). If actioning ever starves idea generation, give each worker its own concurrency budget |
+
 ### To go deep on
 
 1. **Every hop's failure mode**, one by one: what retries, what is dropped,
    what alarms, what is idempotent. A full table per flow.
 2. **Self-registration lifecycle**: when it runs (deploy-time trigger?
-   self-healing on tick?), what happens if the bureau is down, how the
+   self-healing on tick?), what happens if BoroughSim is down, how the
    secret is stored and rotated. Depends on §5's registration decision.
 3. **The tick in detail**: roll semantics, the active-hours curve (flat
    window vs. a time-of-day shape), per-persona and global caps, what
@@ -308,11 +347,11 @@ Points already settled or proposed:
 
 Relevant existing pieces: `components/shell/menuConfig.ts` (data-driven
 menu; Map is a `LINK` entry), the widget registry and `TILE`/`PANEL`/`FULL`
-sizes, the bureau's feature-flag system with treatments, and `web-app`'s
+sizes, BoroughSim's feature-flag system with treatments, and `web-app`'s
 mandatory in-memory mode (§5.1).
 
-Sketch of the API surface: `GET /customers`, `GET /customers/{id}`,
-`GET /customers/{id}/ideas` — all public, read-only, paginated.
+Sketch of the API surface: `GET /residents`, `GET /residents/{id}`,
+`GET /residents/{id}/ideas` — all public, read-only, paginated.
 
 ### To go deep on
 
@@ -323,7 +362,7 @@ Sketch of the API surface: `GET /customers`, `GET /customers/{id}`,
    web-app has no public client-side treatment lookup today. What does the
    UI ask, of which API, and what does `OFF` hide — the menu entry, the
    routes, both? Flag key and treatments. Default `OFF` until when?
-3. **Where the flag lives.** The flag is bureau state gating a view of
+3. **Where the flag lives.** The flag is BoroughSim state gating a view of
    customer data — acceptable, or an isolation wrinkle (§6)?
 4. **Which environment shows what.** The customer exists only in Prod.
    Does `test.boroughsim.com` show Prod customers, mock data, or nothing?
@@ -362,7 +401,7 @@ first principles and end with a design.
   public `ORDER_ACCEPTED` shares its name with the internal event type but
   is its own list and its own payload schema, mapped in the dispatcher, so
   an internal rename or payload change does not reach subscribers.
-- **Accepted means accepted.** Fired only when the bureau has committed to
+- **Accepted means accepted.** Fired only when BoroughSim has committed to
   service the order; orders later rejected never appear.
 - **Public-safe payload, no SLA and no priority** — the customer doesn't
   know them, which is exactly why a persona asks.
@@ -370,7 +409,7 @@ first principles and end with a design.
   split so one slow subscriber never delays another.
 - **Wire format:** [Standard Webhooks](https://www.standardwebhooks.com/),
   HMAC variant (agreed 2026-10-10).
-- **Lives in the bureau**, in Test and Prod, as an ordinary feature under
+- **Lives in BoroughSim**, in Test and Prod, as an ordinary feature under
   the existing `CLAUDE.md` structure: no `cdk/webhook/` folder (queues and
   Lambdas in `cdk/lambda/`, tables in `cdk/data/`, routes in `cdk/api/`).
   One consumer today, but shaped like a production webhook sender.
@@ -380,7 +419,7 @@ first principles and end with a design.
   limits, launch catalogue, testing and code placement.
 
 Payload (agreed 2026-10-10) — a fat event, so the customer never calls the
-bureau back. The dispatch Lambda builds it from the Order and its Request.
+BoroughSim back. The dispatch Lambda builds it from the Order and its Request.
 `borough`, `address` and `zip` come from the Request's own 311 record, not
 the Location row (as built — see Appendix H), and are nullable. Versioning is additive-only:
 receivers ignore unknown fields, and a breaking change gets a new event
@@ -468,11 +507,11 @@ cdk/customer/       ALL customer infrastructure, nothing else
 | `backend/**` | importing anything under `customer/` |
 | `customer/backend/**` | importing anything outside its own package |
 | `cdk/**` outside `cdk/customer/` | importing `cdk/customer/**`; any string literal with a `customer` path segment |
-| `cdk/customer/**` | importing bureau construct directories; any string literal with a `backend` path segment |
+| `cdk/customer/**` | importing BoroughSim construct directories; any string literal with a `backend` path segment |
 
 The string-literal rule (a custom `local/customer-boundary`) exists because
 Lambda entry points are path strings, not imports — an import ban alone
-would never catch a bureau construct pointing at `customer/backend`.
+would never catch a BoroughSim construct pointing at `customer/backend`.
 Sanctioned exceptions are single files with explicit overrides:
 `cdk/customer/customerBackendRoot.ts`, and the stage/app entrypoints that
 instantiate the customer stack.
@@ -480,20 +519,20 @@ instantiate the customer stack.
 **Runtime isolation**
 
 - One `Nyc311CustomerStack`, Prod only, no cross-stack references —
-  asserted by a template test (no `Fn::ImportValue`, no bureau ARN).
+  asserted by a template test (no `Fn::ImportValue`, no BoroughSim ARN).
 - IAM: customer Lambdas reach only their own resources plus Bedrock.
-- The customer reaches the bureau only through public URLs.
+- The customer reaches BoroughSim only through public URLs.
 
 **Known shared surfaces (to be judged, not hidden)**
 
 | Shared thing | Why it exists |
 |---|---|
 | The `cdk/` package and its `node_modules` | Decision: one infra package, separate directory |
-| The pipeline | One CD pipeline; a failing customer test blocks bureau deploys |
-| The AWS account and region | Same account as the bureau |
+| The pipeline | One CD pipeline; a failing customer test blocks BoroughSim deploys |
+| The AWS account and region | Same account as BoroughSim |
 | The `boroughsim.com` hosted zone | `customer-api.boroughsim.com` |
-| The web-app | The bureau's UI renders customer data by calling the customer API |
-| The feature flag | Bureau flag state gates the customer UI |
+| The web-app | BoroughSim's UI renders customer data by calling the customer API |
+| The feature flag | BoroughSim flag state gates the customer UI |
 
 ### To go deep on
 
@@ -516,8 +555,8 @@ instantiate the customer stack.
    confined to one service module?
 7. **Copy vs. share.** Duplicated logger/DAO base/ESLint config will drift.
    Accept the drift, or is there any sanctioned shared layer?
-8. **Deployment isolation.** The customer deploys with the bureau's Prod
-   stage; should a customer failure be able to block or roll back a bureau
+8. **Deployment isolation.** The customer deploys with BoroughSim's Prod
+   stage; should a customer failure be able to block or roll back a BoroughSim
    deploy, and vice versa?
 9. **Prod-only consequences.** No Test soak for customer code; kill switch
    and caps as the safety net; what a safe rollout of a customer change
@@ -539,19 +578,31 @@ lost.
 | `customer/backend/` package; infra in `cdk/customer/` within the shared `cdk/` package | Agreed |
 | Boundary enforced by lint rules, both directions | Agreed |
 | Customer exists once, against Prod only | Agreed |
-| Anchors come from a bureau webhook the customer registers with; webhook built first | Agreed |
+| Anchors come from a BoroughSim webhook the customer registers with; webhook built first | Agreed |
 | "Accepted" = `ORDER_ACCEPTED`; payload has no SLA or priority | Agreed |
 | Phase 1 output is **Ideas**; actioning through a channel is a later phase | Agreed |
-| Hourly tick | Agreed |
-| Cheapest Bedrock text model; measure before upgrading | Agreed |
+| Hourly tick | Superseded 2026-10-17: one schedule per resident, own cron; the launch three share twice a day (§3 Flow B decision 6) |
+| Cheapest Bedrock text model; measure before upgrading | Agreed; 2026-10-17: `model_id` configured per resident, all on the cheapest for now (§3 Flow B decision 2) |
 | Tree codenames; three personalities; prompts drafted by Claude | Agreed |
 | Conversations deferred to the Case-based interaction model | Agreed (TBD by design) |
 | Public customer API at `customer-api.boroughsim.com`; list + detail pages under Map, using the secondary workspace, behind a feature flag | Captured 2026-10-05, design pending (§4) |
 | `WebhookSubscription` data model (§2, seven decisions) | Agreed 2026-10-10 |
+| Resident versions: one table, a `CURRENT` row plus an immutable `V#nnnn` row per version, so an idea resolves to its exact prompt (§2 customer side, decision 1) | Agreed 2026-10-17 |
+| Residents come from repo seed files synced on deploy by a custom resource; the sync assigns versions by content hash; removing a file never deletes a resident (decision 2) | Agreed 2026-10-17 |
+| Resident pictures are hand-authored Three.js model files bundled in the web-app, referenced by `model_key`, held to lint and a style guide; the avatar is a cached snapshot of the model (decision 3) | Agreed 2026-10-17 |
+| Ideas table: own table, `persona_id` + `IDEA#<ulid>`, `ORDER#` thread rows, `ByOrder` and `Feed` indexes, A8 deferred; API routes under `/residents` (decision 4) | Agreed 2026-10-17 |
+| A7: sparse `OpenByBorough` index (`open_borough` + random `pick_key`, removed on close) on the customer order table; bounded read from a random point, filtered in code (decision 5) | Agreed 2026-10-17 |
+| Customer order rows no longer expire (2026-10-13 TTL rolled back; TTL explicitly disabled); ideas reference orders by `order_id` and the read API builds `anchor` from the row (decision 6) | Agreed 2026-10-17 |
+| Resident actions are tools granted in buckets, incrementally; `action_buckets` + `action_weights` on the resident; many actions per idea, chosen freely like an MCP client, stored as `actions[]` on the idea row; failures just recorded (decision 7) | Agreed 2026-10-17 |
+| Feature intake is a BoroughSim website feature: a generic `Contact` entity, first type `FEATURE_REQUEST`, created by a feature request component and by residents' `REQUEST_FEATURE` tool through the same public route; Contact is the start of what were called Cases; its own design pass (decision 8) | Agreed 2026-10-17 |
+| Pagination (opaque cursor, 20/50, ULID order) and naming: "Idea" stays; tables `Residents-Prod`, `ResidentIdeas-Prod`; code says "resident", existing customer infrastructure and `CUSTOMERS_TAB` keep their names (decision 9) | Agreed 2026-10-17 |
+| Flow B: the model decides the idea (code supplies context and limits); `model_id` per resident; prompt in the codebase, synced with the seeds and stored on the resident; flexible output with a "nothing to say" outcome; one schedule per resident (how often they think), `activity_level` rolled per firing (how often a thought becomes an idea), launch three twice a day (§3 Flow B, decisions 1–4, 6) | Agreed 2026-10-17 |
+| Action loop: async via an `IdeaActions` queue and its own worker; tools are fixed API or RPA recipes the model only chooses and feeds inputs to; per-tool caps plus a max actions per idea; weights offered as prompt preference, Admin configuration later (§3 Flow B, decision 5) | Agreed 2026-10-17 |
+| Load and isolation (2026-10-17 review, Appendix N): RPA on its own queue and runner, the action worker orchestration only; flexible time windows on resident schedules and `maxConcurrency` on the action trigger; Bedrock throttling retried, shared quota protected by those limits (§3 Flow B, decisions 7–9) | Captured 2026-10-17, for review |
 | Resident actions concept: each idea carries a nullable `action` chosen by personality, shown as a neutral tag on the card and in detail (text, plus an RPA recording for website visits). P0 leaves ideas unactioned; requesting a feature is the first action, which needs a feature intake function (Appendix L) | Captured 2026-10-15 |
 | Residents page (2026-10-15 review of the mock): named Residents; no resident status anywhere; no coloured type tags or avatars; Idea Detail view with the resident in the secondary workspace; every shown resident attribute modelled in §2, plus a profile image; About → LLMs write-up behind `CUSTOMERS_TAB` | Agreed 2026-10-15 |
 | CDK placement: no `cdk/webhook/` folder. Webhook queues, DLQs and Lambdas go in `cdk/lambda/`, tables in `cdk/data/`, routes in `cdk/api/`, all in the single `Nyc311Stack`; the sink constructs exist only in Test. `cdk/customer/` is unaffected | Agreed 2026-10-10 |
-| Backend placement: the webhook is an ordinary bureau feature under the existing `CLAUDE.md` rules — HTTP controllers in `controller/web-api/`, queue-triggered controllers in a new `controller/webhook/`, `service/webhook/`, per-entity DAO folders (no carve-out). Applied to `CLAUDE.md` §5.2 on 2026-10-11 | Agreed 2026-10-10 |
+| Backend placement: the webhook is an ordinary BoroughSim feature under the existing `CLAUDE.md` rules — HTTP controllers in `controller/web-api/`, queue-triggered controllers in a new `controller/webhook/`, `service/webhook/`, per-entity DAO folders (no carve-out). Applied to `CLAUDE.md` §5.2 on 2026-10-11 | Agreed 2026-10-10 |
 | `ORDER_RESOLVED` payload: the same order fields as `ORDER_ACCEPTED` plus `resolved_at` — one shared shape and one payload builder; no cost, cost model or crew identity. Receivers must tolerate a resolve arriving before its accept and must not reopen a closed order | Agreed 2026-10-10 |
 | Launch event catalogue: `ORDER_ACCEPTED` and `ORDER_RESOLVED` (the internal name; the earlier "order completed" wording is dropped). The feed's job is to tell the customer which orders are **in play** — open on accept, closed on resolve — and nothing more. Later events (`ORDER_SCHEDULED`, `ORDER_DISPATCHED`, `ORDER_ARRIVED`, `CASE_CREATED`) are added when ideas ask for them | Agreed 2026-10-10 |
 | Limits: registration route throttled to 1 rps / burst 5 via `ROUTE_THROTTLES`; request field limits (`name` ≤ 64, `callback_url` ≤ 2,048, `event_types` 1–10 known names, `secret` 32–128 characters); no payload size cap; delivery Lambda trigger `maxConcurrency` 2 so a backlog cannot flood a subscriber | Agreed 2026-10-10 |
@@ -564,15 +615,15 @@ lost.
 | Delivery path: the custom SNS → SQS → Lambda path, not EventBridge API Destinations (which cannot HMAC-sign each request body) | Agreed 2026-10-10 |
 | Retry policy, configuration only: success is any `2xx` within a 10-second timeout, anything else throws; delivery queue visibility timeout 30 minutes, `maxReceiveCount` 48 (about a day), then DLQ with an alarm on non-empty and SQS redrive. No retry code, no exponential backoff | Agreed 2026-10-10 |
 | `ORDER_ACCEPTED` payload: fat event with `address` and `zip` added; additive-only versioning; `webhook-id` = `evt_<order_id>_<sequence_number>` (§5) | Agreed 2026-10-10 |
-| Callback URL validation: must parse, be `https://`, stay under a length cap, and have a hostname on a per-environment allowlist. No address-range checks (the bureau has no VPC). The delivery Lambda does not follow redirects | Agreed 2026-10-10 |
+| Callback URL validation: must parse, be `https://`, stay under a length cap, and have a hostname on a per-environment allowlist. No address-range checks (BoroughSim has no VPC). The delivery Lambda does not follow redirects | Agreed 2026-10-10 |
 | Subscription API surface: one route, `POST /webhook-subscriptions`, key-authenticated; creates, or overwrites `name`/`event_types`/secret for a known URL, and returns the row with its `status`. Pause, resume and delete are hand edits from a runbook (delete must also remove the SSM secret parameter). No admin routes, no UI | Agreed 2026-10-10 |
 | Listener: `POST https://customer-api.boroughsim.com/webhooks/bureau`, on the customer stack's **own** HTTP API, certificate and domain — nothing shared with `Nyc311Stack`. The read API of §4 joins the same host later. Route throttled to about 5 rps. Resolves §4 item 11's host question | Agreed 2026-10-13 |
-| Customer order table: `WebhookCustomerFacingOrders-Prod` (named to say it sits on the receiving end of the listener), one row per order keyed by `order_id`: the public payload fields, `status` `OPEN`/`CLOSED`, timestamps, TTL. `ORDER_ACCEPTED` creates the row `OPEN` only if absent; `ORDER_RESOLVED` writes it `CLOSED`, creating it if needed; both idempotent and order-independent, so no dedupe store. No event-log items (the listener's logs cover that). `CLOSED` rows expire 30 days after resolution, `OPEN` rows 60 days after acceptance. No index until the persona work | Agreed 2026-10-13 |
-| Customer secret and registration, this milestone: both by hand, once. The customer's signing secret is a hand-created SSM SecureString at `/customer/prod/webhook/signing-secret` (outside the bureau's `/nyc311/prod/webhook/` prefix); registration is one `curl` with the bureau's Prod registration key. The customer stack does not hold the registration key. Self-registration (§3 item 2) is deferred and additive. Launch plan in Appendix I | Agreed 2026-10-13 |
-| Isolation enforcement for the listener milestone: `no-restricted-imports` bans in all four directions (§6 table); a custom path-string lint rule (`local/customer-boundary`) with `cdk/customer/customerBackendRoot.ts` as the one sanctioned file naming `customer/backend`; a template test (no imported values, no bureau resource names); an IAM test (customer roles reach only the customer's own table and SSM parameter). Fixture tests of the rules themselves wait for the full §6 review. Pipeline build, coverage rollup/publish and the direct-deploy deny policy all cover the fourth package | Agreed 2026-10-13 |
+| Customer order table: `WebhookCustomerFacingOrders-Prod` (named to say it sits on the receiving end of the listener), one row per order keyed by `order_id`: the public payload fields, `status` `OPEN`/`CLOSED`, timestamps. `ORDER_ACCEPTED` creates the row `OPEN` only if absent; `ORDER_RESOLVED` writes it `CLOSED`, creating it if needed; both idempotent and order-independent, so no dedupe store. No event-log items (the listener's logs cover that). No index until the persona work. *(The TTL originally agreed here — `CLOSED` rows 30 days after resolution, `OPEN` rows 60 days after acceptance — was rolled back 2026-10-17, decision 6; the index came with decision 5.)* | Agreed 2026-10-13 |
+| Customer secret and registration, this milestone: both by hand, once. The customer's signing secret is a hand-created SSM SecureString at `/customer/prod/webhook/signing-secret` (outside BoroughSim's `/nyc311/prod/webhook/` prefix); registration is one `curl` with BoroughSim's Prod registration key. The customer stack does not hold the registration key. Self-registration (§3 item 2) is deferred and additive. Launch plan in Appendix I | Agreed 2026-10-13 |
+| Isolation enforcement for the listener milestone: `no-restricted-imports` bans in all four directions (§6 table); a custom path-string lint rule (`local/customer-boundary`) with `cdk/customer/customerBackendRoot.ts` as the one sanctioned file naming `customer/backend`; a template test (no imported values, no BoroughSim resource names); an IAM test (customer roles reach only the customer's own table and SSM parameter). Fixture tests of the rules themselves wait for the full §6 review. Pipeline build, coverage rollup/publish and the direct-deploy deny policy all cover the fourth package | Agreed 2026-10-13 |
 | Webhook registration auth: an issued API key, sent by the customer on every registration call. No public self-registration, no verification handshake | Agreed 2026-10-10 |
 | Registration key mechanics: one key per environment in an SSM SecureString, created by hand once (CloudFormation cannot create SecureStrings) and copied to the customer's own store; checked in the registration service with a constant-time comparison, no Lambda authorizer; `created_by` dropped from `WebhookSubscription` | Agreed 2026-10-10 |
-| Separate `Nyc311CustomerStack`, Prod only, deployed by its **own pipeline stage after `DeployProd`** (a `DeployCustomer` stage with its own stage class), so the bureau's Prod deploy completes before the customer is touched. Rejected: sharing the Prod stage, and a second pipeline | Agreed 2026-10-13 |
+| Separate `Nyc311CustomerStack`, Prod only, deployed by its **own pipeline stage after `DeployProd`** (a `DeployCustomer` stage with its own stage class), so BoroughSim's Prod deploy completes before the customer is touched. Rejected: sharing the Prod stage, and a second pipeline | Agreed 2026-10-13 |
 | Standard Webhooks wire format, HMAC variant: `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` + base64 HMAC-SHA256 of `{id}.{timestamp}.{body}`), `whsec_` secrets, five-minute replay window. Sign and verify hand-written on each side with `node:crypto`; the `standardwebhooks` package is a test-only dependency used to cross-check | Agreed 2026-10-10 |
 
 Superseded along the way: a UI was originally out of scope for phase 1; the
@@ -586,8 +637,8 @@ customer API was originally going to stay off the `boroughsim.com` domain.
 | **Hawthorn** | Owns a bakery in Brooklyn; deliveries depend on the street | patience 15, hostility 70, verbosity 35; activity 35; 05–18; follow-up 60 | "You are Hawthorn, who owns a bakery in Brooklyn. Broken streets cost you money: delivery vans, customers, your own time. You are blunt, impatient and businesslike, and you think in deadlines and dollars. You are not rude for sport, but you do not soften things, and when something drags you say so and want to know who is responsible." |
 | **Juniper** | Night-shift hospital porter in the Bronx, commutes by bike | patience 50, hostility 20, verbosity 10; activity 20; 21–05; follow-up 40 | "You are Juniper, a night-shift hospital porter in the Bronx who cycles to work. You are tired, practical and terse — short sentences, no pleasantries. You care about hazards you hit in the dark. You are comfortable with technology and would rather have a tool or a notification than talk to anyone, so you often think about what the service should let you do yourself." |
 
-Seeds would be one JSON file per persona in `customer/backend/personas/`,
-zod-validated and synced at deploy.
+Seeds are one JSON file per persona in `customer/backend/residents/`,
+zod-validated and synced at deploy (§2 customer side, decision 2).
 
 ### C. Inspiration from `agent-social`
 
@@ -610,7 +661,7 @@ model-specific response parsing, and the absence of prompt versioning.
 
 To be re-cut after the six reviews; UI legs not yet placed.
 
-1. Bureau webhooks (subscriptions, dispatch, delivery, signing, alarms).
+1. BoroughSim webhooks (subscriptions, dispatch, delivery, signing, alarms).
 2. Customer scaffold (package, empty stack, lint rules, pipeline wiring).
 3. Listener + registration + accepted-orders copy.
 4. Personas (model, seeds, sync).
@@ -625,14 +676,14 @@ To be re-cut after the six reviews; UI legs not yet placed.
   the Directory Lock.
 - **§5.1** — the Customers area: second API base URL, and whatever
   secondary-workspace contract §4 lands on.
-- **§5.2** (agreed 2026-10-10, **applied 2026-10-11**; the webhook is an ordinary bureau feature
+- **§5.2** (agreed 2026-10-10, **applied 2026-10-11**; the webhook is an ordinary BoroughSim feature
   and follows the existing rules, no new carve-outs) — add
   `controller/webhook/` for the two queue-triggered entry points (dispatch,
   deliver); the HTTP entry points (register subscription, sink receiver,
   sink `GET`) go in `controller/web-api/` like every other route; logic in
   `service/webhook/`; DAOs in per-entity folders `dao/webhookSubscription/`
   and `dao/webhookSinkDelivery/`, with both added to `data-model.md`.
-- **§5.3** — add `cdk/customer/` (the bureau webhook needs no §5.3 change;
+- **§5.3** — add `cdk/customer/` (the BoroughSim webhook needs no §5.3 change;
   it uses the existing `cdk/lambda/`, `cdk/data/`, `cdk/api/`); record
   `Nyc311CustomerStack` as a standing exception to the single-stack rule;
   state the boundary rules.
@@ -651,7 +702,7 @@ The text as first approved:
 *§1, top-level directories — add:*
 
 > - `customer/` — the simulated customer (`13-customer-simulation.md`), a
->   real outsider to the bureau. Holds one package, `customer/backend/`.
+>   real outsider to BoroughSim. Holds one package, `customer/backend/`.
 >   Its infrastructure lives in `cdk/customer/`.
 
 *New §5.4 `customer/backend/`:*
@@ -673,7 +724,7 @@ The text as first approved:
 > customer/backend
 >  -> logger.ts, env.ts - copied from backend/
 >  -> controller
->   -> webhook - the HTTP listener the bureau POSTs lifecycle events to
+>   -> webhook - the HTTP listener BoroughSim POSTs lifecycle events to
 >  -> service - grouped into logical processing services
 >  -> dao - grouped by the entity stored; dao.ts is the copied base
 >   -> webhookCustomerFacingOrder - the customer's own row per order in play
@@ -690,18 +741,18 @@ The text as first approved:
 > by its own `DeployCustomer` pipeline stage after `DeployProd`. It shares
 > nothing with `Nyc311Stack`: its own HTTP API, certificate and domain,
 > table, Lambdas, alarm topic and roles, with no cross-stack reference in
-> either direction. The customer reaches the bureau only through public
+> either direction. The customer reaches BoroughSim only through public
 > URLs. The one shared resource is a DNS record in the `boroughsim.com`
 > hosted zone.
 >
 > **Boundary rules, all lint errors:** nothing outside `cdk/customer/`
 > imports from it, except the stage file that instantiates the stack;
-> `cdk/customer/` imports no bureau construct directory;
+> `cdk/customer/` imports no BoroughSim construct directory;
 > `local/customer-boundary` bans a `customer` path segment in any string
-> in bureau CDK code and a `backend` path segment in any string under
+> in BoroughSim CDK code and a `backend` path segment in any string under
 > `cdk/customer/`, with `cdk/customer/customerBackendRoot.ts` the one
 > sanctioned file that names `customer/backend`. A template test asserts
-> the stack imports no values and names no bureau resource; an IAM test
+> the stack imports no values and names no BoroughSim resource; an IAM test
 > asserts its roles reach only its own resources.
 >
 > Prod-only resources keep the `-Prod` suffix.
@@ -710,7 +761,7 @@ The text as first approved:
 
 ### G. Differences from #58
 
-- Anchors come from a bureau webhook, not the SODA API.
+- Anchors come from a BoroughSim webhook, not the SODA API.
 - The output is Ideas, not `CustomerQuestions` with a stubbed channel.
 - `FEATURE_REQUEST` is added to the taxonomy.
 - 3 personas at launch, not 5–6. Prod only, not Test + Prod.
@@ -718,7 +769,7 @@ The text as first approved:
 - No per-persona conversation log.
 - A public API and UI are now in scope.
 
-### H. Build progress and runbook (bureau webhook)
+### H. Build progress and runbook (BoroughSim webhook)
 
 **Built 2026-10-11** — leg 1 of the build order. Not deployed until the
 commit is pushed and the pipeline runs.
@@ -818,7 +869,7 @@ re-registration with the new secret.
 ### I. Launch plan — the customer listener (manual steps)
 
 Agreed 2026-10-13: the customer's signing secret and its registration with
-the bureau are done by hand, once. Nothing here is automated, so **the
+BoroughSim are done by hand, once. Nothing here is automated, so **the
 listener receives nothing until every step below has been run**. Each
 command mutates real AWS resources or a live subscription — CLAUDE.md §3
 applies to each one.
@@ -826,14 +877,14 @@ applies to each one.
 **Status: complete (2026-10-14).** Steps 1–3 were run on 2026-10-13; delivery was verified the next day.
 
 - [x] **0. Prerequisites deployed** (confirmed 2026-10-14: `Nyc311Customer-Prod`
-      is `CREATE_COMPLETE`, the listener answers, and the bureau's
-      registration route rejects a call with no key). The bureau webhook is live in Prod
+      is `CREATE_COMPLETE`, the listener answers, and BoroughSim's
+      registration route rejects a call with no key). The BoroughSim webhook is live in Prod
       (`Nyc311-Prod`, pushed 2026-10-11) and `Nyc311Customer-Prod` has
       deployed through the `DeployCustomer` stage (pushed 2026-10-13), so
       `https://customer-api.boroughsim.com/webhooks/bureau` resolves. Before
       step 2 it answers `500` to anything, because it has no secret to
       verify with.
-- [x] **1. Create the bureau's Prod registration key** (Appendix H, step 1,
+- [x] **1. Create BoroughSim's Prod registration key** (Appendix H, step 1,
       Prod variant). Independent of the customer; can be done any time.
 
       ```sh
@@ -841,14 +892,14 @@ applies to each one.
         --name /nyc311/prod/webhook/registration-key --value "$(openssl rand -base64 32)"
       ```
 - [x] **2. Create the customer's signing secret.** Keep `$SIGNING_SECRET`
-      in the shell for step 3; it is not recoverable from the bureau side.
+      in the shell for step 3; it is not recoverable from the BoroughSim side.
 
       ```sh
       SIGNING_SECRET="whsec_$(openssl rand -base64 32)"
       aws ssm put-parameter --profile nyc311 --type SecureString \
         --name /customer/prod/webhook/signing-secret --value "$SIGNING_SECRET"
       ```
-- [x] **3. Register the customer with the bureau** (2026-10-13; subscription
+- [x] **3. Register the customer with BoroughSim** (2026-10-13; subscription
       `01M4VYGS6AE6TPBH5W39BCENJ1`, `the-customer`, `ACTIVE`, both event
       types). Expect `201` and a body
       with `"status":"ACTIVE"`; note the `subscription_id`.
@@ -871,7 +922,7 @@ applies to each one.
         --select COUNT
       ```
 
-      Also check the bureau's `Nyc311WebhookDeliveryQueueDlq-Prod` is empty
+      Also check BoroughSim's `Nyc311WebhookDeliveryQueueDlq-Prod` is empty
       and the delivery Lambda's log shows `WebhookDeliveryAttempt` lines
       with `"outcome":"DELIVERED"`.
 
@@ -879,7 +930,7 @@ applies to each one.
 so the listener is never asked to verify without a secret. If step 3 is
 run with a secret that does not match step 2, every delivery is rejected
 and retried for a day; re-running steps 2 and 3 with one fresh value fixes
-it, because re-registration overwrites the bureau's copy.
+it, because re-registration overwrites BoroughSim's copy.
 
 **To stop deliveries:** pause the subscription (Appendix H, "Operating
 it"). **To rotate the signing secret:** repeat steps 2 (with `--overwrite`)
@@ -899,7 +950,7 @@ is ready to consume webhook events once Appendix I's manual steps are run.
 | Package | `customer/backend/` — its own `package.json`, ESLint, Vitest (90% per file), copied `logger.ts` / `env.ts` / `Dao` base / error types |
 | Listener | `controller/webhook/receiveWebhookController.ts` → `service/webhook/webhookReceiverService.ts` |
 | Signature check | `service/webhook/webhookSignature.ts` — the customer's own verify, tested against deliveries signed by the `standardwebhooks` reference package |
-| Order table access | `dao/webhookCustomerFacingOrder/`, `models/webhookCustomerFacingOrder.ts`, `models/bureauWebhookEvent.ts` |
+| Order table access | `dao/webhookCustomerFacingOrder/`, `models/webhookCustomerFacingOrder.ts`, `models/boroughSimWebhookEvent.ts` |
 | Infrastructure | `cdk/customer/` — `Nyc311CustomerStack`, `CustomerApi`, `CustomerApiDomain`, `CustomerWebhookListenerLambda`, `WebhookCustomerFacingOrdersTable`, `customerConfig.ts`, `customerBackendRoot.ts` |
 | Deployment | `cdk/pipeline/Nyc311CustomerStage.ts`; `DeployCustomer` added after `DeployProd`; the customer package linted and tested in Synth; the direct-deploy deny policy covers `Nyc311Customer-Prod` |
 | Boundary | Import bans in `backend/`, `customer/backend/` and `cdk/` ESLint configs; `local/customer-boundary` in `cdk/eslint.config.js`; isolation and IAM assertions in `cdk/tests/customer/Nyc311CustomerStack.test.ts` |
@@ -915,7 +966,7 @@ is ready to consume webhook events once Appendix I's manual steps are run.
 | `resolved_at` | | Null while open |
 | `last_webhook_id` | | The `webhook-id` of the delivery that last wrote the row |
 | `updated_at` | | When that delivery was applied |
-| `expires_at` | TTL | Open: 60 days after `accepted_at`. Closed: 30 days after `resolved_at` |
+| `expires_at` | | **No longer written** (decision 6, 2026-10-17). Rows written before then still carry it, but TTL is explicitly disabled on the table, so no row expires |
 
 How a delivery is applied:
 
@@ -925,8 +976,8 @@ How a delivery is applied:
 | `ORDER_ACCEPTED`, row exists (a repeat, or it arrived after the resolve) | The same put fails its condition | Nothing changes; still answers `200` |
 | `ORDER_RESOLVED` | Unconditional put | Row is `CLOSED`, created if the accept never arrived |
 | Any other event type | None | Acknowledged with `200` and ignored |
-| Bad signature, stale timestamp, or no `webhook-id` | None | `401`; the bureau retries |
-| Signed but unreadable body | None | `400`; the bureau retries, then dead-letters |
+| Bad signature, stale timestamp, or no `webhook-id` | None | `401`; BoroughSim retries |
+| Signed but unreadable body | None | `400`; BoroughSim retries, then dead-letters |
 
 **Rollout note (2026-10-13/14).** The stage could not be added in one
 push. The pipeline builds with the command list from its previous
@@ -940,10 +991,10 @@ package added to Synth needs the same two steps.
 
 - **The table is destroyed with the stack, with no point-in-time
   recovery and no deletion protection.** Its contents can be rebuilt with
-  the bureau's replay script, and a retained, fixed-name table would block
+  BoroughSim's replay script, and a retained, fixed-name table would block
   a clean retry if the stack's first deploy failed part-way.
 - **The customer stack has no alarm.** A listener that is down or
-  rejecting deliveries shows up on the bureau side as the delivery DLQ
+  rejecting deliveries shows up on the BoroughSim side as the delivery DLQ
   alarm after a day of retries. That keeps the customer stack free of
   paid alarms, at the cost of a day's delay in noticing.
 - **The listener may only write.** Its role has `PutItem` on its own
@@ -951,9 +1002,9 @@ package added to Synth needs the same two steps.
   `getOrder` method for later use that the listener's role cannot call.
 - **`cdk/pipeline/` is exempt from the path-string lint rule** (it must
   name `customer/backend` to build it) but not from the import ban.
-- **Constants the bureau also defines are copied** into
+- **Constants BoroughSim also defines are copied** into
   `cdk/customer/customerConfig.ts` — the hosted zone id, the root domain,
-  the Lambda bundling options — because `cdk/customer/` imports no bureau
+  the Lambda bundling options — because `cdk/customer/` imports no BoroughSim
   directory. If the hosted zone is ever recreated, its id changes in two
   places.
 - **Local `cdk synth` / `cdk diff` (`bin/app.ts`) do not include the
@@ -961,7 +1012,7 @@ package added to Synth needs the same two steps.
   (`npm run synth:pipeline`).
 - **There is no Test customer**, so the listener's first real traffic is
   in Prod. Its signature check is tested against the reference
-  implementation, and the bureau's Test sink runs the same protocol.
+  implementation, and BoroughSim's Test sink runs the same protocol.
 
 **Launch**
 
@@ -976,8 +1027,10 @@ package added to Synth needs the same two steps.
 **2026-10-15 revision** (review of the first mock):
 
 - The page is **Residents** (route `/residents`), not Customers. Internal
-  names (`customerService`, the `CUSTOMERS_TAB` flag, the `/customers`
-  API routes) keep the old word for now.
+  code names say "resident" (`residentService`, `components/residents/`,
+  renamed 2026-10-17, decision 9); only the `CUSTOMERS_TAB` flag and the
+  customer infrastructure keep the old word. The API routes are
+  `/residents`.
 - No resident status anywhere (dropped from the model, the mocks and the
   page), and no "(overnight)" label — the time range is enough.
 - No coloured idea-type tags on idea cards; types appear as plain text in
@@ -990,7 +1043,7 @@ package added to Synth needs the same two steps.
   idea in full (resident, type, text, the order it concerns, how it was
   generated, and every other idea about the same order); the secondary
   workspace shows that resident in full. It replaces the inline expansion.
-  The API gains `GET /customers/{id}/ideas/{ideaId}` to back it.
+  The API gains `GET /residents/{id}/ideas/{ideaId}` to back it.
 - **About → LLMs.** The section stays "Work in progress" until
   `CUSTOMERS_TAB` is `T1`, then shows a write-up of how the residents use
   LLMs. Same flag, so it launches with the page.
@@ -1030,16 +1083,16 @@ linked:
 - "Details" expands an idea: model, prompt version, tokens, persona
   version, the 311 complaint number, and a link to the rest of its order.
 
-**Service contract the mock implies** (`web-app/src/services/customerService.ts`),
+**Service contract the mock implies** (`web-app/src/services/residentService.ts`),
 on `https://customer-api.boroughsim.com`, all paginated as
 `{ items, nextCursor }`:
 
 | Route | Use |
 |---|---|
-| `GET /customers` | The persona list |
-| `GET /customers/{id}` | One persona (not yet used by the page) |
-| `GET /customers/{id}/ideas` | One persona's ideas, newest first |
-| `GET /customers/{id}/ideas/{ideaId}` | **New (2026-10-15)** — one idea, for the Idea Detail view |
+| `GET /residents` | The persona list |
+| `GET /residents/{id}` | One persona (not yet used by the page) |
+| `GET /residents/{id}/ideas` | One persona's ideas, newest first |
+| `GET /residents/{id}/ideas/{ideaId}` | **New (2026-10-15)** — one idea, for the Idea Detail view |
 | `GET /ideas` | **New** — every persona's ideas, newest first, for the feed |
 
 Fields the page needs that §2 did not list: a one-line `tagline` per
@@ -1047,9 +1100,9 @@ persona, and `idea_count` / `last_idea_at` (the A11 counters). The live
 client exists, but the routes do not, and the customer API has no CORS
 configuration yet — both are needed before the page can read real data.
 
-**Data mode.** The customer service reads `VITE_CUSTOMER_DATA_MODE`, falling
+**Data mode.** The resident service reads `VITE_RESIDENT_DATA_MODE`, falling
 back to `VITE_DATA_MODE`. Setting it to `mock` lets a live-mode dev server
-(real flags) show the sample customers. The pipeline's live build leaves it
+(real flags) show the sample residents. The pipeline's live build leaves it
 unset, so the mock and its test data are tree-shaken out and the
 live-bundle guard still passes; in a deployed environment with `T1`, the
 page shows its error state until the API exists.
@@ -1070,10 +1123,10 @@ done, what came of it, and evidence of the attempt.
 | Phase | Actions | Needs |
 |---|---|---|
 | P0 | None — every idea is `Not actioned yet` | Nothing new |
-| First action | `REQUEST_FEATURE` for every resident | A **feature intake function** that accepts and records requests (not built) |
+| First action | `REQUEST_FEATURE` for every resident | **Contacts** on the BoroughSim website, first type `FEATURE_REQUEST`, plus the feature request component (decision 8; not built) |
 | Later | `CHECK_STATUS_API`, `BROWSE_WEBSITE` (RPA), others | A public status API; an RPA runner that records sessions |
 
-**Shape** (`web-app/src/models/customerIdea.ts`): a discriminated union on
+**Shape** (`web-app/src/models/residentIdea.ts`): a discriminated union on
 `type`, each with `status` (`COMPLETED` / `FAILED`), `started_at`,
 `completed_at`, a plain-words `summary` and an `outcome`, plus evidence:
 
@@ -1094,8 +1147,450 @@ personality: Sycamore browses the website, Hawthorn and Juniper call the
 status API (Juniper's attempt fails with a 404, since no such API exists
 yet), and all three file feature requests; most ideas are unactioned.
 
-**For the §2/§3 reviews:** how personality maps to action choice (a weight
-per action type, like `idea_type_weights`?); whether a failed action
-retries or becomes its own idea; where recordings are stored (the
-customer stack's own bucket); and whether one idea can lead to more than
-one action.
+**Decided 2026-10-17 (§2 customer side, decision 7):** actions are tools
+granted to residents in buckets, incrementally; `action_weights` express
+preference among granted tools; an idea holds many actions (`actions[]`),
+chosen freely by the resident like an MCP client; a failure is just
+recorded; everything sits on the idea row until artifacts outgrow it. The
+mock still models a single `action` and is to be updated to `actions[]`.
+How the loop runs (async worker, tools as fixed API or RPA recipes,
+per-tool caps) is §3 Flow B decision 5.
+
+### M. Sample rows (customer-side data model, 2026-10-17)
+
+The §2 customer-side decisions 1–9, written out. Ids, hashes and the model
+id are illustrative; the Bedrock model is still §3 item 8.
+
+**`Residents-Prod`: the live row** (decision 1). Partition key `persona_id`,
+sort key `sk`.
+
+```json
+{
+  "persona_id": "hawthorn",
+  "sk": "CURRENT",
+  "version": 3,
+  "name": "Hawthorn",
+  "tagline": "Bakery owner in Brooklyn; deliveries live and die on the street",
+  "backstory": "Owns a bakery on Atlantic Avenue. Vans, customers and their own mornings all depend on the block being passable.",
+  "persona_prompt": "You are Hawthorn, who owns a bakery in Brooklyn. ...",
+  "model_key": "hawthorn",
+  "demeanor": { "patience": 15, "hostility": 70, "verbosity": 35 },
+  "activity_level": 35,
+  "active_hours": { "start": 5, "end": 18 },
+  "follow_up_propensity": 60,
+  "idea_type_weights": { "STATUS_CHECK": 20, "SERVICED_CHECK": 10, "ETA_REQUEST": 30, "PRIORITY_INQUIRY": 15, "ESCALATION": 20, "FEATURE_REQUEST": 5 },
+  "interests": { "boroughs": ["BROOKLYN"], "complaint_types": ["Street Condition", "Sidewalk Condition"] },
+  "action_buckets": [],
+  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 },
+  "content_hash": "sha256:4f1c9a0e…",
+  "idea_count": 42,
+  "last_idea_at": "2026-10-17T13:12:08.000Z",
+  "created_at": "2026-10-14T15:00:00.000Z",
+  "updated_at": "2026-10-17T13:12:08.000Z"
+}
+```
+
+`action_buckets` is empty in P0; once Contacts exist, the first bucket is
+granted and `REQUEST_FEATURE` gets weight (decision 7).
+
+**`Residents-Prod`: a frozen version row** (decisions 1–2). Written once by
+the seed sync when `content_hash` changes; never updated. No counters.
+
+```json
+{
+  "persona_id": "hawthorn",
+  "sk": "V#0003",
+  "version": 3,
+  "name": "Hawthorn",
+  "tagline": "…",
+  "backstory": "…",
+  "persona_prompt": "…",
+  "model_key": "hawthorn",
+  "demeanor": { "patience": 15, "hostility": 70, "verbosity": 35 },
+  "activity_level": 35,
+  "active_hours": { "start": 5, "end": 18 },
+  "follow_up_propensity": 60,
+  "idea_type_weights": { "…": 0 },
+  "interests": { "boroughs": ["BROOKLYN"], "complaint_types": ["Street Condition", "Sidewalk Condition"] },
+  "action_buckets": [],
+  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 },
+  "content_hash": "sha256:4f1c9a0e…",
+  "created_at": "2026-10-17T12:40:00.000Z"
+}
+```
+
+**`ResidentIdeas-Prod`: an idea** (decisions 4, 6, 7). Partition key
+`persona_id`, sort key `sk`. `by_order_pk` exists only on ideas with an
+order (sparse `ByOrder` index); `feed_pk` puts every idea on the `Feed`
+index. Both indexes sort on `idea_id`.
+
+```json
+{
+  "persona_id": "hawthorn",
+  "sk": "IDEA#01K7Z3M8Q4D2V6T9R1XB5C0EHN",
+  "idea_id": "01K7Z3M8Q4D2V6T9R1XB5C0EHN",
+  "persona_version": 3,
+  "idea_type": "ETA_REQUEST",
+  "text": "The trench outside my shop has been open since Tuesday. Vans can't pull up. I want a date it gets closed, not 'soon'.",
+  "order_id": "01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+  "external_unique_key": "64019233",
+  "by_order_pk": "hawthorn#01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+  "feed_pk": "ALL",
+  "status": "OPEN",
+  "actions": [],
+  "model_id": "amazon.nova-micro-v1:0",
+  "prompt_version": "idea-generator@1",
+  "input_tokens": 812,
+  "output_tokens": 46,
+  "created_at": "2026-10-17T13:12:08.000Z"
+}
+```
+
+A feature-request idea has no `order_id`, `external_unique_key` or
+`by_order_pk`. Once the first bucket is granted, `actions` fills in — the
+resident may call several tools, in its own order (decision 7):
+
+```json
+"actions": [
+  {
+    "sequence": 1,
+    "type": "REQUEST_FEATURE",
+    "status": "COMPLETED",
+    "started_at": "2026-11-02T22:14:01.000Z",
+    "completed_at": "2026-11-02T22:14:03.000Z",
+    "summary": "Asked for a way to get a text when a nearby repair is scheduled.",
+    "outcome": "Contact accepted.",
+    "feature_request": {
+      "title": "Text me when a repair near me is scheduled",
+      "description": "I ride past these every night. Let me subscribe to a street and get a text when work is booked.",
+      "reference_id": "01K8C4T1W7H3P9N2M6QZ8V0RJD"
+    }
+  }
+]
+```
+
+`reference_id` is the id of the Contact BoroughSim created (decision 8).
+
+**`ResidentIdeas-Prod`: a thread row** (decision 4). One per resident per
+order, written in the same transaction as each idea about that order.
+
+```json
+{
+  "persona_id": "hawthorn",
+  "sk": "ORDER#01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+  "order_id": "01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+  "idea_count": 2,
+  "first_idea_at": "2026-10-15T09:41:55.000Z",
+  "last_idea_at": "2026-10-17T13:12:08.000Z"
+}
+```
+
+**`WebhookCustomerFacingOrders-Prod`: an open order** (decisions 5–6).
+`open_borough` and `pick_key` exist only while `OPEN` (sparse
+`OpenByBorough` index); the row never expires.
+
+```json
+{
+  "order_id": "01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+  "status": "OPEN",
+  "request_id": "01K7XW9F0C2A7K5D8S3TQ1M4EB",
+  "external_unique_key": "64019233",
+  "complaint_type": "Street Condition",
+  "descriptor": "Pothole",
+  "borough": "BROOKLYN",
+  "address": "412 ATLANTIC AVENUE",
+  "zip": "11217",
+  "reported_at": "2026-10-13T22:41:00.000",
+  "accepted_at": "2026-10-14T14:03:11.000Z",
+  "resolved_at": null,
+  "open_borough": "BROOKLYN",
+  "pick_key": "b7e2c91f4a0d",
+  "last_webhook_id": "evt_01K7XWQ2B9N4M8F3T6RZ0Y5DKA_2",
+  "updated_at": "2026-10-14T14:03:12.000Z"
+}
+```
+
+**Read API: `GET /residents/hawthorn/ideas?limit=20`** (decisions 6, 9).
+The response's `anchor` is built from the order row; storage holds only the
+ids. Field names follow the web-app models.
+
+```json
+{
+  "items": [
+    {
+      "idea_id": "01K7Z3M8Q4D2V6T9R1XB5C0EHN",
+      "persona_id": "hawthorn",
+      "persona_version": 3,
+      "idea_type": "ETA_REQUEST",
+      "text": "The trench outside my shop has been open since Tuesday. …",
+      "anchor": {
+        "order_id": "01K7XWQ2B9N4M8F3T6RZ0Y5DKA",
+        "external_unique_key": "64019233",
+        "descriptor": "Pothole",
+        "borough": "BROOKLYN",
+        "address": "412 ATLANTIC AVENUE"
+      },
+      "status": "OPEN",
+      "actions": [],
+      "created_at": "2026-10-17T13:12:08.000Z"
+    }
+  ],
+  "nextCursor": "eyJwZXJzb25hX2lkIjoiaGF3dGhvcm4iLCJzayI6IklERUEjMDFLN1ozTThRNEQyVjZUOVIxWEI1QzBFSE4ifQ"
+}
+```
+
+### N. Isolation and segregation diagrams (2026-10-17)
+
+Drawn to check that the customer is isolated from BoroughSim and that idea
+generation and actioning are separate. The three adjustments it led to are
+§3 Flow B decisions 7–9.
+
+**Context.**
+
+```
+                ┌───────────────────────────── public internet ─────────────────────────────┐
+                │                                                                            │
+ ┌──────────────┴───────────────┐   signed webhooks (ORDER_ACCEPTED/RESOLVED)   ┌───────────┴──────────────┐
+ │ BoroughSim  (Nyc311Stack)    │ ────────────────────────────────────────────► │ Customer                 │
+ │ Test + Prod                  │                                               │ (Nyc311CustomerStack)    │
+ │                              │ ◄──────────────────────────────────────────── │ Prod only                │
+ │ orders, crews, webhooks,     │   tools: API calls (Contacts, status API)     │                          │
+ │ website, public API          │          RPA on boroughsim.com                │ residents, ideas,        │
+ └──────────────┬───────────────┘                                               │ actions, read API        │
+                │                                                               └───────────┬──────────────┘
+                │ serves the web-app                                                        │ Bedrock
+                ▼                                                                           ▼
+        ┌───────────────┐      GET /residents, /ideas (browser → customer-api)      ┌───────────────┐
+        │ Visitor's     │ ─────────────────────────────────────────────────────────► │ Amazon        │
+        │ browser       │                                                            │ Bedrock       │
+        └───────────────┘                                                            └───────────────┘
+
+ Shared: one AWS account, one DNS record in boroughsim.com. Nothing else, and no cross-stack references.
+```
+
+**Components** (with decision 7's RPA runner).
+
+```mermaid
+flowchart LR
+  subgraph BS["BoroughSim — Nyc311Stack (Test + Prod)"]
+    ORD[(Orders)] --> FAN[orders fan-out] --> SNS{{OrderEvents SNS}}
+    SNS --> DQ[[dispatch queue + DLQ]] --> DISP[dispatch Lambda]
+    DISP --> VQ[[delivery queue + DLQ]] --> DELIV[delivery Lambda<br/>sign + POST, max conc. 2]
+    PUB[public API<br/>Contacts, status — future]
+    WEB[boroughsim.com website]
+  end
+
+  subgraph CU["Customer — Nyc311CustomerStack (Prod only)"]
+    APIGW[customer-api.boroughsim.com<br/>HTTP API, per-route throttles]
+    LIS[listener Lambda]
+    READ[read API Lambda]
+    SYNC[seed sync<br/>custom resource]
+    T1[(WebhookCustomerFacingOrders<br/>+ OpenByBorough)]
+    T2[(Residents<br/>CURRENT + V#)]
+    T3[(ResidentIdeas<br/>IDEA# + ORDER#, ByOrder, Feed)]
+
+    subgraph GEN["Idea generation"]
+      SCH([Scheduler: one cron per resident,<br/>flexible window]) --> IW[idea worker Lambda<br/>roll activity_level → Converse]
+    end
+    AQ[[IdeaActions queue + DLQ]]
+    subgraph ACT["Actioning"]
+      AW[action worker Lambda<br/>orchestration only, maxConcurrency]
+      APIT[API recipes, inline]
+      RQ[[RPA queue + DLQ]]
+      RPA[RPA runner<br/>container Lambda + browser]
+      S3[(recordings bucket)]
+    end
+
+    APIGW -->|POST /webhooks/bureau| LIS --> T1
+    APIGW -->|GET /residents, /ideas| READ
+    READ --> T2 & T3 & T1
+    SYNC --> T2
+    IW --> T1 & T2
+    IW -->|idea + thread + counters| T3
+    IW -->|persona_id, idea_id| AQ --> AW
+    AW --> APIT
+    AW --> RQ --> RPA --> S3
+    RPA -->|result| AW
+    AW -->|append actions| T3
+  end
+
+  BED[(Amazon Bedrock)]
+  DELIV -->|HTTPS, signed| APIGW
+  IW -.-> BED
+  AW -.-> BED
+  APIT -->|public URLs only| PUB
+  RPA -->|browser| WEB
+  BROWSER[visitor's browser] -->|reads| APIGW
+```
+
+**What it shows.**
+
+- Every arrow between the two stacks crosses the public internet: webhooks
+  in; tool calls and RPA out; visitors' browsers reading the customer API.
+  No shared tables, roles or stack references (enforced by lint and
+  template tests).
+- Idea generation and actioning have separate Lambdas, triggers and
+  failure paths; the only hand-off is a small message on `IdeaActions`. A
+  slow or failing action cannot block, delay or lose an idea.
+- One job per function. The two workers share `ResidentIdeas` but never
+  write the same attributes: the idea worker writes ideas, thread rows and
+  counters; the action worker only appends to `actions[]` on an existing
+  idea.
+- BoroughSim's own route throttles protect it from the customer; residents
+  get no special path in.
+- The one shared resource between the halves is the account's Bedrock
+  quota (decision 9).
+
+### O. Build progress — residents and idea generation (2026-10-17)
+
+First iteration of the customer side beyond the listener: residents
+generate ideas on their schedules, and BoroughSim's web-app reads
+residents and ideas from the customer API. **No actions**: no tool bucket
+is granted, every idea is written with `actions: []`, and no
+`IdeaActions` queue exists yet (§3 Flow B decision 5 is designed, not
+built). Contacts and the feature request tool wait for their own design.
+
+| Area | Built |
+|---|---|
+| Seeds | `customer/backend/residents/{hawthorn,juniper,sycamore}.json`, the mock's attributes plus `model_id` (`amazon.nova-micro-v1:0`, the cheapest on-demand text model in the account, verified with one Converse tool-use call), `schedule` (`cron(0 10,18 * * ? *)`, New York), `idea_type_weights`, `interests.descriptors`, empty `action_buckets` |
+| Seed sync | `controller/resident/syncResidentsController.ts` behind a CDK `Provider` custom resource (`Custom::ResidentSeedSync`), keyed on a hash of the seeds, `service/resident/` and `models/`; a malformed seed fails the deploy |
+| Prompt | `service/resident/ideaPrompt.ts` (`idea-generator@1`): the persona prompt, backstory, temperament, interests, what BoroughSim offers today, the idea kinds with how often this resident leans to each, length guidance from verbosity, and the `nothing_to_say` escape. Assembled at sync and stored on the resident |
+| Idea worker | `controller/idea/generateIdeaController.ts`: roll `activity_level` (an event's `force: true` skips it), sample up to five fresh open orders from `OpenByBorough` (preferred descriptors first, unseen orders only), add the eight latest ideas and their orders' current state, one Converse call with two tools (`record_idea`, whose `order_id` must be one of the offered ids or `NONE`, and `nothing_to_say`), then one transaction: idea, thread row, resident counters |
+| Read API | `controller/read/residentApiController.ts`, one Lambda for `GET /residents`, `/residents/{personaId}`, `/residents/{personaId}/ideas`, `/residents/{personaId}/ideas/{ideaId}`, `/ideas`; CORS for `boroughsim.com`, `test.boroughsim.com`, `localhost:5173`; 30-second public caching |
+| Listener | Writes `open_borough` and a random `pick_key` when an order opens; a close drops them |
+| Tables | `Residents-Prod` (+ sparse `Roster` index, so A1 lists residents without a scan), `ResidentIdeas-Prod` (`ByOrder`, `Feed`), both retained; `OpenByBorough` added to `WebhookCustomerFacingOrders-Prod` |
+| Schedules | `CustomerResident-<persona>-Prod`, one per seed, 15-minute flexible window, 2 retries within an hour, via `CustomerResidentScheduler-Prod`. **Kill switch:** disable the schedules in the console |
+| Web-app | Ideas carry `actions[]` (cards show one tag per action, Idea Detail lists them in order); the live service reads the customer API; residents show their model and the problems they care about; empty states say when nobody, or one resident, has had an idea yet, separately from a filter matching nothing. Local dev reads the live API too (the `VITE_RESIDENT_DATA_MODE=mock` override is gone from `.env.local`) |
+| Script | `test-scripts/12-backfill-open-order-pick-keys.js` keys orders opened before this change (dry run by default) |
+
+**Deviations from the design.**
+
+- `interests.complaint_types` became `interests.descriptors`: every order's
+  `complaint_type` is "Street Condition"; the variety is in `descriptor`.
+- A1 (list residents) uses a sparse `Roster` index on `CURRENT` rows; the
+  §2 review had not placed it.
+- No daily idea cap in code: the schedule bounds firings (two a day each),
+  and the roll bounds ideas further. The kill switch is the schedules'
+  state, not a parameter.
+
+**Expected volume.** Two firings a day per resident at activity 35, 15
+and 20 is about 1.4 ideas a day across all three, at roughly 600 input
+and 50 output tokens each.
+
+**Launch steps (manual, after the pipeline deploys the customer stack).**
+
+1. Backfill sampling keys on already-open orders:
+   `node test-scripts/12-backfill-open-order-pick-keys.js --execute`.
+2. Optionally force one thought per resident to see ideas immediately:
+   `aws lambda invoke --profile nyc311 --region us-east-1 --function-name CustomerIdeaWorker-Prod --cli-binary-format raw-in-base64-out --payload '{"persona_id":"juniper","force":true}' /dev/stdout`.
+3. Set `CUSTOMERS_TAB` to `T1` where the Residents page should show.
+
+### P. Resident models — style guide and build (2026-10-17)
+
+Each resident has a hand-written Three.js model (§2 customer side,
+decision 3), shown two ways:
+
+- **Avatar** — a still head-and-shoulders snapshot, everywhere a resident
+  appears small (cards, the feed, Idea Detail). One shared offscreen
+  renderer draws each model once into a PNG; the page shows it as an
+  `<img>`. Without WebGL, or before it is drawn, the initial shows.
+- **Stage** — the resident in full, standing and waving beside their
+  profile when they are selected (the spotlight at the top of the feed): a
+  live canvas that waves for about 2.4 s, stands for about 2.2 s, and turns
+  gently. With reduced motion it draws one still frame mid-wave. Without
+  WebGL or a model, the large avatar stands in.
+
+**Where it lives** (`web-app/src/components/`):
+
+| File | Role |
+|---|---|
+| `residents/models/residentPalette.ts` | The only colours a model may use; the one file there allowed a colour literal |
+| `residents/models/residentFigure.ts` | The shared body (`buildFigure`), `hairCap`, and `poseResident` (`IDLE`, `WAVE`) |
+| `residents/models/<persona_id>.ts` | One file per resident, exporting `build<Name>(): ResidentRig` |
+| `residents/models/residentModels.ts` | The registry: `model_key` → builder |
+| `residents/models/residentScene.ts` | Studio lighting, the portrait camera and the full-body camera |
+| `residents/models/avatarSnapshot.ts` | The shared offscreen renderer behind the avatar |
+| `residents/useResidentStage.ts`, `ResidentStage.tsx` | The live stage, lazy-loaded |
+| `hooks/useResidentAvatar.ts` | Draws each avatar once per page load and caches it |
+| `three/threeKit.ts`, `three/webgl.ts` | Shared with Mapv2 (moved out of `mapv2/`) |
+
+**Style rules.**
+
+1. **Mii-like proportions from the shared figure.** Every resident starts
+   from `buildFigure`: a big round head (radius 0.27) on a short, rounded
+   body, about 1.4 m, facing +x with y up. A resident's file changes only
+   build (`SLIGHT`, `AVERAGE`, `BROAD`), height (0.9–1.1) and colours, then
+   adds hair, clothes and props. No custom bodies.
+2. **The same face for everyone.** White eyes with dark pupils, brows, a
+   small smile. Glasses and the like line up with `EYE_HEIGHT` and
+   `EYE_SPACING`.
+3. **Flat-shaded low-poly**, using the `threeKit` helpers (`solid`, `box`,
+   `mesh`, `place`), the same look as the Mapv2 trucks and crew.
+4. **Colours from the palette only, muted.** At most one bright note per
+   resident (Juniper's reflective sash and helmet stripe).
+5. **Readable at 32 px.** A resident's character should come through in
+   the avatar: a hat, glasses or hair silhouette, not small details.
+6. **Nothing real or official.** No text, logos, badges or uniforms that
+   read as a real agency; no likeness of a real person.
+7. **Poses are rotations only**, so `poseResident` can run every frame;
+   the joint layout matches the Mapv2 crew's, for a later dive-in.
+
+**Enforced, not reviewed.**
+
+- Lint (`web-app/eslint.config.js`) rejects any colour literal in
+  `residents/models/` outside the palette file, and caps each file there
+  at 120 lines.
+- `residentModels.test.ts` builds every registered model and checks it is
+  a full rig, stays under 3,000 triangles, and uses only palette colours;
+  every sample resident's `model_key` must have a model.
+- Three.js loads only with the avatar renderer or the stage (a separate
+  chunk), never in the main bundle.
+
+**Adding a resident's model.**
+
+1. Write `residents/models/<persona_id>.ts` from `buildFigure`.
+2. Register it in `residentModels.ts`.
+3. Set `"model_key": "<persona_id>"` in their seed.
+
+The launch three: Hawthorn (broad; rust shirt, cream apron and baker's cap,
+dark cropped hair), Sycamore (olive cardigan, sand trousers, grey hair, flat
+cap, round glasses), Juniper (slight; teal scrubs, navy trousers, slate bike
+helmet over a bun, reflective sash). Their seeds now carry `model_key`, so
+the next deploy syncs each to version 2.
+
+### R. Follow-ups and deferred items (#58 closed 2026-10-17)
+
+**Follow-up issues.**
+
+| Issue | What |
+|---|---|
+| [#108](https://github.com/seththeeke/nyc-311/issues/108) | Customer stack monitoring, end to end, with its own section in the Monitoring tab |
+| [#109](https://github.com/seththeeke/nyc-311/issues/109) | Migrate the webhook path `/webhooks/bureau` → `/webhooks/boroughsim` (new Prod subscription) |
+| [#110](https://github.com/seththeeke/nyc-311/issues/110) | Contacts: a generic `Contact` entity on BoroughSim, first type `FEATURE_REQUEST`, with a feature request component |
+| [#111](https://github.com/seththeeke/nyc-311/issues/111) | Resident actions: tools to act on ideas, first `REQUEST_FEATURE` via Contacts (depends on #110) |
+
+Also open: [#107](https://github.com/seththeeke/nyc-311/issues/107),
+switching between mock and live data in the browser.
+
+**Deferred, not ticketed.**
+
+- **Prompt `idea-generator@2`.** The first forced runs (2026-10-17) showed:
+  - "nothing to say" chosen two times in three, including once where the stated reason was itself a request;
+  - an idea written as a greeted message rather than a thought;
+  - "not raised before" misread.
+
+  Tighten all three. A new prompt version re-versions every resident.
+- **Turning the page on in Prod:** set `CUSTOMERS_TAB` to `T1` in Prod. That also switches About → LLMs from "Work in progress" to the write-up.
+- **Leftover dials:** `active_hours` no longer drives anything now that each resident's cron sets the timing; decide whether it goes or gains a meaning. No daily idea cap exists in code (Appendix O).
+- **Later tools:** `CHECK_STATUS_API` (needs a public status API) and `BROWSE_WEBSITE` (RPA runner, recordings bucket, and how a recording's result hands back to the loop). Configuring action weights from an Admin screen.
+- **Conversations and responses** on ideas wait for the Case/Contact model.
+- **`Recruiter`,** creating residents automatically, is still a no-op; residents come only from seed files and need hand-written models (Appendix P).
+- **The §6 isolation review:** tests that the lint boundary rules still catch violations.
+- **Remaining §3 items:**
+  - a failure-mode table per hop;
+  - the infrastructure inventory;
+  - ordering once more event types exist.
+- **Partial filter counts.** The feed pages through ideas (3d0b998), but filter counts cover only the loaded pages; server-side counts are a later option.
+- **Paging the resident list.** The list loads one page of 20 residents, which is fine at three.
+- **The Test sink registration** (Appendix H's manual steps), left undone on purpose.
+

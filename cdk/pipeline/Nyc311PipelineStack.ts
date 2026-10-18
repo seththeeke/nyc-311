@@ -246,7 +246,7 @@ export class Nyc311PipelineStack extends Stack {
 
     /*
      * 13-customer-simulation.md — the customer is its own stage, after
-     * DeployProd, so the bureau's Prod deploy has completed before the
+     * DeployProd, so BoroughSim's Prod deploy has completed before the
      * customer is touched and a failed customer deploy leaves it as it was.
      * Prod only: there is no Test customer.
      */

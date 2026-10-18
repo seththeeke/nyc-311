@@ -3,7 +3,7 @@ import { WEBHOOK_EVENT_TYPES } from "./webhookSubscription";
 
 /*
  * The public webhook payload (13-customer-simulation.md §5) — a fat event,
- * so a subscriber never calls the bureau back. One order shape for every
+ * so a subscriber never calls BoroughSim back. One order shape for every
  * event type; `resolved_at` is set only on ORDER_RESOLVED. Additive-only:
  * new fields may appear, a breaking change gets a new event name.
  * Deliberately absent: SLA, priority, operator, stage, costs, location_id.

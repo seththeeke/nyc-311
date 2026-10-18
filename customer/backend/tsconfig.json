@@ -24,6 +24,7 @@
     "service",
     "tests",
     "logger.ts",
-    "env.ts"
+    "env.ts",
+    "residents"
   ]
 }

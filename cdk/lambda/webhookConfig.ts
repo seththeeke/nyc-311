@@ -1,7 +1,7 @@
 import type { Nyc311Environment } from "../stack/Nyc311Stack";
 
 /*
- * Shared constants for the bureau's outbound webhooks
+ * Shared constants for BoroughSim's outbound webhooks
  * (13-customer-simulation.md §5). SSM names are lowercase paths, not
  * env-suffixed physical names — a parameter hierarchy follows its own
  * convention, like the ALL_CAPS carve-outs in CLAUDE.md §6.

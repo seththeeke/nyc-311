@@ -1,7 +1,7 @@
 import { Group, type Mesh, type MeshBasicMaterial, type MeshStandardMaterial, RingGeometry, type Scene } from "three";
 import { buildCrew, type CrewRig } from "./crewModel";
 import { buildCone, buildDebris, buildPatch, buildPothole, buildRoller, type RollerRig } from "./props";
-import { box, createPuffPool, glow, mesh, type PuffPool, solid } from "./threeKit";
+import { box, createPuffPool, glow, mesh, type PuffPool, solid } from "../../three/threeKit";
 import { buildTruck, type TruckRig } from "./truckModel";
 
 /*

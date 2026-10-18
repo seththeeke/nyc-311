@@ -15,7 +15,7 @@ The repo root will contain exactly four top-level working directories:
 - `backend/` — Lambda/application code
 - `cdk/` — AWS CDK (TypeScript) infrastructure
 - `customer/` — the simulated customer (`13-customer-simulation.md`), a
-  real outsider to the bureau. Holds one package, `customer/backend/`
+  real outsider to BoroughSim. Holds one package, `customer/backend/`
   (§5.4). Its infrastructure lives in `cdk/customer/` (§5.3). Added
   2026-10-13; the Directory Lock below applies to it exactly as it does
   to the other three.
@@ -157,8 +157,8 @@ go the other way):**
   `import.meta.env.VITE_DATA_MODE === "live"` directly in each service (not
   via `config.ts`), so a live build folds it to a constant and tree-shakes
   the mock class and `test-data/` out. One service may also read its own
-  override, falling back to `VITE_DATA_MODE`: `customerService` reads
-  `VITE_CUSTOMER_DATA_MODE`, so a live dev server can show customer mocks
+  override, falling back to `VITE_DATA_MODE`: `residentService` reads
+  `VITE_RESIDENT_DATA_MODE`, so a live dev server can show resident mocks
   while their API does not exist; the pipeline never sets it. Mock state lives on the Mock class
   instance, never module scope. `vite.config.ts`'s `liveBundleGuard` fails
   any live build that still ships test-data or a mock credential. Keeping
@@ -221,7 +221,7 @@ The backend will follow a basic controller, service, and data access object(DAO)
      the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
      — plus the SQS-triggered consumer that folds accepted/resolved Orders into
      the live workspace metric buckets (`12-UX-workspace-refactor.md`)
-  -> webhook - controller endpoints for the bureau's outbound lifecycle
+  -> webhook - controller endpoints for BoroughSim's outbound lifecycle
      webhooks (`13-customer-simulation.md` §5): the SQS-triggered dispatch
      Lambda (one public event -> one delivery message per ACTIVE
      subscription) and the SQS-triggered delivery Lambda (sign + POST). The
@@ -395,7 +395,7 @@ rule sets.
 only**, deployed by its own `DeployCustomer` pipeline stage after
 `DeployProd`. It shares nothing with `Nyc311Stack`: its own HTTP API,
 certificate and domain, table, Lambdas and roles, with no cross-stack
-reference in either direction. The customer reaches the bureau only
+reference in either direction. The customer reaches BoroughSim only
 through public URLs. The one shared resource is a DNS record in the
 `boroughsim.com` hosted zone. Its Prod-only resources keep the `-Prod`
 suffix.
@@ -405,9 +405,9 @@ suffix.
 - Nothing outside `cdk/customer/` imports from it, except
   `cdk/pipeline/Nyc311CustomerStage.ts`, the stage file that instantiates
   the stack.
-- `cdk/customer/` imports no bureau construct directory.
+- `cdk/customer/` imports no BoroughSim construct directory.
 - `local/customer-boundary` bans a `customer` path segment in any string
-  in bureau CDK code and a `backend` path segment in any string under
+  in BoroughSim CDK code and a `backend` path segment in any string under
   `cdk/customer/` — a Lambda's code is named by a path string, which an
   import ban alone would never catch. `cdk/customer/customerBackendRoot.ts`
   is the one sanctioned file that names `customer/backend`.
@@ -415,7 +415,7 @@ suffix.
   the string rule does not apply to it (its commands name
   `customer/backend`); the import ban still does.
 - A template test asserts the customer stack imports no values and names
-  no bureau resource; an IAM test asserts its roles reach only its own
+  no BoroughSim resource; an IAM test asserts its roles reach only its own
   resources.
 
 -> cdk
@@ -494,11 +494,21 @@ package's `eslint.config.js`), not review conventions.
 
 -> customer/backend
  -> logger.ts, env.ts - copied from backend/
+ -> residents - one JSON seed file per resident (`13-customer-simulation.md`
+    §2 customer side, decision 2), bundled into the seed-sync Lambda; each
+    must also be listed in `service/resident/residentSeeds.ts` (a test checks)
  -> controller
-  -> webhook - the HTTP listener the bureau POSTs lifecycle events to
- -> service - grouped into logical processing services
- -> dao - grouped by the entity stored; dao.ts is the copied base
+  -> webhook - the HTTP listener BoroughSim POSTs lifecycle events to
+  -> resident - the seed-sync custom resource (CloudFormation, on deploy)
+  -> idea - the idea worker, one EventBridge schedule per resident
+  -> read - the public read API, one Lambda for every GET route
+ -> service - grouped into logical processing services (webhook, resident,
+    idea, read)
+ -> dao - grouped by the entity stored; dao.ts is the copied base, cursor.ts
+    the shared page-cursor codec
   -> webhookCustomerFacingOrder - the customer's own row per order in play
+  -> resident - `Residents`: CURRENT plus immutable version rows
+  -> residentIdea - `ResidentIdeas`: ideas and per-order thread rows
  -> models - one file each, TS type + zod schema, plus the error types
  -> tests - mirrors the structure above
 

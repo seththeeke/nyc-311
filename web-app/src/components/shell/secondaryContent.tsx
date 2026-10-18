@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
 import { matchPath } from "react-router-dom";
-import { PersonaPanel } from "../customers/PersonaPanel";
-import { ResidentDetailPanel } from "../customers/ResidentDetailPanel";
-import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../customers/residentRoutes";
+import { PersonaPanel } from "../residents/PersonaPanel";
+import { ResidentDetailPanel } from "../residents/ResidentDetailPanel";
+import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../residents/residentRoutes";
 
 /*
  * Routes that drive the secondary workspace with their own content
