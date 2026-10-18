@@ -647,9 +647,6 @@ export class Nyc311Stack extends Stack {
 
     const workspaceMetricsApiLambda = new Nyc311WorkspaceMetricsApiLambda(this, "Nyc311WorkspaceMetricsApiLambda", {
       envName: props.envName,
-      jobRunsTable: warehouseJobRunsTable,
-      warehouseBucket,
-      featureFlagsTable,
       liveWorkspaceMetricsTable,
     });
 

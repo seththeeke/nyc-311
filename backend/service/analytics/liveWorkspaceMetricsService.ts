@@ -10,9 +10,6 @@ import type { OrderEvent } from "../../models/order";
 import type { WorkspaceMetricId, WorkspaceMetrics, WorkspaceMetricValue } from "../../models/workspaceMetrics";
 import { addDays, newYorkDate, weekStartOf, weekToDateDays } from "./newYorkWeek";
 
-/** `source_job` on a live response — there is no warehouse job behind it. */
-export const LIVE_SOURCE_NAME = "live";
-
 const SECONDS_PER_HOUR = 3600;
 
 /* All three constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
@@ -205,9 +202,6 @@ export async function getLiveWorkspaceMetrics(deps: LiveWorkspaceMetricsDeps = {
   ) as Record<WorkspaceMetricId, WorkspaceMetricValue>;
 
   const response: WorkspaceMetrics = {
-    source: "LIVE",
-    source_job: LIVE_SOURCE_NAME,
-    job_run_id: null,
     computed_at: now.toISOString(),
     week_start: weekStart,
     previous_week_start: previousWeekStart,

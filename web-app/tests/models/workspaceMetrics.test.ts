@@ -7,29 +7,23 @@ describe("WorkspaceMetricsSchema", () => {
     expect(WorkspaceMetricsSchema.parse(MOCK_WORKSPACE_METRICS)).toEqual(MOCK_WORKSPACE_METRICS);
   });
 
-  it("accepts the all-null shape of a job that hasn't run", () => {
+  it("accepts null metric values, e.g. no resolutions yet or no week before", () => {
     const empty = { current: null, previous: null };
     const parsed = WorkspaceMetricsSchema.safeParse({
-      source_job: "wbr",
-      job_run_id: null,
-      computed_at: null,
-      week_start: null,
-      previous_week_start: null,
-      metrics: { REQUESTS_ACCEPTED: empty, SERVICED: empty, MEAN_TIME_TO_RESOLVE_HOURS: empty, MEDIAN_TIME_TO_RESOLVE_HOURS: empty, TOTAL_COST: empty },
+      ...MOCK_WORKSPACE_METRICS,
+      metrics: { REQUESTS_ACCEPTED: { current: 0, previous: null }, SERVICED: empty, MEAN_TIME_TO_RESOLVE_HOURS: empty, MEDIAN_TIME_TO_RESOLVE_HOURS: empty, TOTAL_COST: empty },
     });
     expect(parsed.success).toBe(true);
   });
 
-  it("defaults source to WBR for a response from an API that predates the field", () => {
-    const legacy: Record<string, unknown> = { ...MOCK_WORKSPACE_METRICS };
-    delete legacy.source;
-    expect(WorkspaceMetricsSchema.parse(legacy).source).toBe("WBR");
+  it("ignores fields the old wbr-backed response carried", () => {
+    const legacy = { ...MOCK_WORKSPACE_METRICS, source: "LIVE", source_job: "live", job_run_id: null };
+    expect(WorkspaceMetricsSchema.parse(legacy)).toEqual(MOCK_WORKSPACE_METRICS);
   });
 
-  it("accepts a live response and rejects an unknown source", () => {
-    const live = { ...MOCK_WORKSPACE_METRICS, source: "LIVE", source_job: "live", job_run_id: null };
-    expect(WorkspaceMetricsSchema.parse(live).source).toBe("LIVE");
-    expect(WorkspaceMetricsSchema.safeParse({ ...MOCK_WORKSPACE_METRICS, source: "CACHE" }).success).toBe(false);
+  it("rejects a missing or malformed week start", () => {
+    expect(WorkspaceMetricsSchema.safeParse({ ...MOCK_WORKSPACE_METRICS, week_start: null }).success).toBe(false);
+    expect(WorkspaceMetricsSchema.safeParse({ ...MOCK_WORKSPACE_METRICS, previous_week_start: "Sep 14" }).success).toBe(false);
   });
 
   it("rejects a response missing a metric", () => {

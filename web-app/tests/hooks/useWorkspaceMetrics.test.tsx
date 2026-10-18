@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useWorkspaceMetrics, workspaceMetricsRefetchInterval } from "../../src/hooks/useWorkspaceMetrics";
+import { useWorkspaceMetrics, WORKSPACE_METRICS_REFETCH_INTERVAL_MS } from "../../src/hooks/useWorkspaceMetrics";
 import { workspaceMetricsService } from "../../src/services/workspaceMetricsService";
 import { MOCK_WORKSPACE_METRICS } from "../../src/test-data/workspaceMetrics";
 
@@ -36,13 +36,8 @@ describe("useWorkspaceMetrics", () => {
   });
 });
 
-describe("workspaceMetricsRefetchInterval", () => {
-  it("polls live values at the fleet map's 15-second cadence", () => {
-    expect(workspaceMetricsRefetchInterval("LIVE")).toBe(15_000);
-  });
-
-  it("keeps the 5-minute poll for the daily wbr report, and before the first response", () => {
-    expect(workspaceMetricsRefetchInterval("WBR")).toBe(300_000);
-    expect(workspaceMetricsRefetchInterval(undefined)).toBe(300_000);
+describe("WORKSPACE_METRICS_REFETCH_INTERVAL_MS", () => {
+  it("polls at the fleet map's 15-second cadence", () => {
+    expect(WORKSPACE_METRICS_REFETCH_INTERVAL_MS).toBe(15_000);
   });
 });

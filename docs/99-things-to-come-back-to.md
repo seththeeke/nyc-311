@@ -297,7 +297,8 @@ See [#74](https://github.com/seththeeke/nyc-311/issues/74).
 
 ## Clean up the LIVE_METRICS_DASHBOARD feature flag and the wbr tile read path (by 2026-11-03)
 
-See [#76](https://github.com/seththeeke/nyc-311/issues/76).
+**Code removed 2026-10-17.** The flag rows in Test and Prod are deleted by
+hand once that deploy is live. See [#76](https://github.com/seththeeke/nyc-311/issues/76).
 
 ---
 

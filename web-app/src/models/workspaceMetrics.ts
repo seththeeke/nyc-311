@@ -2,10 +2,9 @@ import { z } from "zod";
 
 /*
  * Mirrors backend/models/workspaceMetrics.ts — `GET /workspace/metrics`,
- * the secondary workspace's metric tiles. Each metric is the latest
- * week's value plus the week before (for a week-over-week delta); `null`
- * means the source report has no value. Parsed at the service boundary
- * (CLAUDE.md §5.1).
+ * the secondary workspace's metric tiles: this New York week to date
+ * (Monday through today) against the same days of the week before.
+ * `null` means no value yet. Parsed at the service boundary (CLAUDE.md §5.1).
  */
 export const WORKSPACE_METRIC_IDS = [
   "REQUESTS_ACCEPTED",
@@ -22,22 +21,13 @@ export const WorkspaceMetricValueSchema = z.object({
 });
 export type WorkspaceMetricValue = z.infer<typeof WorkspaceMetricValueSchema>;
 
-/*
- * Where the values came from: the weekly `wbr` warehouse job, or the live
- * week-to-date day buckets (week = Monday through today, New York time;
- * `previous` = the same days of the week before). Defaults to WBR so a
- * response from an API that predates this field still parses.
- */
-export const WORKSPACE_METRICS_SOURCES = ["WBR", "LIVE"] as const;
-export type WorkspaceMetricsSource = (typeof WORKSPACE_METRICS_SOURCES)[number];
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const WorkspaceMetricsSchema = z.object({
-  source: z.enum(WORKSPACE_METRICS_SOURCES).default("WBR"),
-  source_job: z.string().min(1),
-  job_run_id: z.string().nullable(),
-  computed_at: z.string().nullable(),
-  week_start: z.string().nullable(),
-  previous_week_start: z.string().nullable(),
+  computed_at: z.string().min(1),
+  /** Monday of the current New York week. */
+  week_start: IsoDate,
+  previous_week_start: IsoDate,
   metrics: z.object({
     REQUESTS_ACCEPTED: WorkspaceMetricValueSchema,
     SERVICED: WorkspaceMetricValueSchema,

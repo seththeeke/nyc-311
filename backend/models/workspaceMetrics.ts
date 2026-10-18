@@ -2,11 +2,10 @@ import { z } from "zod";
 
 /*
  * `GET /workspace/metrics` response — the secondary workspace's metric
- * tiles, shaped for the web-app so no report parsing happens client-side.
- * Each metric carries the latest week's value and the week before it (for
- * a week-over-week delta); `null` means the report has no value for it,
- * including when its column doesn't exist in the report yet.
- * The web-app mirrors this (`web-app/src/models/workspaceMetrics.ts`).
+ * tiles, from the live day buckets: this New York week to date against
+ * the same days of the week before. `null` means no value (e.g. no
+ * resolutions yet, or no buckets for the previous week). The web-app
+ * mirrors this (`web-app/src/models/workspaceMetrics.ts`).
  */
 export const WORKSPACE_METRIC_IDS = [
   "REQUESTS_ACCEPTED",
@@ -23,19 +22,11 @@ export const WorkspaceMetricValueSchema = z.object({
 });
 export type WorkspaceMetricValue = z.infer<typeof WorkspaceMetricValueSchema>;
 
-/* Where the values came from: the weekly `wbr` warehouse job, or the live week-to-date day buckets. */
-export const WORKSPACE_METRICS_SOURCES = ["WBR", "LIVE"] as const;
-export type WorkspaceMetricsSource = (typeof WORKSPACE_METRICS_SOURCES)[number];
-
 export const WorkspaceMetricsSchema = z.object({
-  source: z.enum(WORKSPACE_METRICS_SOURCES),
-  /** The warehouse job the values come from; `"live"` when `source` is `LIVE`. */
-  source_job: z.string().min(1),
-  /** `null` until that job has produced a result. */
-  job_run_id: z.string().nullable(),
-  computed_at: z.string().nullable(),
-  week_start: z.string().nullable(),
-  previous_week_start: z.string().nullable(),
+  computed_at: z.string().min(1),
+  /** Monday of the current New York week, `YYYY-MM-DD`. */
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  previous_week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   metrics: z.object({
     REQUESTS_ACCEPTED: WorkspaceMetricValueSchema,
     SERVICED: WorkspaceMetricValueSchema,

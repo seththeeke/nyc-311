@@ -12,15 +12,15 @@ import { WorkspaceMetricsSchema } from "../../models/workspaceMetrics";
 const ROUTE = "/workspace/metrics";
 
 describe("GET /workspace/metrics against a live API", () => {
-  it("returns 200 with well-formed metrics from whichever source LIVE_METRICS_DASHBOARD selects here", async () => {
+  it("returns 200 with this week to date against the week before, both starting on a Monday", async () => {
     const { status, body } = await getJson(ROUTE, ROUTE);
     expect(status).toBe(200);
 
     const metrics = WorkspaceMetricsSchema.parse(body);
-    expect(metrics.source_job).toBe(metrics.source === "LIVE" ? "live" : "wbr");
-    if (metrics.week_start !== null && metrics.previous_week_start !== null) {
-      expect(metrics.week_start > metrics.previous_week_start).toBe(true);
+    for (const day of [metrics.week_start, metrics.previous_week_start]) {
+      expect(new Date(`${day}T12:00:00Z`).getUTCDay()).toBe(1);
     }
+    expect(metrics.week_start > metrics.previous_week_start).toBe(true);
   });
 
   it("responds with CORS headers allowing the local-dev origin", async () => {

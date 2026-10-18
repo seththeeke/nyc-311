@@ -587,7 +587,15 @@ the report doesn't have yet: a missing column makes only that metric
 says "no data yet" while the rest render. **No WIP tiles remain**; the
 `WORK_IN_PROGRESS` status and badge stay in place for future tiles.
 
-**Live week-to-date source behind `LIVE_METRICS_DASHBOARD` (2026-10-04).** The map
+**Live week-to-date source (2026-10-04; the only source since 2026-10-17).** The
+`LIVE_METRICS_DASHBOARD` flag and the tiles' `wbr` read path were removed on
+2026-10-17 (#76), after Prod had run on `T1` since 2026-10-05.
+`GET /workspace/metrics` now always reads the live day buckets. The response
+dropped `source`, `source_job` and `job_run_id`, and `computed_at`, `week_start`
+and `previous_week_start` are never null. The tiles always poll every 15s and
+caption "week to date from <Monday>". The history below describes the rollout.
+
+**Original rollout (2026-10-04).** The map
 polls live every 15s while the five `wbr` tiles lagged by up to a day, so the two
 disagreed. `GET /workspace/metrics` now has a second source, chosen per request by
 the `LIVE_METRICS_DASHBOARD` feature flag: `C` (control, and the fallback when the

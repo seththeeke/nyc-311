@@ -1,10 +1,9 @@
 -- v1 `wbr` (weekly business review) job — v1-prod-deployment.md F8.
 -- Applied by hand as the `wbr` warehouse job in Test, then Prod (identical SQL).
 -- One row per ISO week, trailing 12 weeks. Every value is a varchar (job results
--- are stored as strings). The workspace tiles read these columns by name
--- (backend/service/analytics/workspaceMetricsService.ts METRIC_COLUMNS):
--- orders_accepted, orders_resolved, avg_resolution_hours,
--- median_resolution_hours, total_cost. Don't rename them.
+-- are stored as strings). The weekly reporting source of record; since
+-- 2026-10-17 the workspace tiles no longer read it (they read the live day
+-- buckets, 12-UX-workspace-refactor.md), so its columns are free to change.
 --
 -- Rules this follows:
 -- * Counts come from order_events (append-only), never COUNT(*) on

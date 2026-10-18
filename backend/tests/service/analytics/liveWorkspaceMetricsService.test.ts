@@ -230,7 +230,7 @@ describe("recordWorkspaceMetricEvent — other events and defaults", () => {
       const result = await getLiveWorkspaceMetrics();
 
       expect(ddbMock.commandCalls(TransactWriteCommand)).toHaveLength(1);
-      expect(result.source).toBe("LIVE");
+      expect(result.week_start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it("fails loudly when the table name isn't configured", async () => {
@@ -259,9 +259,6 @@ describe("getLiveWorkspaceMetrics", () => {
 
     expect(m.getDayBuckets).toHaveBeenCalledWith(["2026-10-05", "2026-10-06", "2026-10-07", "2026-09-28", "2026-09-29", "2026-09-30"]);
     expect(WorkspaceMetricsSchema.parse(result)).toEqual({
-      source: "LIVE",
-      source_job: "live",
-      job_run_id: null,
       computed_at: "2026-10-07T15:00:00.000Z",
       week_start: "2026-10-05",
       previous_week_start: "2026-09-28",

@@ -151,22 +151,39 @@ runs** (CLAUDE.md §3), and every CLI call uses `--profile nyc311`.
 ## Part E — Post-dial-up verification
 
 **First 6–12 hours**
-- [ ] First poll (within 6h): the `PollCompleted` log has `records_ingested > 0`, and the Ingestion Monitoring page shows the cursor advancing with `is_stale: false`.
-- [ ] Requests → Orders: Street Condition Orders with a BBL reach `SCHEDULE`. Everything else is `REJECTED` with the correct `reason_code`.
-- [ ] Within the next hour, a scheduling run dispatches Orders to IDLE vehicles, and `Nyc311OrderExecution-Prod` shows RUNNING executions.
-- [ ] The first executions reach `SUCCEEDED` in real time (roughly transit + processing from F5), and the vehicles return to IDLE.
+- [x] First poll (within 6h): the `PollCompleted` log has `records_ingested > 0`, and the Ingestion Monitoring page shows the cursor advancing with `is_stale: false`.
+- [x] Requests → Orders: Street Condition Orders with a BBL reach `SCHEDULE`. Everything else is `REJECTED` with the correct `reason_code`.
+- [x] Within the next hour, a scheduling run dispatches Orders to IDLE vehicles, and `Nyc311OrderExecution-Prod` shows RUNNING executions.
+- [x] The first executions reach `SUCCEEDED` in real time (roughly transit + processing from F5), and the vehicles return to IDLE.
 
 **First `wbr` run**
-- [ ] Warehouse freshness, checked by hand since there's no alarm per Q8: new objects under the warehouse bucket's `order_events` prefix are less than 1h old.
-- [ ] The `wbr` run succeeds. `GET /workspace/metrics` in Prod returns non-null values, and the Serviced, MTTR, and Total Cost tiles are all live.
+- [x] Warehouse freshness, checked by hand since there's no alarm per Q8: new objects under the warehouse bucket's `order_events` prefix are less than 1h old.
+- [x] The `wbr` run succeeds. `GET /workspace/metrics` in Prod returns non-null values, and the Serviced, MTTR, and Total Cost tiles are all live.
 
-**Check-ins at 24h, 7 days, and 30 days**
-- [ ] Fleet utilization and SCHEDULE backlog. Is the fleet size keeping up with the ~300/day Street Condition volume (Q1)? Adjust by hand if not.
-- [ ] Execution-failure rate from `wbr` (Q3/F6). This decides whether retry caps or a sweeper are needed.
-- [ ] `LOCATION_UNRESOLVED` rejection rate (Q2). This decides when to build the location fallback.
-- [ ] DLQ depths: `Nyc311OrderEvaluationDlq-Prod`, `Nyc311PollerDlq-Prod`, `Nyc311OrderSchedulingDlq-Prod`.
-- [ ] Cost to date against the $20 budget, via Cost Explorer grouped by service.
-- [ ] Warehouse freshness, again by hand (Q8).
+**Check-ins at 24h, 7 days, and 30 days** (24h and 7d done; see the 2026-10-17 results below. 30d is due 2026-11-03.)
+- [x] Fleet utilization and SCHEDULE backlog. Is the fleet size keeping up with the ~300/day Street Condition volume (Q1)? Adjust by hand if not. **No, see below.**
+- [x] Execution-failure rate from `wbr` (Q3/F6). This decides whether retry caps or a sweeper are needed.
+- [x] `LOCATION_UNRESOLVED` rejection rate (Q2). This decides when to build the location fallback.
+- [x] DLQ depths: `Nyc311OrderEvaluationDlq-Prod`, `Nyc311PollerDlq-Prod`, `Nyc311OrderSchedulingDlq-Prod`.
+- [x] Cost to date against the $20 budget, via Cost Explorer grouped by service. **Over, see below.**
+- [x] Warehouse freshness, again by hand (Q8).
+- [ ] 30-day check-in (2026-11-03): repeat the six checks above.
+
+**Results, 2026-10-17 (day 13)**
+
+All read-only: public GET endpoints and AWS CLI reads with `--profile nyc311`. The early items (first poll through first `wbr`) are ticked on the evidence of the 13 days since: 63 polls, 534 executions, 14 `wbr` runs. Each wasn't checked at its own hour.
+
+| Check | Result |
+|---|---|
+| Poller | 63 runs since 2026-10-03, 6 failed, all on NYC SODA 500/503 and recovered next run. Cursor `is_stale: false`, but `lag_hours` is **82.8** (watermark 2026-10-14T15:41): it is catching up 10,000 rows a run, often re-reading duplicates. Tracked in #72. |
+| Executions | `Nyc311OrderExecution-Prod` since 2026-10-04: 534 SUCCEEDED, 5 RUNNING, **0** FAILED, TIMED_OUT or ABORTED. |
+| Execution-failure rate | `wbr`: 0.0 every week, 0 `STAGE_FAILED`. No retry cap, sweeper or alarm needed yet. |
+| `LOCATION_UNRESOLVED` | `wbr` `location_unresolved_rate`: 0.67 (week of 9-28), 0.54 (10-05), 0.59 (10-12, partial), against Test's 0.60 baseline. More than half of Street Condition is still rejected for location. This is the case for #69. |
+| Fleet and backlog | 5 trucks (3 WORKING, 2 TRANSIT at check time). The fleet resolves ~250/week against ~400–555 accepted/week, so the SCHEDULE backlog grows by roughly 25–40 a day. MTTR (`wbr` avg): 4.2 h → 44.4 h → 115.7 h. Live tiles agree: this week 430 accepted, 257 serviced, mean 121 h. **The fleet is undersized.** Accepted volume is ~60–80/day, not the ~300/day Q1 assumed. Sizing at ~250 resolved/week for 5 trucks puts break-even near 10–11 trucks. |
+| DLQs | All 12 `Nyc311*Dlq-Prod` queues at 0. No CloudWatch alarm in ALARM. `Nyc311LiveWorkspaceMetricsDlqDepthAlarm-Prod` has never left OK. |
+| Warehouse freshness | Newest `data/order_events/` object was 2 minutes old. |
+| `wbr` | 14 of 14 scheduled runs SUCCEEDED. Every other warehouse job SUCCEEDED too. |
+| Cost | October to date **$28.28**, forecast **$53.50**, against the $20 `Nyc311MonthlyCost` budget. CodeBuild $16.58 + CodePipeline $3.18 = 70%. Everything else is ~$8.50 to date (DynamoDB $3.98 the largest), on pace for ~$15/month. CI alone trips the budget, so per #73, decide whether to raise it, exclude CodeBuild/CodePipeline from it, or cut CI minutes. The browser smoke step (2026-10-17) adds MEDIUM CodeBuild minutes to every run. |
 
 ## Part G — Deferred register (intentional, with a home)
 

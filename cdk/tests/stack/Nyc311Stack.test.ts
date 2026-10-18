@@ -140,10 +140,9 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "Nyc311WorkspaceMetricsApi-Test",
       Environment: {
-        Variables: Match.objectLike({
-          FEATURE_FLAGS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^FeatureFlagsTable") },
+        Variables: {
           LIVE_WORKSPACE_METRICS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^LiveWorkspaceMetricsTable") },
-        }),
+        },
       },
     });
   });

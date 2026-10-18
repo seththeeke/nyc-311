@@ -8,13 +8,6 @@ import { z } from "zod";
  * warehouseJobRun.ts.
  */
 
-/** Feature flag choosing the tiles' source. Remove with the WBR read path once T1 is permanent. */
-export const LIVE_METRICS_FLAG_KEY = "LIVE_METRICS_DASHBOARD";
-/** Control: tiles read the latest `wbr` warehouse job run (the pre-flag behavior). */
-export const LIVE_METRICS_CONTROL_TREATMENT = "C";
-/** Treatment 1: tiles read the live day buckets. */
-export const LIVE_METRICS_LIVE_TREATMENT = "T1";
-
 /* The week boundary: Monday 00:00 in this zone, i.e. the midnight that ends Sunday. */
 export const LIVE_METRICS_TIME_ZONE = "America/New_York";
 

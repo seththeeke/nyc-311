@@ -95,9 +95,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName });
   const workspaceMetricsApiLambda = new Nyc311WorkspaceMetricsApiLambda(stack, "Nyc311WorkspaceMetricsApiLambda", {
     envName,
-    jobRunsTable: warehouseJobRunsTable,
-    warehouseBucket,
-    featureFlagsTable,
     liveWorkspaceMetricsTable,
   });
   const usersTable = new UsersTable(stack, "UsersTable", { envName });

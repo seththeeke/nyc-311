@@ -1,15 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorkspaceMetrics } from "../../../service/analytics/workspaceMetricsService";
+import { getLiveWorkspaceMetrics } from "../../../service/analytics/liveWorkspaceMetricsService";
 import { getWorkspaceMetricsController } from "../../../controller/web-api/getWorkspaceMetricsController";
 import type { WorkspaceMetrics } from "../../../models/workspaceMetrics";
 
-vi.mock("../../../service/analytics/workspaceMetricsService", () => ({ getWorkspaceMetrics: vi.fn() }));
-const mocked = vi.mocked(getWorkspaceMetrics);
+vi.mock("../../../service/analytics/liveWorkspaceMetricsService", () => ({ getLiveWorkspaceMetrics: vi.fn() }));
+const mocked = vi.mocked(getLiveWorkspaceMetrics);
 
 const METRICS: WorkspaceMetrics = {
-  source: "WBR",
-  source_job: "wbr",
-  job_run_id: "01WBR",
   computed_at: "2026-09-26T06:00:00.000Z",
   week_start: "2026-09-21",
   previous_week_start: "2026-09-14",

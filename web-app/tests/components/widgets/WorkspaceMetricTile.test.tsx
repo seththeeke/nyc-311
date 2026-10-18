@@ -20,51 +20,23 @@ function returns(state: Partial<UseQueryResult<WorkspaceMetrics, Error>>): void 
 
 const loaded = (data: WorkspaceMetrics) => returns({ data, isPending: false, isError: false });
 
-describe("the live metric widgets", () => {
+describe("the metric widgets", () => {
   it.each([
-    [RequestsAcceptedWidget, "411", "Requests accepted: 411, week of Sep 21, ↓ 95% vs. last week"],
-    [ServicedWidget, "411", "Serviced: 411, week of Sep 21, ↓ 51% vs. last week"],
-    [MeanTimeToResolveWidget, "1h 01m", "Mean time to resolve: 1h 01m, week of Sep 21, ↓ 99% vs. last week"],
-    [MedianTimeToResolveWidget, "57m", "Median time to resolve: 57m, week of Sep 21, ↓ 82% vs. last week"],
-    [TotalCostWidget, "$421,380", "Total cost: $421,380, week of Sep 21, ↓ 8% vs. last week"],
-  ])("renders the latest week with its week-over-week delta", (Widget, value, name) => {
+    [RequestsAcceptedWidget, "411", "Requests accepted: 411, week to date from Sep 21, ↓ 95% vs. last week"],
+    [ServicedWidget, "411", "Serviced: 411, week to date from Sep 21, ↓ 51% vs. last week"],
+    [MeanTimeToResolveWidget, "1h 01m", "Mean time to resolve: 1h 01m, week to date from Sep 21, ↓ 99% vs. last week"],
+    [MedianTimeToResolveWidget, "57m", "Median time to resolve: 57m, week to date from Sep 21, ↓ 82% vs. last week"],
+    [TotalCostWidget, "$421,380", "Total cost: $421,380, week to date from Sep 21, ↓ 8% vs. last week"],
+  ])("renders the week to date with its change against the same days of the week before", (Widget, value, name) => {
     loaded(MOCK_WORKSPACE_METRICS);
     render(<Widget />);
     expect(screen.getByText(value)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveAccessibleName(name);
-    expect(screen.getByRole("status")).toHaveAttribute("data-tooltip", "week of Sep 21 vs. week of Sep 14");
+    expect(screen.getByRole("status")).toHaveAttribute("data-tooltip", "week to date from Sep 21 vs. the same days of the week before");
   });
 });
 
-describe("the live (week-to-date) source", () => {
-  const LIVE: WorkspaceMetrics = {
-    ...MOCK_WORKSPACE_METRICS,
-    source: "LIVE",
-    source_job: "live",
-    job_run_id: null,
-    week_start: "2026-10-05",
-    previous_week_start: "2026-09-28",
-  };
-
-  it("labels the value as week to date and the comparison as the same days of the week before", () => {
-    loaded(LIVE);
-    render(<ServicedWidget />);
-    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 411, week to date from Oct 5, ↓ 51% vs. last week");
-    expect(screen.getByRole("status")).toHaveAttribute(
-      "data-tooltip",
-      "week to date from Oct 5 vs. the same days of the week before",
-    );
-  });
-
-  it("captions with the week to date when the previous week has no live data yet", () => {
-    loaded({ ...LIVE, metrics: { ...LIVE.metrics, SERVICED: { current: 0, previous: null } } });
-    render(<ServicedWidget />);
-    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 0, week to date from Oct 5");
-    expect(screen.getByText("week to date from Oct 5")).toBeInTheDocument();
-  });
-});
-
-describe("a report missing a widget's column", () => {
+describe("a metric with no value yet", () => {
   it("shows no data yet for that tile while the others still render", () => {
     loaded({ ...MOCK_WORKSPACE_METRICS, metrics: { ...MOCK_WORKSPACE_METRICS.metrics, TOTAL_COST: { current: null, previous: null } } });
     render(
@@ -99,21 +71,11 @@ describe("WorkspaceMetricTile", () => {
     expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: no data yet");
   });
 
-  it("shows no data yet when the job hasn't produced a week", () => {
-    loaded({ ...MOCK_WORKSPACE_METRICS, week_start: null });
+  it("captions with the week to date when the week before has no value to compare against", () => {
+    loaded({ ...MOCK_WORKSPACE_METRICS, metrics: { ...MOCK_WORKSPACE_METRICS.metrics, SERVICED: { current: 0, previous: null } } });
     render(tile);
-    expect(screen.getByText("no data yet")).toBeInTheDocument();
-  });
-
-  it("captions with the week when there's no prior week to compare against", () => {
-    loaded({
-      ...MOCK_WORKSPACE_METRICS,
-      previous_week_start: null,
-      metrics: { ...MOCK_WORKSPACE_METRICS.metrics, SERVICED: { current: 290, previous: null } },
-    });
-    render(tile);
-    expect(screen.getByText("week of Sep 21")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 290, week of Sep 21");
-    expect(screen.getByRole("status")).toHaveAttribute("data-tooltip", "week of Sep 21");
+    expect(screen.getByText("week to date from Sep 21")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAccessibleName("Serviced: 0, week to date from Sep 21");
+    expect(screen.getByRole("status")).toHaveAttribute("data-tooltip", "week to date from Sep 21");
   });
 });
