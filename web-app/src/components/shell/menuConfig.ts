@@ -21,15 +21,13 @@ export interface MenuLeaf {
  * How a flag shapes a link. With `showOn`, the link appears only on those
  * treatments (loading, missing and failed flags read as off). With
  * `hideOn`, it appears unless the flag is on one of those (loading,
- * missing and failed read as on, so nothing blinks out). `labelOn` and
- * `alsoActiveOnFor` adjust the label and highlighted paths per treatment,
- * and `iconOn` the icon.
+ * missing and failed read as on, so nothing blinks out). `alsoActiveOnFor`
+ * and `iconOn` adjust the highlighted paths and the icon per treatment.
  */
 export interface MenuFlagRule {
   key: string;
   showOn?: readonly string[];
   hideOn?: readonly string[];
-  labelOn?: Readonly<Record<string, string>>;
   alsoActiveOnFor?: Readonly<Record<string, readonly string[]>>;
   iconOn?: Readonly<Record<string, ComponentType<IconProps>>>;
 }
@@ -72,14 +70,13 @@ export const MENU: readonly MenuEntry[] = [
   {
     kind: "LINK",
     id: "MAP_V2",
-    label: "Mapv2",
+    label: "Map",
     to: MAP_V2_PATH,
     alsoActiveOn: [],
     icon: CityIcon,
     featureFlag: {
       key: MAP_V2_FLAG,
       showOn: [MAP_V2_ON, MAP_V2_TAKEOVER],
-      labelOn: { [MAP_V2_TAKEOVER]: "Map" },
       iconOn: { [MAP_V2_TAKEOVER]: MapIcon },
       alsoActiveOnFor: { [MAP_V2_TAKEOVER]: ["/about"] },
     },
@@ -140,7 +137,6 @@ export function resolveFlaggedLink(entry: MenuLinkEntry, treatment: string | nul
   if (resolved === null) return entry;
   return {
     ...entry,
-    label: rule.labelOn?.[resolved] ?? entry.label,
     icon: rule.iconOn?.[resolved] ?? entry.icon,
     alsoActiveOn: [...entry.alsoActiveOn, ...(rule.alsoActiveOnFor?.[resolved] ?? [])],
   };

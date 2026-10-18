@@ -15,8 +15,8 @@
 | Treatment | Sidebar | `/` and `/about` | `/mapv2` |
 |---|---|---|---|
 | `C` (Prod default) | Classic **Map** only | Classic Leaflet map | Redirects to `/` |
-| `T1` (Test default) | Classic **Map**, plus **Mapv2** under it | Classic Leaflet map | 3-D city |
-| `T2` | One **Map** entry, pointing at `/mapv2`; classic entry hidden | `/` redirects to `/mapv2`; `/about` shows the 3-D city under the About drawer | 3-D city |
+| `T1` (Test default) | Classic **Map**, plus a second **Map** (3-D, city icon) under it | Classic Leaflet map | 3-D city |
+| `T2` | One **Map** entry (classic icon), pointing at `/mapv2`; classic entry hidden | `/` redirects to `/mapv2`; `/about` shows the 3-D city under the About drawer | 3-D city |
 
 Mock data mode defaults `MAP_V2` to `T1`.
 
@@ -31,7 +31,7 @@ Under `T2`, the takeover only happens when the browser can create a WebGL2 conte
 - **Menu flag rules:** menu entries now carry a `MenuFlagRule` (`menuConfig.ts`) instead of a yes/no treatment.
   - `showOn`: shown only on these treatments.
   - `hideOn`: shown unless on these treatments.
-  - `labelOn` and `alsoActiveOnFor`: per-treatment label and highlighted paths.
+  - `alsoActiveOnFor` and `iconOn`: per-treatment highlighted paths and icon. The 3-D entry is labelled "Map" on every treatment (it was "Mapv2" under `T1` until 2026-10-17).
   - The pure resolver `resolveFlaggedLink` applies a rule. `FlaggedMenuLink` replaced `FeatureGate`, which was deleted.
 - **Secondary panel:** it opens on `/mapv2/*`, like the classic map (it opened collapsed until 2026-10-17).
 - **Existing map code:** `FleetMap`, `OperatorTrail`, `HomePage` and the fleet API are untouched.

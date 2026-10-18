@@ -15,15 +15,15 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly five primary entries in order: Map, Mapv2, Residents, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "Mapv2", "Residents", "System Monitoring", "Admin"]);
+  it("has exactly five primary entries in order: Map (classic), Map (/mapv2), Residents, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Map", "Residents", "System Monitoring", "Admin"]);
   });
 
-  it("flags the classic Map (hidden on MAP_V2 = T2), Mapv2 (T1/T2) and Residents (CUSTOMERS_TAB = T1)", () => {
+  it("flags the classic Map (hidden on MAP_V2 = T2), the 3-D Map (T1/T2) and Residents (CUSTOMERS_TAB = T1)", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
     expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2", "RESIDENTS"]);
     expect(flagged[0]).toMatchObject({ to: "/", featureFlag: { key: "MAP_V2", hideOn: ["T2"] } });
-    expect(flagged[1]).toMatchObject({ to: "/mapv2", featureFlag: { key: "MAP_V2", showOn: ["T1", "T2"], labelOn: { T2: "Map" } } });
+    expect(flagged[1]).toMatchObject({ to: "/mapv2", featureFlag: { key: "MAP_V2", showOn: ["T1", "T2"] } });
     expect(flagged[2]).toMatchObject({ to: "/residents", featureFlag: { key: "CUSTOMERS_TAB", showOn: ["T1"] } });
   });
 
@@ -107,7 +107,7 @@ describe("resolveFlaggedLink", () => {
     expect(resolveFlaggedLink(mapV2, undefined)).toBeNull();
     expect(resolveFlaggedLink(mapV2, null)).toBeNull();
     expect(resolveFlaggedLink(mapV2, "C")).toBeNull();
-    expect(resolveFlaggedLink(mapV2, "T1")).toMatchObject({ label: "Mapv2", alsoActiveOn: [] });
+    expect(resolveFlaggedLink(mapV2, "T1")).toMatchObject({ label: "Map", to: "/mapv2", alsoActiveOn: [] });
   });
 
   it("relabels and widens the active paths per treatment", () => {

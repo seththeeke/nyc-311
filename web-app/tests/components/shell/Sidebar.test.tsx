@@ -9,7 +9,7 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* No flag resolves here, so show-on entries (Mapv2, Residents) stay hidden; their own tests set treatments. */
+/* No flag resolves here, so show-on entries (the 3-D Map, Residents) stay hidden; their own tests set treatments. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
   useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
   useFeatureEnabled: vi.fn(() => false),
@@ -271,22 +271,24 @@ describe("Sidebar flagged entries", () => {
     expect(useFeatureTreatment).toHaveBeenCalledWith("CUSTOMERS_TAB");
   });
 
-  it("MAP_V2 = T1: shows Mapv2 directly under the classic Map, highlighted on a job dive-in", () => {
+  it("MAP_V2 = T1: shows the 3-D Map directly under the classic Map, highlighted on a job dive-in", () => {
     withTreatments({ MAP_V2: "T1" });
     renderSidebar({ path: "/mapv2/job/01MOCKORDER001" });
     const links = screen.getAllByRole("link").map((link) => link.textContent);
-    expect(links.indexOf("Mapv2")).toBe(links.indexOf("Map") + 1);
+    const maps = screen.getAllByRole("link", { name: "Map" });
+    expect(maps.map((link) => link.getAttribute("href"))).toEqual(["/", "/mapv2"]);
+    expect(links.lastIndexOf("Map")).toBe(links.indexOf("Map") + 1);
     expect(links).not.toContain("Residents");
-    expect(screen.getByRole("link", { name: "Mapv2" })).toHaveAttribute("aria-current", "page");
+    expect(maps[1]).toHaveAttribute("aria-current", "page");
+    expect(maps[0]).not.toHaveAttribute("aria-current");
   });
 
-  it("MAP_V2 = T2: hides the classic Map and renames Mapv2 to Map, still at /mapv2 and active on /about", () => {
+  it("MAP_V2 = T2: hides the classic Map, leaving one Map at /mapv2, active on /about", () => {
     withTreatments({ MAP_V2: "T2" });
     renderSidebar({ path: "/about" });
     const maps = screen.getAllByRole("link", { name: "Map" });
     expect(maps).toHaveLength(1);
     expect(maps[0]).toHaveAttribute("href", "/mapv2");
     expect(maps[0]).toHaveAttribute("aria-current", "page");
-    expect(screen.queryByRole("link", { name: "Mapv2" })).not.toBeInTheDocument();
   });
 });
