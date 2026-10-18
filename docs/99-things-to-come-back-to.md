@@ -371,6 +371,13 @@ run, closes on merge.
 
 ---
 
+## Nyc311Stack is approaching CloudFormation's 500-resource-per-stack hard limit (444/500 Test, 433/500 Prod)
+
+See [#105](https://github.com/seththeeke/nyc-311/issues/105) — needs a
+human-reviewed NestedStack (or similar) plan; no code change this run.
+
+---
+
 ## Rename the customer's webhook path `/webhooks/bureau` → `/webhooks/boroughsim`
 
 Tracked as [#109](https://github.com/seththeeke/nyc-311/issues/109).
