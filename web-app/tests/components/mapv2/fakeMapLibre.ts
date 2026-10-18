@@ -28,6 +28,8 @@ export class FakeMap {
   off = vi.fn((type: string, handler: Handler) => {
     this.handlers.set(type, (this.handlers.get(type) ?? []).filter((h) => h !== handler));
   });
+  cameraForBounds = vi.fn((): { center?: [number, number]; zoom?: number } | undefined => ({ center: [-73.97, 40.7], zoom: 10.5 }));
+  triggerRepaint = vi.fn();
   project = vi.fn(({ 0: lng, 1: lat }: [number, number]) => ({ x: lng, y: lat }));
 
   constructor(options: Record<string, unknown>) {

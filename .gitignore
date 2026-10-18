@@ -15,3 +15,5 @@ backend/tests/integration/reports/
 .claude/settings.local.json
 311-test-data/*.json
 __pycache__/
+web-app/test-results/
+web-app/playwright-report/

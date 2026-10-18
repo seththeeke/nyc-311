@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { useShellLayout } from "../../hooks/useShellLayout";
-import { pathStartsSecondaryCollapsed } from "./menuConfig";
+import { pathIsInAnySection } from "./menuConfig";
 import { SecondaryWorkspace } from "./SecondaryWorkspace";
 import { Sidebar } from "./Sidebar";
 import { TooltipLayer } from "./TooltipLayer";
@@ -23,7 +23,7 @@ const FLOATING_BUTTON_CLASSES =
  */
 export function WorkspaceShell({ children }: WorkspaceShellProps): ReactElement {
   const { pathname } = useLocation();
-  const layout = useShellLayout(pathname, pathStartsSecondaryCollapsed(pathname));
+  const layout = useShellLayout(pathname, pathIsInAnySection(pathname));
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-surface text-fg">

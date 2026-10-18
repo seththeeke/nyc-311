@@ -6,7 +6,7 @@ import { IDLE_OPERATOR, WORKING_OPERATOR } from "./fixtures";
 describe("CityHud", () => {
   it("counts the fleet by activity and shows it's live", () => {
     render(<CityHud operators={[IDLE_OPERATOR, WORKING_OPERATOR, { ...IDLE_OPERATOR, operator_id: "2" }]} isLoading={false} error={null} yieldWhenNarrow={false} />);
-    expect(screen.getByRole("heading", { name: "NYC Fleet · 3-D" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fleet" })).toBeInTheDocument();
     expect(screen.getByText("Live")).toBeInTheDocument();
     const counts = screen.getAllByRole("listitem").map((li) => li.textContent);
     expect(counts).toEqual(["Idle2", "In transit0", "Working1"]);

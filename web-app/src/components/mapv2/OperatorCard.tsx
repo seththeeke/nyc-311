@@ -17,7 +17,7 @@ export function OperatorCard({ operator, onDive, onClose, diving }: OperatorCard
   const color = ACTIVITY_COLOR[operator.current_activity];
   const order = operator.current_order;
   return (
-    <section aria-label={`${operator.name} details`} className={`${GLASS} absolute top-16 right-44 z-10 w-80 p-4 @max-3xl:left-4 @max-3xl:w-auto motion-safe:animate-[fade-in-up_300ms_ease-out]`}>
+    <section aria-label={`${operator.name} details`} className={`${GLASS} pointer-events-auto w-80 shrink-0 p-4 motion-safe:animate-[fade-in-up_300ms_ease-out]`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-fg">{operator.name}</h2>

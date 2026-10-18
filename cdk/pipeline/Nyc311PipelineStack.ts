@@ -10,6 +10,7 @@ import { Nyc311AppStage } from "./Nyc311AppStage";
 import { Nyc311CustomerStage } from "./Nyc311CustomerStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
 import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
+import { createBrowserSmokeTestStep } from "./Nyc311BrowserSmokeTestStep";
 import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
 import { createIntegrationTestStep } from "./Nyc311IntegrationTestStep";
 import { WEBSITE_HOSTING_TARGETS } from "./websiteHostingTargets";
@@ -196,8 +197,11 @@ export class Nyc311PipelineStack extends Stack {
       source,
     });
 
+    /* docs/14-maps-refactor.md §4.8 — the 3-D map drawn in a real browser; blocking, like the integration tests above. */
+    const browserSmokeTestsTest = createBrowserSmokeTestStep({ id: "BrowserSmokeTestsTest", source });
+
     pipeline.addStage(deployTestStage, {
-      post: [publishCoverageTest, integrationTestsTest],
+      post: [publishCoverageTest, integrationTestsTest, browserSmokeTestsTest],
     });
 
     /*

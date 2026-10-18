@@ -7,7 +7,8 @@ import { box, createPuffPool, glow, mesh, type PuffPool, solid } from "../../thr
  * A city utility truck (~8.5 m, faces +x) whose look follows its
  * activity: TRANSIT drives (wheels, headlights, exhaust), WORKING parks
  * with a spinning beacon and a pulse on the ground, IDLE breathes a dim
- * glow. Activity colour comes from the classic map's palette.
+ * glow. The body is painted in its activity colour (the classic map's
+ * palette), with white stripes, so it stands off the grey city.
  */
 
 export const TRUCK_LENGTH_M = 8.5;
@@ -31,6 +32,7 @@ interface Parts {
   beacon: Group;
   beaconLens: MeshStandardMaterial;
   beams: Group;
+  /** Materials tinted with the activity colour, recoloured on each activity change. */
   accent: MeshStandardMaterial[];
   halo: MeshBasicMaterial;
   pulse: Mesh;
@@ -54,8 +56,8 @@ function buildWheels(body: Group): Mesh[] {
   return wheels;
 }
 
-function buildBody(body: Group, accent: MeshStandardMaterial): void {
-  const paint = solid("#eef1f5", { roughness: 0.45, metalness: 0.15 });
+function buildBody(body: Group, paint: MeshStandardMaterial): void {
+  const accent = solid("#ffffff", { emissive: "#ffffff", emissiveIntensity: 0.35, roughness: 0.4 });
   body.add(box(8, 0.45, 2.1, solid("#2b2f37"), [0, 0.95, 0]));
   body.add(box(2.3, 2.1, 2.4, paint, [2.85, 2.15, 0]));
   body.add(box(0.08, 1.0, 2.1, solid("#0f1a2b", { emissive: "#5aa9ff", emissiveIntensity: 0.25, metalness: 0.6 }), [4.02, 2.55, 0]));
@@ -105,15 +107,15 @@ export function buildTruck(activity: OperatorActivity): TruckRig {
   const ground = new Group();
   root.add(ground, body);
   const color = ACTIVITY_COLOR[activity];
-  const accentMaterial = solid(color, { emissive: color, emissiveIntensity: 0.55 });
-  buildBody(body, accentMaterial);
+  const paintMaterial = solid(color, { emissive: color, emissiveIntensity: 0.3, roughness: 0.4, metalness: 0.15 });
+  buildBody(body, paintMaterial);
   const { beacon, lens } = buildBeacon(body);
   const beams = buildBeams();
   body.add(beams);
   const exhaust = createPuffPool({ count: 7, color: "#9aa3b2", size: 0.22, growTo: 4, rise: [-2.4, 3.2, 0], lifetimeSeconds: 1.8, maxOpacity: 0.45 });
   exhaust.group.position.set(-3.9, 1.0, 0.9);
   body.add(exhaust.group);
-  const parts: Parts = { wheels: buildWheels(body), beacon, beaconLens: lens, beams, accent: [accentMaterial], exhaust, ...buildGround(ground, color) };
+  const parts: Parts = { wheels: buildWheels(body), beacon, beaconLens: lens, beams, accent: [paintMaterial], exhaust, ...buildGround(ground, color) };
 
   const rig: TruckRig = {
     root,

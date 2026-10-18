@@ -14,7 +14,7 @@ vi.mock("../../../src/components/mapv2/fleetOverlays", async (importOriginal) =>
   ...(await importOriginal<typeof import("../../../src/components/mapv2/fleetOverlays")>()),
   syncOverlays: (...args: unknown[]) => syncOverlays(...args),
 }));
-const { useCityMap, OVERVIEW, frameClock } = await import("../../../src/components/mapv2/useCityMap");
+const { useCityMap, OVERVIEW, NYC_BOUNDS, frameClock } = await import("../../../src/components/mapv2/useCityMap");
 import type { CityMapRuntime } from "../../../src/components/mapv2/useCityMap";
 
 let runtime: CityMapRuntime | null = null;
@@ -60,7 +60,8 @@ describe("useCityMap", () => {
     expect(map.options).toMatchObject({ zoom: 9.6, pitch: 0, maxPitch: 80 });
     expect(runtime).toBeNull();
     act(() => map.fire("load"));
-    expect(map.easeTo).toHaveBeenCalledWith(expect.objectContaining({ zoom: OVERVIEW.zoom, pitch: OVERVIEW.pitch, duration: 4200 }));
+    expect(map.cameraForBounds).toHaveBeenCalledWith(NYC_BOUNDS, expect.objectContaining({ bearing: OVERVIEW.bearing }));
+    expect(map.easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [-73.97, 40.7], zoom: 11.05, pitch: OVERVIEW.pitch, duration: 4200 }));
     expect(runtime?.map).toBe(map);
     expect(runtime?.fleet.size).toBe(1);
   });
@@ -71,6 +72,27 @@ describe("useCityMap", () => {
     expect(map.options).toMatchObject({ zoom: OVERVIEW.zoom, pitch: OVERVIEW.pitch });
     act(() => map.fire("load"));
     expect(map.easeTo).not.toHaveBeenCalled();
+    expect(map.jumpTo).toHaveBeenCalledWith(expect.objectContaining({ zoom: 11.05, pitch: OVERVIEW.pitch }));
+  });
+
+  it("redraws once a lost WebGL context is restored", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    render(<Probe />);
+    const map = lastMap();
+    map.fire("webglcontextlost");
+    expect(map.triggerRepaint).not.toHaveBeenCalled();
+    map.fire("webglcontextrestored");
+    expect(map.triggerRepaint).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it("falls back to the fixed overview when the bounds can't be fitted", () => {
+    render(<Probe reducedMotion />);
+    const map = lastMap();
+    map.cameraForBounds.mockReturnValue(undefined);
+    act(() => map.fire("load"));
+    expect(map.jumpTo).toHaveBeenCalledWith(OVERVIEW);
   });
 
   it("adds the fleet layer and overlays on every style load, once each", () => {

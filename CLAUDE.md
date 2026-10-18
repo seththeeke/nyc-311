@@ -132,6 +132,10 @@ web-app/
    -> pages
   -> models
  -> test-data - this is baked test data for any "in memory" modes and should be lightweight
+ -> tests/smoke - Playwright real-browser smoke tests (`*.spec.ts`, not run by
+    Vitest), run against a deployed site by the pipeline's
+    `BrowserSmokeTestsTest` step (`14-maps-refactor.md` §4.8)
+ -> public - static assets served as-is (e.g. `nyc-boroughs.geojson`)
 
 **Decisions filled in below (Claude's best guess — flag anything that should
 go the other way):**
@@ -190,6 +194,7 @@ file** (lines/functions/branches/statements) — no exception for `web-app`.
 | `npm run lint` | `eslint .` |
 | `npm run test` | `vitest run` |
 | `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% (`testing-framework.md` §2) |
+| `npm run test:smoke` | `playwright test` — real-browser smoke tests against `SMOKE_BASE_URL` (default `https://test.boroughsim.com`); not part of the coverage gate |
 
 These are the concrete commands CLAUDE.md §2's Operational Loop runs against
 this package once code exists here.

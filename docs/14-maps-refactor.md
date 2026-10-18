@@ -1,6 +1,6 @@
 # Maps refactor — Mapv2, the 3-D city map
 
-**Status (2026-10-15):** built and behind the `MAP_V2` flag. Test defaults to `T1`, Prod to `C`. Frontend only: no backend, CDK or API changes.
+**Status (2026-10-17):** built and behind the `MAP_V2` flag. Test defaults to `T1`, Prod to `C`. Pre-`T2` pass done 2026-10-17 (§8): context-loss recovery, pinned versions, a pipeline browser smoke test, and a UI polish round. No backend or API changes; the only CDK change is that pipeline step.
 
 **Read this first.** Mapv2 was built quickly as a prototype ("vibe coded") to prove the look and the interaction, not as hardened production code. It passes the normal gates: build, lint, tests and the 90% per-file coverage gate. But nothing exercises it in a real browser with a real GPU, and Three.js has failure modes this repo has never had to guard against. Section 4 lists the guardrails to add, and section 5 lists the assumptions the frontend makes. Work through both before setting `T2` in Prod.
 
@@ -33,7 +33,7 @@ Under `T2`, the takeover only happens when the browser can create a WebGL2 conte
   - `hideOn`: shown unless on these treatments.
   - `labelOn` and `alsoActiveOnFor`: per-treatment label and highlighted paths.
   - The pure resolver `resolveFlaggedLink` applies a rule. `FlaggedMenuLink` replaced `FeatureGate`, which was deleted.
-- **Secondary panel:** it opens collapsed on `/mapv2/*` (`pathStartsSecondaryCollapsed`).
+- **Secondary panel:** it opens on `/mapv2/*`, like the classic map (it opened collapsed until 2026-10-17).
 - **Existing map code:** `FleetMap`, `OperatorTrail`, `HomePage` and the fleet API are untouched.
 
 ### 1.3 Architecture
@@ -72,8 +72,10 @@ React components and hooks are tested against a fake MapLibre map (`tests/compon
 
 **City view**
 
-- Opens with an establishing shot: from flat at zoom 9.6 to a tilted overview of all five boroughs at zoom 11.2. Home returns to that overview.
-- Trucks are procedural low-poly models, coloured by activity with the classic map's palette (`fleetActivityStyle.ts`).
+- Opens with an establishing shot: from flat at zoom 9.6 to a tilted overview of all five boroughs. The overview is fitted to the workspace's size (`overviewCamera`: `cameraForBounds` over `NYC_BOUNDS`, plus a zoom gain for the tilt), so Staten Island stays in view whether or not the secondary panel is open. Home returns to it.
+- Each borough has its own tint and outline (`mapStyle.ts`), strongest at the overview and fading as you zoom in. The shapes are NYC Open Data's shoreline-clipped borough boundaries, simplified to about 70 KB and served from `public/nyc-boroughs.geojson`.
+- The HUD is one row from the top left: the **Fleet** summary, the roster beside it, and the selected vehicle's card to the right of the roster. It wraps when the workspace is narrow.
+- Trucks are procedural low-poly models. The body is painted in the activity colour from the classic map's palette (`fleetActivityStyle.ts`), with white stripes.
   - `TRANSIT`: headlight beams, exhaust and spinning wheels. The truck glides to each new poll position.
   - `WORKING`: rotating beacon, a pulse along the ground, and a work zone of cones and two animated crew that unfolds around it.
   - `IDLE`: a breathing halo.
@@ -97,8 +99,11 @@ React components and hooks are tested against a fake MapLibre map (`tests/compon
 ## 2. Rollout plan
 
 1. **Now:** Test is on `T1`, Prod is on `C`. Iterate in Test and in mock mode (§6).
-2. Before switching Prod to `T1`, do at least §4.1 (error boundary), §4.2 (context loss) and §4.3 (draw-call budget).
-3. Before switching Prod to `T2`, also do §4.6 (tile hosting) and §4.8 (a real-browser smoke test in the pipeline). `T2` takes over the landing page, so a WebGL crash there would hit every visitor.
+2. **Revised 2026-10-17:** the gate for Prod `T2` is §4.2 (context loss), §4.7 (pinned versions) and §4.8 (the pipeline smoke test), all done. Decided against holding it for:
+   - §4.1, the error boundary: open, see §8;
+   - §4.3, the draw-call budget: left open, not a concern at today's fleet size;
+   - §4.6, tile hosting: OpenFreeMap is accepted as stable enough, with no fallback, since the classic map it would fall back to is being removed.
+3. Switch Prod to `T2` on Admin → Feature Flags once a pipeline run with the smoke test has passed in Test.
 4. Once `T2` has held in Prod, delete the classic map (`FleetMap`, `OperatorTrail`, `FleetMapWidget`, Leaflet), the `T1` path and then the flag, in that order.
 
 ---
@@ -129,12 +134,14 @@ Nothing catches an exception from MapLibre or Three.js. That includes a shader c
 - **Under `T2`:** the boundary should also send the user to the classic map.
 - **Log it:** capture the error so it's visible.
 
-### 4.2 WebGL context loss
+### 4.2 WebGL context loss — done 2026-10-17
 
-Neither renderer listens for `webglcontextlost` or `webglcontextrestored`. A lost context happens on GPU resets, when a laptop sleeps, or when the browser evicts contexts (Chrome allows about 16 per page). The result is a frozen or black canvas until the page is refreshed.
+A lost context happens on GPU resets, when a laptop sleeps, or when the browser evicts contexts (Chrome allows about 16 per page).
 
-- **Add:** handlers that tear down and rebuild `FleetScene`/`DiveScene` and the renderer.
-- **Two contexts at once:** the dive-in creates a second context while MapLibre's stays alive (paused). Consider releasing MapLibre's during a dive, or sharing one.
+- **Tested in Chrome** with `WEBGL_lose_context`: MapLibre and three's `WebGLRenderer` both rebuild their own GL state on restore, so no scene teardown is needed.
+- **The gap was the city:** it stayed blank until the next interaction, because the fleet layer's repaint loop stopped while the context was gone. `useCityMap` now repaints on `webglcontextrestored` and logs both events.
+- **The dive-in** recovered unaided.
+- **Still open:** the dive-in creates a second context while MapLibre's stays alive (paused). Consider releasing MapLibre's during a dive, or sharing one.
 
 ### 4.3 Draw-call and memory budget
 
@@ -190,15 +197,20 @@ Two more MapLibre-specific workarounds exist:
 
 Guardrails:
 
-- Pin `maplibre-gl` and `three` to exact versions in `package.json`; today they're `^` ranges.
+- `maplibre-gl` (6.14.0) and `three` (0.186.1) are pinned to exact versions in `package.json`, both the latest stable (2026-10-17).
 - Upgrade them only alongside a real-browser smoke test (§4.8).
 - Note: globe projection would break the fleet layer's mercator matrix. Don't enable it without reworking the layer.
 
-### 4.8 Real-browser tests
+### 4.8 Real-browser tests — smoke test added 2026-10-17
 
-All 100+ Mapv2 tests run in happy-dom with a fake map and a mocked renderer. They prove the logic, not that anything actually renders.
+All 100+ Mapv2 unit tests run in happy-dom with a fake map and a mocked renderer. They prove the logic, not that anything actually renders.
 
-- **Add:** a Playwright smoke test against Test, run headless Chromium with SwiftShader (software WebGL).
+- **Done:** `web-app/tests/smoke/mapv2.spec.ts` (`npm run test:smoke`, `@playwright/test` 1.63.0) runs headless Chromium with SwiftShader.
+  - It waits for the city container's `data-state="ready"` (MapLibre's `load`) and checks that the city's screenshot has real colour variety, not a blank canvas.
+  - If a crew is working, it dives into that job and checks the street scene the same way. It skips that part when no crew is working.
+  - It runs in the pipeline as `BrowserSmokeTestsTest` (`cdk/pipeline/Nyc311BrowserSmokeTestStep.ts`), a blocking post-step on DeployTest against `test.boroughsim.com`.
+  - Locally: `SMOKE_BASE_URL=http://localhost:5180 npm run test:smoke` against the mock server.
+- **Original plan, still open:**
   - Load `/mapv2` with the flag on `T1`.
   - Assert that the map's `load` fires and that a frame renders with `renderer.info.render.calls > 0`.
   - Open a dive-in deep link and assert that its canvas renders.
@@ -259,7 +271,7 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
 
 - **T2 users may see a flash of the classic map.** `MapV2TakeoverRoute` shows the classic map while the flag loads, so `C`/`T1` users never wait on it. The trade-off: a `T2` user landing on `/` may briefly see Leaflet before the redirect. If that matters, hold `/` blank until the flag resolves.
 - **No-WebGL users under T2.** Without WebGL2 the classic map still works at `/`, but the sidebar has hidden its entry. The logo link still reaches it.
-- **Panel collapse resets on route change.** The secondary panel is collapsed on `/mapv2/*`, and the shell resets that on every route change. Opening the panel and then diving in collapses it again. `/about` under `T2` keeps the panel's normal behaviour.
+- **One Map entry under T2.** It's labelled "Map" with the classic map's icon, and still points at `/mapv2` until the cleanup in §2.
 - **One clock, browser time.** Animation runs on `performance.now()`. Poll glides are timed from when the poll arrives, not when the GPS fix was taken.
 
 ---
@@ -283,17 +295,36 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
 
 ## 7. Follow-up checklist
 
-- [ ] Error boundary around `CityView`/`DiveView`, falling back to the classic map (§4.1)
-- [ ] WebGL context-loss recovery (§4.2)
+- [ ] Error boundary around `CityView`/`DiveView` (§4.1, see §8)
+- [x] WebGL context-loss recovery (§4.2)
 - [ ] Shared geometries/materials, instancing, LOD and idle repaint throttling; a draw-call budget test (§4.3)
 - [ ] A disposal leak test with a real renderer (§4.4)
 - [ ] No per-frame allocation in the render/update paths (§4.5)
-- [ ] Self-hosted PMTiles for the base map (§4.6)
-- [ ] Pin `maplibre-gl` and `three` to exact versions (§4.7)
-- [ ] A Playwright + SwiftShader smoke test in the pipeline (§4.8)
+- [ ] ~~Self-hosted PMTiles for the base map (§4.6)~~ Decided against 2026-10-17: OpenFreeMap is accepted
+- [x] Pin `maplibre-gl` and `three` to exact versions (§4.7)
+- [x] A Playwright + SwiftShader smoke test in the pipeline (§4.8)
 - [ ] A bundle size check on the Mapv2 chunk (§4.9)
 - [ ] Lint: `max-lines` on `mapv2/three/*.ts`; renderer and map construction confined to hooks (§4.10)
 - [ ] API: `current_order.location`, an order stage/progress field and a complaint descriptor in the fleet feed (§5.1)
 - [ ] A "Live" indicator driven by data freshness (§5.1)
 - [ ] Palettes derived from the theme tokens (§5.3)
 - [ ] Once `T2` holds in Prod, remove the classic map, then `T1`, then the flag (§2)
+
+---
+
+## 8. Pre-T2 pass (2026-10-17)
+
+- **Context loss (§4.2):** the city repaints on restore; tested in Chrome.
+- **Versions (§4.7):** pinned.
+- **Smoke test (§4.8):** in the pipeline.
+- **UI:**
+  - The T2 menu entry is "Map" with the classic map's icon.
+  - The HUD title is "Fleet", and the summary card is wider so "In transit" fits on one line.
+  - The roster sits right of the summary, and the vehicle card right of the roster.
+  - Home fits all five boroughs.
+  - The boroughs are tinted and outlined.
+  - The secondary panel opens by default.
+  - Trucks are painted in their activity colour.
+- **Error boundary (§4.1), still open:**
+  - What it covers: errors React sees, i.e. ones thrown while rendering or inside an effect. That includes `new Map(...)` or `new WebGLRenderer(...)` failing to create a context (the WebGL2 probe passed, but the real context fails, e.g. past Chrome's ~16-context limit) and a scene build throwing. Today any of these unmounts the whole app: there's no error boundary anywhere in the web-app, so the page goes white, sidebar included.
+  - What it doesn't cover: errors inside MapLibre's or the dive's frame loop (`requestAnimationFrame`). A boundary never sees those; they freeze the canvas, but the page stays up.

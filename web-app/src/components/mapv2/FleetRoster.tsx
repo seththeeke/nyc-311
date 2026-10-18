@@ -17,7 +17,7 @@ interface FleetRosterProps {
 export function FleetRoster({ operators, selectedId, onSelect }: FleetRosterProps): ReactElement {
   const [open, setOpen] = useState(true);
   return (
-    <section aria-label="Fleet roster" className={`${GLASS} absolute top-16 right-4 z-10 flex max-h-[22%] w-36 flex-col overflow-hidden`}>
+    <section aria-label="Fleet roster" className={`${GLASS} pointer-events-auto flex max-h-72 w-40 shrink-0 flex-col overflow-hidden`}>
       <button
         type="button"
         aria-expanded={open}

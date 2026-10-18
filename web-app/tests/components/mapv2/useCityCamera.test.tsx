@@ -103,7 +103,7 @@ describe("useCityCamera — controls", () => {
     actions!.toggleTilt();
     expect(map.flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ pitch: OVERVIEW.pitch }));
     actions!.resetView();
-    expect(map.flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ zoom: OVERVIEW.zoom, duration: 2200 }));
+    expect(map.flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ zoom: 11.05, pitch: OVERVIEW.pitch, duration: 2200 }));
   });
 
   it("snaps zoom under reduced motion, and every control is a no-op before the map exists", () => {

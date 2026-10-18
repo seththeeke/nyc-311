@@ -15,9 +15,9 @@ interface CityHudProps {
 /** The title card: what this is, that it's live, and the fleet's activity mix — which doubles as the colour legend. */
 export function CityHud({ operators, isLoading, error, yieldWhenNarrow }: CityHudProps): ReactElement {
   return (
-    <section aria-label="Fleet summary" className={`${GLASS} absolute top-4 left-4 z-10 w-72 p-4 ${yieldWhenNarrow ? "@max-3xl:hidden" : ""}`}>
+    <section aria-label="Fleet summary" className={`${GLASS} pointer-events-auto w-80 shrink-0 p-4 ${yieldWhenNarrow ? "@max-3xl:hidden" : ""}`}>
       <div className="flex items-center justify-between">
-        <h1 className="text-sm font-semibold tracking-[0.18em] text-fg uppercase">NYC Fleet · 3-D</h1>
+        <h1 className="text-sm font-semibold tracking-[0.18em] text-fg uppercase">Fleet</h1>
         {isLoading ? (
           <span role="status" className="flex items-center gap-1.5 text-xs text-fg-muted">
             <SpinnerIcon className="h-3.5 w-3.5" /> Loading
@@ -37,7 +37,7 @@ export function CityHud({ operators, isLoading, error, yieldWhenNarrow }: CityHu
           const count = operators.filter((o) => o.current_activity === activity).length;
           return (
             <li key={activity} className="rounded-xl border border-line/50 bg-panel/60 px-2.5 py-2">
-              <div className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+              <div className="flex items-center gap-1.5 text-[11px] whitespace-nowrap text-fg-muted">
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ACTIVITY_COLOR[activity], boxShadow: `0 0 8px ${ACTIVITY_COLOR[activity]}` }} />
                 {ACTIVITY_MEANING[activity].label}
               </div>

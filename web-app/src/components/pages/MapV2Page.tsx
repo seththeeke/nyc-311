@@ -52,17 +52,20 @@ function MapV2Workspace(): ReactElement {
       />
       {orderId === null && (
         <>
-          <CityHud operators={operators} isLoading={isLoading} error={error} yieldWhenNarrow={selected !== undefined} />
-          <FleetRoster operators={operators} selectedId={selectedId} onSelect={setSelectedId} />
-          {selected && (
-            <OperatorCard
-              key={selected.operator_id}
-              operator={selected}
-              diving={divingId !== null}
-              onDive={() => setDivingId(selected.operator_id)}
-              onClose={() => setSelectedId(null)}
-            />
-          )}
+          {/* One row, left to right: summary, roster, then the selected vehicle; it wraps when the workspace is narrow. Clear of the camera controls on the right. */}
+          <div className="pointer-events-none absolute top-4 right-20 left-4 z-10 flex flex-wrap items-start gap-3">
+            <CityHud operators={operators} isLoading={isLoading} error={error} yieldWhenNarrow={selected !== undefined} />
+            <FleetRoster operators={operators} selectedId={selectedId} onSelect={setSelectedId} />
+            {selected && (
+              <OperatorCard
+                key={selected.operator_id}
+                operator={selected}
+                diving={divingId !== null}
+                onDive={() => setDivingId(selected.operator_id)}
+                onClose={() => setSelectedId(null)}
+              />
+            )}
+          </div>
         </>
       )}
       {orderId !== null && (

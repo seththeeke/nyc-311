@@ -10,6 +10,9 @@ import type { ThemeName } from "../../models/theme";
 export const OPENFREEMAP_TILEJSON = "https://tiles.openfreemap.org/planet";
 const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 export const BASE_SOURCE = "openmaptiles";
+/* NYC Open Data's borough boundaries (gthc-hcne, shoreline-clipped), simplified with mapshaper; served from public/ and made absolute, since MapLibre fetches it from its worker. */
+export const BOROUGH_SOURCE = "nyc-boroughs";
+const BOROUGH_DATA_PATH = "/nyc-boroughs.geojson";
 
 interface Palette {
   background: string;
@@ -30,6 +33,9 @@ interface Palette {
   fog: string;
   light: string;
   lightIntensity: number;
+  /** One tint per borough, keyed by NYC's `borocode` (1 Manhattan … 5 Staten Island). */
+  boroughs: readonly [string, string, string, string, string];
+  boroughFillOpacity: number;
 }
 
 export const PALETTES: Record<ThemeName, Palette> = {
@@ -52,6 +58,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     fog: "#070b14",
     light: "#9db8ff",
     lightIntensity: 0.35,
+    boroughs: ["#22d3ee", "#a78bfa", "#f472b6", "#34d399", "#fbbf24"],
+    boroughFillOpacity: 0.16,
   },
   LIGHT: {
     background: "#eef1f5",
@@ -72,6 +80,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     fog: "#eef1f5",
     light: "#ffffff",
     lightIntensity: 0.45,
+    boroughs: ["#0891b2", "#7c3aed", "#db2777", "#059669", "#d97706"],
+    boroughFillOpacity: 0.12,
   },
 };
 
@@ -90,6 +100,38 @@ function road(id: string, classes: string[], color: string, widthScale: number, 
     filter: ["in", ["get", "class"], ["literal", classes]],
     layout: { "line-cap": "round", "line-join": "round" },
     paint: { "line-color": color, "line-width": roadWidth(widthScale) },
+  };
+}
+
+function boroughColor(p: Palette): ExpressionSpecification {
+  return ["match", ["get", "borocode"], "1", p.boroughs[0], "2", p.boroughs[1], "3", p.boroughs[2], "4", p.boroughs[3], p.boroughs[4]];
+}
+
+/* Strongest at the city overview, so the boroughs read apart; fades to a hint once streets and buildings take over. */
+function boroughFill(p: Palette): LayerSpecification {
+  return {
+    id: "borough-fill",
+    type: "fill",
+    source: BOROUGH_SOURCE,
+    paint: {
+      "fill-color": boroughColor(p),
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 10, p.boroughFillOpacity, 13, p.boroughFillOpacity * 0.5, 15, 0.03],
+    },
+  };
+}
+
+function boroughOutline(p: Palette): LayerSpecification {
+  return {
+    id: "borough-outline",
+    type: "line",
+    source: BOROUGH_SOURCE,
+    layout: { "line-join": "round" },
+    paint: {
+      "line-color": boroughColor(p),
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 14, 2.5],
+      "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.85, 15, 0.35],
+      "line-blur": 0.6,
+    },
   };
 }
 
@@ -112,9 +154,11 @@ function baseLayers(p: Palette): LayerSpecification[] {
       paint: { "fill-color": p.park, "fill-opacity": 0.7 },
     },
     { id: "water", type: "fill", source: BASE_SOURCE, "source-layer": "water", paint: { "fill-color": p.water } },
+    boroughFill(p),
     road("road-minor", ["minor", "service", "track"], p.roadMinor, 0.6, 13),
     road("road-major", ["primary", "secondary", "tertiary", "trunk"], p.roadMajor, 1, 10),
     road("road-highway", ["motorway"], p.roadHighway, 1.3, 8),
+    boroughOutline(p),
   ];
 }
 
@@ -171,7 +215,10 @@ export function buildMapStyle(theme: ThemeName): StyleSpecification {
   return {
     version: 8,
     glyphs: GLYPHS,
-    sources: { [BASE_SOURCE]: { type: "vector", url: OPENFREEMAP_TILEJSON } },
+    sources: {
+      [BASE_SOURCE]: { type: "vector", url: OPENFREEMAP_TILEJSON },
+      [BOROUGH_SOURCE]: { type: "geojson", data: new URL(BOROUGH_DATA_PATH, window.location.origin).href, attribution: "Borough boundaries: NYC Open Data" },
+    },
     sky: {
       "sky-color": p.sky,
       "horizon-color": p.horizon,

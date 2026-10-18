@@ -95,11 +95,9 @@ describe("WorkspaceShell — secondary workspace follows the menu selection", ()
 });
 
 describe("WorkspaceShell — Mapv2", () => {
-  it("opens with the secondary workspace collapsed, but it can be re-opened", async () => {
+  it("opens with the secondary workspace open, like the classic map", () => {
     mockViewport(1400);
     renderShell("/mapv2");
-    expect(screen.queryByRole("complementary", { name: "Secondary workspace" })).not.toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Show secondary panel" }));
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 });

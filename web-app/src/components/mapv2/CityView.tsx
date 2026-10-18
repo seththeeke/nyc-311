@@ -54,7 +54,8 @@ export function CityView(props: CityViewProps): ReactElement {
 
   return (
     <div className="absolute inset-0">
-      <div ref={containerRef} className="h-full w-full" data-testid="mapv2-city" aria-label="3-D map of the fleet across New York City" role="application" />
+      {/* data-state flips to "ready" once MapLibre's first load fires; the real-browser smoke test waits on it. */}
+      <div ref={containerRef} className="h-full w-full" data-testid="mapv2-city" data-state={runtime ? "ready" : "loading"} aria-label="3-D map of the fleet across New York City" role="application" />
       <CameraControls actions={actions} />
     </div>
   );

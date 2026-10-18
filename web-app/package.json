@@ -9,22 +9,24 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:smoke": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",
     "aws-amplify": "^6.22.1",
     "leaflet": "^1.9.4",
-    "maplibre-gl": "^6.14.0",
+    "maplibre-gl": "6.14.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.4",
-    "three": "^0.186.1",
+    "three": "0.186.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.3",

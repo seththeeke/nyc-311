@@ -52,7 +52,7 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("sizes compute per step: Synth LARGE, integration gates MEDIUM, everything else SMALL (CI cost, 2026-10-03)", () => {
+  it("sizes compute per step: Synth LARGE, integration and browser smoke gates MEDIUM, everything else SMALL (CI cost, 2026-10-03)", () => {
     const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map(
       (project) => project.Properties as { Description: string; Environment: { ComputeType: string } }
     );
@@ -62,7 +62,8 @@ describe("Nyc311PipelineStack", () => {
     expect(computeFor("Build/Synth")).toEqual(["BUILD_GENERAL1_LARGE"]);
     expect(computeFor("DeployTest/IntegrationTestsTest")).toEqual(["BUILD_GENERAL1_MEDIUM"]);
     expect(computeFor("DeployProd/IntegrationTestsProd")).toEqual(["BUILD_GENERAL1_MEDIUM"]);
-    const rest = projects.filter((p) => !/\/(Build\/Synth|IntegrationTests(Test|Prod))$/.test(p.Description));
+    expect(computeFor("DeployTest/BrowserSmokeTestsTest")).toEqual(["BUILD_GENERAL1_MEDIUM"]);
+    const rest = projects.filter((p) => !/\/(Build\/Synth|IntegrationTests(Test|Prod)|BrowserSmokeTestsTest)$/.test(p.Description));
     expect(rest.length).toBeGreaterThan(0);
     for (const project of rest) {
       expect(project.Environment.ComputeType).toBe("BUILD_GENERAL1_SMALL");

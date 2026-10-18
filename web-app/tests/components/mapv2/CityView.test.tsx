@@ -34,6 +34,7 @@ describe("CityView", () => {
     render(<CityView {...props} onSelect={vi.fn()} />);
     expect(screen.getByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Camera" })).toBeInTheDocument();
+    expect(screen.getByTestId("mapv2-city")).toHaveAttribute("data-state", "loading");
     expect(useCityMap).toHaveBeenCalledWith(expect.anything(), "DARK", props.operators, null, false);
     expect(useCityCamera).toHaveBeenCalledWith(null, expect.objectContaining({ paused: false, divingId: null }));
   });
@@ -42,6 +43,7 @@ describe("CityView", () => {
     runtime = { map, fleet };
     const onSelect = vi.fn();
     const { unmount } = render(<CityView {...props} onSelect={onSelect} />);
+    expect(screen.getByTestId("mapv2-city")).toHaveAttribute("data-state", "ready");
     act(() => map.fire("click", { point: { x: 12, y: 9 } }));
     act(() => map.fire("click", { point: { x: 500, y: 500 } }));
     expect(onSelect.mock.calls).toEqual([["OP-W"], [null]]);

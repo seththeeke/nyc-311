@@ -3,7 +3,6 @@ import {
   MENU,
   linkIsActive,
   pathIsInAnySection,
-  pathStartsSecondaryCollapsed,
   resolveFlaggedLink,
   sectionContainsPath,
   type MenuLinkEntry,
@@ -94,20 +93,6 @@ describe("linkIsActive", () => {
   });
 });
 
-describe("pathStartsSecondaryCollapsed", () => {
-  it("collapses the secondary panel on monitoring/admin and every Mapv2 route", () => {
-    expect(pathStartsSecondaryCollapsed("/monitoring/pipeline")).toBe(true);
-    expect(pathStartsSecondaryCollapsed("/mapv2")).toBe(true);
-    expect(pathStartsSecondaryCollapsed("/mapv2/job/01MOCKORDER001")).toBe(true);
-  });
-
-  it("keeps it open on the classic map and look-alike paths", () => {
-    expect(pathStartsSecondaryCollapsed("/")).toBe(false);
-    expect(pathStartsSecondaryCollapsed("/residents")).toBe(false);
-    expect(pathStartsSecondaryCollapsed("/mapv2x")).toBe(false);
-  });
-});
-
 describe("resolveFlaggedLink", () => {
   const link = (id: string) => MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === id)!;
   const classic = link("MAP");
@@ -126,7 +111,8 @@ describe("resolveFlaggedLink", () => {
   });
 
   it("relabels and widens the active paths per treatment", () => {
-    expect(resolveFlaggedLink(mapV2, "T2")).toMatchObject({ label: "Map", to: "/mapv2", alsoActiveOn: ["/about"] });
+    expect(resolveFlaggedLink(mapV2, "T2")).toMatchObject({ label: "Map", to: "/mapv2", alsoActiveOn: ["/about"], icon: classic.icon });
+    expect(resolveFlaggedLink(mapV2, "T1")?.icon).toBe(mapV2.icon);
   });
 
   it("hide-on links stay up while loading, missing or on other treatments, and go only on theirs", () => {

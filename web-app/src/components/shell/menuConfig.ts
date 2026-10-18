@@ -22,7 +22,8 @@ export interface MenuLeaf {
  * treatments (loading, missing and failed flags read as off). With
  * `hideOn`, it appears unless the flag is on one of those (loading,
  * missing and failed read as on, so nothing blinks out). `labelOn` and
- * `alsoActiveOnFor` adjust the label and highlighted paths per treatment.
+ * `alsoActiveOnFor` adjust the label and highlighted paths per treatment,
+ * and `iconOn` the icon.
  */
 export interface MenuFlagRule {
   key: string;
@@ -30,6 +31,7 @@ export interface MenuFlagRule {
   hideOn?: readonly string[];
   labelOn?: Readonly<Record<string, string>>;
   alsoActiveOnFor?: Readonly<Record<string, readonly string[]>>;
+  iconOn?: Readonly<Record<string, ComponentType<IconProps>>>;
 }
 
 export interface MenuLinkEntry {
@@ -78,6 +80,7 @@ export const MENU: readonly MenuEntry[] = [
       key: MAP_V2_FLAG,
       showOn: [MAP_V2_ON, MAP_V2_TAKEOVER],
       labelOn: { [MAP_V2_TAKEOVER]: "Map" },
+      iconOn: { [MAP_V2_TAKEOVER]: MapIcon },
       alsoActiveOnFor: { [MAP_V2_TAKEOVER]: ["/about"] },
     },
   },
@@ -138,6 +141,7 @@ export function resolveFlaggedLink(entry: MenuLinkEntry, treatment: string | nul
   return {
     ...entry,
     label: rule.labelOn?.[resolved] ?? entry.label,
+    icon: rule.iconOn?.[resolved] ?? entry.icon,
     alsoActiveOn: [...entry.alsoActiveOn, ...(rule.alsoActiveOnFor?.[resolved] ?? [])],
   };
 }
@@ -157,11 +161,6 @@ export function sectionContainsPath(section: MenuSectionEntry, pathname: string)
 /** True on any monitoring/admin route — the pages that take the full width, so the shell hides the secondary panel. */
 export function pathIsInAnySection(pathname: string): boolean {
   return MENU.some((entry) => entry.kind === "SECTION" && sectionContainsPath(entry, pathname));
-}
-
-/** Routes that open with the secondary panel collapsed: the full-width sections, plus Mapv2, whose 3-D city wants the room. */
-export function pathStartsSecondaryCollapsed(pathname: string): boolean {
-  return pathIsInAnySection(pathname) || pathIsWithin(pathname, MAP_V2_PATH);
 }
 
 /* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents. */

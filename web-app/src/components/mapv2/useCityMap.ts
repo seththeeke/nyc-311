@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
+import { type JumpToOptions, Map as MapLibreMap, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import type { FleetOperatorLocation } from "../../models/fleetLocation";
@@ -24,10 +24,20 @@ export interface CityMapRuntime {
 }
 
 /*
- * The home view: the whole fleet across the boroughs, tilted. Buildings
- * only exist from tile zoom 13 (OpenMapTiles), so they rise as you zoom in.
+ * The home view: all five boroughs, tilted. Buildings only exist from
+ * tile zoom 13 (OpenMapTiles), so they rise as you zoom in. This fixed
+ * camera is the fallback; `overviewCamera` fits the workspace's size.
  */
 export const OVERVIEW = { center: [-73.94, 40.7] as [number, number], zoom: 11.2, pitch: 50, bearing: -20 };
+/** Staten Island's south-west tip to the Bronx's north-east edge. */
+export const NYC_BOUNDS: [[number, number], [number, number]] = [
+  [-74.26, 40.49],
+  [-73.69, 40.92],
+];
+/* Extra room at the top keeps the boroughs below the HUD row; the right clears the camera controls. */
+const OVERVIEW_PADDING = { top: 150, bottom: 30, left: 30, right: 80 };
+/** cameraForBounds fits the bounds flat; tilted, the far half shrinks, so zoom back in to fill the view. */
+const TILT_ZOOM_GAIN = 0.55;
 /** Where the establishing shot starts: high and flat, swinging round into the overview. */
 const ESTABLISHING = { zoom: 9.6, pitch: 0, bearing: -50 };
 const INTRO_MS = 4200;
@@ -40,6 +50,13 @@ const OVERLAYS_BEFORE = "building-3d";
  * at the self-contained worker file, which Vite serves/emits as an asset.
  */
 setWorkerUrl(maplibreWorkerUrl);
+
+/** The overview fitted to the map's current size, so every borough is in view however wide the workspace is. */
+export function overviewCamera(map: MapLibreMap): JumpToOptions {
+  const fit = map.cameraForBounds(NYC_BOUNDS, { bearing: OVERVIEW.bearing, padding: OVERVIEW_PADDING });
+  if (fit?.zoom === undefined) return OVERVIEW;
+  return { ...OVERVIEW, center: fit.center, zoom: fit.zoom + TILT_ZOOM_GAIN };
+}
 
 export function frameClock(): number {
   return performance.now();
@@ -76,8 +93,19 @@ export function useCityMap(
       if (!map.getLayer(FLEET_LAYER_ID)) map.addLayer(layer);
       syncOverlays(map, overlayData.current, OVERLAYS_BEFORE);
     });
+    /*
+     * MapLibre and three both rebuild their GL state after a context loss
+     * (GPU reset, sleep, eviction), but nothing redraws until the next
+     * interaction: the fleet layer's repaint loop stopped while the context was gone.
+     */
+    map.on("webglcontextlost", () => console.warn("mapv2: city WebGL context lost"));
+    map.on("webglcontextrestored", () => {
+      console.warn("mapv2: city WebGL context restored");
+      map.triggerRepaint();
+    });
     map.once("load", () => {
-      if (!initial.current.reducedMotion) map.easeTo({ ...OVERVIEW, duration: INTRO_MS, easing: easeInOutCubic });
+      if (initial.current.reducedMotion) map.jumpTo(overviewCamera(map));
+      else map.easeTo({ ...overviewCamera(map), duration: INTRO_MS, easing: easeInOutCubic });
       setRuntime({ map, fleet, layer });
     });
     return () => {

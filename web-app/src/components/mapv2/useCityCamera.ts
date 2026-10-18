@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { JumpToOptions } from "maplibre-gl";
-import { type CityMapRuntime, frameClock, OVERVIEW } from "./useCityMap";
+import { type CityMapRuntime, frameClock, OVERVIEW, overviewCamera } from "./useCityMap";
 
 /*
  * The city camera's choreography: glide to a truck when it's selected,
@@ -84,6 +84,6 @@ export function useCityCamera(runtime: CityMapRuntime | null, options: CityCamer
     zoomOut: () => runtime?.map.zoomOut({ duration: reducedMotion ? 0 : 400 }),
     rotate: (degrees) => runtime && move({ bearing: runtime.map.getBearing() + degrees }, 700),
     toggleTilt: () => runtime && move({ pitch: runtime.map.getPitch() > 10 ? 0 : OVERVIEW.pitch }, 800),
-    resetView: () => move(OVERVIEW, 2200),
+    resetView: () => runtime && move(overviewCamera(runtime.map), 2200),
   };
 }
