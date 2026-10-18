@@ -5,12 +5,7 @@ import { WarehouseJobNameParamsSchema } from "../../models/warehouseJobRequest";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import { getWarehouseJobSql } from "../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /admin/warehouse/jobs/{name}/sql` (`7-data-warehousing.md` §12b's

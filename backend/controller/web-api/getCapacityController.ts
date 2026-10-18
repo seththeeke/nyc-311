@@ -4,12 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
 import { getCapacityStatus } from "../../service/capacity/capacityService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —

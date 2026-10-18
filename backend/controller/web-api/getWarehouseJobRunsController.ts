@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { listWarehouseJobRuns } from "../../service/analytics/warehouseJobRunsService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /data/jobs` (`7-data-warehousing.md` §12) — most-recent-first

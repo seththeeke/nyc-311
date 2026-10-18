@@ -5,12 +5,7 @@ import { NotFoundError, TerminalError, ValidationError } from "../../models/erro
 import { FlagKeyParamsSchema, UpdateFeatureFlagRequestSchema } from "../../models/featureFlag";
 import { updateFeatureFlag } from "../../service/featureFlag/featureFlagService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `PUT /admin/feature-flags/{flag_key}` (`11-street-condition-implementation.md`

@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
 import { receiveSinkDelivery } from "../../service/webhook/webhookSinkService";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `POST /webhook-sink` — the Test-only sink subscriber

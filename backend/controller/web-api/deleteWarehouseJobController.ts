@@ -5,12 +5,7 @@ import { WarehouseJobNameParamsSchema } from "../../models/warehouseJobRequest";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import { deleteWarehouseJob } from "../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `DELETE /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b,

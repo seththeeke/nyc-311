@@ -2,12 +2,7 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { listFeatureFlags } from "../../service/featureFlag/featureFlagService";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /** `GET /feature-flags` (`11-street-condition-implementation.md` §4.2) — public. */
 export const listFeatureFlagsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {

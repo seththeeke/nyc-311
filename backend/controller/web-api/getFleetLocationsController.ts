@@ -2,12 +2,7 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { getFleetLocations } from "../../service/fleet/fleetLocationService";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /fleet/locations` (`10-capacity-modeling-and-integration.md` §6.1)

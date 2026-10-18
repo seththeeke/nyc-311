@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { listWarehouseJobs } from "../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /**
  * `GET /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —

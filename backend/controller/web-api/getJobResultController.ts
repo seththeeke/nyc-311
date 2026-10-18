@@ -3,12 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { getJobResult } from "../../service/analytics/jobResultService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /* Job names are the `.sql` file basenames — lower_snake_case only (models/warehouseJob.ts). */
 const JOB_NAME_PATTERN = /^[a-z0-9_]+$/;

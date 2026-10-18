@@ -4,14 +4,10 @@ import { ApiGatewayHttpEventSchema, type ApiGatewayHttpEvent } from "../../model
 import { ConflictError, TerminalError, UnauthorizedError, ValidationError } from "../../models/errors";
 import { RegisterWebhookSubscriptionRequestSchema } from "../../models/webhookSubscription";
 import { registerWebhookSubscription } from "../../service/webhook/webhookSubscriptionService";
+import { jsonResponse } from "./jsonResponse";
 
-const JSON_HEADERS = { "Content-Type": "application/json" };
 const API_KEY_HEADER = "x-api-key";
 const REDACTED = "[REDACTED]";
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
 
 /*
  * The one exception to "log the full request" (CLAUDE.md §5.2): this

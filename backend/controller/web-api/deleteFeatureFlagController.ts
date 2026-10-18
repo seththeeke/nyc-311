@@ -5,12 +5,7 @@ import { NotFoundError } from "../../models/errors";
 import { FlagKeyParamsSchema } from "../../models/featureFlag";
 import { deleteFeatureFlag } from "../../service/featureFlag/featureFlagService";
 import { requireAdminUser } from "./requireAdminUser";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
+import { jsonResponse } from "./jsonResponse";
 
 /** `DELETE /admin/feature-flags/{flag_key}` (`11-street-condition-implementation.md` §4.2) — admin-authorized, unconditional. */
 export const deleteFeatureFlagController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
