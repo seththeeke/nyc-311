@@ -222,7 +222,7 @@ All 100+ Mapv2 unit tests run in happy-dom with a fake map and a mocked renderer
 The Mapv2 chunk is about **1.5 MB minified (~430 KB gzipped)**, plus a **~500 KB** MapLibre worker. It's lazy-loaded, so the main bundle (about 327 KB) is unaffected.
 
 - **Under `T2`:** this becomes the landing page's critical path.
-- **Add:** a size check in CI (e.g. `size-limit`) on the Mapv2 chunk.
+- **Done 2026-10-18:** `vite.config.ts`'s `bundleSizeBudgetGuard` fails `npm run build` if the `MapV2Page` or `threeKit` chunk regresses past its byte budget, with ~20% headroom over the measured size — a real regression now fails the build instead of only tripping Vite's advisory warning.
 - **Consider:** preloading the chunk when `MAP_V2` resolves to `T2`.
 
 ### 4.10 Lint and structure rules worth adding
@@ -303,7 +303,7 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
 - [ ] ~~Self-hosted PMTiles for the base map (§4.6)~~ Decided against 2026-10-17: OpenFreeMap is accepted
 - [x] Pin `maplibre-gl` and `three` to exact versions (§4.7)
 - [x] A Playwright + SwiftShader smoke test in the pipeline (§4.8)
-- [ ] A bundle size check on the Mapv2 chunk (§4.9)
+- [x] A bundle size check on the Mapv2 chunk (§4.9)
 - [ ] Lint: `max-lines` on `mapv2/three/*.ts`; renderer and map construction confined to hooks (§4.10)
 - [ ] API: `current_order.location`, an order stage/progress field and a complaint descriptor in the fleet feed (§5.1)
 - [ ] A "Live" indicator driven by data freshness (§5.1)

@@ -414,3 +414,10 @@ BoroughSim side, decision 6), so this is a migration, not an edit:
 Steps 2 and 4 write to Prod (Deploy Safety Gate).
 
 ---
+
+## web-app: no CI-enforced size budget on the Mapv2/threeKit chunks
+
+`14-maps-refactor.md` §4.9's TODO, never picked up. See
+[#113](https://github.com/seththeeke/nyc-311/issues/113).
+
+---
