@@ -1,5 +1,4 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
@@ -17,7 +16,7 @@ import { WEBHOOK_ID_HEADER, verifyWebhook } from "./webhookSignature";
 
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getWebhookCustomerFacingOrderDao(): WebhookCustomerFacingOrderDao {
-  return new WebhookCustomerFacingOrderDao(DynamoDBDocumentClient.from(new DynamoDBClient({})), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
+  return new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
 }
 
 export interface WebhookReceiverDeps {
