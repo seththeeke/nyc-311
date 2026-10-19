@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
-    "@aws-sdk/client-dynamodb": "^3.1144.0",
-    "@aws-sdk/client-ssm": "^3.1149.0",
-    "@aws-sdk/lib-dynamodb": "^3.1144.0",
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/client-ssm": "^3.1152.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
