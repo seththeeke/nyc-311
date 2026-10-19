@@ -1,9 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { decodeCursor } from "../../dao/cursor";
 import { ResidentDao } from "../../dao/resident/residentDao";
 import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
+import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
 import { logInfo } from "../../logger";
 import { NotFoundError, ValidationError } from "../../models/errors";
@@ -22,17 +21,14 @@ export interface ResidentReadDeps {
 }
 
 /* Constructed lazily (CLAUDE.md §5.2) — never module-scope singletons. */
-function documentClient(): DynamoDBDocumentClient {
-  return DynamoDBDocumentClient.from(new DynamoDBClient({}));
-}
 function residentDaoOf(deps: ResidentReadDeps): ResidentDao {
-  return deps.residentDao ?? new ResidentDao(documentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
+  return deps.residentDao ?? new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
 }
 function ideaDaoOf(deps: ResidentReadDeps): ResidentIdeaDao {
-  return deps.ideaDao ?? new ResidentIdeaDao(documentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
+  return deps.ideaDao ?? new ResidentIdeaDao(createDocumentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
 }
 function orderDaoOf(deps: ResidentReadDeps): WebhookCustomerFacingOrderDao {
-  return deps.orderDao ?? new WebhookCustomerFacingOrderDao(documentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
+  return deps.orderDao ?? new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
 }
 
 /** `limit` from the query string: default 20, at most 50 (§2 customer side, decision 9). */

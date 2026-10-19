@@ -421,3 +421,10 @@ Steps 2 and 4 write to Prod (Deploy Safety Gate).
 [#113](https://github.com/seththeeke/nyc-311/issues/113).
 
 ---
+
+## customer/backend/service/ duplicates DynamoDBDocumentClient.from(new DynamoDBClient({})) 4 times across 4 files
+
+See [#115](https://github.com/seththeeke/nyc-311/issues/115) — fixed this
+run, closes on merge.
+
+---
