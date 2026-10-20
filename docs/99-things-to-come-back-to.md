@@ -428,3 +428,13 @@ See [#115](https://github.com/seththeeke/nyc-311/issues/115) — fixed this
 run, closes on merge.
 
 ---
+
+## vitest 3.2.7 -> 5.0.5 major bump needed to clear 2 critical + 2 moderate npm audit findings
+
+Affects all four packages (`backend`, `web-app`, `cdk`, `customer/backend`).
+Re-files [#82](https://github.com/seththeeke/nyc-311/issues/82), which was
+closed by a docs-only PR without the bump ever landing. See
+[#119](https://github.com/seththeeke/nyc-311/issues/119) — stays open until
+the actual bump ships.
+
+---
