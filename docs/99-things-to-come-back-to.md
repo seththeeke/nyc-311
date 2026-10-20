@@ -422,6 +422,13 @@ Steps 2 and 4 write to Prod (Deploy Safety Gate).
 
 ---
 
+## Bump 19 patch/minor-outdated deps in backend/customer-backend/web-app within semver ranges
+
+See [#117](https://github.com/seththeeke/nyc-311/issues/117) — fixed this
+run, closes on merge.
+
+---
+
 ## customer/backend/service/ duplicates DynamoDBDocumentClient.from(new DynamoDBClient({})) 4 times across 4 files
 
 See [#115](https://github.com/seththeeke/nyc-311/issues/115) — fixed this
