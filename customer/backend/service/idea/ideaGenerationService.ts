@@ -1,9 +1,8 @@
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { ResidentDao } from "../../dao/resident/residentDao";
 import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
+import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
 import type { IdeaWorkerEvent } from "../../models/ideaWorkerEvent";
@@ -25,11 +24,6 @@ export interface IdeaWorkerDeps {
   now?: () => Date;
 }
 
-/* Constructed lazily (CLAUDE.md §5.2) — never module-scope singletons. */
-function documentClient(): DynamoDBDocumentClient {
-  return DynamoDBDocumentClient.from(new DynamoDBClient({}));
-}
-
 /**
  * One scheduled thought (§3 Flow B): roll the resident's activity level,
  * gather what is around them, let their model decide the idea or that
@@ -40,7 +34,7 @@ function documentClient(): DynamoDBDocumentClient {
 export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps = {}): Promise<IdeaWorkerOutcome> {
   const random = deps.random ?? Math.random;
   const now = (deps.now ?? (() => new Date()))();
-  const residentDao = deps.residentDao ?? new ResidentDao(documentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
+  const residentDao = deps.residentDao ?? new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
   const context = { personaId: event.persona_id };
 
   const resident = await residentDao.getCurrent(event.persona_id);
@@ -55,8 +49,8 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
   }
   logInfo("IdeaWorkerThinking", { ...context, roll, activityLevel: resident.activity_level, force: event.force ?? false, version: resident.version });
 
-  const ideaDao = deps.ideaDao ?? new ResidentIdeaDao(documentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
-  const orderDao = deps.orderDao ?? new WebhookCustomerFacingOrderDao(documentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
+  const ideaDao = deps.ideaDao ?? new ResidentIdeaDao(createDocumentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
+  const orderDao = deps.orderDao ?? new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
   const ideaContext = await gatherIdeaContext(resident, { ideaDao, orderDao, random });
   const offered = [...ideaContext.candidates, ...ideaContext.followedOrders];
   const generate = deps.generate ?? ((request: GeneratorRequest) => generateIdea(request, new BedrockRuntimeClient({})));

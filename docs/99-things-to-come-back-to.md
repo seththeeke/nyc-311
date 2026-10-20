@@ -428,3 +428,10 @@ See [#117](https://github.com/seththeeke/nyc-311/issues/117) — fixed this
 run, closes on merge.
 
 ---
+
+## customer/backend/service/ duplicates DynamoDBDocumentClient.from(new DynamoDBClient({})) 4 times across 4 files
+
+See [#115](https://github.com/seththeeke/nyc-311/issues/115) — fixed this
+run, closes on merge.
+
+---
