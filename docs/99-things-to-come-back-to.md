@@ -445,3 +445,10 @@ closed by a docs-only PR without the bump ever landing. See
 the actual bump ships.
 
 ---
+
+## Dedupe the identical jsonResponse helper duplicated across customer/backend's webhook and read controllers
+
+See [#123](https://github.com/seththeeke/nyc-311/issues/123) — fixed this
+run, closes on merge.
+
+---
