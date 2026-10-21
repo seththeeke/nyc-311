@@ -445,3 +445,10 @@ closed by a docs-only PR without the bump ever landing. See
 the actual bump ships.
 
 ---
+
+## npm audit: fix the high-severity vite advisory (non-breaking) in backend/web-app/cdk
+
+See [#121](https://github.com/seththeeke/nyc-311/issues/121) — fixed this
+run, closes on merge.
+
+---
