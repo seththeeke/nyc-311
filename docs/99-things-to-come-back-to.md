@@ -452,3 +452,10 @@ See [#123](https://github.com/seththeeke/nyc-311/issues/123) — fixed this
 run, closes on merge.
 
 ---
+
+## npm audit: fix the high-severity vite advisory (non-breaking) in backend/web-app/cdk
+
+See [#121](https://github.com/seththeeke/nyc-311/issues/121) — fixed this
+run, closes on merge.
+
+---
