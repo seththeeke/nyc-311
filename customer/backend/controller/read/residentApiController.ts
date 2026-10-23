@@ -1,15 +1,12 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
+import { jsonResponse } from "../jsonResponse";
 import { ApiGatewayHttpEventSchema, type ApiGatewayHttpEvent } from "../../models/apiGatewayHttpEvent";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import { getIdea, getResident, listIdeas, listResidents, parseLimit } from "../../service/read/residentReadService";
 
 /* Short shared caching: ideas arrive a few times a day, and every page load makes several of these calls. */
-const HEADERS = { "Content-Type": "application/json", "Cache-Control": "public, max-age=30" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: HEADERS, body: JSON.stringify(body) };
-}
+const CACHE_HEADER = { "Cache-Control": "public, max-age=30" };
 
 function pathParam(event: ApiGatewayHttpEvent, name: string): string {
   const value = event.pathParameters?.[name];
@@ -46,16 +43,16 @@ export const residentApiController = async (event: unknown): Promise<APIGatewayP
   const parsed = ApiGatewayHttpEventSchema.safeParse(event);
   if (!parsed.success) {
     logError("ResidentApiControllerValidationFailed", { issues: parsed.error.issues });
-    return jsonResponse(400, { message: "Malformed request" });
+    return jsonResponse(400, { message: "Malformed request" }, CACHE_HEADER);
   }
   try {
-    const response = jsonResponse(200, await route(parsed.data));
+    const response = jsonResponse(200, await route(parsed.data), CACHE_HEADER);
     logInfo("ResidentApiControllerCompleted", { routeKey: parsed.data.routeKey, statusCode: response.statusCode });
     return response;
   } catch (err) {
     logError("ResidentApiControllerFailed", { routeKey: parsed.data.routeKey, error: err instanceof Error ? err.message : err });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    return jsonResponse(500, { message: "Failed to read residents" });
+    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message }, CACHE_HEADER);
+    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message }, CACHE_HEADER);
+    return jsonResponse(500, { message: "Failed to read residents" }, CACHE_HEADER);
   }
 };

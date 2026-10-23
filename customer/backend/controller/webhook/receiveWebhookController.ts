@@ -1,14 +1,9 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
+import { jsonResponse } from "../jsonResponse";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { UnauthorizedError, ValidationError } from "../../models/errors";
 import { receiveBoroughSimWebhook } from "../../service/webhook/webhookReceiverService";
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
-
-function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyStructuredResultV2 {
-  return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
-}
 
 /**
  * `POST /webhooks/bureau` — where BoroughSim delivers lifecycle events
