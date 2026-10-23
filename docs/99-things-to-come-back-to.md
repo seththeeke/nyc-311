@@ -446,6 +446,13 @@ the actual bump ships.
 
 ---
 
+## Dedupe the identical jsonResponse helper duplicated across customer/backend's webhook and read controllers
+
+See [#123](https://github.com/seththeeke/nyc-311/issues/123) — fixed this
+run, closes on merge.
+
+---
+
 ## npm audit: fix the high-severity vite advisory (non-breaking) in backend/web-app/cdk
 
 See [#121](https://github.com/seththeeke/nyc-311/issues/121) — fixed this
@@ -456,6 +463,13 @@ run, closes on merge.
 ## web-app: dedupe 16 identical Suspense-wrap blocks in AppRoutes.tsx
 
 See [#127](https://github.com/seththeeke/nyc-311/issues/127) — fixed this
+run, closes on merge.
+
+---
+
+## Bump 25 patch/minor-outdated deps in backend/customer-backend/web-app/cdk within semver ranges
+
+See [#125](https://github.com/seththeeke/nyc-311/issues/125) — fixed this
 run, closes on merge.
 
 ---
