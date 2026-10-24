@@ -35,12 +35,12 @@ export default defineConfig({
      * parallel, halving `npm run test:coverage`; `forks` over `threads`
      * for synth isolation.
      */
+    /*
+     * Vitest 5 moved maxForks to a pool-agnostic top-level maxWorkers
+     * (poolOptions.forks.maxForks was removed, not just renamed).
+     */
     pool: "forks",
-    poolOptions: {
-      forks: {
-        maxForks: Math.max(2, Math.ceil(cpus().length / 2)),
-      },
-    },
+    maxWorkers: Math.max(2, Math.ceil(cpus().length / 2)),
     coverage: {
       provider: "v8",
       /*
