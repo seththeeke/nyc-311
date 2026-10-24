@@ -483,3 +483,9 @@ without the bump ever shipping. See
 run, closes on merge.
 
 ---
+
+## Monthly AWS cost is over the $20 budget (forecast $53.50) — CI is 70% of it
+
+See [#112](https://github.com/seththeeke/nyc-311/issues/112).
+
+---
