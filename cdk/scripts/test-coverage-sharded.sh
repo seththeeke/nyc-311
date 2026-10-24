@@ -72,9 +72,11 @@ set -uo pipefail
 # failure (see header); vitest.config.ts now runs bounded-parallel for
 # local dev, so CI re-pins serial here rather than there. Keep in sync
 # with the note in vitest.config.ts's pool comment.
+# Vitest 5 replaced --poolOptions.forks.{max,min}Forks with the
+# pool-agnostic --maxWorkers (minForks has no successor); the pool itself
+# stays "forks" from vitest.config.ts.
 SERIAL_POOL=(
-  --poolOptions.forks.maxForks=1
-  --poolOptions.forks.minForks=1
+  --maxWorkers=1
 )
 
 DISABLE_PER_SHARD_THRESHOLDS=(
@@ -133,4 +135,5 @@ fi
 
 # The real threshold check: reads all shards' coverage data together.
 echo "=== Merging shard reports and checking the real coverage thresholds ==="
-npx vitest run --mergeReports --coverage
+# Named explicitly: Vitest 5's default blob directory moved to .vitest/blob.
+npx vitest run --mergeReports .vitest-reports --coverage

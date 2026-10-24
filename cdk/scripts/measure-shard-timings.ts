@@ -18,7 +18,7 @@ const FILE_LINE = /^ ✓ (tests\/\S+) \(\d+ tests?\) (\d+)ms$/;
 function main(): void {
   const output = execFileSync(
     "npx",
-    ["vitest", "run", "--reporter=default", "--poolOptions.forks.maxForks=1", "--poolOptions.forks.minForks=1"],
+    ["vitest", "run", "--reporter=default", "--maxWorkers=1"],
     { cwd: CDK_ROOT, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 }
   );
 
