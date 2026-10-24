@@ -460,6 +460,13 @@ run, closes on merge.
 
 ---
 
+## web-app: dedupe 16 identical Suspense-wrap blocks in AppRoutes.tsx
+
+See [#127](https://github.com/seththeeke/nyc-311/issues/127) — fixed this
+run, closes on merge.
+
+---
+
 ## Bump 25 patch/minor-outdated deps in backend/customer-backend/web-app/cdk within semver ranges
 
 See [#125](https://github.com/seththeeke/nyc-311/issues/125) — fixed this

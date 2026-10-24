@@ -68,6 +68,11 @@ function PageLoadingFallback(): ReactElement {
   );
 }
 
+/* Every lazy page below repeats this same wrap — one helper instead of 16 copies of it. */
+function withLoadingFallback(page: ReactElement): ReactElement {
+  return <Suspense fallback={<PageLoadingFallback />}>{page}</Suspense>;
+}
+
 export function AppRoutes(): ReactElement {
   return (
     <Routes>
@@ -84,14 +89,7 @@ export function AppRoutes(): ReactElement {
           path="/about"
           element={
             <PublicRoute>
-              <MapV2TakeoverRoute
-                classic={<HomePage />}
-                takeover={
-                  <Suspense fallback={<PageLoadingFallback />}>
-                    <MapV2Page />
-                  </Suspense>
-                }
-              />
+              <MapV2TakeoverRoute classic={<HomePage />} takeover={withLoadingFallback(<MapV2Page />)} />
             </PublicRoute>
           }
         />
@@ -99,9 +97,7 @@ export function AppRoutes(): ReactElement {
           path={`${MAP_V2_PATH}/*`}
           element={
             <FeatureFlagRoute flagKey={MAP_V2_FLAG} onTreatments={[MAP_V2_ON, MAP_V2_TAKEOVER]}>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <MapV2Page />
-              </Suspense>
+              {withLoadingFallback(<MapV2Page />)}
             </FeatureFlagRoute>
           }
         />
@@ -109,9 +105,7 @@ export function AppRoutes(): ReactElement {
           path={RESIDENTS_PATH}
           element={
             <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <ResidentsPage />
-              </Suspense>
+              {withLoadingFallback(<ResidentsPage />)}
             </FeatureFlagRoute>
           }
         />
@@ -119,131 +113,45 @@ export function AppRoutes(): ReactElement {
           path={IDEA_DETAIL_PATTERN}
           element={
             <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <ResidentIdeaPage />
-              </Suspense>
+              {withLoadingFallback(<ResidentIdeaPage />)}
             </FeatureFlagRoute>
           }
         />
-        <Route
-          path="/data"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <DataPage />
-              </Suspense>
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/monitoring"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <MonitoringPage />
-              </Suspense>
-            </PublicRoute>
-          }
-        />
+        <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
+        <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
         <Route
           path="/monitoring/ingestion"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <IngestionMonitoringPage />
-              </Suspense>
-            </PublicRoute>
-          }
+          element={<PublicRoute>{withLoadingFallback(<IngestionMonitoringPage />)}</PublicRoute>}
         />
         <Route
           path="/monitoring/pipeline"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <PipelineMonitoringPage />
-              </Suspense>
-            </PublicRoute>
-          }
+          element={<PublicRoute>{withLoadingFallback(<PipelineMonitoringPage />)}</PublicRoute>}
         />
         <Route
           path="/monitoring/lambda-health"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <LambdaMonitoringPage />
-              </Suspense>
-            </PublicRoute>
-          }
+          element={<PublicRoute>{withLoadingFallback(<LambdaMonitoringPage />)}</PublicRoute>}
         />
         <Route
           path="/monitoring/integration-tests"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <IntegrationTestReportPage />
-              </Suspense>
-            </PublicRoute>
-          }
+          element={<PublicRoute>{withLoadingFallback(<IntegrationTestReportPage />)}</PublicRoute>}
         />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <LoginPage />
-              </Suspense>
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <AdminPage />
-              </Suspense>
-            </AdminRoute>
-          }
-        />
+        <Route path="/login" element={<PublicRoute>{withLoadingFallback(<LoginPage />)}</PublicRoute>} />
+        <Route path="/admin" element={<AdminRoute>{withLoadingFallback(<AdminPage />)}</AdminRoute>} />
         <Route
           path="/admin/capacity"
-          element={
-            <AdminRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <CapacityManagementPage />
-              </Suspense>
-            </AdminRoute>
-          }
+          element={<AdminRoute>{withLoadingFallback(<CapacityManagementPage />)}</AdminRoute>}
         />
         <Route
           path="/admin/scheduling"
-          element={
-            <AdminRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <SchedulingManagementPage />
-              </Suspense>
-            </AdminRoute>
-          }
+          element={<AdminRoute>{withLoadingFallback(<SchedulingManagementPage />)}</AdminRoute>}
         />
         <Route
           path="/admin/warehouse"
-          element={
-            <AdminRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <AdminWarehousePage />
-              </Suspense>
-            </AdminRoute>
-          }
+          element={<AdminRoute>{withLoadingFallback(<AdminWarehousePage />)}</AdminRoute>}
         />
         <Route
           path="/admin/feature-flags"
-          element={
-            <AdminRoute>
-              <Suspense fallback={<PageLoadingFallback />}>
-                <FeatureFlagsPage />
-              </Suspense>
-            </AdminRoute>
-          }
+          element={<AdminRoute>{withLoadingFallback(<FeatureFlagsPage />)}</AdminRoute>}
         />
       </Route>
     </Routes>
