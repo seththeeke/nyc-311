@@ -473,3 +473,13 @@ See [#125](https://github.com/seththeeke/nyc-311/issues/125) — fixed this
 run, closes on merge.
 
 ---
+
+## vitest 3.0.5 -> 5.0.5 major bump to actually clear 2 critical + 2 moderate npm audit findings (3rd filing)
+
+Re-files [#82](https://github.com/seththeeke/nyc-311/issues/82) and
+[#119](https://github.com/seththeeke/nyc-311/issues/119), both closed
+without the bump ever shipping. See
+[#129](https://github.com/seththeeke/nyc-311/issues/129) — fixed this
+run, closes on merge.
+
+---

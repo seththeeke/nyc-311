@@ -73,6 +73,16 @@ describe("LocationDao.findOrCreateLocation", () => {
     expect(ddbMock.commandCalls(GetCommand)).toHaveLength(2);
   });
 
+  it("rethrows the TerminalError when the race is lost but the winner's item is gone by the re-fetch", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    ddbMock
+      .on(PutCommand)
+      .rejects(new ConditionalCheckFailedException({ message: "check failed", $metadata: {} }));
+
+    await expect(locationDao.findOrCreateLocation(location)).rejects.toThrow("check failed");
+    expect(ddbMock.commandCalls(GetCommand)).toHaveLength(2);
+  });
+
   it("rethrows any other error from the create attempt", async () => {
     ddbMock.on(GetCommand).resolves({});
     const boom = new Error("network blip");

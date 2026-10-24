@@ -85,10 +85,11 @@ export function inferRelationships(tables: WarehouseTable[]): InferredSchema {
     }
   }
 
+  /* foreignKeys was seeded with every table_name above, so the lookup below is never actually undefined. */
   const keys = new Map<string, TableKeys>(
     tables.map((table) => [
       table.table_name,
-      { primaryKey: primaryKeys.get(table.table_name) ?? null, foreignKeys: foreignKeys.get(table.table_name) ?? new Set() },
+      { primaryKey: primaryKeys.get(table.table_name) ?? null, foreignKeys: foreignKeys.get(table.table_name)! },
     ]),
   );
   return { relationships, keys };
@@ -171,7 +172,8 @@ export function layoutDiagram(tables: WarehouseTable[], inferred: InferredSchema
   const boxes: DiagramBox[] = [];
 
   for (const table of tables) {
-    const depth = depths.get(table.table_name) ?? 0;
+    /* depthsOf visits every entry of this same `tables` array, so the lookup below is never actually undefined. */
+    const depth = depths.get(table.table_name)!;
     const { rows, hidden } = rowsFor(table, inferred.keys.get(table.table_name), showAll);
     const lines = rows.length + (hidden > 0 ? 1 : 0);
     const height = HEADER_HEIGHT + lines * ROW_HEIGHT + BOX_BOTTOM_PAD;

@@ -52,6 +52,14 @@ describe("gatherIdeaContext", () => {
     expect(orderDao.sampleOpenOrders).toHaveBeenCalledTimes(2);
     expect(orderDao.sampleOpenOrders.mock.calls[0][1]).toMatch(/^[0-9a-f]{16}$/);
   });
+
+  it("stops sampling once a borough alone already yields double the cap", async () => {
+    const plenty = Array.from({ length: MAX_CANDIDATES * 2 }, (_, i) => order(`PLENTY${i}`));
+    const { orderDao, deps: d } = deps(plenty);
+    const resident = { ...current, interests: { boroughs: ["BROOKLYN", "QUEENS", "MANHATTAN"], descriptors: [] } };
+    await gatherIdeaContext(resident, d);
+    expect(orderDao.sampleOpenOrders).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("describeContext", () => {

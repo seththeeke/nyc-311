@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { entityOf, inferRelationships, layoutDiagram, BOX_WIDTH } from "../../../src/components/data/schemaRelationships";
+import type { InferredSchema } from "../../../src/components/data/schemaRelationships";
 import type { WarehouseTable } from "../../../src/models/warehouseSchema";
 import { LIVE_TABLES } from "../../testUtils/warehouseTables";
 
@@ -141,5 +142,21 @@ describe("layoutDiagram", () => {
     const layout = layoutDiagram([], inferRelationships([]), false);
     expect(layout.boxes).toEqual([]);
     expect(layout.width).toBeGreaterThan(0);
+  });
+
+  it("skips a relationship pointing at a table outside the given list, rather than drawing a dangling edge", () => {
+    const t = (table_name: string, cols: string[]): WarehouseTable => ({
+      table_name,
+      columns: cols.map((name) => ({ name, type: "string", comment: null })),
+    });
+    const tables = [t("orphans", ["orphan_id", "ghost_id"])];
+    const mismatched: InferredSchema = {
+      relationships: [{ fromTable: "orphans", fromColumn: "ghost_id", toTable: "ghosts", toColumn: "ghost_id" }],
+      keys: new Map(),
+    };
+    const layout = layoutDiagram(tables, mismatched, false);
+    expect(layout.boxes).toHaveLength(1);
+    expect(layout.edges).toEqual([]);
+    expect(layout.boxes[0].rows).toEqual([]);
   });
 });

@@ -4,7 +4,10 @@ import type { CustomRenderMethodInput, Map as MapLibreMap } from "maplibre-gl";
 const renderer = { autoClear: true, resetState: vi.fn(), render: vi.fn() };
 vi.mock("three", async (importOriginal) => ({
   ...(await importOriginal<typeof import("three")>()),
-  WebGLRenderer: vi.fn(() => renderer),
+  /* Vitest 5's spy actually `new`s the stored implementation — an arrow fn can never be a constructor. */
+  WebGLRenderer: vi.fn(function WebGLRenderer() {
+    return renderer;
+  }),
 }));
 
 const { createFleetLayer, FLEET_LAYER_ID } = await import("../../../../src/components/mapv2/three/fleetLayer");

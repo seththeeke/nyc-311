@@ -37,4 +37,13 @@ describe("OverridesEditor", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Remove F override 1" }));
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
+
+  it("edits one row of several, leaving the others untouched", async () => {
+    const onChange = vi.fn();
+    const second = { entity_type: "OPERATOR" as const, entity_id: "op-2", treatment: "B" };
+    render(<OverridesEditor flagKey="F" overrides={[override, second]} treatments={["A", "B"]} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("F override 2 entity id"), { target: { value: "op-3" } });
+    expect(onChange).toHaveBeenLastCalledWith([override, { ...second, entity_id: "op-3" }]);
+  });
 });

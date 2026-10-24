@@ -5,7 +5,10 @@ import { useRef, type ReactElement } from "react";
 const renderer = { setPixelRatio: vi.fn(), setSize: vi.fn(), render: vi.fn(), dispose: vi.fn(), toneMapping: 0 };
 vi.mock("three", async (importOriginal) => ({
   ...(await importOriginal<typeof import("three")>()),
-  WebGLRenderer: vi.fn(() => renderer),
+  /* Vitest 5's spy actually `new`s the stored implementation — an arrow fn can never be a constructor. */
+  WebGLRenderer: vi.fn(function WebGLRenderer() {
+    return renderer;
+  }),
 }));
 const { useDiveRenderer } = await import("../../../src/components/mapv2/useDiveRenderer");
 import type { TimelineState } from "../../../src/components/mapv2/repairTimeline";

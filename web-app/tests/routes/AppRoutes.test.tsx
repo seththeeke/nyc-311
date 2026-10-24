@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppRoutes } from "../../src/routes/AppRoutes";
 import { ThemeProvider } from "../../src/components/shell/ThemeProvider";
+import { authResult, ADMIN_USER } from "../testUtils/authFixtures";
 
 /* The secondary workspace mounts CapacityWidget on every route; keep it off the network. */
 vi.mock("../../src/hooks/useFleetLocations", () => ({
@@ -22,6 +23,11 @@ vi.mock("maplibre-gl", async () => ({ Map: (await import("../components/mapv2/fa
 vi.mock("../../src/components/three/webgl", () => ({ isWebGlAvailable: () => webGl }));
 vi.mock("../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
+}));
+/* Logged-out by default (matches every existing redirect-to-/login test); a handful of tests below flip this to exercise the admin-only lazy pages. */
+let loggedIn = false;
+vi.mock("../../src/hooks/useAuth", () => ({
+  useAuth: () => authResult(loggedIn ? { user: ADMIN_USER } : {}),
 }));
 
 function renderAt(path: string) {
@@ -168,5 +174,67 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
     expect(primary).toContainElement(screen.getByRole("heading", { name: "Admin sign in" }));
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
+  });
+
+  it("renders ResidentsPage at /residents while CUSTOMERS_TAB is on", async () => {
+    renderAt("/residents");
+    expect(await screen.findByRole("heading", { level: 1, name: "Residents" })).toBeInTheDocument();
+  });
+
+  it("renders ResidentIdeaPage at a resident/idea deep link", async () => {
+    renderAt("/residents/hawthorn/ideas/01IDEA");
+    expect(await screen.findByRole("heading", { level: 1, name: "Idea Detail" })).toBeInTheDocument();
+  });
+
+  describe("while signed in as an admin", () => {
+    it("renders AdminPage at /admin", async () => {
+      loggedIn = true;
+      try {
+        renderAt("/admin");
+        expect(await screen.findByRole("heading", { name: "Admin" })).toBeInTheDocument();
+      } finally {
+        loggedIn = false;
+      }
+    });
+
+    it("renders CapacityManagementPage at /admin/capacity", async () => {
+      loggedIn = true;
+      try {
+        renderAt("/admin/capacity");
+        expect(await screen.findByRole("heading", { name: "Capacity" })).toBeInTheDocument();
+      } finally {
+        loggedIn = false;
+      }
+    });
+
+    it("renders SchedulingManagementPage at /admin/scheduling", async () => {
+      loggedIn = true;
+      try {
+        renderAt("/admin/scheduling");
+        expect(await screen.findByRole("heading", { name: "Scheduling" })).toBeInTheDocument();
+      } finally {
+        loggedIn = false;
+      }
+    });
+
+    it("renders AdminWarehousePage at /admin/warehouse", async () => {
+      loggedIn = true;
+      try {
+        renderAt("/admin/warehouse");
+        expect(await screen.findByRole("heading", { name: "Data Warehouse" })).toBeInTheDocument();
+      } finally {
+        loggedIn = false;
+      }
+    });
+
+    it("renders FeatureFlagsPage at /admin/feature-flags", async () => {
+      loggedIn = true;
+      try {
+        renderAt("/admin/feature-flags");
+        expect(await screen.findByRole("heading", { name: "Feature Flags" })).toBeInTheDocument();
+      } finally {
+        loggedIn = false;
+      }
+    });
   });
 });

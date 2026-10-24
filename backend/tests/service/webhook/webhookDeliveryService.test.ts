@@ -67,8 +67,8 @@ describe("deliverWebhook — a successful attempt", () => {
   it("logs one attempt line with the attempt number, status and outcome, and never the secret", async () => {
     const m = mocks(subscription, 204);
     await deliverWebhook(task, 3, m.deps);
-    const lines = logSpy.mock.calls.map((call) => JSON.parse(call[0] as string));
-    const attempt = lines.find((line) => line.message === "WebhookDeliveryAttempt");
+    const lines = logSpy.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string));
+    const attempt = lines.find((line: { message: string }) => line.message === "WebhookDeliveryAttempt");
     expect(attempt).toMatchObject({ outcome: "DELIVERED", status: 204, attempt: 3, subscriptionId: "01SUB", webhookId: "evt_01ORDER_1" });
     expect(JSON.stringify(logSpy.mock.calls)).not.toContain(SECRET);
   });
