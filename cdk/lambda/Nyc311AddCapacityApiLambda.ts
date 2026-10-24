@@ -18,7 +18,7 @@ export interface Nyc311AddCapacityApiLambdaProps {
 /**
  * Backs the admin-authorized `POST /capacity` route
  * (`10-capacity-modeling-and-integration.md` §2.1) — entry point is
- * `backend/controller/web-api/addCapacityController.ts`. Also needs
+ * `backend/controller/web-api/admin/addCapacityController.ts`. Also needs
  * `UsersTable` access, like every admin controller — `requireAdminUser`'s
  * get-or-create-User call.
  */
@@ -35,7 +35,7 @@ export class Nyc311AddCapacityApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "addCapacityController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "addCapacityController.ts"),
       handler: "addCapacityController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

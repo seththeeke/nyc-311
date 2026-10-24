@@ -15,7 +15,7 @@ export interface Nyc311AdminWhoamiApiLambdaProps {
 
 /**
  * Backs `GET /admin/whoami` (`9-admin-auth-integration.md` §8) — entry
- * point is `backend/controller/web-api/whoamiController.ts`. Grants
+ * point is `backend/controller/web-api/admin/whoamiController.ts`. Grants
  * exactly `dynamodb:Query` (the `gsi1-cognito-sub` lookup) and
  * `dynamodb:PutItem` (get-or-create), matching
  * `userService.getOrCreateUser`'s DAO calls, nothing broader.
@@ -33,7 +33,7 @@ export class Nyc311AdminWhoamiApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "whoamiController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "whoamiController.ts"),
       handler: "whoamiController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

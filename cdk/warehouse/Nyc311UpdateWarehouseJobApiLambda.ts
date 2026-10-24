@@ -25,7 +25,7 @@ export interface Nyc311UpdateWarehouseJobApiLambdaProps {
 /**
  * Backs admin-authorized `PUT /admin/warehouse/jobs/{name}`
  * (`7-data-warehousing.md` §12b's job-edit flow) — entry point is
- * `backend/controller/web-api/updateWarehouseJobController.ts`. Same
+ * `backend/controller/web-api/admin/updateWarehouseJobController.ts`. Same
  * `iam:PassRole` shape as {@link Nyc311CreateWarehouseJobApiLambda}
  * (exactly one role ARN) since updating a schedule's target re-sends
  * the whole target config, RoleArn included.
@@ -43,7 +43,7 @@ export class Nyc311UpdateWarehouseJobApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "updateWarehouseJobController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "updateWarehouseJobController.ts"),
       handler: "updateWarehouseJobController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

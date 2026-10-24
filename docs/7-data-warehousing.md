@@ -1067,6 +1067,8 @@ job_name already works the same way with no live "job" behind it).
 
 ### IAM (§15's pattern, extended)
 
+> **Superseded 2026-10-24** by `15-resource-consolidation.md` §3.2: every admin route, these included, moves into one admin Service API Lambda whose role is the union of these grants. The per-route split below is kept as history.
+
 **Three separate Lambdas, one per route** — matching §2.1's Capacity
 CRUD precedent (`Nyc311{Add,Remove,Get}CapacityApiLambda`), not one
 bundled admin Lambda, so `GET` genuinely can't write anything:

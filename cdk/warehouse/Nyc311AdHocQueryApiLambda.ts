@@ -42,7 +42,7 @@ export class Nyc311AdHocQueryApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "runAdHocQueryController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "runAdHocQueryController.ts"),
       handler: "runAdHocQueryController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

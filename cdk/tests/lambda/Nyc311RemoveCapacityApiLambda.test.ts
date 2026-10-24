@@ -15,7 +15,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311RemoveCapacityApiLambda", () => {
-  it("bundles backend/controller/web-api/removeCapacityController's exported handler on Node 22", () => {
+  it("bundles backend/controller/web-api/admin/removeCapacityController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {

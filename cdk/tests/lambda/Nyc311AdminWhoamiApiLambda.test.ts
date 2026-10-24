@@ -13,7 +13,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311AdminWhoamiApiLambda", () => {
-  it("bundles backend/controller/web-api/whoamiController's exported handler on Node 22", () => {
+  it("bundles backend/controller/web-api/admin/whoamiController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {

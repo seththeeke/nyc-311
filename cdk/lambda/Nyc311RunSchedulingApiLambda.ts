@@ -28,7 +28,7 @@ export interface Nyc311RunSchedulingApiLambdaProps {
  * (`10-capacity-modeling-and-integration.md` §5.1) — an on-demand trigger
  * for testing purposes, calling the exact same `scheduleOrders` service
  * function the `rate(1 hour)` `Nyc311OrderSchedulingLambda` already runs.
- * Entry: `backend/controller/web-api/runSchedulingController.ts`. Same
+ * Entry: `backend/controller/web-api/admin/runSchedulingController.ts`. Same
  * grants as that scheduled Lambda, plus `UsersTable` for `requireAdminUser`.
  */
 export class Nyc311RunSchedulingApiLambda extends NodejsFunction {
@@ -44,7 +44,7 @@ export class Nyc311RunSchedulingApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "runSchedulingController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "runSchedulingController.ts"),
       handler: "runSchedulingController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

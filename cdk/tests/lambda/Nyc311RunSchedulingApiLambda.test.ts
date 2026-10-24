@@ -37,7 +37,7 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
 }
 
 describe("Nyc311RunSchedulingApiLambda", () => {
-  it("bundles backend/controller/web-api/runSchedulingController's exported handler on Node 22", () => {
+  it("bundles backend/controller/web-api/admin/runSchedulingController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {

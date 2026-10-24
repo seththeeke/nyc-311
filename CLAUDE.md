@@ -209,7 +209,20 @@ The backend will follow a basic controller, service, and data access object(DAO)
  -> logger.ts - shared structured-JSON logging (console.log/warn/error under
     the hood), used by every layer per the "Logging by layer" rule below
  -> controller
-  -> web-api - controller endpoints for the public web api
+  -> web-api - controller endpoints for the public web api, grouped into
+     **Service API bundles** (`15-resource-consolidation.md`): one Lambda
+     per bundle, not per route. Each bundle is a folder holding a thin
+     router (`<bundle>ApiRouter.ts`, the Lambda handler: dispatch on
+     `routeKey` and nothing else), an import-free route list
+     (`<bundle>ApiRoutes.ts`, which cdk/ imports to build the routes) and
+     its per-route controllers, unchanged in shape. All JWT-authorized
+     routes form one `admin/` bundle; public routes are split by service
+     function, and admin and public routes never share a bundle. A new
+     route on an existing service adds a route key and a controller,
+     never a Lambda; a new bundle is a design decision, recorded in a doc.
+     Public controllers stay flat at the `web-api/` root until their own
+     consolidation pass
+   -> admin - every admin route, plus `requireAdminUser.ts`
   -> ingestion - controller endpoints for scheduled external-data ingestion
      (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
      EventBridge Scheduler trigger, not API Gateway or Step Functions —
@@ -288,7 +301,10 @@ The backend will follow a basic controller, service, and data access object(DAO)
   happened to need it first. Enforced by `eslint.config.js`'s
   `no-restricted-imports` rule on `controller/**/*.ts` (bans any import
   path matching `**/dao/**`), not just review — a controller that imports a
-  DAO fails lint, not a human catching it later.
+  DAO fails lint, not a human catching it later. The same rule keeps
+  bundles apart: nothing outside `controller/web-api/admin/` imports from
+  it, the admin bundle imports no public controller, and a
+  `*ApiRoutes.ts` file imports nothing (`no-restricted-syntax`).
 - **DAOs/clients are constructed lazily, inside each function that needs
   one — never as a module-scope singleton, even for Lambda-cold-start
   reuse.** Revised 2026-08-22 after a real incident: `nyc311RequestService.ts`
@@ -427,11 +443,11 @@ suffix.
  -> bin - the CDK app entrypoint (`app.ts`); instantiates the one stack shape once per environment (`Nyc311-Test`, `Nyc311-Prod`), per the "single stack" rule above — not two different stack classes. The pipeline's own entrypoint (`bin/pipeline.ts`) is separate, per the standing exception above.
  -> stack
  -> pipeline - the self-mutating CodePipeline stack/constructs (`Nyc311PipelineStack`), the standing exception to the single-stack rule above
- -> lambda
+ -> lambda - one construct per Lambda; for the web API that means one per Service API bundle (`Nyc311<Bundle>ApiLambda`, e.g. `Nyc311AdminApiLambda`), whose role is the union of its routes' grants, each still scoped to specific ARNs
  -> data - contains any data related constructs like DDB, Data Lake, etc
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
  -> web - static-site hosting constructs (S3 + CloudFront) for `web-app/`, per `claude-prompt-initial.md` §5/§7's hosting decision
- -> api - the public API Gateway (HTTP API) and its route/integration constructs, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint
+ -> api - the public API Gateway (HTTP API) and its route/integration constructs, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint. Each bundle's routes are built from its `backend/controller/web-api/<bundle>/<bundle>ApiRoutes.ts`, all on that bundle's one `HttpLambdaIntegration` — the one sanctioned `cdk/` → `backend/` import, legal only because that file imports nothing
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
  -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above

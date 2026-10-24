@@ -25,7 +25,7 @@ export interface Nyc311GetWarehouseJobSqlApiLambdaProps {
 /**
  * Backs admin-authorized `GET /admin/warehouse/jobs/{name}/sql`
  * (`7-data-warehousing.md` §12b's "load a job into the query editor"
- * flow) — entry point is `backend/controller/web-api/
+ * flow) — entry point is `backend/controller/web-api/admin/
  * getWarehouseJobSqlController.ts`. Read-only: `dynamodb:GetItem` on the
  * definition row plus `s3:GetObject` scoped to `job-definitions/*`,
  * nothing broader — this Lambda never writes and never touches a
@@ -44,7 +44,7 @@ export class Nyc311GetWarehouseJobSqlApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getWarehouseJobSqlController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "getWarehouseJobSqlController.ts"),
       handler: "getWarehouseJobSqlController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

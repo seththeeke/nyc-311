@@ -18,7 +18,7 @@ export interface Nyc311RemoveCapacityApiLambdaProps {
 /**
  * Backs the admin-authorized `DELETE /capacity/{operator_id}` route
  * (`10-capacity-modeling-and-integration.md` §2.1) — entry point is
- * `backend/controller/web-api/removeCapacityController.ts`.
+ * `backend/controller/web-api/admin/removeCapacityController.ts`.
  */
 export class Nyc311RemoveCapacityApiLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311RemoveCapacityApiLambdaProps) {
@@ -33,7 +33,7 @@ export class Nyc311RemoveCapacityApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "removeCapacityController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "removeCapacityController.ts"),
       handler: "removeCapacityController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

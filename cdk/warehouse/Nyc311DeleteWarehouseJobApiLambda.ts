@@ -25,7 +25,7 @@ export interface Nyc311DeleteWarehouseJobApiLambdaProps {
 /**
  * Backs admin-authorized `DELETE /admin/warehouse/jobs/{name}`
  * (`7-data-warehousing.md` §12b, Leg 8) — entry point is
- * `backend/controller/web-api/deleteWarehouseJobController.ts`. No
+ * `backend/controller/web-api/admin/deleteWarehouseJobController.ts`. No
  * `iam:PassRole` at all — deleting a schedule never needs it. Every past
  * `WarehouseJobRuns` run row and `job-results/` resultset is left
  * untouched (§8's "keep history" design call) — this Lambda has no
@@ -44,7 +44,7 @@ export class Nyc311DeleteWarehouseJobApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "deleteWarehouseJobController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "deleteWarehouseJobController.ts"),
       handler: "deleteWarehouseJobController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

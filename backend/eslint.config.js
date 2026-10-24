@@ -117,6 +117,19 @@ const NO_CUSTOMER_IMPORTS = {
   message: "backend/ imports nothing from customer/ — the customer is a real outsider (CLAUDE.md §5.4).",
 };
 
+const CONTROLLER_IMPORT_PATTERNS = [
+  NO_CUSTOMER_IMPORTS,
+  {
+    group: ["**/dao/**"],
+    message: "Controllers must not import a DAO directly — go through a service layer instead (CLAUDE.md §5.2).",
+  },
+];
+
+const NO_ADMIN_BUNDLE_IMPORTS = {
+  regex: "(^|/)web-api/admin(/|$)|^\\./admin(/|$)",
+  message: "Only the admin bundle imports from controller/web-api/admin/ (15-resource-consolidation.md §4.4).",
+};
+
 module.exports = tseslint.config(
   {
     ignores: ["node_modules", "coverage", "eslint.config.js"],
@@ -133,20 +146,41 @@ module.exports = tseslint.config(
   {
     /* CLAUDE.md §5.2: controllers go through a service to reach a DAO,
        never import/construct/call one directly. tests/controller/** may
-       still mock DAOs. */
+       still mock DAOs. Nothing outside the admin bundle imports it
+       (15-resource-consolidation.md §4.4). */
     files: ["controller/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [...CONTROLLER_IMPORT_PATTERNS, NO_ADMIN_BUNDLE_IMPORTS] }],
+    },
+  },
+  {
+    /* The admin bundle imports no public controller: from web-api/ itself, only the shared jsonResponse. */
+    files: ["controller/web-api/admin/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
-            NO_CUSTOMER_IMPORTS,
+            ...CONTROLLER_IMPORT_PATTERNS,
             {
-              group: ["**/dao/**"],
+              regex: "^\\.\\./(?!jsonResponse$)[^/]+$",
               message:
-                "Controllers must not import a DAO directly — go through a service layer instead (CLAUDE.md §5.2).",
+                "The admin bundle never imports a public controller — only ../jsonResponse from web-api/ (15-resource-consolidation.md §4.4).",
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    /* cdk/ imports each bundle's route list directly, so it must pull in nothing from backend/. */
+    files: ["controller/web-api/**/*ApiRoutes.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportDeclaration, ExportAllDeclaration, ExportNamedDeclaration[source], CallExpression[callee.name='require']",
+          message: "A *ApiRoutes.ts file must import nothing — cdk/ imports it directly (15-resource-consolidation.md §4.2).",
         },
       ],
     },

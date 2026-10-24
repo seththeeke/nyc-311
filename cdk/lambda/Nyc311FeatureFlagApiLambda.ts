@@ -15,7 +15,7 @@ export type FeatureFlagApiOperation = (typeof FEATURE_FLAG_API_OPERATIONS)[numbe
 interface OperationConfig {
   /** Physical-name stem, suffixed `-<Env>`. */
   functionStem: string;
-  /** Exported handler in `backend/controller/web-api/<controller>.ts`. */
+  /** Exported handler in `backend/controller/web-api/[admin/]<controller>.ts`. */
   controller: string;
   tableActions: string[];
   /** Admin operations resolve the caller via `requireAdminUser`, so they need UsersTable. */
@@ -64,7 +64,8 @@ export class Nyc311FeatureFlagApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", `${config.controller}.ts`),
+      /* Admin operations' controllers live in the admin bundle's folder (15-resource-consolidation.md §4.1). */
+      entry: path.join(backendRoot, "controller", "web-api", ...(config.admin ? ["admin"] : []), `${config.controller}.ts`),
       handler: config.controller,
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

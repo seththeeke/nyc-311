@@ -74,6 +74,7 @@ import { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApi
 import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
 import { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
+import { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
 import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
 import { Nyc311OperatorEventsTopic } from "../lambda/Nyc311OperatorEventsTopic";
@@ -720,6 +721,28 @@ export class Nyc311Stack extends Stack {
       locationsTable,
       operatorsTable,
       usersTable,
+      orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
+    });
+
+    /*
+     * 15-resource-consolidation.md §7 step 1 — the admin Service API
+     * bundle, stood up next to the per-route admin Lambdas but attached to
+     * no route yet, so it can be invoked and verified before cutover.
+     */
+    new Nyc311AdminApiLambda(this, "Nyc311AdminApiLambda", {
+      envName: props.envName,
+      usersTable,
+      operatorsTable,
+      ordersTable,
+      requestsTable,
+      locationsTable,
+      featureFlagsTable,
+      jobRunsTable: warehouseJobRunsTable,
+      warehouseBucket,
+      warehouseCatalog,
+      adHocQueryWorkgroup,
+      jobRunnerLambda: warehouseJobRunnerLambda,
+      jobScheduleGroup: warehouseJobScheduleGroup,
       orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
     });
 

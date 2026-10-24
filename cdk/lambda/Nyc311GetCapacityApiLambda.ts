@@ -18,7 +18,7 @@ export interface Nyc311GetCapacityApiLambdaProps {
 /**
  * Backs the admin-authorized `GET /capacity` route
  * (`10-capacity-modeling-and-integration.md` §2.1) — entry point is
- * `backend/controller/web-api/getCapacityController.ts`. Read-only on
+ * `backend/controller/web-api/admin/getCapacityController.ts`. Read-only on
  * `OperatorsTable` (only `gsi2-roster` `Query`, per
  * `capacityService.getCapacityStatus`).
  */
@@ -35,7 +35,7 @@ export class Nyc311GetCapacityApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getCapacityController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "getCapacityController.ts"),
       handler: "getCapacityController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

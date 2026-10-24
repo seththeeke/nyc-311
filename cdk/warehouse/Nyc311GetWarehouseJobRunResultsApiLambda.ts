@@ -41,7 +41,7 @@ export class Nyc311GetWarehouseJobRunResultsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "postJobRunResultsController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "postJobRunResultsController.ts"),
       handler: "postJobRunResultsController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

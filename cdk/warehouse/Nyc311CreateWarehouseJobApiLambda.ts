@@ -25,7 +25,7 @@ export interface Nyc311CreateWarehouseJobApiLambdaProps {
 /**
  * Backs admin-authorized `POST /admin/warehouse/jobs`
  * (`7-data-warehousing.md` §12b, Leg 8) — entry point is
- * `backend/controller/web-api/createWarehouseJobController.ts`. The one
+ * `backend/controller/web-api/admin/createWarehouseJobController.ts`. The one
  * Lambda in this doc that manages another Lambda's schedules, so its
  * `iam:PassRole` scope is what matters: exactly one role ARN, never a
  * wildcard — that role can only ever invoke the job runner, so passing
@@ -44,7 +44,7 @@ export class Nyc311CreateWarehouseJobApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "createWarehouseJobController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "createWarehouseJobController.ts"),
       handler: "createWarehouseJobController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

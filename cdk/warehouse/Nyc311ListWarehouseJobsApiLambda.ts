@@ -24,7 +24,7 @@ export interface Nyc311ListWarehouseJobsApiLambdaProps {
 /**
  * Backs admin-authorized `GET /admin/warehouse/jobs`
  * (`7-data-warehousing.md` §12b, Leg 8) — entry point is
- * `backend/controller/web-api/listWarehouseJobsController.ts`. Read-only
+ * `backend/controller/web-api/admin/listWarehouseJobsController.ts`. Read-only
  * at the IAM layer, not just by convention: no `s3:*`, no
  * `scheduler:*`, no `iam:PassRole` — only `dynamodb:Query` on
  * `WarehouseJobRuns`.
@@ -42,7 +42,7 @@ export class Nyc311ListWarehouseJobsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "listWarehouseJobsController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "admin", "listWarehouseJobsController.ts"),
       handler: "listWarehouseJobsController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,
