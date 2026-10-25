@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { listWarehouseJobs } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `GET /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —

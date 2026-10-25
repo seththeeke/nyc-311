@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { listWarehouseJobRuns } from "../../service/analytics/warehouseJobRunsService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-import { jsonResponse } from "./jsonResponse";
+import { jsonResponse } from "./shared/jsonResponse";
 
 /**
  * `GET /data/jobs` (`7-data-warehousing.md` §12) — most-recent-first

@@ -16,7 +16,7 @@ export interface Nyc311MetricsApiLambdaProps {
 /**
  * Backs the public `GET /ingestion/metrics` route (1-data-ingestion.md
  * §8a, cursor section added 2026-08-22) — entry point is
- * `backend/controller/web-api/getPollerMetricsController.ts`. Read-only:
+ * `backend/controller/web-api/monitoring/getPollerMetricsController.ts`. Read-only:
  * grants `dynamodb:Query` (the `gsi4-poller-metrics` index Query
  * `RequestDao.listPollerMetrics` issues) and `dynamodb:GetItem` (the
  * `CURSOR#NYC_311` sentinel item `RequestDao.getCursor` reads, added for
@@ -35,7 +35,7 @@ export class Nyc311MetricsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getPollerMetricsController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "monitoring", "getPollerMetricsController.ts"),
       handler: "getPollerMetricsController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

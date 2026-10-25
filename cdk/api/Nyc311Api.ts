@@ -15,7 +15,7 @@ import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLa
 import type { Nyc311WorkspaceMetricsApiLambda } from "../warehouse/Nyc311WorkspaceMetricsApiLambda";
 import type { FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
 import type { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
-import type { Nyc311WebhookSinkApiLambda, WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkApiLambda";
+import type { Nyc311WebhookSinkOperationApiLambda, WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkOperationApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -35,7 +35,7 @@ export interface Nyc311ApiProps {
   /** `13-customer-simulation.md` §5 — no authorizer; the Lambda checks the registration key itself. */
   registerWebhookSubscriptionApiLambda: Nyc311RegisterWebhookSubscriptionApiLambda;
   /** The Test-only webhook sink's two routes — omitted in Prod, which then has neither route. */
-  webhookSinkApiLambdas?: Record<WebhookSinkApiOperation, Nyc311WebhookSinkApiLambda>;
+  webhookSinkApiLambdas?: Record<WebhookSinkApiOperation, Nyc311WebhookSinkOperationApiLambda>;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**

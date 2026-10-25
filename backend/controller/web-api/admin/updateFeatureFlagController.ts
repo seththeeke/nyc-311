@@ -5,7 +5,7 @@ import { NotFoundError, TerminalError, ValidationError } from "../../../models/e
 import { FlagKeyParamsSchema, UpdateFeatureFlagRequestSchema } from "../../../models/featureFlag";
 import { updateFeatureFlag } from "../../../service/featureFlag/featureFlagService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `PUT /admin/feature-flags/{flag_key}` (`11-street-condition-implementation.md`

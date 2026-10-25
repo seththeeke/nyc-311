@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../../models/errors";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `GET /admin/whoami` (`9-admin-auth-integration.md` §8) — the one

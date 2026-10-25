@@ -5,7 +5,7 @@ import { TerminalError, ValidationError } from "../../../models/errors";
 import { CreateFeatureFlagRequestSchema } from "../../../models/featureFlag";
 import { createFeatureFlag } from "../../../service/featureFlag/featureFlagService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /** `POST /admin/feature-flags` (`11-street-condition-implementation.md` §4.2) — admin-authorized. */
 export const createFeatureFlagController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {

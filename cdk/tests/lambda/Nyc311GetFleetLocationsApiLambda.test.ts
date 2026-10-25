@@ -22,7 +22,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311GetFleetLocationsApiLambda", () => {
-  it("bundles backend/controller/web-api/getFleetLocationsController's exported handler on Node 22", () => {
+  it("bundles backend/controller/web-api/fleet/getFleetLocationsController's exported handler on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {

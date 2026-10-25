@@ -5,7 +5,7 @@ import { RemoveCapacityParamsSchema } from "../../../models/capacityRequest";
 import { NotFoundError, ValidationError } from "../../../models/errors";
 import { removeCapacity } from "../../../service/capacity/capacityService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `DELETE /capacity/{operator_id}` (`10-capacity-modeling-and-integration.md`

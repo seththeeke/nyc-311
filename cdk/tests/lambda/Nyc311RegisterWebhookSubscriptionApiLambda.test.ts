@@ -16,7 +16,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("Nyc311RegisterWebhookSubscriptionApiLambda", () => {
-  it("bundles backend/controller/web-api/registerWebhookSubscriptionController's exported handler on Node 22", () => {
+  it("bundles backend/controller/web-api/webhookSubscriptions/registerWebhookSubscriptionController's exported handler on Node 22", () => {
     synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", {
       Handler: "index.registerWebhookSubscriptionController",
       Runtime: "nodejs22.x",

@@ -18,7 +18,7 @@ export interface Nyc311WorkspaceMetricsApiLambdaProps {
  * workspace's metric tiles, read from the live day buckets. Its own Lambda
  * so its `Duration` metric (Lambda Health) is this endpoint's latency
  * alone. Entry point is
- * `backend/controller/web-api/getWorkspaceMetricsController.ts`.
+ * `backend/controller/web-api/data/getWorkspaceMetricsController.ts`.
  * Read-only: BatchGetItem on that one table.
  */
 export class Nyc311WorkspaceMetricsApiLambda extends NodejsFunction {
@@ -35,7 +35,7 @@ export class Nyc311WorkspaceMetricsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getWorkspaceMetricsController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "data", "getWorkspaceMetricsController.ts"),
       handler: "getWorkspaceMetricsController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

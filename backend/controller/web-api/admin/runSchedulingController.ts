@@ -4,7 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../../models/errors";
 import { scheduleOrders } from "../../../service/scheduling/orderSchedulingService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `POST /scheduling/run` (`10-capacity-modeling-and-integration.md` §5.1)

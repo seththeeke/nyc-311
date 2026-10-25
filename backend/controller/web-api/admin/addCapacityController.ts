@@ -5,7 +5,7 @@ import { AddCapacityRequestSchema } from "../../../models/capacityRequest";
 import { ValidationError } from "../../../models/errors";
 import { addCapacity } from "../../../service/capacity/capacityService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `POST /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —

@@ -5,7 +5,7 @@ import { WarehouseJobNameParamsSchema } from "../../../models/warehouseJobReques
 import { NotFoundError, ValidationError } from "../../../models/errors";
 import { deleteWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `DELETE /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b,

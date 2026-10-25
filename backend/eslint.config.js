@@ -126,7 +126,7 @@ const CONTROLLER_IMPORT_PATTERNS = [
 ];
 
 const NO_ADMIN_BUNDLE_IMPORTS = {
-  regex: "(^|/)web-api/admin(/|$)|^\\./admin(/|$)",
+  regex: "(^|/)web-api/admin(/|$)",
   message: "Only the admin bundle imports from controller/web-api/admin/ (15-resource-consolidation.md §4.4).",
 };
 
@@ -154,8 +154,9 @@ module.exports = tseslint.config(
     },
   },
   {
-    /* The admin bundle imports no public controller: from web-api/ itself, only the shared jsonResponse. */
-    files: ["controller/web-api/admin/**/*.ts"],
+    /* A bundle (admin or public) imports no other bundle and no web-api/ root controller: from web-api/, only shared/. */
+    files: ["controller/web-api/*/**/*.ts"],
+    ignores: ["controller/web-api/shared/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -163,10 +164,39 @@ module.exports = tseslint.config(
           patterns: [
             ...CONTROLLER_IMPORT_PATTERNS,
             {
-              regex: "^\\.\\./(?!jsonResponse$)[^/]+$",
-              message:
-                "The admin bundle never imports a public controller — only ../jsonResponse from web-api/ (15-resource-consolidation.md §4.4).",
+              regex: "^\\.\\./(?!shared/|\\.\\./)",
+              message: "A Service API bundle imports only ../shared/ from web-api/ — never another bundle (15-resource-consolidation.md §4.4).",
             },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /* shared/ is imported by every bundle, so it imports none of them. */
+    files: ["controller/web-api/shared/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            ...CONTROLLER_IMPORT_PATTERNS,
+            { regex: "^\\.\\./(?!\\.\\./)", message: "controller/web-api/shared/ imports no bundle (15-resource-consolidation.md §4.4)." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /* The root controllers not yet in a bundle import no bundle either. */
+    files: ["controller/web-api/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            ...CONTROLLER_IMPORT_PATTERNS,
+            { regex: "^\\./(?!shared/)[^/]+/", message: "Only bundle routers dispatch to bundle controllers (15-resource-consolidation.md §4.4)." },
           ],
         },
       ],

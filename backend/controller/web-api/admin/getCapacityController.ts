@@ -4,7 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../../models/errors";
 import { getCapacityStatus } from "../../../service/capacity/capacityService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `GET /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —

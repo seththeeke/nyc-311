@@ -1,7 +1,8 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiRouterEventSchema } from "../../../models/apiRouterEvent";
-import { jsonResponse } from "../jsonResponse";
+import type { ApiController } from "../shared/createApiRouter";
+import { jsonResponse } from "../shared/jsonResponse";
 import { ADMIN_API_ROUTES, type AdminApiRouteKey } from "./adminApiRoutes";
 import { addCapacityController } from "./addCapacityController";
 import { createFeatureFlagController } from "./createFeatureFlagController";
@@ -18,8 +19,6 @@ import { runSchedulingController } from "./runSchedulingController";
 import { updateFeatureFlagController } from "./updateFeatureFlagController";
 import { updateWarehouseJobController } from "./updateWarehouseJobController";
 import { whoamiController } from "./whoamiController";
-
-type ApiController = (event: unknown) => Promise<APIGatewayProxyStructuredResultV2>;
 
 /* Typed on the route-key union, so a route with no controller (or a controller with no route) fails to compile. */
 const ADMIN_API_CONTROLLERS: Record<AdminApiRouteKey, ApiController> = {

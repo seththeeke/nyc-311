@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { getJobResult } from "../../service/analytics/jobResultService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-import { jsonResponse } from "./jsonResponse";
+import { jsonResponse } from "./shared/jsonResponse";
 
 /* Job names are the `.sql` file basenames — lower_snake_case only (models/warehouseJob.ts). */
 const JOB_NAME_PATTERN = /^[a-z0-9_]+$/;

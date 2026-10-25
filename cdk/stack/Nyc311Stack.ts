@@ -7,7 +7,7 @@ import { OrdersTable } from "../data/OrdersTable";
 import { Nyc311PollerLambda } from "../lambda/Nyc311PollerLambda";
 import { Nyc311PollerSchedule } from "../lambda/Nyc311PollerSchedule";
 import { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
-import { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
+import { Nyc311LambdaMetricsApiLambda, type Nyc311LambdaMetricsApiLambdaProps } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import { Nyc311OrderIngestionQueue } from "../lambda/Nyc311OrderIngestionQueue";
 import { Nyc311RequestsFanOutLambda } from "../lambda/Nyc311RequestsFanOutLambda";
 import { Nyc311RequestEventsTopic } from "../lambda/Nyc311RequestEventsTopic";
@@ -27,7 +27,7 @@ import { Nyc311WebhookDeliveryQueue } from "../lambda/Nyc311WebhookDeliveryQueue
 import { Nyc311WebhookDispatchLambda } from "../lambda/Nyc311WebhookDispatchLambda";
 import { Nyc311WebhookDeliveryLambda } from "../lambda/Nyc311WebhookDeliveryLambda";
 import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
-import { Nyc311WebhookSinkApiLambda, type WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkApiLambda";
+import { Nyc311WebhookSinkOperationApiLambda, type WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkOperationApiLambda";
 import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
 import { Nyc311WarehouseBucket } from "../warehouse/Nyc311WarehouseBucket";
@@ -75,6 +75,10 @@ import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda
 import { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
+import { Nyc311FeatureFlagsApiLambda } from "../lambda/Nyc311FeatureFlagsApiLambda";
+import { Nyc311MonitoringApiLambda } from "../lambda/Nyc311MonitoringApiLambda";
+import { Nyc311WebhookSinkApiLambda } from "../lambda/Nyc311WebhookSinkApiLambda";
+import { Nyc311DataApiLambda } from "../warehouse/Nyc311DataApiLambda";
 import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
 import { Nyc311OperatorEventsTopic } from "../lambda/Nyc311OperatorEventsTopic";
@@ -261,6 +265,8 @@ export class Nyc311Stack extends Stack {
         }),
       ])
     ) as Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
+    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
+    new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
     const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
       envName: props.envName,
@@ -660,6 +666,12 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       liveWorkspaceMetricsTable,
     });
+    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
+    new Nyc311DataApiLambda(this, "Nyc311DataApiLambda", {
+      envName: props.envName,
+      warehouseCatalog,
+      liveWorkspaceMetricsTable,
+    });
 
     /*
      * 7-data-warehousing.md §12a (Leg 7) — the admin ad-hoc SQL console: a
@@ -773,7 +785,7 @@ export class Nyc311Stack extends Stack {
     });
 
     /* The Lambda health tile, added after the 2026-08-22 fan-out-Lambda incident — backs the public `GET /lambda-metrics` route. */
-    const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", {
+    const monitoredLambdas: Nyc311LambdaMetricsApiLambdaProps = {
       envName: props.envName,
       pollerFunctionName: pollerLambda.functionName,
       orderFanOutFunctionName: requestsFanOutLambda.functionName,
@@ -790,7 +802,10 @@ export class Nyc311Stack extends Stack {
       jobResultApiFunctionName: jobResultApiLambda.functionName,
       workspaceMetricsApiFunctionName: workspaceMetricsApiLambda.functionName,
       fleetLocationsApiFunctionName: getFleetLocationsApiLambda.functionName,
-    });
+    };
+    const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", monitoredLambdas);
+    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
+    new Nyc311MonitoringApiLambda(this, "Nyc311MonitoringApiLambda", { ...monitoredLambdas, requestsTable });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
@@ -835,15 +850,17 @@ export class Nyc311Stack extends Stack {
   }
 
   /** The webhook sink subscriber (13-customer-simulation.md §5): its delivery table and one Lambda per route. Test only. */
-  private createWebhookSink(envName: Nyc311Environment): Record<WebhookSinkApiOperation, Nyc311WebhookSinkApiLambda> {
+  private createWebhookSink(envName: Nyc311Environment): Record<WebhookSinkApiOperation, Nyc311WebhookSinkOperationApiLambda> {
     const webhookSinkDeliveriesTable = new WebhookSinkDeliveriesTable(this, "WebhookSinkDeliveriesTable", { envName });
+    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
+    new Nyc311WebhookSinkApiLambda(this, "Nyc311WebhookSinkApiLambda", { envName, webhookSinkDeliveriesTable });
     return {
-      RECEIVE: new Nyc311WebhookSinkApiLambda(this, "Nyc311ReceiveWebhookSinkApiLambda", {
+      RECEIVE: new Nyc311WebhookSinkOperationApiLambda(this, "Nyc311ReceiveWebhookSinkApiLambda", {
         envName,
         operation: "RECEIVE",
         webhookSinkDeliveriesTable,
       }),
-      LIST: new Nyc311WebhookSinkApiLambda(this, "Nyc311GetWebhookSinkDeliveriesApiLambda", {
+      LIST: new Nyc311WebhookSinkOperationApiLambda(this, "Nyc311GetWebhookSinkDeliveriesApiLambda", {
         envName,
         operation: "LIST",
         webhookSinkDeliveriesTable,

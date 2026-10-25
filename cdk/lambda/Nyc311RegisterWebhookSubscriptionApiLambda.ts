@@ -20,7 +20,7 @@ export interface Nyc311RegisterWebhookSubscriptionApiLambdaProps {
  * the one route a subscriber calls. It checks the hand-created
  * registration key itself (HTTP APIs have no native API keys), so this
  * route has no authorizer. Entry point is
- * `backend/controller/web-api/registerWebhookSubscriptionController.ts`.
+ * `backend/controller/web-api/webhookSubscriptions/registerWebhookSubscriptionController.ts`.
  */
 export class Nyc311RegisterWebhookSubscriptionApiLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311RegisterWebhookSubscriptionApiLambdaProps) {
@@ -37,7 +37,7 @@ export class Nyc311RegisterWebhookSubscriptionApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "registerWebhookSubscriptionController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "webhookSubscriptions", "registerWebhookSubscriptionController.ts"),
       handler: "registerWebhookSubscriptionController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

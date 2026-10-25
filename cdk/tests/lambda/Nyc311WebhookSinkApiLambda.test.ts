@@ -1,56 +1,72 @@
 import { App, Stack } from "aws-cdk-lib";
-import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, expect, it } from "vitest";
+import { Template } from "aws-cdk-lib/assertions";
+import { beforeAll, describe, expect, it } from "vitest";
 import { WebhookSinkDeliveriesTable } from "../../data/WebhookSinkDeliveriesTable";
-import { Nyc311WebhookSinkApiLambda, type WebhookSinkApiOperation } from "../../lambda/Nyc311WebhookSinkApiLambda";
-import { dynamoActionsOn, ssmGrants } from "./webhookTestSupport";
+import { Nyc311WebhookSinkApiLambda } from "../../lambda/Nyc311WebhookSinkApiLambda";
 
-function synthesize(operation: WebhookSinkApiOperation): Template {
+function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
   new Nyc311WebhookSinkApiLambda(stack, "Nyc311WebhookSinkApiLambda", {
-    envName: "TEST",
-    operation,
-    webhookSinkDeliveriesTable: new WebhookSinkDeliveriesTable(stack, "WebhookSinkDeliveriesTable", { envName: "TEST" }),
+    envName,
+    webhookSinkDeliveriesTable: new WebhookSinkDeliveriesTable(stack, "WebhookSinkDeliveriesTable", { envName }),
   });
   return Template.fromStack(stack);
 }
 
+type Statement = { Action?: string | string[]; Resource?: unknown };
+
+function statementsOf(template: Template): Statement[] {
+  return Object.values(template.findResources("AWS::IAM::Policy")).flatMap(
+    (policy) => (policy.Properties as { PolicyDocument: { Statement: Statement[] } }).PolicyDocument.Statement
+  );
+}
+
+function actionsOf(template: Template): string[] {
+  return [...new Set(statementsOf(template).flatMap((s) => (Array.isArray(s.Action) ? s.Action : s.Action ? [s.Action] : [])))].sort();
+}
+
+function envKeysOf(template: Template): string[] {
+  const [fn] = Object.values(template.findResources("AWS::Lambda::Function"));
+  return Object.keys((fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables).sort();
+}
+
 describe("Nyc311WebhookSinkApiLambda", () => {
-  it("RECEIVE runs the receiver, may only put records, and reads the sink's own secret", () => {
-    const template = synthesize("RECEIVE");
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      FunctionName: "Nyc311ReceiveWebhookSinkApi-Test",
-      Handler: "index.receiveWebhookSinkController",
+  let testTemplate: Template;
+
+  beforeAll(() => {
+    testTemplate = synthesize("TEST");
+  });
+
+  it("bundles the webhookSinkApiRouter on Node 22", () => {
+    testTemplate.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "Nyc311WebhookSinkApi-Test",
+      Handler: "index.webhookSinkApiRouter",
       Runtime: "nodejs22.x",
-      Environment: {
-        Variables: {
-          WEBHOOK_SINK_DELIVERIES_TABLE_NAME: { Ref: Match.stringLikeRegexp("^WebhookSinkDeliveriesTable") },
-          WEBHOOK_SINK_SECRET_PARAMETER_NAME: "/nyc311/test/webhook-sink/secret",
-        },
-      },
+      Timeout: 10,
+      MemorySize: 512,
     });
-    expect(dynamoActionsOn(template, "WebhookSinkDeliveriesTable")).toEqual(["dynamodb:PutItem"]);
-    expect(ssmGrants(template)).toEqual(["ssm:GetParameter /nyc311/test/webhook-sink/secret"]);
   });
 
-  it("LIST runs the reader, may only scan, and gets no secret access at all", () => {
-    const template = synthesize("LIST");
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      FunctionName: "Nyc311GetWebhookSinkDeliveriesApi-Test",
-      Handler: "index.getWebhookSinkDeliveriesController",
-      Environment: { Variables: { WEBHOOK_SINK_DELIVERIES_TABLE_NAME: { Ref: Match.stringLikeRegexp("^WebhookSinkDeliveriesTable") } } },
+  it("suffixes the function and log group by environment, and destroys the log group with the stack", () => {
+    testTemplate.hasResource("AWS::Logs::LogGroup", {
+      Properties: { LogGroupName: "/aws/lambda/Nyc311WebhookSinkApi-Test", RetentionInDays: 30 },
+      DeletionPolicy: "Delete",
     });
-    expect(dynamoActionsOn(template, "WebhookSinkDeliveriesTable")).toEqual(["dynamodb:Scan"]);
-    expect(ssmGrants(template)).toEqual([]);
+    synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WebhookSinkApi-Prod" });
   });
 
-  it("gives each operation its own one-month, disposable log group", () => {
-    const template = synthesize("LIST");
-    template.hasResourceProperties("AWS::Logs::LogGroup", {
-      LogGroupName: "/aws/lambda/Nyc311GetWebhookSinkDeliveriesApi-Test",
-      RetentionInDays: 30,
-    });
-    template.hasResource("AWS::Logs::LogGroup", { DeletionPolicy: "Delete" });
+  it("carries the deliveries table and the sink secret's parameter name", () => {
+    expect(envKeysOf(testTemplate)).toEqual(["WEBHOOK_SINK_DELIVERIES_TABLE_NAME", "WEBHOOK_SINK_SECRET_PARAMETER_NAME"]);
+  });
+
+  it("grants the two old roles' union: PutItem and Scan on the deliveries table, and reads the sink secret", () => {
+    expect(actionsOf(testTemplate)).toEqual(["dynamodb:PutItem", "dynamodb:Scan", "ssm:GetParameter"]);
+  });
+
+  it("scopes ssm:GetParameter to the one sink secret parameter", () => {
+    const [ssm] = statementsOf(testTemplate).filter((s) => s.Action === "ssm:GetParameter");
+    expect(JSON.stringify(ssm.Resource)).toMatch(/parameter\//);
+    expect(JSON.stringify(ssm.Resource)).not.toMatch(/\*/);
   });
 });

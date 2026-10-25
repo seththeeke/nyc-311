@@ -34,7 +34,7 @@ import {
 import { WebhookSubscriptionsTable } from "../../data/WebhookSubscriptionsTable";
 import { WebhookSinkDeliveriesTable } from "../../data/WebhookSinkDeliveriesTable";
 import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
-import { Nyc311WebhookSinkApiLambda } from "../../lambda/Nyc311WebhookSinkApiLambda";
+import { Nyc311WebhookSinkOperationApiLambda } from "../../lambda/Nyc311WebhookSinkOperationApiLambda";
 import { Nyc311Api, ROUTE_THROTTLES } from "../../api/Nyc311Api";
 import { ADMIN_API_ROUTES } from "../../../backend/controller/web-api/admin/adminApiRoutes";
 
@@ -162,8 +162,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   /* The sink is Test-only, exactly as Nyc311Stack wires it. */
   const webhookSinkDeliveriesTable = envName === "TEST" ? new WebhookSinkDeliveriesTable(stack, "WebhookSinkDeliveriesTable", { envName }) : undefined;
   const webhookSinkApiLambdas = webhookSinkDeliveriesTable && {
-    RECEIVE: new Nyc311WebhookSinkApiLambda(stack, "Nyc311ReceiveWebhookSinkApiLambda", { envName, operation: "RECEIVE", webhookSinkDeliveriesTable }),
-    LIST: new Nyc311WebhookSinkApiLambda(stack, "Nyc311GetWebhookSinkDeliveriesApiLambda", { envName, operation: "LIST", webhookSinkDeliveriesTable }),
+    RECEIVE: new Nyc311WebhookSinkOperationApiLambda(stack, "Nyc311ReceiveWebhookSinkApiLambda", { envName, operation: "RECEIVE", webhookSinkDeliveriesTable }),
+    LIST: new Nyc311WebhookSinkOperationApiLambda(stack, "Nyc311GetWebhookSinkDeliveriesApiLambda", { envName, operation: "LIST", webhookSinkDeliveriesTable }),
   };
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",

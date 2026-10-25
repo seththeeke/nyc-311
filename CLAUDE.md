@@ -220,9 +220,12 @@ The backend will follow a basic controller, service, and data access object(DAO)
      function, and admin and public routes never share a bundle. A new
      route on an existing service adds a route key and a controller,
      never a Lambda; a new bundle is a design decision, recorded in a doc.
-     Public controllers stay flat at the `web-api/` root until their own
-     consolidation pass
+     Public routers come from `shared/createApiRouter.ts`
+   -> shared - `jsonResponse.ts` and `createApiRouter.ts`, the only folder
+      every bundle may import
    -> admin - every admin route, plus `requireAdminUser.ts`
+   -> featureFlags, data, monitoring, fleet, webhookSubscriptions,
+      webhookSink - the public bundles (`15-resource-consolidation.md` §3.3)
   -> ingestion - controller endpoints for scheduled external-data ingestion
      (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
      EventBridge Scheduler trigger, not API Gateway or Step Functions —
@@ -302,9 +305,10 @@ The backend will follow a basic controller, service, and data access object(DAO)
   `no-restricted-imports` rule on `controller/**/*.ts` (bans any import
   path matching `**/dao/**`), not just review — a controller that imports a
   DAO fails lint, not a human catching it later. The same rule keeps
-  bundles apart: nothing outside `controller/web-api/admin/` imports from
-  it, the admin bundle imports no public controller, and a
-  `*ApiRoutes.ts` file imports nothing (`no-restricted-syntax`).
+  bundles apart: a bundle imports only `../shared/` from `web-api/`, never
+  another bundle; `shared/` imports no bundle; nothing outside
+  `controller/web-api/admin/` imports from it; and a `*ApiRoutes.ts` file
+  imports nothing (`no-restricted-syntax`).
 - **DAOs/clients are constructed lazily, inside each function that needs
   one — never as a module-scope singleton, even for Lambda-cold-start
   reuse.** Revised 2026-08-22 after a real incident: `nyc311RequestService.ts`

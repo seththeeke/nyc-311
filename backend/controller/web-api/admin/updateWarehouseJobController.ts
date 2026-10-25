@@ -5,7 +5,7 @@ import { UpdateWarehouseJobRequestSchema, WarehouseJobNameParamsSchema } from ".
 import { NotFoundError, TerminalError, ValidationError } from "../../../models/errors";
 import { updateWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `PUT /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b's

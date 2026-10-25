@@ -29,6 +29,28 @@ export interface Nyc311LambdaMetricsApiLambdaProps {
   fleetLocationsApiFunctionName: string;
 }
 
+/* The Lambda-health tile's env: one MONITORED_LAMBDA_* name per Lambda it covers. Shared with Nyc311MonitoringApiLambda. */
+export function monitoredLambdaEnvironment(props: Nyc311LambdaMetricsApiLambdaProps): Record<string, string> {
+  return {
+    MONITORED_LAMBDA_POLLER: props.pollerFunctionName,
+    MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
+    MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
+    MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
+    MONITORED_LAMBDA_LOCATIONS_FAN_OUT: props.locationsFanOutFunctionName,
+    MONITORED_LAMBDA_OPERATORS_FAN_OUT: props.operatorsFanOutFunctionName,
+    MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
+    MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
+    MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,
+    MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
+    MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: props.warehouseSchemaApiFunctionName,
+    MONITORED_LAMBDA_WAREHOUSE_JOBS_API: props.warehouseJobsApiFunctionName,
+    MONITORED_LAMBDA_JOB_RESULT_API: props.jobResultApiFunctionName,
+    MONITORED_LAMBDA_WORKSPACE_METRICS_API: props.workspaceMetricsApiFunctionName,
+    MONITORED_LAMBDA_FLEET_LOCATIONS_API: props.fleetLocationsApiFunctionName,
+    MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
+  };
+}
+
 /**
  * Backs the public `GET /lambda-metrics` route (Lambda health tile, added
  * after the 2026-08-22 fan-out-Lambda incident) — entry point is
@@ -51,7 +73,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getLambdaMetricsController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "monitoring", "getLambdaMetricsController.ts"),
       handler: "getLambdaMetricsController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,
@@ -64,24 +86,7 @@ export class Nyc311LambdaMetricsApiLambda extends NodejsFunction {
        */
       projectRoot: backendRoot,
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
-      environment: {
-        MONITORED_LAMBDA_POLLER: props.pollerFunctionName,
-        MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
-        MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
-        MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
-        MONITORED_LAMBDA_LOCATIONS_FAN_OUT: props.locationsFanOutFunctionName,
-        MONITORED_LAMBDA_OPERATORS_FAN_OUT: props.operatorsFanOutFunctionName,
-        MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
-        MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
-        MONITORED_LAMBDA_METRICS_API: props.metricsApiFunctionName,
-        MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
-        MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: props.warehouseSchemaApiFunctionName,
-        MONITORED_LAMBDA_WAREHOUSE_JOBS_API: props.warehouseJobsApiFunctionName,
-        MONITORED_LAMBDA_JOB_RESULT_API: props.jobResultApiFunctionName,
-        MONITORED_LAMBDA_WORKSPACE_METRICS_API: props.workspaceMetricsApiFunctionName,
-        MONITORED_LAMBDA_FLEET_LOCATIONS_API: props.fleetLocationsApiFunctionName,
-        MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
-      },
+      environment: monitoredLambdaEnvironment(props),
     });
 
     this.addToRolePolicy(

@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is built and awaiting deploy. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
+**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
 
 ---
 
@@ -172,7 +172,9 @@ backend/controller/web-api/
 
 `backend/tests/controller/web-api/` mirrors this structure.
 
-**Until the public pass,** `jsonResponse.ts` stays at the `web-api/` root and the public controllers stay flat. Moving them now would rebuild every public Lambda's bundle for no change in behavior. The admin lint rule allows `../jsonResponse` until then.
+**Public step 1 (2026-10-25)** moved `jsonResponse.ts` to `shared/` and every public controller into its bundle folder. Three controllers stay at the `web-api/` root: `getWarehouseJobRunsController` (it moves to admin in step 2), `getJobResultController` (deleted in step 3) and `getPipelineStatusController`. That last one serves the pipeline stack's own API, not `Nyc311Api`, so it isn't part of this consolidation.
+
+Public routers share `shared/createApiRouter.ts`, which builds the §4.3 router from a bundle name and a `Record<RouteKey, Controller>`. The admin router keeps its own code, since it also checks claims.
 
 ### 4.2 Route keys, defined once
 
@@ -207,6 +209,7 @@ The router is the Lambda's handler, so it's a controller under CLAUDE.md §5.2:
 
 - `controller/web-api/admin/**` may not import any public bundle folder.
 - A public bundle may not import `admin/**` or any other public bundle. Only `shared/` is open to all.
+- `shared/` imports no bundle, and the root controllers not yet in a bundle import no bundle either.
 - A `*ApiRoutes.ts` file may not import anything.
 
 ### 4.5 CDK
@@ -289,7 +292,10 @@ Removing a public route is done only in step 3, after the web-app no longer call
 | 2026-10-24 | Baseline | 444 | `list-stack-resources` on `Nyc311-Test` |
 | 2026-10-24 | Admin step 1 deployed (`9b592d9`) | **448** (+4: function, role, policy, log group). Prod 433 → 437 | `list-stack-resources` on `Nyc311-Test` and `Nyc311-Prod` after the pipeline run |
 | 2026-10-25 | Admin step 2 built (synth) | **420** (−28: 15 integrations and 15 per-route permissions out, 1 of each in). Prod 437 → 409 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
-| | Admin step 3 (delete old Lambdas) | expected ~360 | |
+| 2026-10-25 | Admin step 2 deployed (`9210217`) | **420**, Prod **409**, matching synth. Test has 14 integrations and 14 permissions for 28 routes. The bundle holds one API-scoped permission, and no old admin Lambda holds any | `list-stack-resources`, `lambda get-policy`, and CloudWatch Invocations since cutover: bundle 3 (Test) and 4 (Prod), 0 errors; all 15 old admin Lambdas 0 |
+| 2026-10-25 | Public step 1 built (synth) | **436** (+16: four bundles × function, role, policy, log group). Prod 409 → 421 (+12, no sink) | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
+| | Public step 2 (cutover) | expected ~413 (−24: 12 public routes' integrations and permissions collapse into 6 bundles; `/data/jobs/{name}/result` keeps its own until step 3; +1 route for `GET /admin/warehouse/job-runs`) | |
+| | Step 3 (delete old admin and public Lambdas) | expected ~305 (−60 admin, −44 for 11 replaced public Lambdas, −4 for the two retired `/data/jobs` routes and the result route's integration and permission). Lower than §3.4's 317, because `fleet` and `webhookSubscriptions` reuse their Lambdas and the result route goes | |
 
 Step 1, as built:
 
@@ -312,6 +318,20 @@ Step 2, as built:
 - **Backend:** no change.
 
 To verify step 2 in Test, run the manual checklist in §7 before step 3.
+
+Public step 1, as built:
+
+- **Backend:**
+  - `jsonResponse.ts` moved to `shared/`, next to the new `createApiRouter.ts`.
+  - The 11 public controllers moved into six bundle folders, each with its `*ApiRoutes.ts` and `*ApiRouter.ts`. Only their import paths changed.
+  - The lint boundaries in §4.4 now cover every bundle.
+- **CDK:**
+  - Four new bundle constructs are stood up in `Nyc311Stack`, attached to no route: `Nyc311FeatureFlagsApiLambda`, `Nyc311DataApiLambda`, `Nyc311MonitoringApiLambda`, and `Nyc311WebhookSinkApiLambda` (Test only).
+  - Each bundle's role is the union of the old roles for its routes.
+  - The old per-operation sink construct was renamed `Nyc311WebhookSinkOperationApiLambda` to free the name. Its construct IDs are unchanged, so no resource changes.
+  - `fleet` and `webhookSubscriptions` get no new Lambda. Each is already one Lambda per route, so step 2 points that existing Lambda's entry at its router in place.
+- **Verify** each new bundle by invoking it directly in Test on its read routes (needs confirmation under CLAUDE.md §3):
+  - `GET /feature-flags`, `GET /data/schema`, `GET /workspace/metrics`, `GET /ingestion/metrics`, `GET /lambda-metrics`, `GET /webhook-sink/deliveries`.
 
 ---
 

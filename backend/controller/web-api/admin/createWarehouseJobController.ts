@@ -5,7 +5,7 @@ import { CreateWarehouseJobRequestSchema } from "../../../models/warehouseJobReq
 import { TerminalError, ValidationError } from "../../../models/errors";
 import { createWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `POST /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —

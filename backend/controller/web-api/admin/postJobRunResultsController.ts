@@ -5,7 +5,7 @@ import { JobRunResultsRequestSchema } from "../../../models/warehouseJobRunResul
 import { ValidationError } from "../../../models/errors";
 import { getJobRunResults } from "../../../service/analytics/jobResultService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `POST /admin/warehouse/job-runs/results` (`7-data-warehousing.md` §12b's

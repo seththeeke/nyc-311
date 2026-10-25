@@ -18,7 +18,7 @@ export interface Nyc311WarehouseSchemaApiLambdaProps {
  * Backs the public `GET /data/schema` route (`7-data-warehousing.md`
  * §12) — a live Glue Data Catalog read so a schema change surfaces on
  * `/data` with no code change. Entry point is `backend/controller/
- * web-api/getWarehouseSchemaController.ts`. Read-only: grants
+ * web-api/data/getWarehouseSchemaController.ts`. Read-only: grants
  * `glue:GetTables`/`glue:GetTable` on the one warehouse database and
  * nothing else — this Lambda never writes.
  */
@@ -36,7 +36,7 @@ export class Nyc311WarehouseSchemaApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getWarehouseSchemaController.ts"),
+      entry: path.join(backendRoot, "controller", "web-api", "data", "getWarehouseSchemaController.ts"),
       handler: "getWarehouseSchemaController",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,

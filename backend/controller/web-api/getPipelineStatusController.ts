@@ -3,7 +3,7 @@ import { logError, logInfo } from "../../logger";
 import { getPipelineStatus } from "../../service/pipeline/pipelineStatusService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../models/errors";
-import { jsonResponse } from "./jsonResponse";
+import { jsonResponse } from "./shared/jsonResponse";
 
 /**
  * Entry point for `GET /pipeline/status` — a read-only mirror of

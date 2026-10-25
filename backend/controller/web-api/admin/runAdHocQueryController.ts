@@ -5,7 +5,7 @@ import { AdHocQueryRequestSchema } from "../../../models/adHocQueryRequest";
 import { ValidationError } from "../../../models/errors";
 import { runAdHocQuery } from "../../../service/analytics/adHocQueryService";
 import { requireAdminUser } from "./requireAdminUser";
-import { jsonResponse } from "../jsonResponse";
+import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `POST /admin/warehouse/query` (`7-data-warehousing.md` §12a, Leg 7) —
