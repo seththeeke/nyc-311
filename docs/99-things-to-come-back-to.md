@@ -489,3 +489,10 @@ run, closes on merge.
 See [#112](https://github.com/seththeeke/nyc-311/issues/112).
 
 ---
+
+## web-app: bump happy-dom 20.14.6 -> 21.0.4 to clear high-severity RCE advisory (GHSA-834v-8h66-3h79)
+
+See [#131](https://github.com/seththeeke/nyc-311/issues/131) — fixed this
+run, closes on merge.
+
+---
