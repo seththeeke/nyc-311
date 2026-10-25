@@ -75,7 +75,15 @@ export class Nyc311PipelineStack extends Stack {
     const source = pipelines.CodePipelineSource.connection(
       `${GITHUB_OWNER}/${GITHUB_REPO}`,
       GITHUB_BRANCH,
-      { connectionArn: GITHUB_CONNECTION_ARN },
+      {
+        connectionArn: GITHUB_CONNECTION_ARN,
+        /*
+         * #112 — the explicit V2 push trigger added below (file-path
+         * filtered) replaces this action's own automatic webhook trigger;
+         * leaving both on would double-trigger every push.
+         */
+        triggerOnPush: false,
+      },
     );
 
     /*
@@ -263,6 +271,25 @@ export class Nyc311PipelineStack extends Stack {
      * `pipeline.pipeline.pipelineArn` for IAM scoping.
      */
     pipeline.buildPipeline();
+
+    /*
+     * #112 — CI is 70% of the monthly AWS bill, and every push ran the
+     * full pipeline even when it only touched docs/**. A doc-only push
+     * now matches no filter below (every file excluded) and starts
+     * nothing; `main` stays explicit since an unfiltered trigger would
+     * fire on every branch, not just the one `triggerOnPush` covered.
+     * Recovery if this ever misconfigures: the pipeline stack is the one
+     * stack `nyc311` can still deploy directly (see
+     * `DenyDirectCloudFormationMutation`'s exclusion below).
+     */
+    const sourceAction = pipeline.pipeline.stage("Source").actions[0];
+    pipeline.pipeline.addTrigger({
+      providerType: codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION,
+      gitConfiguration: {
+        sourceAction,
+        pushFilter: [{ branchesIncludes: [GITHUB_BRANCH], filePathsExcludes: ["docs/**"] }],
+      },
+    });
 
     /*
      * 2-pipeline-monitoring.md — a read-only mirror of this exact
