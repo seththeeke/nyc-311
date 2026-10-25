@@ -153,6 +153,34 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
+  it("skips a doc-only push via a V2 trigger filter, rather than running the full pipeline on every push (#112)", () => {
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith([
+        Match.objectLike({
+          Name: "Source",
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              Configuration: Match.objectLike({ DetectChanges: false }),
+            }),
+          ]),
+        }),
+      ]),
+      Triggers: Match.arrayWith([
+        Match.objectLike({
+          ProviderType: "CodeStarSourceConnection",
+          GitConfiguration: Match.objectLike({
+            Push: Match.arrayWith([
+              Match.objectLike({
+                Branches: { Includes: ["main"] },
+                FilePaths: { Excludes: ["docs/**"] },
+              }),
+            ]),
+          }),
+        }),
+      ]),
+    });
+  });
+
   it("wires a pipeline-failure-only notification rule to an email-subscribed SNS topic", () => {
     template.hasResourceProperties("AWS::SNS::Subscription", {
       Protocol: "email",
