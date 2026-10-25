@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is deployed to Test and Prod and verified (2026-10-25). Public step 2 (cutover) is deployed and verified (2026-10-25), including the admin checklist. Step 3 (deletions) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
+**Status (2026-10-25): API consolidation (candidate A) is complete in Test and Prod.** All three steps of §7 are deployed and verified for the admin and public bundles. Test went from 444 to **317** resources, and Prod from 433 to **312** (§7.1). The web API is now seven Service API Lambdas (six in Prod, which has no sink) instead of 28 per-route ones. Candidates B–D (§8) are still open. The Contacts design (#110), paused behind this, can resume: the stack has about 183 resources of headroom.
 
 ---
 
@@ -297,7 +297,7 @@ Removing a public route is done only in step 3, after the web-app no longer call
 | 2026-10-25 | Public step 2 built (synth) | **427** (−9: the 13 public routes' 13 integrations and permissions become 8 — six bundles plus the two legacy `/data/jobs` routes — and +1 route for `GET /admin/warehouse/job-runs`). Prod 421 → 414 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
 | 2026-10-25 | Public step 2 deployed (`46a06ce`) | **427**, Prod **414**, matching synth | `list-stack-resources` after the pipeline run (integration and browser smoke tests passed); verification below |
 | 2026-10-25 | Step 3 built (synth) | **317** (−110), Prod **312** (−102), exactly as projected. Test: 7 Lambdas, 7 integrations, 7 permissions for 27 routes | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
-| | Step 3 deployed | | |
+| 2026-10-25 | Step 3 deployed (`86ed2f2`) | **317**, Prod **312**, matching synth: −127 from the 444 baseline (Prod −121 from 433). Test has 7 API Lambdas, 7 integrations and 7 permissions for 27 routes | `list-stack-resources` after the pipeline run; verification below |
 
 Step 1, as built:
 
@@ -367,6 +367,13 @@ Step 3 (admin and public together), as built:
   - The `GET /data/jobs` integration test became `adminWarehouseJobRunsApi.integration.test.ts` (§6), and the job-result test was deleted.
 - **Web-app:** deleted `useJobResult`, `getJobResult` and its mock data. The route-report mock lists `/admin/warehouse/job-runs`.
 - **Docs:** `7-data-warehousing.md` §12 and `4-pipeline-integration-tests.md` note the route changes.
+- **Verified 2026-10-25:**
+  - Every pipeline stage passed, including the integration tests (now with the admin job-runs test) and the browser smoke tests.
+  - In both environments, each API integration's route count matches its bundle's route list: admin 16, featureFlags 3, data 2, monitoring 2, fleet 1, webhookSubscriptions 1, and the sink 2 in Test only. No per-route API function is left in the account.
+  - Public reads return 200 in Test and Prod. `GET /data/jobs` now returns 404, and `GET /admin/warehouse/job-runs` without a token returns 401.
+  - The admin checklist passed 17 of 17 again on the final stack.
+  - The Lambda health tile lists the six bundles.
+- **Left behind:** the CloudWatch log groups of 14 deleted functions, in each environment: the 12 admin per-route Lambdas, plus metrics and Lambda metrics. Those constructs never set `RemovalPolicy.DESTROY` on their log groups, so CloudFormation retained them. They are outside the stack and count toward no limit. Delete them by hand if wanted (CLAUDE.md §3 applies).
 
 ---
 
