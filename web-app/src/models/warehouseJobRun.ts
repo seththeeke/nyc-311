@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /*
  * Mirrors backend/models/warehouseJobRun.ts (7-data-warehousing.md §9) —
- * one row of the WarehouseJobRuns table, as returned by GET /data/jobs.
+ * one row of the WarehouseJobRuns table, as returned by GET /admin/warehouse/job-runs.
  * Covers the daily aggregation jobs, their automatic bounded retries, and
  * the on-demand rebuild (§10) — all one shape, distinguished by
  * job_name/trigger. `result_location` points at the run's immutable

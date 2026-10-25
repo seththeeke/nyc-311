@@ -7,7 +7,7 @@ import type { LambdaHealth, LambdaHealthPoint } from "../../models/lambdaMetrics
  * Static, explicit list (not dynamic account-wide discovery) — the
  * Lambda-health tile is meant to be extensible by adding one entry here
  * plus one env var on the CDK construct (cdk/lambda/
- * Nyc311LambdaMetricsApiLambda.ts) when a new Lambda ships, not by
+ * Nyc311MonitoringApiLambda.ts) when a new Lambda ships, not by
  * scanning every Lambda in the account (which would also sweep up CDK's
  * own auto-generated bucket-deployment/auto-delete-objects Lambdas).
  */
@@ -20,13 +20,14 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "OperatorsStreamFanOut", envVar: "MONITORED_LAMBDA_OPERATORS_FAN_OUT" },
   { logicalName: "OrderEvaluation", envVar: "MONITORED_LAMBDA_ORDER_EVALUATION" },
   { logicalName: "OrderScheduling", envVar: "MONITORED_LAMBDA_ORDER_SCHEDULING" },
-  { logicalName: "MetricsApi", envVar: "MONITORED_LAMBDA_METRICS_API" },
   { logicalName: "WarehouseJobRunner", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER" },
-  { logicalName: "WarehouseSchemaApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API" },
-  { logicalName: "WarehouseJobsApi", envVar: "MONITORED_LAMBDA_WAREHOUSE_JOBS_API" },
-  { logicalName: "JobResultApi", envVar: "MONITORED_LAMBDA_JOB_RESULT_API" },
-  { logicalName: "WorkspaceMetricsApi", envVar: "MONITORED_LAMBDA_WORKSPACE_METRICS_API" },
-  { logicalName: "FleetLocationsApi", envVar: "MONITORED_LAMBDA_FLEET_LOCATIONS_API" },
+  /* The web API's Service API bundles (15-resource-consolidation.md §4.5), one per bundle, not per route. The Test-only sink is left out. */
+  { logicalName: "AdminApi", envVar: "MONITORED_LAMBDA_ADMIN_API" },
+  { logicalName: "FeatureFlagsApi", envVar: "MONITORED_LAMBDA_FEATURE_FLAGS_API" },
+  { logicalName: "DataApi", envVar: "MONITORED_LAMBDA_DATA_API" },
+  { logicalName: "MonitoringApi", envVar: "MONITORED_LAMBDA_MONITORING_API" },
+  { logicalName: "FleetApi", envVar: "MONITORED_LAMBDA_FLEET_API" },
+  { logicalName: "WebhookSubscriptionsApi", envVar: "MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API" },
   { logicalName: "PipelineStatus", envVar: "MONITORED_LAMBDA_PIPELINE_STATUS" },
 ];
 

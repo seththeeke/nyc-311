@@ -15,13 +15,13 @@ const ENV_VARS: Record<string, string> = {
   MONITORED_LAMBDA_OPERATORS_FAN_OUT: "Nyc311OperatorsStreamFanOut-Test",
   MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
   MONITORED_LAMBDA_ORDER_SCHEDULING: "Nyc311OrderScheduling-Test",
-  MONITORED_LAMBDA_METRICS_API: "Nyc311MetricsApi-Test",
   MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: "Nyc311WarehouseJobRunner-Test",
-  MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: "Nyc311WarehouseSchemaApi-Test",
-  MONITORED_LAMBDA_WAREHOUSE_JOBS_API: "Nyc311WarehouseJobsApi-Test",
-  MONITORED_LAMBDA_JOB_RESULT_API: "Nyc311JobResultApi-Test",
-  MONITORED_LAMBDA_WORKSPACE_METRICS_API: "Nyc311WorkspaceMetricsApi-Test",
-  MONITORED_LAMBDA_FLEET_LOCATIONS_API: "Nyc311GetFleetLocationsApi-Test",
+  MONITORED_LAMBDA_ADMIN_API: "Nyc311AdminApi-Test",
+  MONITORED_LAMBDA_FEATURE_FLAGS_API: "Nyc311FeatureFlagsApi-Test",
+  MONITORED_LAMBDA_DATA_API: "Nyc311DataApi-Test",
+  MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
+  MONITORED_LAMBDA_FLEET_API: "Nyc311GetFleetLocationsApi-Test",
+  MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: "Nyc311RegisterWebhookSubscriptionApi-Test",
   MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
 };
 
@@ -163,7 +163,7 @@ describe("getLambdaHealth", () => {
   it("adds each day's average and maximum Duration, rounded to whole ms", async () => {
     cwMock.on(GetMetricStatisticsCommand).callsFake((input) => {
       const functionName = input.Dimensions?.[0]?.Value;
-      if (functionName !== "Nyc311WorkspaceMetricsApi-Test") return { Datapoints: [] };
+      if (functionName !== "Nyc311DataApi-Test") return { Datapoints: [] };
       if (input.MetricName === "Duration") {
         expect(input.Statistics).toEqual(["Average", "Maximum"]);
         return {
@@ -183,8 +183,8 @@ describe("getLambdaHealth", () => {
 
     const result = await getLambdaHealth({ client, now });
 
-    const api = result.find((r) => r.logicalName === "WorkspaceMetricsApi");
-    expect(api?.functionName).toBe("Nyc311WorkspaceMetricsApi-Test");
+    const api = result.find((r) => r.logicalName === "DataApi");
+    expect(api?.functionName).toBe("Nyc311DataApi-Test");
     expect(api?.points).toEqual([
       { date: "2026-08-20", invocations: 3, errors: 0, successes: 3, avgDurationMs: null, maxDurationMs: null },
       { date: "2026-08-21", invocations: 5, errors: 0, successes: 5, avgDurationMs: 42, maxDurationMs: 812 },

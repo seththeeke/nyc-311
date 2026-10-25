@@ -783,6 +783,8 @@ database:
 ] }
 ```
 
+> **Superseded 2026-10-25** by `15-resource-consolidation.md` §3.3: `GET /data/jobs` moved to admin-authorized `GET /admin/warehouse/job-runs` (same body), and `GET /data/jobs/{name}/result` was deleted (it had no caller). The job runner still writes each run's result envelope, read through `POST /admin/warehouse/job-runs/results`. Only `GET /data/schema` is still public. The descriptions below are kept as history.
+
 `GET /data/jobs` — `WarehouseJobRuns` via `gsi1-recent-runs`,
 most-recent-first:
 

@@ -25,6 +25,11 @@ real TypeScript/Vitest suite wired into `Nyc311Pipeline`. **Updated
 2026-08-26:** `GET /order-events` (`5-order-evaluation.md`) shipped with
 its own test file, folded into this same suite mechanically — 4 routes
 now, same "one test file per route, no formal coverage gate" shape.
+**Updated 2026-10-25** (`15-resource-consolidation.md` §6): the
+`GET /data/jobs/{name}/result` test was deleted with its route, and the
+`GET /data/jobs` test became `adminWarehouseJobRunsApi.integration.test.ts`
+against admin `GET /admin/warehouse/job-runs`, authenticated like the
+whoami test.
 
 ---
 

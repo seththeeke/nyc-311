@@ -8,7 +8,6 @@ export const MOCK_INTEGRATION_TEST_REPORT: IntegrationTestReport = {
     "/ingestion/metrics": { hit: true, statusCode: 200, ok: true },
     "/lambda-metrics": { hit: true, statusCode: 200, ok: true },
     "/data/schema": { hit: true, statusCode: 200, ok: true },
-    "/data/jobs": { hit: true, statusCode: 200, ok: true },
-    "/data/jobs/{name}/result": { hit: true, statusCode: 200, ok: true },
+    "/admin/warehouse/job-runs": { hit: true, statusCode: 200, ok: true },
   },
 };

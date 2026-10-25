@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is deployed to Test and Prod and verified (2026-10-25). Public step 2 (cutover) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
+**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is deployed to Test and Prod and verified (2026-10-25). Public step 2 (cutover) is deployed and verified (2026-10-25), including the admin checklist. Step 3 (deletions) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
 
 ---
 
@@ -295,7 +295,9 @@ Removing a public route is done only in step 3, after the web-app no longer call
 | 2026-10-25 | Admin step 2 deployed (`9210217`) | **420**, Prod **409**, matching synth. Test has 14 integrations and 14 permissions for 28 routes. The bundle holds one API-scoped permission, and no old admin Lambda holds any | `list-stack-resources`, `lambda get-policy`, and CloudWatch Invocations since cutover: bundle 3 (Test) and 4 (Prod), 0 errors; all 15 old admin Lambdas 0 |
 | 2026-10-25 | Public step 1 built (synth) | **436** (+16: four bundles × function, role, policy, log group). Prod 409 → 421 (+12, no sink) | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
 | 2026-10-25 | Public step 2 built (synth) | **427** (−9: the 13 public routes' 13 integrations and permissions become 8 — six bundles plus the two legacy `/data/jobs` routes — and +1 route for `GET /admin/warehouse/job-runs`). Prod 421 → 414 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
-| | Step 3 (delete old admin and public Lambdas) | expected ~317 (−110: 15 old admin Lambdas × 4, 9 replaced public Lambdas × 4, and the two legacy `/data/jobs` routes with their Lambdas, integrations and permissions). Prod ~312 | |
+| 2026-10-25 | Public step 2 deployed (`46a06ce`) | **427**, Prod **414**, matching synth | `list-stack-resources` after the pipeline run (integration and browser smoke tests passed); verification below |
+| 2026-10-25 | Step 3 built (synth) | **317** (−110), Prod **312** (−102), exactly as projected. Test: 7 Lambdas, 7 integrations, 7 permissions for 27 routes | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
+| | Step 3 deployed | | |
 
 Step 1, as built:
 
@@ -348,6 +350,23 @@ Public step 2, as built:
   - `GET /data/jobs` and `GET /data/jobs/{name}/result` stay on their old Lambdas until step 3.
 - **Web-app:** `warehouseDataService.getJobRuns` calls `GET /admin/warehouse/job-runs` with the ID token. `DataPage` shows only the relationship diagram; the schema search stays on `AdminWarehousePage`.
 - **Not yet changed:** the Lambda-health tile (`MONITORED_LAMBDAS`) still names the per-route functions. It moves to bundle names in step 3, when those functions are deleted.
+- **Verified 2026-10-25:**
+  - **Admin checklist, all 17 checks passed.** The §7 manual admin checklist ran as a script against the real Test API Gateway with the test admin's ID token. It covered: whoami; create, update and delete a flag; list, add and remove capacity; list, create (SCHEDULED, so EventBridge Scheduler and `iam:PassRole` ran), view the SQL of, update and delete a warehouse job; list job runs and fetch a run's results; an ad-hoc Athena query; run scheduling; and a 401 for a call with no token. Every record it created was deleted, and no schedule was left behind.
+  - **Traffic since cutover:** every bundle served traffic with 0 errors, and 14 sampled replaced Lambdas (public and admin) had 0 invocations. The two legacy `/data/jobs` Lambdas were called only by the pipeline's own integration tests. The API returned no 5xx in either environment.
+  - **Through API Gateway in Test and Prod:** `GET /fleet/locations` returned 200. `POST /webhook-subscriptions` with an invalid body got its controller's 400.
+
+Step 3 (admin and public together), as built:
+
+- **CDK:**
+  - Deleted the 20 per-route constructs and their tests. Admin: whoami, the three capacity routes, run scheduling, ad-hoc query, the five warehouse-job routes and job-run results. The per-operation feature-flag construct (six Lambdas). Public: metrics, Lambda metrics, warehouse schema, workspace metrics, warehouse jobs, job result, and the per-operation sink construct.
+  - `Nyc311Api` now takes only the seven bundles.
+  - `Nyc311MonitoringApiLambda` owns the Lambda-health tile's list of monitored Lambdas, which now names the bundles and itself.
+- **Backend:**
+  - Deleted `getJobResultController`, `getWarehouseJobRunsController`, `getJobResult` (service) and `getLatestSucceededRunForJob` (DAO).
+  - `MONITORED_LAMBDAS` now lists the six bundles, `AdminApi` through `WebhookSubscriptionsApi` (not the Test-only sink), in place of the six per-route API entries.
+  - The `GET /data/jobs` integration test became `adminWarehouseJobRunsApi.integration.test.ts` (§6), and the job-result test was deleted.
+- **Web-app:** deleted `useJobResult`, `getJobResult` and its mock data. The route-report mock lists `/admin/warehouse/job-runs`.
+- **Docs:** `7-data-warehousing.md` §12 and `4-pipeline-integration-tests.md` note the route changes.
 
 ---
 

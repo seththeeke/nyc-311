@@ -78,35 +78,10 @@ export class WarehouseJobRunsDao extends Dao<WarehouseJobRun> {
   }
 
   /**
-   * The most recent `SUCCEEDED` run for a `job_name`, or `null` — backs
-   * `GET /data/jobs/{name}/result`, which needs the latest run that
-   * actually produced a `result_location`. Scans a wider page than
-   * {@link getLatestRunForJob} since RUNNING/FAILED runs in between don't
-   * count.
-   */
-  async getLatestSucceededRunForJob(jobName: string): Promise<WarehouseJobRun | null> {
-    logInfo("WarehouseJobRunsDao.getLatestSucceededRunForJob", { table: this.tableName, jobName });
-    const result = await this.client.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: RECENT_RUNS_INDEX,
-        KeyConditionExpression: "gsi1pk = :pk",
-        FilterExpression: "job_name = :jn AND #status = :st",
-        ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: { ":pk": JOB_RUNS_GSI1_PK, ":jn": jobName, ":st": "SUCCEEDED" },
-        ScanIndexForward: false,
-        Limit: 100,
-      })
-    );
-    const items = result.Items ?? [];
-    return items.length > 0 ? this.validate(items[0]) : null;
-  }
-
-  /**
    * A single run by its own primary key, or `null` if no such run exists —
    * backs the admin "view any historical run's result" Reports tab
    * (`7-data-warehousing.md` §12b's addition), unlike
-   * {@link getLatestRunForJob}/{@link getLatestSucceededRunForJob} which
+   * {@link getLatestRunForJob} which
    * resolve by `job_name` instead.
    */
   async getJobRun(jobRunId: string): Promise<WarehouseJobRun | null> {

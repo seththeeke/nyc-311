@@ -7,18 +7,35 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { RequestsTable } from "../data/RequestsTable";
-import { monitoredLambdaEnvironment, type Nyc311LambdaMetricsApiLambdaProps } from "./Nyc311LambdaMetricsApiLambda";
-import { ENV_NAME_SUFFIX } from "../stack/Nyc311Stack";
+import { PIPELINE_STATUS_FUNCTION_NAME } from "../pipeline/Nyc311PipelineStatusLambda";
+import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
-export interface Nyc311MonitoringApiLambdaProps extends Nyc311LambdaMetricsApiLambdaProps {
+export interface Nyc311MonitoringApiLambdaProps {
+  envName: Nyc311Environment;
   requestsTable: RequestsTable;
+  /* Physical function names of every Lambda the health tile covers; this bundle adds its own. */
+  pollerFunctionName: string;
+  orderFanOutFunctionName: string;
+  requestEvaluationFunctionName: string;
+  orderEventFanOutFunctionName: string;
+  locationsFanOutFunctionName: string;
+  operatorsFanOutFunctionName: string;
+  orderEvaluationFunctionName: string;
+  orderSchedulingFunctionName: string;
+  warehouseJobRunnerFunctionName: string;
+  adminApiFunctionName: string;
+  featureFlagsApiFunctionName: string;
+  dataApiFunctionName: string;
+  fleetApiFunctionName: string;
+  webhookSubscriptionsApiFunctionName: string;
 }
 
 /**
  * The monitoring Service API bundle (`15-resource-consolidation.md`
  * §3.3): `GET /ingestion/metrics` and `GET /lambda-metrics`, entry
  * `backend/controller/web-api/monitoring/monitoringApiRouter.ts`. Its
- * timeout is the Lambda-health route's: up to 48 parallel CloudWatch calls.
+ * timeout is the Lambda-health route's: up to 48 parallel CloudWatch calls
+ * (16 monitored Lambdas × 3 metrics), itself among them.
  */
 export class Nyc311MonitoringApiLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311MonitoringApiLambdaProps) {
@@ -45,7 +62,22 @@ export class Nyc311MonitoringApiLambda extends NodejsFunction {
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
-        ...monitoredLambdaEnvironment(props),
+        MONITORED_LAMBDA_POLLER: props.pollerFunctionName,
+        MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
+        MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
+        MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
+        MONITORED_LAMBDA_LOCATIONS_FAN_OUT: props.locationsFanOutFunctionName,
+        MONITORED_LAMBDA_OPERATORS_FAN_OUT: props.operatorsFanOutFunctionName,
+        MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
+        MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
+        MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
+        MONITORED_LAMBDA_ADMIN_API: props.adminApiFunctionName,
+        MONITORED_LAMBDA_FEATURE_FLAGS_API: props.featureFlagsApiFunctionName,
+        MONITORED_LAMBDA_DATA_API: props.dataApiFunctionName,
+        MONITORED_LAMBDA_MONITORING_API: functionName,
+        MONITORED_LAMBDA_FLEET_API: props.fleetApiFunctionName,
+        MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: props.webhookSubscriptionsApiFunctionName,
+        MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
       },
     });
 

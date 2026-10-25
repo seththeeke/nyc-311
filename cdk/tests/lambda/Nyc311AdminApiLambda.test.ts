@@ -95,7 +95,7 @@ describe("Nyc311AdminApiLambda", () => {
     synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311AdminApi-Prod" });
   });
 
-  it("carries every env var the 15 admin controllers' services read", () => {
+  it("carries every env var the admin controllers' services read", () => {
     const fn = Object.values(testTemplate.findResources("AWS::Lambda::Function", { Properties: { FunctionName: "Nyc311AdminApi-Test" } }))[0];
     const variables = (fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
 
@@ -121,7 +121,7 @@ describe("Nyc311AdminApiLambda", () => {
     );
   });
 
-  it("grants exactly the union of the per-route admin Lambdas' actions — no Scan, no writes to Requests/Locations", () => {
+  it("grants exactly the union of the retired per-route admin Lambdas' actions — no Scan, no writes to Requests/Locations", () => {
     expect(actionsOf(bundleStatements(testTemplate))).toEqual(
       [
         "athena:GetQueryExecution",

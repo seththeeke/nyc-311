@@ -19,8 +19,6 @@ import type { Nyc311MonitoringApiLambda } from "../lambda/Nyc311MonitoringApiLam
 import type { Nyc311WebhookSinkApiLambda } from "../lambda/Nyc311WebhookSinkApiLambda";
 import type { Nyc311WebhookSubscriptionsApiLambda } from "../lambda/Nyc311WebhookSubscriptionsApiLambda";
 import type { Nyc311DataApiLambda } from "../warehouse/Nyc311DataApiLambda";
-import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
-import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
@@ -36,10 +34,6 @@ export interface Nyc311ApiProps {
   webhookSubscriptionsApiLambda: Nyc311WebhookSubscriptionsApiLambda;
   /** The Test-only webhook sink — omitted in Prod, which then has neither of its routes. */
   webhookSinkApiLambda?: Nyc311WebhookSinkApiLambda;
-  /** Public `GET /data/jobs`, kept on its old Lambda until §7 step 3 deletes it (replaced by admin `GET /admin/warehouse/job-runs`). */
-  warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
-  /** Public `GET /data/jobs/{name}/result`, no caller; kept on its old Lambda until §7 step 3 deletes it. */
-  jobResultApiLambda: Nyc311JobResultApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -112,18 +106,6 @@ export class Nyc311Api extends HttpApi {
       ...(props.webhookSinkApiLambda ? this.addBundleRoutes("WebhookSinkApi", props.webhookSinkApiLambda, WEBHOOK_SINK_API_ROUTES) : []),
     ].forEach(({ routeKey, routes }) => {
       if (routeKey in ROUTE_THROTTLES) throttledRoutes.push(...routes);
-    });
-
-    this.addRoutes({
-      path: "/data/jobs",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetWarehouseJobsIntegration", props.warehouseJobsApiLambda),
-    });
-
-    this.addRoutes({
-      path: "/data/jobs/{name}/result",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetJobResultIntegration", props.jobResultApiLambda),
     });
 
     /*

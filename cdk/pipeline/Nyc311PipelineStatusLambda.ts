@@ -7,7 +7,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 
-/* Exported so Nyc311LambdaMetricsApiLambda (a different stack) can reference this Lambda by name without a cross-stack construct reference. */
+/* Exported so Nyc311MonitoringApiLambda (a different stack) can reference this Lambda by name without a cross-stack construct reference. */
 export const PIPELINE_STATUS_FUNCTION_NAME = "Nyc311PipelineStatus";
 
 export interface Nyc311PipelineStatusLambdaProps {

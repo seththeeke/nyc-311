@@ -12,7 +12,7 @@ import type { WarehouseJobDefinition } from "../../../src/models/warehouseJobDef
 import type { AdHocQueryResult } from "../../../src/models/adHocQueryResult";
 
 vi.mock("../../../src/services/warehouseDataService", () => ({
-  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getJobResult: vi.fn() },
+  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn() },
 }));
 vi.mock("../../../src/services/warehouseJobDefinitionService", () => ({
   warehouseJobDefinitionService: {

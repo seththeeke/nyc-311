@@ -125,7 +125,7 @@ describe("Nyc311Stack", () => {
     });
   });
 
-  it("wires the live workspace metrics leg: table, filtered queue, Lambda, DLQ alarm, and the API Lambda's access", () => {
+  it("wires the live workspace metrics leg: table, filtered queue, Lambda, DLQ alarm, and the data bundle's access", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "LiveWorkspaceMetrics-Test" });
@@ -138,11 +138,11 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311LiveWorkspaceMetrics-Test" });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311LiveWorkspaceMetricsDlqDepthAlarm-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", {
-      FunctionName: "Nyc311WorkspaceMetricsApi-Test",
+      FunctionName: "Nyc311DataApi-Test",
       Environment: {
-        Variables: {
+        Variables: Match.objectLike({
           LIVE_WORKSPACE_METRICS_TABLE_NAME: { Ref: Match.stringLikeRegexp("^LiveWorkspaceMetricsTable") },
-        },
+        }),
       },
     });
   });
@@ -164,10 +164,9 @@ describe("Nyc311Stack", () => {
     }
   });
 
-  it("creates the webhook sink — table, two Lambdas, two routes — in Test only", () => {
+  it("creates the webhook sink — table, its bundle Lambda, two routes — in Test only", () => {
     testEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WebhookSinkDeliveries-Test" });
-    testEnv.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311ReceiveWebhookSinkApi-Test" });
-    testEnv.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311GetWebhookSinkDeliveriesApi-Test" });
+    testEnv.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WebhookSinkApi-Test" });
     testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /webhook-sink" });
     testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /webhook-sink/deliveries" });
 
@@ -231,7 +230,7 @@ describe("Nyc311Stack", () => {
     });
   });
 
-  it("wires the warehouse job runner, its schedule group + admin job routes, and the 3 GET /data/* routes (7-data-warehousing.md §8-§12, Leg 8)", () => {
+  it("wires the warehouse job runner, its schedule group + admin job routes, and the public data routes (7-data-warehousing.md §8-§12, Leg 8)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "WarehouseJobRuns-Test" });
@@ -246,40 +245,49 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", { Name: "Nyc311WarehouseJobs-Test" });
     template.hasResourceProperties("AWS::IAM::Role", { RoleName: "Nyc311WarehouseJobScheduleRole-Test" });
     template.hasResourceProperties("AWS::CloudWatch::Alarm", { AlarmName: "Nyc311WarehouseJobsFailureAlarm-Test" });
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311CreateWarehouseJobApi-Test" });
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311DeleteWarehouseJobApi-Test" });
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311ListWarehouseJobsApi-Test" });
+    for (const routeKey of ["GET /admin/warehouse/jobs", "POST /admin/warehouse/jobs", "GET /admin/warehouse/job-runs"]) {
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+    }
 
     /* §10 Leg 4 — the on-demand rebuild state machine + its worker Lambda + the ARN output. */
     template.hasResourceProperties("AWS::StepFunctions::StateMachine", { StateMachineName: "Nyc311WarehouseRebuild-Test" });
     template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311WarehouseRebuildWorker-Test" });
     template.hasOutput("Nyc311WarehouseRebuildStateMachineArn", {});
 
-    for (const routeKey of ["GET /data/schema", "GET /data/jobs", "GET /data/jobs/{name}/result", "GET /workspace/metrics"]) {
-      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey });
+    for (const routeKey of ["GET /data/schema", "GET /workspace/metrics"]) {
+      template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "NONE" });
     }
-    for (const fn of [
-      "Nyc311WarehouseSchemaApi-Test",
-      "Nyc311WarehouseJobsApi-Test",
-      "Nyc311JobResultApi-Test",
-      "Nyc311WorkspaceMetricsApi-Test",
-    ]) {
-      template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
+    for (const routeKey of ["GET /data/jobs", "GET /data/jobs/{name}/result"]) {
+      template.resourcePropertiesCountIs("AWS::ApiGatewayV2::Route", { RouteKey: routeKey }, 0);
     }
   });
 
-  it("creates the FeatureFlags table and one Lambda per feature-flag operation", () => {
+  it("creates the FeatureFlags table and the featureFlags bundle; the flag writes are admin routes", () => {
     const { template } = testEnv;
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Test" });
-    for (const fn of [
-      "Nyc311ListFeatureFlagsApi-Test",
-      "Nyc311GetFeatureFlagApi-Test",
-      "Nyc311GetTreatmentApi-Test",
-      "Nyc311CreateFeatureFlagApi-Test",
-      "Nyc311UpdateFeatureFlagApi-Test",
-      "Nyc311DeleteFeatureFlagApi-Test",
-    ]) {
-      template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: fn });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311FeatureFlagsApi-Test" });
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /admin/feature-flags", AuthorizationType: "JWT" });
+  });
+
+  it("builds one Lambda per Service API bundle and none per route (15-resource-consolidation.md §3)", () => {
+    for (const [env, suffix, bundles] of [
+      [testEnv, "Test", ["Admin", "FeatureFlags", "Data", "Monitoring", "WebhookSink"]],
+      [prodEnv, "Prod", ["Admin", "FeatureFlags", "Data", "Monitoring"]],
+    ] as const) {
+      for (const bundle of bundles) {
+        env.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: `Nyc311${bundle}Api-${suffix}` });
+      }
+      /* fleet and webhookSubscriptions kept their pre-bundle names (§7 step 2). */
+      for (const fn of ["Nyc311GetFleetLocationsApi", "Nyc311RegisterWebhookSubscriptionApi"]) {
+        env.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: `${fn}-${suffix}` });
+      }
+      for (const retired of [
+        "Nyc311AdminWhoamiApi", "Nyc311GetCapacityApi", "Nyc311AdHocQueryApi", "Nyc311ListWarehouseJobsApi",
+        "Nyc311ListFeatureFlagsApi", "Nyc311CreateFeatureFlagApi", "Nyc311MetricsApi", "Nyc311LambdaMetricsApi",
+        "Nyc311WarehouseSchemaApi", "Nyc311WorkspaceMetricsApi", "Nyc311WarehouseJobsApi", "Nyc311JobResultApi",
+      ]) {
+        env.template.resourcePropertiesCountIs("AWS::Lambda::Function", { FunctionName: `${retired}-${suffix}` }, 0);
+      }
     }
   });
 
@@ -314,15 +322,14 @@ describe("Nyc311Stack", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: "Nyc311Api-Test" });
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311MetricsApi-Test" });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311MonitoringApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /ingestion/metrics" });
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
-  it("wires GET /lambda-metrics to the Lambda health Lambda, with every monitored function name set (2026-08-22 incident)", () => {
+  it("wires GET /lambda-metrics to the monitoring bundle, with every monitored function name set (2026-08-22 incident)", () => {
     const { template } = testEnv;
 
-    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311LambdaMetricsApi-Test" });
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /lambda-metrics" });
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
@@ -333,13 +340,13 @@ describe("Nyc311Stack", () => {
           MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrdersStreamFanOutLambda") },
           MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
           MONITORED_LAMBDA_ORDER_SCHEDULING: { Ref: Match.stringLikeRegexp("^Nyc311OrderSchedulingLambda") },
-          MONITORED_LAMBDA_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311MetricsApiLambda") },
           MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobRunnerLambda") },
-          MONITORED_LAMBDA_WAREHOUSE_SCHEMA_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseSchemaApiLambda") },
-          MONITORED_LAMBDA_WAREHOUSE_JOBS_API: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobsApiLambda") },
-          MONITORED_LAMBDA_JOB_RESULT_API: { Ref: Match.stringLikeRegexp("^Nyc311JobResultApiLambda") },
-          MONITORED_LAMBDA_WORKSPACE_METRICS_API: { Ref: Match.stringLikeRegexp("^Nyc311WorkspaceMetricsApiLambda") },
-          MONITORED_LAMBDA_FLEET_LOCATIONS_API: { Ref: Match.stringLikeRegexp("^Nyc311GetFleetLocationsApiLambda") },
+          MONITORED_LAMBDA_ADMIN_API: { Ref: Match.stringLikeRegexp("^Nyc311AdminApiLambda") },
+          MONITORED_LAMBDA_FEATURE_FLAGS_API: { Ref: Match.stringLikeRegexp("^Nyc311FeatureFlagsApiLambda") },
+          MONITORED_LAMBDA_DATA_API: { Ref: Match.stringLikeRegexp("^Nyc311DataApiLambda") },
+          MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
+          MONITORED_LAMBDA_FLEET_API: { Ref: Match.stringLikeRegexp("^Nyc311GetFleetLocationsApiLambda") },
+          MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: { Ref: Match.stringLikeRegexp("^Nyc311RegisterWebhookSubscriptionApiLambda") },
           MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
         }),
       },

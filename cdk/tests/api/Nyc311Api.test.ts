@@ -9,8 +9,6 @@ import { OrdersTable } from "../../data/OrdersTable";
 import { WarehouseJobRunsTable } from "../../data/WarehouseJobRunsTable";
 import { Nyc311WarehouseBucket } from "../../warehouse/Nyc311WarehouseBucket";
 import { Nyc311WarehouseCatalog } from "../../warehouse/Nyc311WarehouseCatalog";
-import { Nyc311WarehouseJobsApiLambda } from "../../warehouse/Nyc311WarehouseJobsApiLambda";
-import { Nyc311JobResultApiLambda } from "../../warehouse/Nyc311JobResultApiLambda";
 import { Nyc311DataApiLambda } from "../../warehouse/Nyc311DataApiLambda";
 import { Nyc311AdHocQueryWorkgroup } from "../../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311AnalyticsWorkgroup } from "../../warehouse/Nyc311AnalyticsWorkgroup";
@@ -50,13 +48,12 @@ const MONITORED = {
   orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
   orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
   orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
-  metricsApiFunctionName: "Nyc311MetricsApi-Test",
   warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
-  warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
-  warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
-  jobResultApiFunctionName: "Nyc311JobResultApi-Test",
-  workspaceMetricsApiFunctionName: "Nyc311WorkspaceMetricsApi-Test",
-  fleetLocationsApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
+  adminApiFunctionName: "Nyc311AdminApi-Test",
+  featureFlagsApiFunctionName: "Nyc311FeatureFlagsApi-Test",
+  dataApiFunctionName: "Nyc311DataApi-Test",
+  fleetApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
+  webhookSubscriptionsApiFunctionName: "Nyc311RegisterWebhookSubscriptionApi-Test",
 };
 
 /* Each bundle's construct-ID prefix and route list, as Nyc311Stack wires them. */
@@ -69,9 +66,6 @@ const BUNDLES: { lambdaId: string; routes: readonly string[]; testOnly?: boolean
   { lambdaId: "Nyc311RegisterWebhookSubscriptionApiLambda", routes: WEBHOOK_SUBSCRIPTIONS_API_ROUTES },
   { lambdaId: "Nyc311WebhookSinkApiLambda", routes: WEBHOOK_SINK_API_ROUTES, testOnly: true },
 ];
-
-/* The two public routes still on their pre-bundle Lambdas until 15-resource-consolidation.md §7 step 3 deletes them. */
-const LEGACY_ROUTES = ["GET /data/jobs", "GET /data/jobs/{name}/result"];
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
@@ -166,8 +160,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
             webhookSinkDeliveriesTable: new WebhookSinkDeliveriesTable(stack, "WebhookSinkDeliveriesTable", { envName }),
           })
         : undefined,
-    warehouseJobsApiLambda: new Nyc311WarehouseJobsApiLambda(stack, "Nyc311WarehouseJobsApiLambda", { envName, jobRunsTable: warehouseJobRunsTable }),
-    jobResultApiLambda: new Nyc311JobResultApiLambda(stack, "Nyc311JobResultApiLambda", { envName, jobRunsTable: warehouseJobRunsTable, warehouseBucket }),
     adminAuthorizer: adminAuth.authorizer,
     webAppDomainNames: [SITE_DOMAIN, CLOUDFRONT_DOMAIN],
     apiDomainName,
@@ -255,22 +247,21 @@ describe("Nyc311Api", () => {
     expect(authorized).toContain("GET /admin/warehouse/job-runs");
   });
 
-  it("keeps the two legacy /data/jobs routes public, each on its own pre-bundle integration", () => {
-    for (const routeKey of LEGACY_ROUTES) {
-      testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "NONE" });
+  it("no longer serves the retired public /data/jobs routes", () => {
+    for (const routeKey of ["GET /data/jobs", "GET /data/jobs/{name}/result"]) {
+      testTemplate.resourcePropertiesCountIs("AWS::ApiGatewayV2::Route", { RouteKey: routeKey }, 0);
     }
-    integrationIdFor(testTemplate, "Nyc311WarehouseJobsApiLambda");
-    integrationIdFor(testTemplate, "Nyc311JobResultApiLambda");
   });
 
-  it("declares every bundle route plus the two legacy ones, on one integration per Lambda (no sink in Prod)", () => {
+  it("declares exactly the bundles' routes, on one integration per bundle (no sink in Prod)", () => {
     const routeCount = (testOnly: boolean): number =>
-      BUNDLES.filter((bundle) => testOnly || !bundle.testOnly).reduce((n, bundle) => n + bundle.routes.length, 0) + LEGACY_ROUTES.length;
+      BUNDLES.filter((bundle) => testOnly || !bundle.testOnly).reduce((n, bundle) => n + bundle.routes.length, 0);
 
     testTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", routeCount(true));
     prodTemplate.resourceCountIs("AWS::ApiGatewayV2::Route", routeCount(false));
-    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", BUNDLES.length + LEGACY_ROUTES.length);
-    prodTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", BUNDLES.length - 1 + LEGACY_ROUTES.length);
+    testTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", BUNDLES.length);
+    prodTemplate.resourceCountIs("AWS::ApiGatewayV2::Integration", BUNDLES.length - 1);
+    testTemplate.resourceCountIs("AWS::Lambda::Permission", BUNDLES.length);
     testTemplate.hasResourceProperties("AWS::ApiGatewayV2::Integration", { IntegrationType: "AWS_PROXY", PayloadFormatVersion: "2.0" });
   });
 

@@ -34,10 +34,10 @@ export const MOCK_LAMBDA_METRICS: LambdaHealth[] = [
     })),
   },
   { logicalName: "RequestEvaluation", functionName: "Nyc311RequestEvaluation-Test", points: [] },
-  { logicalName: "MetricsApi", functionName: "Nyc311MetricsApi-Test", points: healthyPoints(12) },
+  { logicalName: "MonitoringApi", functionName: "Nyc311MonitoringApi-Test", points: healthyPoints(12) },
   {
-    logicalName: "WorkspaceMetricsApi",
-    functionName: "Nyc311WorkspaceMetricsApi-Test",
+    logicalName: "DataApi",
+    functionName: "Nyc311DataApi-Test",
     /* A gradual latency climb — the drift the latency row exists to show. */
     points: WEEK.map((date, i) => ({
       date,

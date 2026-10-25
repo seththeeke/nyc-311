@@ -2,8 +2,8 @@ import { z } from "zod";
 
 /*
  * Mirrors backend/models/jobResult.ts (7-data-warehousing.md §11) — the
- * stored output of one job run, as returned verbatim by
- * GET /data/jobs/{name}/result. `columns` carries the Athena type per
+ * stored output of one job run, as returned verbatim per run by
+ * POST /admin/warehouse/job-runs/results. `columns` carries the Athena type per
  * column; `rows` are string-valued keyed objects (Athena's native
  * output), so a per-job renderer casts what it needs. Every service
  * response is parsed through this schema before it reaches a component

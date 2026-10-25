@@ -7,7 +7,7 @@ import { warehouseDataService } from "../../../src/services/warehouseDataService
 import type { WarehouseSchemaResponse } from "../../../src/models/warehouseSchema";
 
 vi.mock("../../../src/services/warehouseDataService", () => ({
-  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn(), getJobResult: vi.fn() },
+  warehouseDataService: { getSchema: vi.fn(), getJobRuns: vi.fn() },
 }));
 
 const mockedGetSchema = vi.mocked(warehouseDataService.getSchema);
@@ -53,13 +53,12 @@ describe("DataPage", () => {
     expect(screen.queryByText(/job/i)).not.toBeInTheDocument();
   });
 
-  it("does not fetch job runs or job results", async () => {
+  it("does not fetch job runs", async () => {
     mockedGetSchema.mockResolvedValue(schema);
     renderPage();
 
     await screen.findByRole("img");
     expect(warehouseDataService.getJobRuns).not.toHaveBeenCalled();
-    expect(warehouseDataService.getJobResult).not.toHaveBeenCalled();
   });
 
   it("shows a loading state while the schema is pending", () => {

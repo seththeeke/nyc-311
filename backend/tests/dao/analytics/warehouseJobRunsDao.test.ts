@@ -119,41 +119,6 @@ describe("WarehouseJobRunsDao.getLatestRunForJob", () => {
   });
 });
 
-describe("WarehouseJobRunsDao.getLatestSucceededRunForJob", () => {
-  it("filters by job_name AND status = SUCCEEDED (with #status name placeholder), returns the first match", async () => {
-    ddbMock.on(QueryCommand).resolves({
-      Items: [
-        run({ job_run_id: "ok", status: "SUCCEEDED", result_location: "s3://b/k" }),
-        run({ job_run_id: "older-ok", status: "SUCCEEDED" }),
-      ],
-    });
-
-    const latest = await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d");
-
-    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
-    expect(input).toMatchObject({
-      IndexName: "gsi1-recent-runs",
-      FilterExpression: "job_name = :jn AND #status = :st",
-      ExpressionAttributeNames: { "#status": "status" },
-      ExpressionAttributeValues: { ":pk": "JOB#RUNS", ":jn": "order_volume_by_stage_7d", ":st": "SUCCEEDED" },
-      ScanIndexForward: false,
-      Limit: 100,
-    });
-    expect(latest?.job_run_id).toBe("ok");
-  });
-
-  it("returns null when the job has no succeeded run", async () => {
-    ddbMock.on(QueryCommand).resolves({ Items: [] });
-    expect(await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d")).toBeNull();
-  });
-
-  it("returns null when the response omits Items entirely", async () => {
-    /* Exercises the `result.Items ?? []` fallback — the `Items: []` case above always sets the key explicitly. */
-    ddbMock.on(QueryCommand).resolves({});
-    expect(await dao.getLatestSucceededRunForJob("order_volume_by_stage_7d")).toBeNull();
-  });
-});
-
 describe("WarehouseJobRunsDao.getJobRun", () => {
   it("gets by the run's own job_run_id and validates the result", async () => {
     ddbMock.on(GetCommand).resolves({ Item: run({ job_run_id: "01RUN" }) });

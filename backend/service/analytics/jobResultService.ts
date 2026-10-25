@@ -18,7 +18,7 @@ function parseS3Uri(uri: string): { bucket: string; key: string } {
   return { bucket: match[1], key: match[2] };
 }
 
-/** Parses, fetches, and validates one `result.json` — shared by {@link getJobResult} and {@link getJobRunResults}. */
+/** Parses, fetches, and validates one `result.json` for {@link getJobRunResults}. */
 async function fetchResultEnvelope(resultLocation: string, s3Client: S3Client): Promise<JobResult> {
   const { bucket, key } = parseS3Uri(resultLocation);
   const response = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
@@ -28,35 +28,8 @@ async function fetchResultEnvelope(resultLocation: string, s3Client: S3Client): 
 }
 
 /**
- * Backs `GET /data/jobs/{name}/result` (`7-data-warehousing.md` §11) —
- * resolves the latest `SUCCEEDED` run's `result_location` from
- * `WarehouseJobRuns`, `s3:GetObject`s that `result.json`, and returns the
- * envelope validated. `null` if the job has never produced a resultset
- * (the controller maps that to a 404).
- */
-export async function getJobResult(jobName: string, deps: GetJobResultDeps = {}): Promise<JobResult | null> {
-  const jobRunsDao =
-    deps.jobRunsDao ??
-    new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
-  const s3Client = deps.s3Client ?? new S3Client({});
-
-  logInfo("GetJobResultStarted", { jobName });
-
-  const latest = await jobRunsDao.getLatestSucceededRunForJob(jobName);
-  if (!latest?.result_location) {
-    logInfo("GetJobResultNoResult", { jobName, hasRun: latest !== null });
-    return null;
-  }
-
-  const result = await fetchResultEnvelope(latest.result_location, s3Client);
-  logInfo("GetJobResultCompleted", { jobName, runDate: result.run_date, rowCount: result.rows.length });
-  return result;
-}
-
-/**
  * Backs admin-authorized `POST /admin/warehouse/job-runs/results` —
- * resolves each requested run by its own primary key (unlike
- * {@link getJobResult}'s "latest SUCCEEDED for a job name"). Each id is
+ * resolves each requested run by its own primary key. Each id is
  * resolved independently — a run with no result yet (still RUNNING,
  * FAILED, or never existed) or a failed S3 fetch becomes a per-item
  * `error`, never a failure of the whole batch, since this backs a

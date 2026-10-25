@@ -13,13 +13,12 @@ const MONITORED = {
   orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
   orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
   orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
-  metricsApiFunctionName: "Nyc311MetricsApi-Test",
   warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
-  warehouseSchemaApiFunctionName: "Nyc311WarehouseSchemaApi-Test",
-  warehouseJobsApiFunctionName: "Nyc311WarehouseJobsApi-Test",
-  jobResultApiFunctionName: "Nyc311JobResultApi-Test",
-  workspaceMetricsApiFunctionName: "Nyc311WorkspaceMetricsApi-Test",
-  fleetLocationsApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
+  adminApiFunctionName: "Nyc311AdminApi-Test",
+  featureFlagsApiFunctionName: "Nyc311FeatureFlagsApi-Test",
+  dataApiFunctionName: "Nyc311DataApi-Test",
+  fleetApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
+  webhookSubscriptionsApiFunctionName: "Nyc311RegisterWebhookSubscriptionApi-Test",
 };
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -80,6 +79,21 @@ describe("Nyc311MonitoringApiLambda", () => {
     expect(keys).toContain("REQUESTS_TABLE_NAME");
     expect(keys.filter((key) => key.startsWith("MONITORED_LAMBDA_"))).toHaveLength(16);
     expect(keys).toHaveLength(17);
+  });
+
+  it("names itself as the monitored MonitoringApi Lambda, and every other web API bundle by its function name", () => {
+    const [fn] = Object.values(testTemplate.findResources("AWS::Lambda::Function"));
+    const variables = (fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+
+    expect(variables).toMatchObject({
+      MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
+      MONITORED_LAMBDA_ADMIN_API: "Nyc311AdminApi-Test",
+      MONITORED_LAMBDA_FEATURE_FLAGS_API: "Nyc311FeatureFlagsApi-Test",
+      MONITORED_LAMBDA_DATA_API: "Nyc311DataApi-Test",
+      MONITORED_LAMBDA_FLEET_API: "Nyc311GetFleetLocationsApi-Test",
+      MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: "Nyc311RegisterWebhookSubscriptionApi-Test",
+    });
+    expect(Object.keys(variables).filter((key) => /METRICS_API|SCHEMA_API|JOBS_API|JOB_RESULT_API|FLEET_LOCATIONS_API/.test(key))).toEqual([]);
   });
 
   it("grants exactly the two old roles' union: Requests Query/GetItem and CloudWatch metric reads", () => {

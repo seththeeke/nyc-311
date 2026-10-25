@@ -2,22 +2,18 @@ import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../config";
 import { WarehouseSchemaResponseSchema, type WarehouseSchemaResponse } from "../models/warehouseSchema";
 import { WarehouseJobRunListResponseSchema, type WarehouseJobRunListResponse } from "../models/warehouseJobRun";
-import { JobResultSchema, type JobResult } from "../models/jobResult";
 import { MOCK_WAREHOUSE_SCHEMA } from "../test-data/warehouseSchema";
 import { MOCK_WAREHOUSE_JOB_RUNS } from "../test-data/warehouseJobRuns";
-import { MOCK_JOB_RESULTS } from "../test-data/jobResult";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as pipelineStatusService.ts. Backs
- * public GET /data/schema, admin GET /admin/warehouse/job-runs (which
- * replaced public GET /data/jobs, 15-resource-consolidation.md §3.3) and
- * GET /data/jobs/{name}/result (7-data-warehousing.md §11/§12).
+ * public GET /data/schema and admin GET /admin/warehouse/job-runs, which
+ * replaced public GET /data/jobs (15-resource-consolidation.md §3.3).
  */
 export interface WarehouseDataService {
   getSchema(): Promise<WarehouseSchemaResponse>;
   getJobRuns(): Promise<WarehouseJobRunListResponse>;
-  getJobResult(jobName: string): Promise<JobResult>;
 }
 
 async function authorizedFetch(path: string): Promise<Response> {
@@ -48,14 +44,6 @@ export class LiveWarehouseDataService implements WarehouseDataService {
     return WarehouseJobRunListResponseSchema.parse(body);
   }
 
-  async getJobResult(jobName: string): Promise<JobResult> {
-    const response = await fetch(`${config.apiBaseUrl}/data/jobs/${encodeURIComponent(jobName)}/result`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch result for '${jobName}': HTTP ${response.status}`);
-    }
-    const body: unknown = await response.json();
-    return JobResultSchema.parse(body);
-  }
 }
 
 class MockWarehouseDataService implements WarehouseDataService {
@@ -67,13 +55,6 @@ class MockWarehouseDataService implements WarehouseDataService {
     return MOCK_WAREHOUSE_JOB_RUNS;
   }
 
-  async getJobResult(jobName: string): Promise<JobResult> {
-    const result = MOCK_JOB_RESULTS[jobName];
-    if (!result) {
-      throw new Error(`Failed to fetch result for '${jobName}': HTTP 404`);
-    }
-    return result;
-  }
 }
 
 export const warehouseDataService: WarehouseDataService =
