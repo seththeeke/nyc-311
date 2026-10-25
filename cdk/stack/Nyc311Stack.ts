@@ -222,24 +222,28 @@ export class Nyc311Stack extends Stack {
     /* 9-admin-auth-integration.md — Leg 0, built in isolation ahead of anything that needs it. */
     const usersTable = new UsersTable(this, "UsersTable", { envName: props.envName });
     const adminAuth = new Nyc311AdminAuth(this, "Nyc311AdminAuth", { envName: props.envName });
-    const adminWhoamiApiLambda = new Nyc311AdminWhoamiApiLambda(this, "Nyc311AdminWhoamiApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311AdminWhoamiApiLambda(this, "Nyc311AdminWhoamiApiLambda", {
       envName: props.envName,
       usersTable,
     });
 
     /* 10-capacity-modeling-and-integration.md — Legs 1-2: the real Operator fleet + admin CRUD, not yet wired into scheduling. */
     const operatorsTable = new OperatorsTable(this, "OperatorsTable", { envName: props.envName });
-    const addCapacityApiLambda = new Nyc311AddCapacityApiLambda(this, "Nyc311AddCapacityApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311AddCapacityApiLambda(this, "Nyc311AddCapacityApiLambda", {
       envName: props.envName,
       operatorsTable,
       usersTable,
     });
-    const removeCapacityApiLambda = new Nyc311RemoveCapacityApiLambda(this, "Nyc311RemoveCapacityApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311RemoveCapacityApiLambda(this, "Nyc311RemoveCapacityApiLambda", {
       envName: props.envName,
       operatorsTable,
       usersTable,
     });
-    const getCapacityApiLambda = new Nyc311GetCapacityApiLambda(this, "Nyc311GetCapacityApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311GetCapacityApiLambda(this, "Nyc311GetCapacityApiLambda", {
       envName: props.envName,
       operatorsTable,
       usersTable,
@@ -542,7 +546,8 @@ export class Nyc311Stack extends Stack {
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
-    const createWarehouseJobApiLambda = new Nyc311CreateWarehouseJobApiLambda(this, "Nyc311CreateWarehouseJobApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311CreateWarehouseJobApiLambda(this, "Nyc311CreateWarehouseJobApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -551,7 +556,8 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
-    const updateWarehouseJobApiLambda = new Nyc311UpdateWarehouseJobApiLambda(this, "Nyc311UpdateWarehouseJobApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311UpdateWarehouseJobApiLambda(this, "Nyc311UpdateWarehouseJobApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -560,7 +566,8 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
-    const deleteWarehouseJobApiLambda = new Nyc311DeleteWarehouseJobApiLambda(this, "Nyc311DeleteWarehouseJobApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311DeleteWarehouseJobApiLambda(this, "Nyc311DeleteWarehouseJobApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -569,7 +576,8 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
-    const listWarehouseJobsApiLambda = new Nyc311ListWarehouseJobsApiLambda(this, "Nyc311ListWarehouseJobsApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311ListWarehouseJobsApiLambda(this, "Nyc311ListWarehouseJobsApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -578,7 +586,8 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
-    const getWarehouseJobSqlApiLambda = new Nyc311GetWarehouseJobSqlApiLambda(this, "Nyc311GetWarehouseJobSqlApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311GetWarehouseJobSqlApiLambda(this, "Nyc311GetWarehouseJobSqlApiLambda", {
       envName: props.envName,
       jobRunsTable: warehouseJobRunsTable,
       usersTable,
@@ -587,7 +596,8 @@ export class Nyc311Stack extends Stack {
       jobScheduleGroup: warehouseJobScheduleGroup,
     });
 
-    const getWarehouseJobRunResultsApiLambda = new Nyc311GetWarehouseJobRunResultsApiLambda(
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311GetWarehouseJobRunResultsApiLambda(
       this,
       "Nyc311GetWarehouseJobRunResultsApiLambda",
       {
@@ -660,7 +670,8 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       warehouseBucket,
     });
-    const adHocQueryApiLambda = new Nyc311AdHocQueryApiLambda(this, "Nyc311AdHocQueryApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311AdHocQueryApiLambda(this, "Nyc311AdHocQueryApiLambda", {
       envName: props.envName,
       warehouseBucket,
       warehouseCatalog,
@@ -714,7 +725,8 @@ export class Nyc311Stack extends Stack {
     });
 
     /* 10-capacity-modeling-and-integration.md §5.1 — admin on-demand scheduling trigger, for testing purposes. */
-    const runSchedulingApiLambda = new Nyc311RunSchedulingApiLambda(this, "Nyc311RunSchedulingApiLambda", {
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311RunSchedulingApiLambda(this, "Nyc311RunSchedulingApiLambda", {
       envName: props.envName,
       ordersTable,
       requestsTable,
@@ -724,12 +736,8 @@ export class Nyc311Stack extends Stack {
       orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
     });
 
-    /*
-     * 15-resource-consolidation.md §7 step 1 — the admin Service API
-     * bundle, stood up next to the per-route admin Lambdas but attached to
-     * no route yet, so it can be invoked and verified before cutover.
-     */
-    new Nyc311AdminApiLambda(this, "Nyc311AdminApiLambda", {
+    /* 15-resource-consolidation.md §3.2 — the admin Service API bundle, serving every admin route. */
+    const adminApiLambda = new Nyc311AdminApiLambda(this, "Nyc311AdminApiLambda", {
       envName: props.envName,
       usersTable,
       operatorsTable,
@@ -792,19 +800,8 @@ export class Nyc311Stack extends Stack {
       warehouseJobsApiLambda,
       jobResultApiLambda,
       workspaceMetricsApiLambda,
-      adminWhoamiApiLambda,
-      addCapacityApiLambda,
-      removeCapacityApiLambda,
-      getCapacityApiLambda,
-      runSchedulingApiLambda,
       getFleetLocationsApiLambda,
-      adHocQueryApiLambda,
-      createWarehouseJobApiLambda,
-      updateWarehouseJobApiLambda,
-      deleteWarehouseJobApiLambda,
-      listWarehouseJobsApiLambda,
-      getWarehouseJobSqlApiLambda,
-      getWarehouseJobRunResultsApiLambda,
+      adminApiLambda,
       featureFlagApiLambdas,
       registerWebhookSubscriptionApiLambda,
       webhookSinkApiLambdas,

@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is built and not yet deployed. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
+**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is built and awaiting deploy. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
 
 ---
 
@@ -287,8 +287,8 @@ Removing a public route is done only in step 3, after the web-app no longer call
 | When | Step | Resources (Test) | How measured |
 |---|---|---|---|
 | 2026-10-24 | Baseline | 444 | `list-stack-resources` on `Nyc311-Test` |
-| 2026-10-24 | Admin step 1 built, not deployed | 448 (+4: function, role, policy, log group) | Synthesized `Nyc311-Test` template, compared to the deployed template by resource type |
-| | Admin step 2 (cutover) | expected ~420 | |
+| 2026-10-24 | Admin step 1 deployed (`9b592d9`) | **448** (+4: function, role, policy, log group). Prod 433 → 437 | `list-stack-resources` on `Nyc311-Test` and `Nyc311-Prod` after the pipeline run |
+| 2026-10-25 | Admin step 2 built (synth) | **420** (−28: 15 integrations and 15 per-route permissions out, 1 of each in). Prod 437 → 409 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
 | | Admin step 3 (delete old Lambdas) | expected ~360 | |
 
 Step 1, as built:
@@ -301,7 +301,17 @@ Step 1, as built:
   - The old per-route constructs now point at the moved files, so they keep serving every admin route unchanged.
   - New `lambda/Nyc311AdminApiLambda.ts` is instantiated in `Nyc311Stack`, attached to no route.
 
-To verify step 1, invoke `Nyc311AdminApi-Test` directly on its read routes. This needs confirmation (CLAUDE.md §3).
+Step 1 was verified on 2026-10-25 by invoking `Nyc311AdminApi-Test` directly with the admin user's real claims. `GET /admin/whoami`, `GET /capacity`, `GET /admin/warehouse/jobs`, `GET /admin/warehouse/jobs/{name}/sql` and an ad-hoc `SELECT COUNT(*) FROM requests` all returned 200 with live data. An unlisted route key returned 404.
+
+Step 2, as built:
+
+- **CDK:**
+  - `Nyc311Api.ts` imports `ADMIN_API_ROUTES` and builds one route per key, all on one `HttpLambdaIntegration` to the bundle.
+  - That integration sets `scopePermissionToRoute: false`, so CDK creates one API-scoped `Lambda::Permission` instead of one per route. A public route can reach the bundle only through a CDK change, and the router 404s any key it doesn't list.
+  - The 12 old admin constructs and the three admin feature-flag Lambdas are still built in `Nyc311Stack` but aren't routed, so rollback is a revert.
+- **Backend:** no change.
+
+To verify step 2 in Test, run the manual checklist in §7 before step 3.
 
 ---
 

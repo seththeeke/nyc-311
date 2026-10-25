@@ -3,26 +3,16 @@ import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from 
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import type { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import type { Construct } from "constructs";
+import { ADMIN_API_ROUTES } from "../../backend/controller/web-api/admin/adminApiRoutes";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
 import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
-import type { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
-import type { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
-import type { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
-import type { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
-import type { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
+import type { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
 import type { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
 import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
 import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
 import type { Nyc311WorkspaceMetricsApiLambda } from "../warehouse/Nyc311WorkspaceMetricsApiLambda";
-import type { Nyc311AdHocQueryApiLambda } from "../warehouse/Nyc311AdHocQueryApiLambda";
-import type { Nyc311CreateWarehouseJobApiLambda } from "../warehouse/Nyc311CreateWarehouseJobApiLambda";
-import type { Nyc311UpdateWarehouseJobApiLambda } from "../warehouse/Nyc311UpdateWarehouseJobApiLambda";
-import type { Nyc311DeleteWarehouseJobApiLambda } from "../warehouse/Nyc311DeleteWarehouseJobApiLambda";
-import type { Nyc311ListWarehouseJobsApiLambda } from "../warehouse/Nyc311ListWarehouseJobsApiLambda";
-import type { Nyc311GetWarehouseJobSqlApiLambda } from "../warehouse/Nyc311GetWarehouseJobSqlApiLambda";
-import type { Nyc311GetWarehouseJobRunResultsApiLambda } from "../warehouse/Nyc311GetWarehouseJobRunResultsApiLambda";
 import type { FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
 import type { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
 import type { Nyc311WebhookSinkApiLambda, WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkApiLambda";
@@ -36,27 +26,11 @@ export interface Nyc311ApiProps {
   jobResultApiLambda: Nyc311JobResultApiLambda;
   /** The secondary workspace's metric tiles — public, read-only. */
   workspaceMetricsApiLambda: Nyc311WorkspaceMetricsApiLambda;
-  /** `9-admin-auth-integration.md` §8 — the first route behind the admin JWT authorizer. */
-  adminWhoamiApiLambda: Nyc311AdminWhoamiApiLambda;
-  /** `10-capacity-modeling-and-integration.md` §2.1 — admin-only capacity CRUD, same authorizer. */
-  addCapacityApiLambda: Nyc311AddCapacityApiLambda;
-  removeCapacityApiLambda: Nyc311RemoveCapacityApiLambda;
-  getCapacityApiLambda: Nyc311GetCapacityApiLambda;
-  /** `10-capacity-modeling-and-integration.md` §5.1 — the admin on-demand scheduling trigger, same authorizer. */
-  runSchedulingApiLambda: Nyc311RunSchedulingApiLambda;
+  /** `15-resource-consolidation.md` §3.2 — the admin Service API bundle, behind every route in `ADMIN_API_ROUTES`. */
+  adminApiLambda: Nyc311AdminApiLambda;
   /** `10-capacity-modeling-and-integration.md` §6.1 — the public home-page map's data source, no authorizer. */
   getFleetLocationsApiLambda: Nyc311GetFleetLocationsApiLambda;
-  /** `7-data-warehousing.md` §12a (Leg 7) — the admin ad-hoc SQL console, same authorizer. */
-  adHocQueryApiLambda: Nyc311AdHocQueryApiLambda;
-  /** `7-data-warehousing.md` §12b (Leg 8) — self-service job authoring, same authorizer. */
-  createWarehouseJobApiLambda: Nyc311CreateWarehouseJobApiLambda;
-  updateWarehouseJobApiLambda: Nyc311UpdateWarehouseJobApiLambda;
-  deleteWarehouseJobApiLambda: Nyc311DeleteWarehouseJobApiLambda;
-  listWarehouseJobsApiLambda: Nyc311ListWarehouseJobsApiLambda;
-  getWarehouseJobSqlApiLambda: Nyc311GetWarehouseJobSqlApiLambda;
-  /** `7-data-warehousing.md` §12b's Reports tab addition — bulk raw job-run results by id, same authorizer. */
-  getWarehouseJobRunResultsApiLambda: Nyc311GetWarehouseJobRunResultsApiLambda;
-  /** `11-street-condition-implementation.md` §4.2 — one Lambda per feature-flag operation. */
+  /** `11-street-condition-implementation.md` §4.2 — one Lambda per feature-flag operation; only the public three are routed here. */
   featureFlagApiLambdas: Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
   /** `13-customer-simulation.md` §5 — no authorizer; the Lambda checks the registration key itself. */
   registerWebhookSubscriptionApiLambda: Nyc311RegisterWebhookSubscriptionApiLambda;
@@ -98,25 +72,21 @@ export const ROUTE_THROTTLES: Record<string, { rateLimit: number; burstLimit: nu
   "POST /webhook-subscriptions": { rateLimit: 1, burstLimit: 5 },
 };
 
-/* Feature-flag routes (§4.2): reads and getTreatment are public, every write is admin-only. */
-const FEATURE_FLAG_ROUTES: { operation: FeatureFlagApiOperation; path: string; method: HttpMethod; admin: boolean }[] = [
-  { operation: "LIST", path: "/feature-flags", method: HttpMethod.GET, admin: false },
-  { operation: "GET", path: "/feature-flags/{flag_key}", method: HttpMethod.GET, admin: false },
-  { operation: "GET_TREATMENT", path: "/feature-flags/{flag_key}/treatment", method: HttpMethod.POST, admin: false },
-  { operation: "CREATE", path: "/admin/feature-flags", method: HttpMethod.POST, admin: true },
-  { operation: "UPDATE", path: "/admin/feature-flags/{flag_key}", method: HttpMethod.PUT, admin: true },
-  { operation: "DELETE", path: "/admin/feature-flags/{flag_key}", method: HttpMethod.DELETE, admin: true },
+/* The public feature-flag routes (§4.2): reads and getTreatment. The admin writes are in ADMIN_API_ROUTES. */
+const FEATURE_FLAG_ROUTES: { operation: FeatureFlagApiOperation; path: string; method: HttpMethod }[] = [
+  { operation: "LIST", path: "/feature-flags", method: HttpMethod.GET },
+  { operation: "GET", path: "/feature-flags/{flag_key}", method: HttpMethod.GET },
+  { operation: "GET_TREATMENT", path: "/feature-flags/{flag_key}/treatment", method: HttpMethod.POST },
 ];
 
 /**
  * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — an HTTP
  * API, cheaper than REST. Serves both its custom domain and `execute-api`.
  *
- * `/admin/whoami` and `/capacity` are admin-authorized
- * (`9-admin-auth-integration.md` §4/§8,
- * `10-capacity-modeling-and-integration.md` §2.1) — the JWT authorizer
- * attaches per-route, never as the API's default, so every other route
- * stays public/unauthenticated.
+ * The routes in `ADMIN_API_ROUTES` are admin-authorized
+ * (`9-admin-auth-integration.md` §4/§8) — the JWT authorizer attaches
+ * per-route, never as the API's default, so every other route stays
+ * public/unauthenticated.
  */
 export class Nyc311Api extends HttpApi {
   constructor(scope: Construct, id: string, props: Nyc311ApiProps) {
@@ -169,40 +139,19 @@ export class Nyc311Api extends HttpApi {
       integration: new HttpLambdaIntegration("GetWorkspaceMetricsIntegration", props.workspaceMetricsApiLambda),
     });
 
-    this.addRoutes({
-      path: "/admin/whoami",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetAdminWhoamiIntegration", props.adminWhoamiApiLambda),
-      authorizer: props.adminAuthorizer,
+    /*
+     * 15-resource-consolidation.md §4 — every admin route on the bundle's
+     * one integration. scopePermissionToRoute: false makes that one
+     * API-scoped Lambda::Permission instead of one per route; the router
+     * 404s any route key it doesn't list.
+     */
+    const adminApiIntegration = new HttpLambdaIntegration("AdminApiIntegration", props.adminApiLambda, {
+      scopePermissionToRoute: false,
     });
-
-    this.addRoutes({
-      path: "/capacity",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("AddCapacityIntegration", props.addCapacityApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/capacity/{operator_id}",
-      methods: [HttpMethod.DELETE],
-      integration: new HttpLambdaIntegration("RemoveCapacityIntegration", props.removeCapacityApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/capacity",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetCapacityIntegration", props.getCapacityApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/scheduling/run",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("RunSchedulingIntegration", props.runSchedulingApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
+    for (const routeKey of ADMIN_API_ROUTES) {
+      const [method, path] = routeKey.split(" ") as [HttpMethod, string];
+      this.addRoutes({ path, methods: [method], integration: adminApiIntegration, authorizer: props.adminAuthorizer });
+    }
 
     const fleetLocationsRoutes = this.addRoutes({
       path: "/fleet/locations",
@@ -210,61 +159,11 @@ export class Nyc311Api extends HttpApi {
       integration: new HttpLambdaIntegration("GetFleetLocationsIntegration", props.getFleetLocationsApiLambda),
     });
 
-    this.addRoutes({
-      path: "/admin/warehouse/query",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("RunAdHocQueryIntegration", props.adHocQueryApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/jobs",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("CreateWarehouseJobIntegration", props.createWarehouseJobApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/jobs/{name}",
-      methods: [HttpMethod.DELETE],
-      integration: new HttpLambdaIntegration("DeleteWarehouseJobIntegration", props.deleteWarehouseJobApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/jobs/{name}",
-      methods: [HttpMethod.PUT],
-      integration: new HttpLambdaIntegration("UpdateWarehouseJobIntegration", props.updateWarehouseJobApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/jobs",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("ListWarehouseJobsIntegration", props.listWarehouseJobsApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/jobs/{name}/sql",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetWarehouseJobSqlIntegration", props.getWarehouseJobSqlApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
-    this.addRoutes({
-      path: "/admin/warehouse/job-runs/results",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("PostJobRunResultsIntegration", props.getWarehouseJobRunResultsApiLambda),
-      authorizer: props.adminAuthorizer,
-    });
-
     for (const route of FEATURE_FLAG_ROUTES) {
       this.addRoutes({
         path: route.path,
         methods: [route.method],
         integration: new HttpLambdaIntegration(`FeatureFlag${route.operation}Integration`, props.featureFlagApiLambdas[route.operation]),
-        ...(route.admin ? { authorizer: props.adminAuthorizer } : {}),
       });
     }
 
