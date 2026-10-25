@@ -29,6 +29,8 @@ export const CLOTH = {
   CHARCOAL: "#33363b",
   DENIM: "#3f5675",
   SAND: "#b9a888",
+  /* Yellowwood's safety vest: school-bus yellow, toned down. */
+  MUSTARD: "#b8963e",
 } as const;
 
 export const DETAIL = {
@@ -42,6 +44,17 @@ export const DETAIL = {
   STEEL: "#9aa3ad",
 } as const;
 
+/*
+ * The one exception to "muted" (Appendix P): Pine-ter Parker's suit,
+ * which only reads as the suit in full red and blue.
+ */
+export const HERO = {
+  RED: "#c62832",
+  BLUE: "#2a4fa8",
+  WEB: "#16171a",
+  LENS: "#f5f7fa",
+} as const;
+
 /* Studio lighting for the avatar snapshot. */
 export const LIGHT = {
   SKY: "#ffffff",
@@ -50,4 +63,4 @@ export const LIGHT = {
 } as const;
 
 /** Every colour a model may put on a material, for the palette test. */
-export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL].flatMap((group) => Object.values(group));
+export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL, HERO].flatMap((group) => Object.values(group));

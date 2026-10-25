@@ -22,7 +22,7 @@ describe("PersonaPanel", () => {
     render(inRouter(<PersonaPanel />));
     expect(screen.getByRole("heading", { name: "Residents" })).toBeInTheDocument();
     const cards = screen.getAllByRole("button", { pressed: false });
-    expect(cards).toHaveLength(3);
+    expect(cards).toHaveLength(MOCK_RESIDENT_PERSONAS.length);
     const juniper = screen.getByRole("button", { name: /Juniper/ });
     expect(juniper).not.toHaveTextContent(/ACTIVE|PAUSED/);
     expect(within(juniper).getByText("21:00–05:00")).toBeInTheDocument();

@@ -17,9 +17,21 @@ import { WebhookCustomerFacingOrdersTable } from "../../customer/WebhookCustomer
 describe("resident seed files", () => {
   it("summarises every committed seed: one schedule and one model each", () => {
     const seeds = loadResidentSeeds();
-    expect(seeds.map((seed) => seed.personaId)).toEqual(["hawthorn", "juniper", "sycamore"]);
-    /* Every 3 hours each, offset an hour apart, so one resident thinks every hour. */
-    expect(seeds.map((seed) => seed.schedule)).toEqual(["cron(0 0/3 * * ? *)", "cron(0 1/3 * * ? *)", "cron(0 2/3 * * ? *)"]);
+    expect(seeds.map((seed) => seed.personaId)).toEqual(["ailanthus", "dogwood", "ginkgo", "hawthorn", "hornbeam", "juniper", "pineter-parker", "sassafras", "sycamore", "yellowwood"]);
+    /* Every 3 hours each, each in its own slot (minute, hour offset), so thoughts spread across the cycle. */
+    expect(seeds.map((seed) => seed.schedule)).toEqual([
+      "cron(30 1/3 * * ? *)",
+      "cron(15 1/3 * * ? *)",
+      "cron(30 0/3 * * ? *)",
+      "cron(0 0/3 * * ? *)",
+      "cron(30 2/3 * * ? *)",
+      "cron(0 1/3 * * ? *)",
+      "cron(45 1/3 * * ? *)",
+      "cron(45 0/3 * * ? *)",
+      "cron(0 2/3 * * ? *)",
+      "cron(15 0/3 * * ? *)",
+    ]);
+    expect(new Set(seeds.map((seed) => seed.schedule)).size).toBe(seeds.length);
     for (const seed of seeds) expect(seed.modelId).toBe("amazon.nova-micro-v1:0");
     expect(CUSTOMER_RESIDENT_SYNC_INPUTS[0]).toBe(CUSTOMER_RESIDENT_SEEDS_DIR);
   });

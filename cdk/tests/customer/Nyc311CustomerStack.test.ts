@@ -35,10 +35,10 @@ describe("Nyc311CustomerStack", () => {
   });
 
   it("schedules every seeded resident, and lets the idea worker call only their models", () => {
-    for (const persona of ["hawthorn", "juniper", "sycamore"]) {
+    for (const persona of ["ailanthus", "dogwood", "ginkgo", "hawthorn", "hornbeam", "juniper", "pineter-parker", "sassafras", "sycamore", "yellowwood"]) {
       template.hasResourceProperties("AWS::Scheduler::Schedule", { Name: `CustomerResident-${persona}-Prod` });
     }
-    template.resourceCountIs("AWS::Scheduler::Schedule", 3);
+    template.resourceCountIs("AWS::Scheduler::Schedule", 10);
     const bedrock = statements(template).filter((statement) => actionsOf(statement).includes("bedrock:InvokeModel"));
     expect(bedrock).toHaveLength(1);
     expect(bedrock[0].Resource).toBe("arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0");
