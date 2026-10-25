@@ -10,7 +10,7 @@ import type { WebhookSubscriptionsTable } from "../data/WebhookSubscriptionsTabl
 import { WEBHOOK_ALLOWED_CALLBACK_HOSTS, WEBHOOK_SSM_PREFIX } from "./webhookConfig";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
-export interface Nyc311RegisterWebhookSubscriptionApiLambdaProps {
+export interface Nyc311WebhookSubscriptionsApiLambdaProps {
   envName: Nyc311Environment;
   webhookSubscriptionsTable: WebhookSubscriptionsTable;
 }
@@ -20,10 +20,12 @@ export interface Nyc311RegisterWebhookSubscriptionApiLambdaProps {
  * the one route a subscriber calls. It checks the hand-created
  * registration key itself (HTTP APIs have no native API keys), so this
  * route has no authorizer. Entry point is
- * `backend/controller/web-api/webhookSubscriptions/registerWebhookSubscriptionController.ts`.
+ * `backend/controller/web-api/webhookSubscriptions/webhookSubscriptionsApiRouter.ts`,
+ * the webhookSubscriptions Service API bundle (`15-resource-consolidation.md`
+ * §3.3). Keeps its pre-bundle function name, so the cutover replaced no resource.
  */
-export class Nyc311RegisterWebhookSubscriptionApiLambda extends NodejsFunction {
-  constructor(scope: Construct, id: string, props: Nyc311RegisterWebhookSubscriptionApiLambdaProps) {
+export class Nyc311WebhookSubscriptionsApiLambda extends NodejsFunction {
+  constructor(scope: Construct, id: string, props: Nyc311WebhookSubscriptionsApiLambdaProps) {
     const functionName = `Nyc311RegisterWebhookSubscriptionApi-${ENV_NAME_SUFFIX[props.envName]}`;
     const ssmPrefix = WEBHOOK_SSM_PREFIX[props.envName];
 
@@ -37,8 +39,8 @@ export class Nyc311RegisterWebhookSubscriptionApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "webhookSubscriptions", "registerWebhookSubscriptionController.ts"),
-      handler: "registerWebhookSubscriptionController",
+      entry: path.join(backendRoot, "controller", "web-api", "webhookSubscriptions", "webhookSubscriptionsApiRouter.ts"),
+      handler: "webhookSubscriptionsApiRouter",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(10),

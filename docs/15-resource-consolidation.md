@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
+**Status (2026-10-24):** design agreed, including bundle boundaries (§3.3), routing (§4), rule changes (§6) and rollout (§7). **This pass migrates the admin API only.** The public bundles wait until the admin result has been measured (§7.1). Admin step 1 is deployed to Test and Prod (2026-10-24) and was verified by direct invoke (2026-10-25). Admin step 2 (cutover) is deployed to Test and Prod (2026-10-25); admin step 3 waits on the manual Test checklist. Public step 1 (stand up) is deployed to Test and Prod and verified (2026-10-25). Public step 2 (cutover) is built. The Contacts design (#110) is paused behind this, because Contacts doesn't fit in the stack comfortably as things stand.
 
 ---
 
@@ -294,8 +294,8 @@ Removing a public route is done only in step 3, after the web-app no longer call
 | 2026-10-25 | Admin step 2 built (synth) | **420** (−28: 15 integrations and 15 per-route permissions out, 1 of each in). Prod 437 → 409 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
 | 2026-10-25 | Admin step 2 deployed (`9210217`) | **420**, Prod **409**, matching synth. Test has 14 integrations and 14 permissions for 28 routes. The bundle holds one API-scoped permission, and no old admin Lambda holds any | `list-stack-resources`, `lambda get-policy`, and CloudWatch Invocations since cutover: bundle 3 (Test) and 4 (Prod), 0 errors; all 15 old admin Lambdas 0 |
 | 2026-10-25 | Public step 1 built (synth) | **436** (+16: four bundles × function, role, policy, log group). Prod 409 → 421 (+12, no sink) | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
-| | Public step 2 (cutover) | expected ~413 (−24: 12 public routes' integrations and permissions collapse into 6 bundles; `/data/jobs/{name}/result` keeps its own until step 3; +1 route for `GET /admin/warehouse/job-runs`) | |
-| | Step 3 (delete old admin and public Lambdas) | expected ~305 (−60 admin, −44 for 11 replaced public Lambdas, −4 for the two retired `/data/jobs` routes and the result route's integration and permission). Lower than §3.4's 317, because `fleet` and `webhookSubscriptions` reuse their Lambdas and the result route goes | |
+| 2026-10-25 | Public step 2 built (synth) | **427** (−9: the 13 public routes' 13 integrations and permissions become 8 — six bundles plus the two legacy `/data/jobs` routes — and +1 route for `GET /admin/warehouse/job-runs`). Prod 421 → 414 | Resource count of the pipeline app's synthesized `DeployTest` and `DeployProd` templates |
+| | Step 3 (delete old admin and public Lambdas) | expected ~317 (−110: 15 old admin Lambdas × 4, 9 replaced public Lambdas × 4, and the two legacy `/data/jobs` routes with their Lambdas, integrations and permissions). Prod ~312 | |
 
 Step 1, as built:
 
@@ -330,8 +330,24 @@ Public step 1, as built:
   - Each bundle's role is the union of the old roles for its routes.
   - The old per-operation sink construct was renamed `Nyc311WebhookSinkOperationApiLambda` to free the name. Its construct IDs are unchanged, so no resource changes.
   - `fleet` and `webhookSubscriptions` get no new Lambda. Each is already one Lambda per route, so step 2 points that existing Lambda's entry at its router in place.
-- **Verify** each new bundle by invoking it directly in Test on its read routes (needs confirmation under CLAUDE.md §3):
-  - `GET /feature-flags`, `GET /data/schema`, `GET /workspace/metrics`, `GET /ingestion/metrics`, `GET /lambda-metrics`, `GET /webhook-sink/deliveries`.
+- **Verified 2026-10-25** (Test 436, Prod 421, matching synth). Each bundle was invoked directly in Test on its read routes and compared with the live API's response for the same route. All returned 200 with the same body, apart from `/ingestion/metrics`, whose counters moved between the two calls:
+  - `GET /feature-flags`, `GET /feature-flags/{flag_key}` and `POST /feature-flags/{flag_key}/treatment`
+  - `GET /data/schema` and `GET /workspace/metrics`
+  - `GET /ingestion/metrics` and `GET /lambda-metrics`
+  - `GET /webhook-sink/deliveries`
+
+  The data bundle returned 404 for a feature-flag route.
+
+Public step 2, as built:
+
+- **Backend:** `GET /admin/warehouse/job-runs` joined the admin bundle (`listWarehouseJobRunsController`, which calls `requireAdminUser` before the same service as `GET /data/jobs`). The admin bundle already held the job-runs table's `Query`.
+- **CDK:**
+  - `Nyc311Api.ts` builds every bundle's routes from its `*ApiRoutes.ts` through one helper, `addBundleRoutes`: one integration per bundle, with `scopePermissionToRoute: false`.
+  - `fleet` and `webhookSubscriptions` were cut over in place. Their constructs were renamed `Nyc311FleetApiLambda` and `Nyc311WebhookSubscriptionsApiLambda`, and their entries now point at their routers. Construct IDs and function names (`Nyc311GetFleetLocationsApi`, `Nyc311RegisterWebhookSubscriptionApi`) are unchanged, so nothing was replaced.
+  - The replaced public Lambdas are still built in `Nyc311Stack` but aren't routed: the three feature-flag reads, metrics, Lambda metrics, warehouse schema, workspace metrics, and the two sink operations.
+  - `GET /data/jobs` and `GET /data/jobs/{name}/result` stay on their old Lambdas until step 3.
+- **Web-app:** `warehouseDataService.getJobRuns` calls `GET /admin/warehouse/job-runs` with the ID token. `DataPage` shows only the relationship diagram; the schema search stays on `AdminWarehousePage`.
+- **Not yet changed:** the Lambda-health tile (`MONITORED_LAMBDAS`) still names the per-route functions. It moves to bundle names in step 3, when those functions are deleted.
 
 ---
 

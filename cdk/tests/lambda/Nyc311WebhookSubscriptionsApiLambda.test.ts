@@ -2,23 +2,23 @@ import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { WebhookSubscriptionsTable } from "../../data/WebhookSubscriptionsTable";
-import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
+import { Nyc311WebhookSubscriptionsApiLambda } from "../../lambda/Nyc311WebhookSubscriptionsApiLambda";
 import { dynamoActionsOn, ssmGrants } from "./webhookTestSupport";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
   const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
-  new Nyc311RegisterWebhookSubscriptionApiLambda(stack, "Nyc311RegisterWebhookSubscriptionApiLambda", {
+  new Nyc311WebhookSubscriptionsApiLambda(stack, "Nyc311RegisterWebhookSubscriptionApiLambda", {
     envName,
     webhookSubscriptionsTable: new WebhookSubscriptionsTable(stack, "WebhookSubscriptionsTable", { envName }),
   });
   return Template.fromStack(stack);
 }
 
-describe("Nyc311RegisterWebhookSubscriptionApiLambda", () => {
-  it("bundles backend/controller/web-api/webhookSubscriptions/registerWebhookSubscriptionController's exported handler on Node 22", () => {
+describe("Nyc311WebhookSubscriptionsApiLambda", () => {
+  it("bundles the webhookSubscriptions bundle router on Node 22", () => {
     synthesize("TEST").hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "index.registerWebhookSubscriptionController",
+      Handler: "index.webhookSubscriptionsApiRouter",
       Runtime: "nodejs22.x",
       Timeout: 10,
     });

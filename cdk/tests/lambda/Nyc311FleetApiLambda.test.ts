@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { OperatorsTable } from "../../data/OperatorsTable";
 import { OrdersTable } from "../../data/OrdersTable";
 import { LocationsTable } from "../../data/LocationsTable";
-import { Nyc311GetFleetLocationsApiLambda } from "../../lambda/Nyc311GetFleetLocationsApiLambda";
+import { Nyc311FleetApiLambda } from "../../lambda/Nyc311FleetApiLambda";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
@@ -12,7 +12,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
   const ordersTable = new OrdersTable(stack, "OrdersTable", { envName });
   const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
-  new Nyc311GetFleetLocationsApiLambda(stack, "Nyc311GetFleetLocationsApiLambda", {
+  new Nyc311FleetApiLambda(stack, "Nyc311GetFleetLocationsApiLambda", {
     envName,
     operatorsTable,
     ordersTable,
@@ -21,12 +21,12 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   return Template.fromStack(stack);
 }
 
-describe("Nyc311GetFleetLocationsApiLambda", () => {
-  it("bundles backend/controller/web-api/fleet/getFleetLocationsController's exported handler on Node 22", () => {
+describe("Nyc311FleetApiLambda", () => {
+  it("bundles the fleet bundle router on Node 22", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::Lambda::Function", {
-      Handler: "index.getFleetLocationsController",
+      Handler: "index.fleetApiRouter",
       Runtime: "nodejs22.x",
     });
   });

@@ -10,7 +10,7 @@ import type { OrdersTable } from "../data/OrdersTable";
 import type { LocationsTable } from "../data/LocationsTable";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
-export interface Nyc311GetFleetLocationsApiLambdaProps {
+export interface Nyc311FleetApiLambdaProps {
   envName: Nyc311Environment;
   operatorsTable: OperatorsTable;
   ordersTable: OrdersTable;
@@ -18,16 +18,16 @@ export interface Nyc311GetFleetLocationsApiLambdaProps {
 }
 
 /**
- * Backs the public `GET /fleet/locations` route
- * (`10-capacity-modeling-and-integration.md` §6.1) — the home-page map's
- * data source. Entry: `backend/controller/web-api/
- * getFleetLocationsController.ts`. No UsersTable grant — this route is
- * public. Read-only on `OperatorsTable`, plus (`11-street-condition-
- * implementation.md` §7) `OrdersTable`'s recent-jobs trail query and
- * `LocationsTable`'s batched lookups.
+ * The fleet Service API bundle (`15-resource-consolidation.md` §3.3):
+ * `GET /fleet/locations`, the home-page map's data source
+ * (`10-capacity-modeling-and-integration.md` §6.1). Entry:
+ * `backend/controller/web-api/fleet/fleetApiRouter.ts`. Keeps its
+ * pre-bundle function name, so the cutover replaced no resource. Public,
+ * so no UsersTable grant. Read-only on `OperatorsTable`, `OrdersTable`'s
+ * recent-jobs trail and `LocationsTable`'s batched lookups.
  */
-export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
-  constructor(scope: Construct, id: string, props: Nyc311GetFleetLocationsApiLambdaProps) {
+export class Nyc311FleetApiLambda extends NodejsFunction {
+  constructor(scope: Construct, id: string, props: Nyc311FleetApiLambdaProps) {
     const functionName = `Nyc311GetFleetLocationsApi-${ENV_NAME_SUFFIX[props.envName]}`;
 
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
@@ -39,8 +39,8 @@ export class Nyc311GetFleetLocationsApiLambda extends NodejsFunction {
 
     super(scope, id, {
       functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "fleet", "getFleetLocationsController.ts"),
-      handler: "getFleetLocationsController",
+      entry: path.join(backendRoot, "controller", "web-api", "fleet", "fleetApiRouter.ts"),
+      handler: "fleetApiRouter",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(20),

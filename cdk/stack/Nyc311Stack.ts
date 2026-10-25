@@ -26,8 +26,12 @@ import { Nyc311WebhookDispatchQueue } from "../lambda/Nyc311WebhookDispatchQueue
 import { Nyc311WebhookDeliveryQueue } from "../lambda/Nyc311WebhookDeliveryQueue";
 import { Nyc311WebhookDispatchLambda } from "../lambda/Nyc311WebhookDispatchLambda";
 import { Nyc311WebhookDeliveryLambda } from "../lambda/Nyc311WebhookDeliveryLambda";
-import { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
-import { Nyc311WebhookSinkOperationApiLambda, type WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkOperationApiLambda";
+import { Nyc311WebhookSubscriptionsApiLambda } from "../lambda/Nyc311WebhookSubscriptionsApiLambda";
+import {
+  Nyc311WebhookSinkOperationApiLambda,
+  WEBHOOK_SINK_API_OPERATIONS,
+  type WebhookSinkApiOperation,
+} from "../lambda/Nyc311WebhookSinkOperationApiLambda";
 import { Nyc311OrderSchedulingLambda } from "../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../lambda/Nyc311OrderSchedulingSchedule";
 import { Nyc311WarehouseBucket } from "../warehouse/Nyc311WarehouseBucket";
@@ -61,18 +65,14 @@ import { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import { WebhookSubscriptionsTable } from "../data/WebhookSubscriptionsTable";
 import { WebhookSinkDeliveriesTable } from "../data/WebhookSinkDeliveriesTable";
-import {
-  FEATURE_FLAG_API_OPERATIONS,
-  Nyc311FeatureFlagApiLambda,
-  type FeatureFlagApiOperation,
-} from "../lambda/Nyc311FeatureFlagApiLambda";
+import { FEATURE_FLAG_API_OPERATIONS, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
 import { Nyc311AdminAuth } from "../auth/Nyc311AdminAuth";
 import { Nyc311AdminWhoamiApiLambda } from "../lambda/Nyc311AdminWhoamiApiLambda";
 import { OperatorsTable } from "../data/OperatorsTable";
 import { Nyc311AddCapacityApiLambda } from "../lambda/Nyc311AddCapacityApiLambda";
 import { Nyc311RemoveCapacityApiLambda } from "../lambda/Nyc311RemoveCapacityApiLambda";
 import { Nyc311GetCapacityApiLambda } from "../lambda/Nyc311GetCapacityApiLambda";
-import { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
+import { Nyc311FleetApiLambda } from "../lambda/Nyc311FleetApiLambda";
 import { Nyc311RunSchedulingApiLambda } from "../lambda/Nyc311RunSchedulingApiLambda";
 import { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
 import { Nyc311FeatureFlagsApiLambda } from "../lambda/Nyc311FeatureFlagsApiLambda";
@@ -147,6 +147,13 @@ export const POLLER_ENABLED: Record<Nyc311Environment, boolean> = {
  * notifications already go to (pipeline/Nyc311PipelineStack.ts).
  */
 const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
+
+
+/* The per-operation sink Lambdas' original construct IDs, kept so detaching them replaced nothing. */
+const WEBHOOK_SINK_CONSTRUCT_IDS: Record<WebhookSinkApiOperation, string> = {
+  RECEIVE: "Nyc311ReceiveWebhookSinkApiLambda",
+  LIST: "Nyc311GetWebhookSinkDeliveriesApiLambda",
+};
 
 /**
  * The application's single stack shape (CLAUDE.md §5.3) — one Stack class,
@@ -254,21 +261,19 @@ export class Nyc311Stack extends Stack {
     });
     /* 11-street-condition-implementation.md §4 — the feature-flag/experiment service, one Lambda per operation. */
     const featureFlagsTable = new FeatureFlagsTable(this, "FeatureFlagsTable", { envName: props.envName });
-    const featureFlagApiLambdas = Object.fromEntries(
-      FEATURE_FLAG_API_OPERATIONS.map((operation) => [
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    for (const operation of FEATURE_FLAG_API_OPERATIONS) {
+      new Nyc311FeatureFlagApiLambda(this, `Nyc311FeatureFlagApiLambda${operation}`, {
+        envName: props.envName,
         operation,
-        new Nyc311FeatureFlagApiLambda(this, `Nyc311FeatureFlagApiLambda${operation}`, {
-          envName: props.envName,
-          operation,
-          featureFlagsTable,
-          usersTable,
-        }),
-      ])
-    ) as Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
-    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
-    new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
+        featureFlagsTable,
+        usersTable,
+      });
+    }
+    /* 15-resource-consolidation.md §3.3 — the featureFlags Service API bundle. */
+    const featureFlagsApiLambda = new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
-    const getFleetLocationsApiLambda = new Nyc311GetFleetLocationsApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
+    const getFleetLocationsApiLambda = new Nyc311FleetApiLambda(this, "Nyc311GetFleetLocationsApiLambda", {
       envName: props.envName,
       operatorsTable,
       ordersTable,
@@ -422,12 +427,12 @@ export class Nyc311Stack extends Stack {
       webhookSubscriptionsTable,
       webhookDeliveryQueue,
     });
-    const registerWebhookSubscriptionApiLambda = new Nyc311RegisterWebhookSubscriptionApiLambda(
+    const registerWebhookSubscriptionApiLambda = new Nyc311WebhookSubscriptionsApiLambda(
       this,
       "Nyc311RegisterWebhookSubscriptionApiLambda",
       { envName: props.envName, webhookSubscriptionsTable }
     );
-    const webhookSinkApiLambdas = props.envName === "TEST" ? this.createWebhookSink(props.envName) : undefined;
+    const webhookSinkApiLambda = props.envName === "TEST" ? this.createWebhookSink(props.envName) : undefined;
 
     new Nyc311OrderPipelineAlarms(this, "Nyc311OrderPipelineAlarms", {
       envName: props.envName,
@@ -666,8 +671,8 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       liveWorkspaceMetricsTable,
     });
-    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
-    new Nyc311DataApiLambda(this, "Nyc311DataApiLambda", {
+    /* 15-resource-consolidation.md §3.3 — the data Service API bundle. */
+    const dataApiLambda = new Nyc311DataApiLambda(this, "Nyc311DataApiLambda", {
       envName: props.envName,
       warehouseCatalog,
       liveWorkspaceMetricsTable,
@@ -803,23 +808,22 @@ export class Nyc311Stack extends Stack {
       workspaceMetricsApiFunctionName: workspaceMetricsApiLambda.functionName,
       fleetLocationsApiFunctionName: getFleetLocationsApiLambda.functionName,
     };
-    const lambdaMetricsApiLambda = new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", monitoredLambdas);
-    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
-    new Nyc311MonitoringApiLambda(this, "Nyc311MonitoringApiLambda", { ...monitoredLambdas, requestsTable });
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    new Nyc311LambdaMetricsApiLambda(this, "Nyc311LambdaMetricsApiLambda", monitoredLambdas);
+    /* 15-resource-consolidation.md §3.3 — the monitoring Service API bundle. */
+    const monitoringApiLambda = new Nyc311MonitoringApiLambda(this, "Nyc311MonitoringApiLambda", { ...monitoredLambdas, requestsTable });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
       envName: props.envName,
-      metricsApiLambda,
-      lambdaMetricsApiLambda,
-      warehouseSchemaApiLambda,
+      adminApiLambda,
+      featureFlagsApiLambda,
+      dataApiLambda,
+      monitoringApiLambda,
+      fleetApiLambda: getFleetLocationsApiLambda,
+      webhookSubscriptionsApiLambda: registerWebhookSubscriptionApiLambda,
+      webhookSinkApiLambda,
       warehouseJobsApiLambda,
       jobResultApiLambda,
-      workspaceMetricsApiLambda,
-      getFleetLocationsApiLambda,
-      adminApiLambda,
-      featureFlagApiLambdas,
-      registerWebhookSubscriptionApiLambda,
-      webhookSinkApiLambdas,
       adminAuthorizer: adminAuth.authorizer,
       webAppDomainNames: [domainConfig.siteDomain, websiteHosting.distribution.domainName],
       apiDomainName: apiDomain.domainName,
@@ -849,22 +853,13 @@ export class Nyc311Stack extends Stack {
     });
   }
 
-  /** The webhook sink subscriber (13-customer-simulation.md §5): its delivery table and one Lambda per route. Test only. */
-  private createWebhookSink(envName: Nyc311Environment): Record<WebhookSinkApiOperation, Nyc311WebhookSinkOperationApiLambda> {
+  /** The webhook sink subscriber (13-customer-simulation.md §5): its delivery table and its Service API bundle. Test only. */
+  private createWebhookSink(envName: Nyc311Environment): Nyc311WebhookSinkApiLambda {
     const webhookSinkDeliveriesTable = new WebhookSinkDeliveriesTable(this, "WebhookSinkDeliveriesTable", { envName });
-    /* 15-resource-consolidation.md §7 public step 1 — stood up unattached, verified by direct invoke before cutover. */
-    new Nyc311WebhookSinkApiLambda(this, "Nyc311WebhookSinkApiLambda", { envName, webhookSinkDeliveriesTable });
-    return {
-      RECEIVE: new Nyc311WebhookSinkOperationApiLambda(this, "Nyc311ReceiveWebhookSinkApiLambda", {
-        envName,
-        operation: "RECEIVE",
-        webhookSinkDeliveriesTable,
-      }),
-      LIST: new Nyc311WebhookSinkOperationApiLambda(this, "Nyc311GetWebhookSinkDeliveriesApiLambda", {
-        envName,
-        operation: "LIST",
-        webhookSinkDeliveriesTable,
-      }),
-    };
+    /* 15-resource-consolidation.md §7 step 2 — unattached, kept for rollback until step 3 deletes it. */
+    for (const operation of WEBHOOK_SINK_API_OPERATIONS) {
+      new Nyc311WebhookSinkOperationApiLambda(this, WEBHOOK_SINK_CONSTRUCT_IDS[operation], { envName, operation, webhookSinkDeliveriesTable });
+    }
+    return new Nyc311WebhookSinkApiLambda(this, "Nyc311WebhookSinkApiLambda", { envName, webhookSinkDeliveriesTable });
   }
 }

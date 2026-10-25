@@ -1,3 +1,4 @@
+import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../config";
 import { WarehouseSchemaResponseSchema, type WarehouseSchemaResponse } from "../models/warehouseSchema";
 import { WarehouseJobRunListResponseSchema, type WarehouseJobRunListResponse } from "../models/warehouseJobRun";
@@ -9,13 +10,23 @@ import { MOCK_JOB_RESULTS } from "../test-data/jobResult";
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
  * (CLAUDE.md §5.1) — same shape as pipelineStatusService.ts. Backs
- * GET /data/schema, GET /data/jobs and GET /data/jobs/{name}/result
- * (7-data-warehousing.md §11/§12).
+ * public GET /data/schema, admin GET /admin/warehouse/job-runs (which
+ * replaced public GET /data/jobs, 15-resource-consolidation.md §3.3) and
+ * GET /data/jobs/{name}/result (7-data-warehousing.md §11/§12).
  */
 export interface WarehouseDataService {
   getSchema(): Promise<WarehouseSchemaResponse>;
   getJobRuns(): Promise<WarehouseJobRunListResponse>;
   getJobResult(jobName: string): Promise<JobResult>;
+}
+
+async function authorizedFetch(path: string): Promise<Response> {
+  const session = await fetchAuthSession();
+  const idToken = session.tokens?.idToken?.toString();
+  if (!idToken) {
+    throw new Error("Not authenticated");
+  }
+  return fetch(`${config.apiBaseUrl}${path}`, { headers: { Authorization: `Bearer ${idToken}` } });
 }
 
 export class LiveWarehouseDataService implements WarehouseDataService {
@@ -29,7 +40,7 @@ export class LiveWarehouseDataService implements WarehouseDataService {
   }
 
   async getJobRuns(): Promise<WarehouseJobRunListResponse> {
-    const response = await fetch(`${config.apiBaseUrl}/data/jobs`);
+    const response = await authorizedFetch("/admin/warehouse/job-runs");
     if (!response.ok) {
       throw new Error(`Failed to fetch warehouse job runs: HTTP ${response.status}`);
     }

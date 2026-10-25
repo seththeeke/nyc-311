@@ -19,6 +19,7 @@ export const ADMIN_API_ROUTES = [
   "PUT /admin/warehouse/jobs/{name}",
   "DELETE /admin/warehouse/jobs/{name}",
   "GET /admin/warehouse/jobs/{name}/sql",
+  "GET /admin/warehouse/job-runs",
   "POST /admin/warehouse/job-runs/results",
 ] as const;
 

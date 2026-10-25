@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DataPage } from "../../../src/components/pages/DataPage";
@@ -15,7 +14,7 @@ const mockedGetSchema = vi.mocked(warehouseDataService.getSchema);
 
 const schema: WarehouseSchemaResponse = {
   tables: [
-    { table_name: "order_events", columns: [{ name: "order_id", type: "string", comment: null }] },
+    { table_name: "order_events", columns: [{ name: "order_id", type: "string", comment: null }, { name: "request_id", type: "string", comment: null }] },
     { table_name: "requests", columns: [{ name: "request_id", type: "string", comment: null }] },
   ],
 };
@@ -44,11 +43,12 @@ describe("DataPage", () => {
     expect(screen.getByRole("link", { name: /monitoring/i })).toHaveAttribute("href", "/monitoring");
   });
 
-  it("renders only the schema — no jobs, performance, or results views", async () => {
+  it("renders only the relationship diagram — no schema search, jobs, performance, or results views", async () => {
     mockedGetSchema.mockResolvedValue(schema);
     renderPage();
 
-    expect(await screen.findByText("order_events")).toBeInTheDocument();
+    expect(await screen.findByRole("img")).toHaveAccessibleName(/^Relationship diagram: 2 tables/);
+    expect(screen.queryByLabelText("Search schema")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     expect(screen.queryByText(/job/i)).not.toBeInTheDocument();
   });
@@ -57,7 +57,7 @@ describe("DataPage", () => {
     mockedGetSchema.mockResolvedValue(schema);
     renderPage();
 
-    await screen.findByText("order_events");
+    await screen.findByRole("img");
     expect(warehouseDataService.getJobRuns).not.toHaveBeenCalled();
     expect(warehouseDataService.getJobResult).not.toHaveBeenCalled();
   });
@@ -67,18 +67,6 @@ describe("DataPage", () => {
     renderPage();
 
     expect(screen.getByText("Loading…")).toBeInTheDocument();
-  });
-
-  it("filters the schema client-side via the search box", async () => {
-    mockedGetSchema.mockResolvedValue(schema);
-    renderPage();
-
-    await screen.findByText("order_events");
-    await userEvent.setup().type(screen.getByLabelText("Search schema"), "request_id");
-
-    expect(screen.getByText("requests")).toBeInTheDocument();
-    expect(screen.queryByText("order_events")).not.toBeInTheDocument();
-    expect(mockedGetSchema).toHaveBeenCalledTimes(1);
   });
 
   it("shows an empty-state message when the catalog has no tables yet", async () => {
@@ -102,7 +90,7 @@ describe("DataPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to load warehouse schema.");
   });
 
-  it("renders the relationship diagram above the schema list, from the same single schema fetch", async () => {
+  it("renders the relationship diagram from a single schema fetch", async () => {
     mockedGetSchema.mockResolvedValue({
       tables: [
         { table_name: "order_snapshots", columns: [{ name: "order_id", type: "string", comment: null }, { name: "request_id", type: "string", comment: null }] },
@@ -111,16 +99,15 @@ describe("DataPage", () => {
     });
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
-    expect(screen.getByRole("img")).toHaveAccessibleName("Relationship diagram: 2 tables, 1 foreign-key relationships");
-    expect(screen.getByRole("region", { name: "Warehouse schema" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    expect(await screen.findByRole("img")).toHaveAccessibleName("Relationship diagram: 2 tables, 1 foreign-key relationships");
     expect(mockedGetSchema).toHaveBeenCalledTimes(1);
   });
 
-  it("shows no relationships section while loading, on error, or with no tables", async () => {
+  it("shows no diagram while loading, on error, or with no tables", async () => {
     mockedGetSchema.mockResolvedValue({ tables: [] });
     renderPage();
     expect(await screen.findByText("No warehouse tables catalogued yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Relationships" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });

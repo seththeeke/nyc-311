@@ -2,7 +2,6 @@ import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { useWarehouseSchema } from "../../hooks/useWarehouseSchema";
 import { WarehouseRelationshipDiagram } from "../data/WarehouseRelationshipDiagram";
-import { WarehouseSchemaSearch } from "../data/WarehouseSchemaSearch";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 /** Rendered only while the query is pending or errored — a not-pending state here is therefore an error. */
@@ -18,8 +17,8 @@ function QueryState({ isPending, error }: { isPending: boolean; error: unknown }
 
 /**
  * The data warehouse's public, read-only surface (7-data-warehousing.md
- * §12) — just the schema, searchable client-side. No write actions exist
- * here or on any route this page reaches. Only reachable today via the
+ * §12) — only the relationship diagram (15-resource-consolidation.md
+ * §3.3); schema search lives on the admin warehouse page. Only reachable today via the
  * Monitoring page's "Data Modeling" tile, so its back link returns there
  * rather than to Home.
  */
@@ -44,24 +43,18 @@ export function DataPage(): ReactElement {
         <h1 className="mt-4 bg-gradient-to-r from-hue-cyan via-hue-blue to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Data
         </h1>
-        <p className="mt-2 text-fg-subtle">The warehouse's schema — search by table or column name. Read-only.</p>
+        <p className="mt-2 text-fg-subtle">How the warehouse's tables relate to each other. Read-only.</p>
 
-        {schemaQuery.data && schemaQuery.data.tables.length > 0 && (
-          <section aria-labelledby="relationships-heading" className="mt-6">
-            <h2 id="relationships-heading" className="mb-2 text-sm font-semibold text-fg-muted">
-              Relationships
-            </h2>
-            <WarehouseRelationshipDiagram tables={schemaQuery.data.tables} />
-          </section>
-        )}
-
-        <section aria-label="Warehouse schema" className="mt-6">
+        <section aria-labelledby="relationships-heading" className="mt-6">
+          <h2 id="relationships-heading" className="mb-2 text-sm font-semibold text-fg-muted">
+            Relationships
+          </h2>
           {schemaQuery.isPending || schemaQuery.isError ? (
             <QueryState isPending={schemaQuery.isPending} error={schemaQuery.error} />
           ) : schemaQuery.data.tables.length === 0 ? (
             <p className="text-fg-subtle">No warehouse tables catalogued yet.</p>
           ) : (
-            <WarehouseSchemaSearch tables={schemaQuery.data.tables} />
+            <WarehouseRelationshipDiagram tables={schemaQuery.data.tables} />
           )}
         </section>
       </main>

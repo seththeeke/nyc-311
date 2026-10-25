@@ -11,6 +11,7 @@ import { deleteFeatureFlagController } from "./deleteFeatureFlagController";
 import { deleteWarehouseJobController } from "./deleteWarehouseJobController";
 import { getCapacityController } from "./getCapacityController";
 import { getWarehouseJobSqlController } from "./getWarehouseJobSqlController";
+import { listWarehouseJobRunsController } from "./listWarehouseJobRunsController";
 import { listWarehouseJobsController } from "./listWarehouseJobsController";
 import { postJobRunResultsController } from "./postJobRunResultsController";
 import { removeCapacityController } from "./removeCapacityController";
@@ -36,6 +37,7 @@ const ADMIN_API_CONTROLLERS: Record<AdminApiRouteKey, ApiController> = {
   "PUT /admin/warehouse/jobs/{name}": updateWarehouseJobController,
   "DELETE /admin/warehouse/jobs/{name}": deleteWarehouseJobController,
   "GET /admin/warehouse/jobs/{name}/sql": getWarehouseJobSqlController,
+  "GET /admin/warehouse/job-runs": listWarehouseJobRunsController,
   "POST /admin/warehouse/job-runs/results": postJobRunResultsController,
 };
 

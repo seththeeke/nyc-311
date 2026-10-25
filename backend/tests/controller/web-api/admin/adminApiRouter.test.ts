@@ -8,6 +8,7 @@ import { deleteFeatureFlagController } from "../../../../controller/web-api/admi
 import { deleteWarehouseJobController } from "../../../../controller/web-api/admin/deleteWarehouseJobController";
 import { getCapacityController } from "../../../../controller/web-api/admin/getCapacityController";
 import { getWarehouseJobSqlController } from "../../../../controller/web-api/admin/getWarehouseJobSqlController";
+import { listWarehouseJobRunsController } from "../../../../controller/web-api/admin/listWarehouseJobRunsController";
 import { listWarehouseJobsController } from "../../../../controller/web-api/admin/listWarehouseJobsController";
 import { postJobRunResultsController } from "../../../../controller/web-api/admin/postJobRunResultsController";
 import { removeCapacityController } from "../../../../controller/web-api/admin/removeCapacityController";
@@ -24,6 +25,7 @@ vi.mock("../../../../controller/web-api/admin/deleteFeatureFlagController", () =
 vi.mock("../../../../controller/web-api/admin/deleteWarehouseJobController", () => ({ deleteWarehouseJobController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/getCapacityController", () => ({ getCapacityController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/getWarehouseJobSqlController", () => ({ getWarehouseJobSqlController: vi.fn() }));
+vi.mock("../../../../controller/web-api/admin/listWarehouseJobRunsController", () => ({ listWarehouseJobRunsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/listWarehouseJobsController", () => ({ listWarehouseJobsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/postJobRunResultsController", () => ({ postJobRunResultsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/removeCapacityController", () => ({ removeCapacityController: vi.fn() }));
@@ -48,6 +50,7 @@ const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "PUT /admin/warehouse/jobs/{name}": updateWarehouseJobController,
   "DELETE /admin/warehouse/jobs/{name}": deleteWarehouseJobController,
   "GET /admin/warehouse/jobs/{name}/sql": getWarehouseJobSqlController,
+  "GET /admin/warehouse/job-runs": listWarehouseJobRunsController,
   "POST /admin/warehouse/job-runs/results": postJobRunResultsController,
 };
 
@@ -75,9 +78,9 @@ afterEach(() => {
 });
 
 describe("adminApiRouter", () => {
-  it("covers exactly the 15 admin routes", () => {
-    expect(ADMIN_API_ROUTES).toHaveLength(15);
-    expect(new Set(ADMIN_API_ROUTES).size).toBe(15);
+  it("covers exactly the 16 admin routes", () => {
+    expect(ADMIN_API_ROUTES).toHaveLength(16);
+    expect(new Set(ADMIN_API_ROUTES).size).toBe(16);
   });
 
   it.each(ADMIN_API_ROUTES)("dispatches %s to its controller with the raw event", async (routeKey) => {

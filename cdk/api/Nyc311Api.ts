@@ -1,41 +1,45 @@
 import { Duration } from "aws-cdk-lib";
-import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
+import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod, type HttpRoute, type IDomainName } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import type { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import type { IFunction } from "aws-cdk-lib/aws-lambda";
 import type { Construct } from "constructs";
 import { ADMIN_API_ROUTES } from "../../backend/controller/web-api/admin/adminApiRoutes";
+import { DATA_API_ROUTES } from "../../backend/controller/web-api/data/dataApiRoutes";
+import { FEATURE_FLAGS_API_ROUTES } from "../../backend/controller/web-api/featureFlags/featureFlagsApiRoutes";
+import { FLEET_API_ROUTES } from "../../backend/controller/web-api/fleet/fleetApiRoutes";
+import { MONITORING_API_ROUTES } from "../../backend/controller/web-api/monitoring/monitoringApiRoutes";
+import { WEBHOOK_SINK_API_ROUTES } from "../../backend/controller/web-api/webhookSink/webhookSinkApiRoutes";
+import { WEBHOOK_SUBSCRIPTIONS_API_ROUTES } from "../../backend/controller/web-api/webhookSubscriptions/webhookSubscriptionsApiRoutes";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
-import type { Nyc311MetricsApiLambda } from "../lambda/Nyc311MetricsApiLambda";
-import type { Nyc311LambdaMetricsApiLambda } from "../lambda/Nyc311LambdaMetricsApiLambda";
 import type { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
-import type { Nyc311GetFleetLocationsApiLambda } from "../lambda/Nyc311GetFleetLocationsApiLambda";
-import type { Nyc311WarehouseSchemaApiLambda } from "../warehouse/Nyc311WarehouseSchemaApiLambda";
-import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
+import type { Nyc311FeatureFlagsApiLambda } from "../lambda/Nyc311FeatureFlagsApiLambda";
+import type { Nyc311FleetApiLambda } from "../lambda/Nyc311FleetApiLambda";
+import type { Nyc311MonitoringApiLambda } from "../lambda/Nyc311MonitoringApiLambda";
+import type { Nyc311WebhookSinkApiLambda } from "../lambda/Nyc311WebhookSinkApiLambda";
+import type { Nyc311WebhookSubscriptionsApiLambda } from "../lambda/Nyc311WebhookSubscriptionsApiLambda";
+import type { Nyc311DataApiLambda } from "../warehouse/Nyc311DataApiLambda";
 import type { Nyc311JobResultApiLambda } from "../warehouse/Nyc311JobResultApiLambda";
-import type { Nyc311WorkspaceMetricsApiLambda } from "../warehouse/Nyc311WorkspaceMetricsApiLambda";
-import type { FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda } from "../lambda/Nyc311FeatureFlagApiLambda";
-import type { Nyc311RegisterWebhookSubscriptionApiLambda } from "../lambda/Nyc311RegisterWebhookSubscriptionApiLambda";
-import type { Nyc311WebhookSinkOperationApiLambda, WebhookSinkApiOperation } from "../lambda/Nyc311WebhookSinkOperationApiLambda";
+import type { Nyc311WarehouseJobsApiLambda } from "../warehouse/Nyc311WarehouseJobsApiLambda";
 
 export interface Nyc311ApiProps {
   envName: Nyc311Environment;
-  metricsApiLambda: Nyc311MetricsApiLambda;
-  lambdaMetricsApiLambda: Nyc311LambdaMetricsApiLambda;
-  warehouseSchemaApiLambda: Nyc311WarehouseSchemaApiLambda;
-  warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
-  jobResultApiLambda: Nyc311JobResultApiLambda;
-  /** The secondary workspace's metric tiles — public, read-only. */
-  workspaceMetricsApiLambda: Nyc311WorkspaceMetricsApiLambda;
-  /** `15-resource-consolidation.md` §3.2 — the admin Service API bundle, behind every route in `ADMIN_API_ROUTES`. */
+  /* 15-resource-consolidation.md §3: one Lambda per Service API bundle, each serving every route in its *_API_ROUTES. */
+  /** §3.2 — every JWT-authorized route. */
   adminApiLambda: Nyc311AdminApiLambda;
-  /** `10-capacity-modeling-and-integration.md` §6.1 — the public home-page map's data source, no authorizer. */
-  getFleetLocationsApiLambda: Nyc311GetFleetLocationsApiLambda;
-  /** `11-street-condition-implementation.md` §4.2 — one Lambda per feature-flag operation; only the public three are routed here. */
-  featureFlagApiLambdas: Record<FeatureFlagApiOperation, Nyc311FeatureFlagApiLambda>;
+  featureFlagsApiLambda: Nyc311FeatureFlagsApiLambda;
+  dataApiLambda: Nyc311DataApiLambda;
+  monitoringApiLambda: Nyc311MonitoringApiLambda;
+  /** The public home-page map's data source (`10-capacity-modeling-and-integration.md` §6.1). */
+  fleetApiLambda: Nyc311FleetApiLambda;
   /** `13-customer-simulation.md` §5 — no authorizer; the Lambda checks the registration key itself. */
-  registerWebhookSubscriptionApiLambda: Nyc311RegisterWebhookSubscriptionApiLambda;
-  /** The Test-only webhook sink's two routes — omitted in Prod, which then has neither route. */
-  webhookSinkApiLambdas?: Record<WebhookSinkApiOperation, Nyc311WebhookSinkOperationApiLambda>;
+  webhookSubscriptionsApiLambda: Nyc311WebhookSubscriptionsApiLambda;
+  /** The Test-only webhook sink — omitted in Prod, which then has neither of its routes. */
+  webhookSinkApiLambda?: Nyc311WebhookSinkApiLambda;
+  /** Public `GET /data/jobs`, kept on its old Lambda until §7 step 3 deletes it (replaced by admin `GET /admin/warehouse/job-runs`). */
+  warehouseJobsApiLambda: Nyc311WarehouseJobsApiLambda;
+  /** Public `GET /data/jobs/{name}/result`, no caller; kept on its old Lambda until §7 step 3 deletes it. */
+  jobResultApiLambda: Nyc311JobResultApiLambda;
   /** `Nyc311AdminAuth`'s authorizer — attached only to admin-only routes, never as the API's default. */
   adminAuthorizer: HttpUserPoolAuthorizer;
   /**
@@ -72,13 +76,6 @@ export const ROUTE_THROTTLES: Record<string, { rateLimit: number; burstLimit: nu
   "POST /webhook-subscriptions": { rateLimit: 1, burstLimit: 5 },
 };
 
-/* The public feature-flag routes (§4.2): reads and getTreatment. The admin writes are in ADMIN_API_ROUTES. */
-const FEATURE_FLAG_ROUTES: { operation: FeatureFlagApiOperation; path: string; method: HttpMethod }[] = [
-  { operation: "LIST", path: "/feature-flags", method: HttpMethod.GET },
-  { operation: "GET", path: "/feature-flags/{flag_key}", method: HttpMethod.GET },
-  { operation: "GET_TREATMENT", path: "/feature-flags/{flag_key}/treatment", method: HttpMethod.POST },
-];
-
 /**
  * The public web API Gateway (`claude-prompt-initial.md` §5/§7) — an HTTP
  * API, cheaper than REST. Serves both its custom domain and `execute-api`.
@@ -103,22 +100,18 @@ export class Nyc311Api extends HttpApi {
       defaultDomainMapping: { domainName: props.apiDomainName },
     });
 
-    this.addRoutes({
-      path: "/ingestion/metrics",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetPollerMetricsIntegration", props.metricsApiLambda),
-    });
+    const throttledRoutes: HttpRoute[] = [];
 
-    const lambdaMetricsRoutes = this.addRoutes({
-      path: "/lambda-metrics",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetLambdaMetricsIntegration", props.lambdaMetricsApiLambda),
-    });
-
-    this.addRoutes({
-      path: "/data/schema",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetWarehouseSchemaIntegration", props.warehouseSchemaApiLambda),
+    [
+      ...this.addBundleRoutes("AdminApi", props.adminApiLambda, ADMIN_API_ROUTES, props.adminAuthorizer),
+      ...this.addBundleRoutes("FeatureFlagsApi", props.featureFlagsApiLambda, FEATURE_FLAGS_API_ROUTES),
+      ...this.addBundleRoutes("DataApi", props.dataApiLambda, DATA_API_ROUTES),
+      ...this.addBundleRoutes("MonitoringApi", props.monitoringApiLambda, MONITORING_API_ROUTES),
+      ...this.addBundleRoutes("FleetApi", props.fleetApiLambda, FLEET_API_ROUTES),
+      ...this.addBundleRoutes("WebhookSubscriptionsApi", props.webhookSubscriptionsApiLambda, WEBHOOK_SUBSCRIPTIONS_API_ROUTES),
+      ...(props.webhookSinkApiLambda ? this.addBundleRoutes("WebhookSinkApi", props.webhookSinkApiLambda, WEBHOOK_SINK_API_ROUTES) : []),
+    ].forEach(({ routeKey, routes }) => {
+      if (routeKey in ROUTE_THROTTLES) throttledRoutes.push(...routes);
     });
 
     this.addRoutes({
@@ -132,59 +125,6 @@ export class Nyc311Api extends HttpApi {
       methods: [HttpMethod.GET],
       integration: new HttpLambdaIntegration("GetJobResultIntegration", props.jobResultApiLambda),
     });
-
-    this.addRoutes({
-      path: "/workspace/metrics",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetWorkspaceMetricsIntegration", props.workspaceMetricsApiLambda),
-    });
-
-    /*
-     * 15-resource-consolidation.md §4 — every admin route on the bundle's
-     * one integration. scopePermissionToRoute: false makes that one
-     * API-scoped Lambda::Permission instead of one per route; the router
-     * 404s any route key it doesn't list.
-     */
-    const adminApiIntegration = new HttpLambdaIntegration("AdminApiIntegration", props.adminApiLambda, {
-      scopePermissionToRoute: false,
-    });
-    for (const routeKey of ADMIN_API_ROUTES) {
-      const [method, path] = routeKey.split(" ") as [HttpMethod, string];
-      this.addRoutes({ path, methods: [method], integration: adminApiIntegration, authorizer: props.adminAuthorizer });
-    }
-
-    const fleetLocationsRoutes = this.addRoutes({
-      path: "/fleet/locations",
-      methods: [HttpMethod.GET],
-      integration: new HttpLambdaIntegration("GetFleetLocationsIntegration", props.getFleetLocationsApiLambda),
-    });
-
-    for (const route of FEATURE_FLAG_ROUTES) {
-      this.addRoutes({
-        path: route.path,
-        methods: [route.method],
-        integration: new HttpLambdaIntegration(`FeatureFlag${route.operation}Integration`, props.featureFlagApiLambdas[route.operation]),
-      });
-    }
-
-    const registerWebhookSubscriptionRoutes = this.addRoutes({
-      path: "/webhook-subscriptions",
-      methods: [HttpMethod.POST],
-      integration: new HttpLambdaIntegration("RegisterWebhookSubscriptionIntegration", props.registerWebhookSubscriptionApiLambda),
-    });
-
-    if (props.webhookSinkApiLambdas) {
-      this.addRoutes({
-        path: "/webhook-sink",
-        methods: [HttpMethod.POST],
-        integration: new HttpLambdaIntegration("ReceiveWebhookSinkIntegration", props.webhookSinkApiLambdas.RECEIVE),
-      });
-      this.addRoutes({
-        path: "/webhook-sink/deliveries",
-        methods: [HttpMethod.GET],
-        integration: new HttpLambdaIntegration("GetWebhookSinkDeliveriesIntegration", props.webhookSinkApiLambdas.LIST),
-      });
-    }
 
     /*
      * The L2 HttpApi exposes no throttle for its auto-created $default
@@ -203,8 +143,27 @@ export class Nyc311Api extends HttpApi {
         { ThrottlingRateLimit: limits.rateLimit, ThrottlingBurstLimit: limits.burstLimit },
       ])
     );
-    for (const route of [...fleetLocationsRoutes, ...lambdaMetricsRoutes, ...registerWebhookSubscriptionRoutes]) {
+    for (const route of throttledRoutes) {
       cfnStage.node.addDependency(route);
     }
+  }
+
+  /**
+   * One route per key on the bundle's single integration (§4.2/§4.5).
+   * `scopePermissionToRoute: false` makes that one API-scoped
+   * `Lambda::Permission` instead of one per route; the bundle's router
+   * 404s any key it doesn't list.
+   */
+  private addBundleRoutes(
+    bundleName: string,
+    handler: IFunction,
+    routeKeys: readonly string[],
+    authorizer?: HttpUserPoolAuthorizer
+  ): { routeKey: string; routes: HttpRoute[] }[] {
+    const integration = new HttpLambdaIntegration(`${bundleName}Integration`, handler, { scopePermissionToRoute: false });
+    return routeKeys.map((routeKey) => {
+      const [method, path] = routeKey.split(" ") as [HttpMethod, string];
+      return { routeKey, routes: this.addRoutes({ path, methods: [method], integration, ...(authorizer ? { authorizer } : {}) }) };
+    });
   }
 }

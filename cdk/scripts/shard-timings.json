@@ -22,7 +22,7 @@
   "tests/warehouse/Nyc311AdHocQueryApiLambda.test.ts": 1443,
   "tests/lambda/Nyc311RequestEvaluationLambda.test.ts": 1425,
   "tests/lambda/Nyc311OrderEvaluationLambda.test.ts": 1409,
-  "tests/lambda/Nyc311GetFleetLocationsApiLambda.test.ts": 1401,
+  "tests/lambda/Nyc311FleetApiLambda.test.ts": 1401,
   "tests/lambda/Nyc311LocationsFanOutLambda.test.ts": 1406,
   "tests/lambda/Nyc311MetricsApiLambda.test.ts": 1387,
   "tests/lambda/Nyc311LambdaMetricsApiLambda.test.ts": 1375,
