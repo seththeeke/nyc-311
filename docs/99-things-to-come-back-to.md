@@ -496,3 +496,11 @@ See [#131](https://github.com/seththeeke/nyc-311/issues/131) — fixed this
 run, closes on merge.
 
 ---
+
+## zod 3.x -> 4.x major bump needed to clear high-severity GHSA-mrhx-c7xc-m3w5 (backend/web-app/customer-backend)
+
+See [#136](https://github.com/seththeeke/nyc-311/issues/136). Major bump
+used in every `models/` schema file across three packages — filed per the
+"major bumps get a ticket, not a same-run change" rule, not actioned yet.
+
+---
