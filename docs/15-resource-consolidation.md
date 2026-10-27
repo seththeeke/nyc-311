@@ -1,6 +1,6 @@
 # Resource consolidation — stateless resources in `Nyc311Stack`
 
-**Status (2026-10-25): API consolidation (candidate A) is complete in Test and Prod.** All three steps of §7 are deployed and verified for the admin and public bundles. Test went from 444 to **317** resources, and Prod from 433 to **312** (§7.1). The web API is now seven Service API Lambdas (six in Prod, which has no sink) instead of 28 per-route ones. Candidates B–D (§8) are still open. The Contacts design (#110), paused behind this, can resume: the stack has about 183 resources of headroom.
+**Status (2026-10-27): API consolidation (candidate A) is complete and stable in Test and Prod; re-measured 2026-10-27 at Test 317 and Prod 312, unchanged since the step 3 deploy (`86ed2f2`). Open items are in §7.2.** Completed 2026-10-25. All three steps of §7 are deployed and verified for the admin and public bundles. Test went from 444 to **317** resources, and Prod from 433 to **312** (§7.1). The web API is now seven Service API Lambdas (six in Prod, which has no sink) instead of 28 per-route ones. Candidates B–D (§8) are still open. The Contacts design (#110), paused behind this, can resume: the stack has about 183 resources of headroom.
 
 ---
 
@@ -374,6 +374,13 @@ Step 3 (admin and public together), as built:
   - The admin checklist passed 17 of 17 again on the final stack.
   - The Lambda health tile lists the six bundles.
 - **Left behind:** the CloudWatch log groups of 14 deleted functions, in each environment: the 12 admin per-route Lambdas, plus metrics and Lambda metrics. Those constructs never set `RemovalPolicy.DESTROY` on their log groups, so CloudFormation retained them. They are outside the stack and count toward no limit. Delete them by hand if wanted (CLAUDE.md §3 applies).
+
+### 7.2 Open items (2026-10-27)
+
+- **Orphaned log groups:** 14 per environment, listed under step 3's "Left behind". They need a decision on whether to delete them. Deleting is a mutating AWS call, so CLAUDE.md §3 applies.
+- **Admin integration tests:** the gap noted in §7 is still open by choice. The manual checklist script (17 checks) is the stand-in.
+- **Contacts (#110):** unblocked. It goes in as a new public `contacts` bundle, a design decision to record in its own doc before building.
+- **Candidates B–D (§8):** not started. They are optional now that there are about 183 resources of headroom.
 
 ---
 
