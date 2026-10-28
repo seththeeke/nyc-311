@@ -94,16 +94,47 @@ describe("IdeaFeed — focusing", () => {
 });
 
 describe("IdeaFeed — paging", () => {
-  it("offers older ideas while more remain, says counts are partial, and shows when it is fetching", async () => {
+  it("offers older ideas while more remain, says how many exist in all, and shows when it is fetching", async () => {
     const user = userEvent.setup();
     setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true });
     const { rerender } = render(inRouter(<IdeaFeed />));
-    expect(screen.getByText("Counts cover the 10 newest ideas loaded so far.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Load older ideas" }));
+    expect(screen.getByText("Showing the 10 newest of 14 ideas. Counts cover the loaded ideas only.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Load older ideas (4 more)" }));
     expect(loadMore).toHaveBeenCalled();
     setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true, isLoadingMore: true });
     rerender(inRouter(<IdeaFeed />));
     expect(screen.getByRole("button", { name: "Loading older ideas…" })).toBeDisabled();
+  });
+
+  it("totals one resident's ideas from their own counter", () => {
+    setIdeas({ data: MOCK_RESIDENT_IDEAS.filter((idea) => idea.persona_id === "hawthorn").slice(0, 2), hasMore: true });
+    render(inRouter(<IdeaFeed />, "/residents?persona=hawthorn"));
+    expect(screen.getByText("Showing the 2 newest of 6 ideas. Counts cover the loaded ideas only.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load older ideas (4 more)" })).toBeInTheDocument();
+  });
+
+  it("never reports fewer ideas than are loaded, even from a stale counter", () => {
+    const stale = MOCK_RESIDENT_PERSONAS.map((persona) => ({ ...persona, idea_count: 0 }));
+    mockedPersonas.mockReturnValue({ data: stale } as ReturnType<typeof useResidentPersonas>);
+    setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true });
+    render(inRouter(<IdeaFeed />));
+    expect(screen.getByText("Showing the 10 newest of 10 ideas. Counts cover the loaded ideas only.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load older ideas" })).toBeInTheDocument();
+  });
+
+  it("falls back to a loaded-only note when the total is unknown", () => {
+    setIdeas({ data: MOCK_RESIDENT_IDEAS.slice(0, 10), hasMore: true });
+    const { unmount } = render(inRouter(<IdeaFeed />, `/residents?order=${MOCK_RESIDENT_IDEAS[0].anchor!.order_id}`));
+    expect(screen.getByText("Counts cover the 10 newest ideas loaded so far.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load older ideas" })).toBeInTheDocument();
+    unmount();
+    mockedPersonas.mockReturnValue({ data: undefined } as ReturnType<typeof useResidentPersonas>);
+    const second = render(inRouter(<IdeaFeed />));
+    expect(screen.getByText("Counts cover the 10 newest ideas loaded so far.")).toBeInTheDocument();
+    second.unmount();
+    mockedPersonas.mockReturnValue({ data: MOCK_RESIDENT_PERSONAS } as ReturnType<typeof useResidentPersonas>);
+    render(inRouter(<IdeaFeed />, "/residents?persona=nobody"));
+    expect(screen.getByText(/Counts cover the/)).toBeInTheDocument();
   });
 
   it("offers nothing more on the last page", () => {
