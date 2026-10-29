@@ -10,7 +10,7 @@ describe("featureTreatmentService — mock", () => {
   it("resolves a sample flag to its default, and a missing flag to null", async () => {
     vi.stubEnv("VITE_DATA_MODE", "mock");
     const { featureTreatmentService } = await import("../../src/services/featureTreatmentService");
-    await expect(featureTreatmentService.getTreatment("CUSTOMERS_TAB")).resolves.toBe("T1");
+    await expect(featureTreatmentService.getTreatment("MAP_V2")).resolves.toBe("T1");
     await expect(featureTreatmentService.getTreatment("NOPE")).resolves.toBeNull();
   });
 });

@@ -176,7 +176,7 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 
-  it("renders ResidentsPage at /residents while CUSTOMERS_TAB is on", async () => {
+  it("renders ResidentsPage at /residents", async () => {
     renderAt("/residents");
     expect(await screen.findByRole("heading", { level: 1, name: "Residents" })).toBeInTheDocument();
   });

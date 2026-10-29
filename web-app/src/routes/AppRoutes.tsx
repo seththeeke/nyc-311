@@ -5,7 +5,7 @@ import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON, MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../models/featureTreatment";
+import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../models/featureTreatment";
 import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
 import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
@@ -101,22 +101,8 @@ export function AppRoutes(): ReactElement {
             </FeatureFlagRoute>
           }
         />
-        <Route
-          path={RESIDENTS_PATH}
-          element={
-            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
-              {withLoadingFallback(<ResidentsPage />)}
-            </FeatureFlagRoute>
-          }
-        />
-        <Route
-          path={IDEA_DETAIL_PATTERN}
-          element={
-            <FeatureFlagRoute flagKey={CUSTOMERS_TAB_FLAG} onTreatments={[CUSTOMERS_TAB_ON]}>
-              {withLoadingFallback(<ResidentIdeaPage />)}
-            </FeatureFlagRoute>
-          }
-        />
+        <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
+        <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
         <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
         <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
         <Route
