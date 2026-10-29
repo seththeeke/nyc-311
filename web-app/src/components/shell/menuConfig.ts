@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
-import { CUSTOMERS_TAB_FLAG, CUSTOMERS_TAB_ON, MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../../models/featureTreatment";
+import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../../models/featureTreatment";
 import { MAP_V2_PATH } from "../mapv2/mapV2Routes";
 import { RESIDENTS_PATH } from "../residents/residentRoutes";
 import { AdminIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon } from "./shellIcons";
@@ -88,7 +88,6 @@ export const MENU: readonly MenuEntry[] = [
     to: RESIDENTS_PATH,
     alsoActiveOn: [],
     icon: ResidentsIcon,
-    featureFlag: { key: CUSTOMERS_TAB_FLAG, showOn: [CUSTOMERS_TAB_ON] },
   },
   {
     kind: "SECTION",

@@ -9,7 +9,7 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* No flag resolves here, so show-on entries (the 3-D Map, Residents) stay hidden; their own tests set treatments. */
+/* No flag resolves here, so the show-on 3-D Map entry stays hidden; its own tests set treatments. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
   useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
   useFeatureEnabled: vi.fn(() => false),
@@ -85,6 +85,15 @@ describe("Sidebar menu", () => {
     unmount();
     renderSidebar({ path: "/about" });
     expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("always shows Residents under Map, and highlights it on an Idea Detail view", () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderSidebar({ path: "/residents/hawthorn/ideas/01K7IDEA0014" });
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links.indexOf("Residents")).toBe(links.indexOf("Map") + 1);
+    expect(screen.getByRole("link", { name: "Residents" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Map" })).not.toHaveAttribute("aria-current");
   });
 
   it("starts with both accordions expanded, even on the map", () => {
@@ -261,16 +270,6 @@ describe("Sidebar brand", () => {
 describe("Sidebar flagged entries", () => {
   afterEach(() => withTreatments({}));
 
-  it("shows Residents under Map only while CUSTOMERS_TAB is on, and highlights it on an Idea Detail view", () => {
-    withTreatments({ CUSTOMERS_TAB: "T1" });
-    renderSidebar({ path: "/residents/hawthorn/ideas/01K7IDEA0014" });
-    const links = screen.getAllByRole("link").map((link) => link.textContent);
-    expect(links.indexOf("Residents")).toBe(links.indexOf("Map") + 1);
-    expect(screen.getByRole("link", { name: "Residents" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Map" })).not.toHaveAttribute("aria-current");
-    expect(useFeatureTreatment).toHaveBeenCalledWith("CUSTOMERS_TAB");
-  });
-
   it("MAP_V2 = T1: shows the 3-D Map directly under the classic Map, highlighted on a job dive-in", () => {
     withTreatments({ MAP_V2: "T1" });
     renderSidebar({ path: "/mapv2/job/01MOCKORDER001" });
@@ -278,7 +277,6 @@ describe("Sidebar flagged entries", () => {
     const maps = screen.getAllByRole("link", { name: "Map" });
     expect(maps.map((link) => link.getAttribute("href"))).toEqual(["/", "/mapv2"]);
     expect(links.lastIndexOf("Map")).toBe(links.indexOf("Map") + 1);
-    expect(links).not.toContain("Residents");
     expect(maps[1]).toHaveAttribute("aria-current", "page");
     expect(maps[0]).not.toHaveAttribute("aria-current");
   });

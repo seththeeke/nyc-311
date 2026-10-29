@@ -3,11 +3,10 @@ import { IdeaFeed } from "../residents/IdeaFeed";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 /**
- * The Residents page (`13-customer-simulation.md` §4), behind the
- * `CUSTOMERS_TAB` flag: the simulated residents' ideas in the primary
- * workspace, the residents themselves in the secondary one. A mock to
- * settle the experience and the API it needs — sample data until the
- * resident read API exists.
+ * The Residents page (`13-customer-simulation.md` §4): the simulated
+ * residents' ideas in the primary workspace, the residents themselves in
+ * the secondary one. A mock to settle the experience and the API it
+ * needs — sample data until the resident read API exists.
  */
 export function ResidentsPage(): ReactElement {
   return (

@@ -19,12 +19,12 @@ describe("MENU", () => {
     expect(MENU.map((e) => e.label)).toEqual(["Map", "Map", "Residents", "System Monitoring", "Admin"]);
   });
 
-  it("flags the classic Map (hidden on MAP_V2 = T2), the 3-D Map (T1/T2) and Residents (CUSTOMERS_TAB = T1)", () => {
+  it("flags the classic Map (hidden on MAP_V2 = T2) and the 3-D Map (T1/T2); Residents is unflagged", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
-    expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2", "RESIDENTS"]);
+    expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2"]);
     expect(flagged[0]).toMatchObject({ to: "/", featureFlag: { key: "MAP_V2", hideOn: ["T2"] } });
     expect(flagged[1]).toMatchObject({ to: "/mapv2", featureFlag: { key: "MAP_V2", showOn: ["T1", "T2"] } });
-    expect(flagged[2]).toMatchObject({ to: "/residents", featureFlag: { key: "CUSTOMERS_TAB", showOn: ["T1"] } });
+    expect((MENU.find((e) => e.kind === "LINK" && e.id === "RESIDENTS") as MenuLinkEntry).featureFlag).toBeUndefined();
   });
 
   it("lists the six monitoring items, with Test Coverage flagged external", () => {
