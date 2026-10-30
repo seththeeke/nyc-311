@@ -504,3 +504,10 @@ used in every `models/` schema file across three packages — filed per the
 "major bumps get a ticket, not a same-run change" rule, not actioned yet.
 
 ---
+
+## Bump 25 patch/minor-outdated deps in backend/web-app/cdk/customer-backend within semver ranges
+
+See [#143](https://github.com/seththeeke/nyc-311/issues/143) — fixed this
+run, closes on merge.
+
+---
