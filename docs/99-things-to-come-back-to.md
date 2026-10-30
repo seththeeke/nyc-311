@@ -504,3 +504,10 @@ used in every `models/` schema file across three packages — filed per the
 "major bumps get a ticket, not a same-run change" rule, not actioned yet.
 
 ---
+
+## Speed up backend/ test:coverage by reusing Vitest workers across files (isolate: false)
+
+See [#141](https://github.com/seththeeke/nyc-311/issues/141) — fixed this
+run, closes on merge.
+
+---
