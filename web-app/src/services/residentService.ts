@@ -1,7 +1,7 @@
 import { config } from "../config";
-import { ResidentIdeaPageSchema, ResidentIdeaSchema, type ResidentIdea, type ResidentIdeaPage } from "../models/residentIdea";
+import { ResidentIdeaDetailSchema, ResidentIdeaPageSchema, type ResidentIdeaDetail, type ResidentIdeaPage } from "../models/residentIdea";
 import { ResidentPersonaPageSchema, ResidentPersonaSchema, type ResidentPersona, type ResidentPersonaPage } from "../models/residentPersona";
-import { MOCK_RESIDENT_IDEAS } from "../test-data/residentIdeas";
+import { MOCK_IDEA_STEPS, MOCK_RESIDENT_IDEAS } from "../test-data/residentIdeas";
 import { MOCK_RESIDENT_PERSONAS } from "../test-data/residentPersonas";
 
 /*
@@ -21,7 +21,7 @@ export interface ResidentService {
   getPersona(personaId: string): Promise<ResidentPersona>;
   listIdeas(query?: IdeaQuery): Promise<ResidentIdeaPage>;
   /** One idea, addressed by its resident — `GET /residents/{id}/ideas/{ideaId}`. */
-  getIdea(personaId: string, ideaId: string): Promise<ResidentIdea>;
+  getIdea(personaId: string, ideaId: string): Promise<ResidentIdeaDetail>;
 }
 
 async function getJson(path: string): Promise<unknown> {
@@ -49,8 +49,8 @@ class LiveResidentService implements ResidentService {
     return ResidentIdeaPageSchema.parse(await getJson(withCursor(path, query.cursor)));
   }
 
-  async getIdea(personaId: string, ideaId: string): Promise<ResidentIdea> {
-    return ResidentIdeaSchema.parse(await getJson(`/residents/${encodeURIComponent(personaId)}/ideas/${encodeURIComponent(ideaId)}`));
+  async getIdea(personaId: string, ideaId: string): Promise<ResidentIdeaDetail> {
+    return ResidentIdeaDetailSchema.parse(await getJson(`/residents/${encodeURIComponent(personaId)}/ideas/${encodeURIComponent(ideaId)}`));
   }
 }
 
@@ -87,11 +87,11 @@ class MockResidentService implements ResidentService {
     return { items: all.slice(start, end), nextCursor: end < all.length ? String(end) : null };
   }
 
-  async getIdea(personaId: string, ideaId: string): Promise<ResidentIdea> {
+  async getIdea(personaId: string, ideaId: string): Promise<ResidentIdeaDetail> {
     await delay();
     const idea = MOCK_RESIDENT_IDEAS.find((candidate) => candidate.persona_id === personaId && candidate.idea_id === ideaId);
     if (!idea) throw new Error(`Resident API /residents/${personaId}/ideas/${ideaId} failed: HTTP 404`);
-    return { ...idea };
+    return { ...idea, steps: MOCK_IDEA_STEPS[idea.idea_id] ?? [] };
   }
 }
 

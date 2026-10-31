@@ -64,9 +64,10 @@ describe("useResidentIdeas", () => {
 
 describe("useResidentIdea", () => {
   it("asks for one idea by resident and id", async () => {
-    mocked.getIdea.mockResolvedValue(MOCK_RESIDENT_IDEAS[0]);
+    const detail = { ...MOCK_RESIDENT_IDEAS[0], steps: [] };
+    mocked.getIdea.mockResolvedValue(detail);
     const { result } = renderHook(() => useResidentIdea("hawthorn", "01K7IDEA0014"), { wrapper });
-    await waitFor(() => expect(result.current.data).toEqual(MOCK_RESIDENT_IDEAS[0]));
+    await waitFor(() => expect(result.current.data).toEqual(detail));
     expect(mocked.getIdea).toHaveBeenCalledWith("hawthorn", "01K7IDEA0014");
   });
 });

@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useResidentIdea } from "../../hooks/useResidentIdea";
 import { useResidentPersonas } from "../../hooks/useResidentPersonas";
-import { IdeaActionDetail } from "../residents/IdeaActionDetail";
+import { IdeaResolution } from "../residents/IdeaResolution";
 import { PersonaAvatar } from "../residents/PersonaAvatar";
 import { RelatedIdeas } from "../residents/RelatedIdeas";
 import { IDEA_TYPE_LABELS, titleCase } from "../residents/residentFormat";
@@ -26,8 +26,8 @@ function Facts({ title, rows }: { title: string; rows: [string, string][] }): Re
 }
 
 /**
- * The Idea Detail view: one idea in full in the primary workspace — what
- * the resident did about it, the order it is about and how it was generated. The secondary workspace
+ * The Idea Detail view: one idea in full in the primary workspace — how
+ * the resident resolved it, the order it is about and how it was generated. The secondary workspace
  * shows the resident who had it (`ResidentDetailPanel`).
  */
 export function ResidentIdeaPage(): ReactElement {
@@ -65,7 +65,7 @@ export function ResidentIdeaPage(): ReactElement {
             </time>
           </div>
           <blockquote className="mt-3 rounded-xl border border-line bg-panel p-4 text-base leading-relaxed text-fg">{idea.text}</blockquote>
-          <IdeaActionDetail actions={idea.actions} />
+          <IdeaResolution idea={idea} steps={idea.steps} />
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {idea.anchor ? (
               <Facts

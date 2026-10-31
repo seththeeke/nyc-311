@@ -5,18 +5,21 @@ import { ResidentIdeaPage } from "../../../src/components/pages/ResidentIdeaPage
 import { useResidentIdea } from "../../../src/hooks/useResidentIdea";
 import { useResidentIdeas } from "../../../src/hooks/useResidentIdeas";
 import { useResidentPersonas } from "../../../src/hooks/useResidentPersonas";
-import type { ResidentIdea } from "../../../src/models/residentIdea";
-import { MOCK_RESIDENT_IDEAS } from "../../../src/test-data/residentIdeas";
+import type { ResidentIdeaDetail } from "../../../src/models/residentIdea";
+import { MOCK_IDEA_STEPS, MOCK_RESIDENT_IDEAS } from "../../../src/test-data/residentIdeas";
 import { MOCK_RESIDENT_PERSONAS } from "../../../src/test-data/residentPersonas";
 
 vi.mock("../../../src/hooks/useResidentIdea", () => ({ useResidentIdea: vi.fn() }));
 vi.mock("../../../src/hooks/useResidentIdeas", () => ({ useResidentIdeas: vi.fn() }));
 vi.mock("../../../src/hooks/useResidentPersonas", () => ({ useResidentPersonas: vi.fn() }));
 
-const ATLANTIC_ESCALATION = MOCK_RESIDENT_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0014")!;
-const FEATURE_REQUEST = MOCK_RESIDENT_IDEAS.find((idea) => idea.idea_id === "01K7IDEA0011")!;
+function detail(id: string): ResidentIdeaDetail {
+  return { ...MOCK_RESIDENT_IDEAS.find((idea) => idea.idea_id === id)!, steps: MOCK_IDEA_STEPS[id] ?? [] };
+}
+const ATLANTIC_ESCALATION = detail("01K7IDEA0014");
+const FEATURE_REQUEST = detail("01K7IDEA0011");
 
-function setIdea(state: { data?: ResidentIdea; isLoading?: boolean; error?: Error | null }) {
+function setIdea(state: { data?: ResidentIdeaDetail; isLoading?: boolean; error?: Error | null }) {
   vi.mocked(useResidentIdea).mockReturnValue({ data: state.data, isLoading: state.isLoading ?? false, error: state.error ?? null } as ReturnType<typeof useResidentIdea>);
 }
 
@@ -49,7 +52,10 @@ describe("ResidentIdeaPage", () => {
     expect(within(order).getByText("412 ATLANTIC AVENUE")).toBeInTheDocument();
     expect(within(order).getByText("Brooklyn")).toBeInTheDocument();
     expect(within(order).getByText("#69860415")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "What they did" })).toHaveTextContent("Nothing yet.");
+    const resolution = screen.getByRole("region", { name: "Idea Resolution" });
+    expect(within(resolution).getByText("Gave up")).toBeInTheDocument();
+    expect(resolution).toHaveTextContent("nobody to escalate to");
+    expect(within(resolution).getAllByRole("listitem")).toHaveLength(2);
     const generated = screen.getByRole("region", { name: "How it was generated" });
     expect(within(generated).getByText("amazon.nova-micro-v1:0")).toBeInTheDocument();
     expect(within(generated).getByText("412 in · 74 out")).toBeInTheDocument();
@@ -72,7 +78,7 @@ describe("ResidentIdeaPage", () => {
   it("explains an idea about the service itself, with no order or related ideas", () => {
     setIdea({ data: FEATURE_REQUEST });
     renderAt("juniper", "01K7IDEA0011");
-    expect(screen.getByRole("region", { name: "What they did" })).toHaveTextContent("Text alerts when a crew is on my street");
+    expect(screen.getByRole("region", { name: "Idea Resolution" })).toHaveTextContent("Text alerts when a crew is on my street");
     expect(within(screen.getByRole("region", { name: "The order" })).getByText("The service itself, not an order")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Other ideas about this order" })).not.toBeInTheDocument();
   });

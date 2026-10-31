@@ -1,6 +1,6 @@
 # 16. Resident Action Models
 
-**Status:** designed 2026-10-31; being built leg by leg (§8). Supersedes the 2026-10-24 Contact-only draft of this doc (`16-resident-contact.md`).
+**Status:** designed and built 2026-10-31 (§8). L0–C1 pushed; C2–W1 ship together after the C1 backfill. Supersedes the 2026-10-24 Contact-only draft of this doc (`16-resident-contact.md`).
 
 Tracking: [#110](https://github.com/seththeeke/nyc-311/issues/110) (Contacts) and [#111](https://github.com/seththeeke/nyc-311/issues/111) (resident actions).
 
@@ -377,7 +377,8 @@ persona_id = hawthorn
 
 - **Idea cards:** a resolution badge ("Satisfied", "Unsatisfied", "Gave up", "Hit the limit", "Working on it…", "Stalled" when `IN_PROGRESS` for over an hour, "Not actioned") and tool chips from `tools_used`.
 - **Idea Detail:** an **Idea Resolution** section with an outcome header (badge, the resident's `summary` as a quote, `follow_up`, start time, duration, step count) and a vertical timeline, one node per step: the decision (tool chip, the model's text as a quote), the execution (its plain-language `summary`, a `COMPLETED`/`FAILED` pill, latency, and a Request/Response disclosure with the exchange and `X-Call-Id`), ending with the finish.
-- The web-app's `residentIdea` model carries `resolution` on every idea and `steps` on the detail. Mock data has one example per resolution, including a failed call and `MAX_DEPTH_REACHED`.
+- The web-app's `residentIdea` model carries `resolution` on every idea and `steps` on the detail, and still reads the older API shape (`status`, `actions`) as not actioned. Mock data has one example per resolution, including a failed call and `MAX_DEPTH_REACHED`.
+- The old action tag, "What they did" section and `RecordingPlayer` are removed; the RPA work rebuilds a player when `BROWSE_WEBSITE` exists.
 
 ### 6.2 Monitoring → Public API (`/monitoring/public-api`)
 
@@ -407,21 +408,21 @@ One local commit or more per leg, in this order; each passes build, lint, tests 
 
 | Leg | Contents | Packages | Status |
 |---|---|---|---|
-| L0 | This doc; CLAUDE.md §5.2/§5.3 and `.claude/API.md`; Contact in `data-model.md` | docs | |
-| B1 | Search Requests domain: `orderService.getOrder`, `locationService.getLocation` | backend | |
-| B2 | Feature Requests domain: `Contacts` table, Contact model, `contactDao` (with `CRID#` pointer), `contactService` | backend, cdk | |
-| B3 | OpenAPI spec, `models/publicApi/` schemas, `publicV1ApiRoutes.ts`, parity tests | backend | |
-| B4 | Public API foundation: `Nyc311PublicApi` and domains, CORS, throttles, the `publicV1` bundle Lambda and router, `X-Requester`, `X-Call-Id`, errors, `publicApiService`, `GET /v1/openapi.yaml`, lint rules | backend, cdk | |
-| B5 | `POST /v1/requests/search` | backend, cdk | |
-| B6 | `POST /v1/feature-requests`, `GET /v1/feature-requests/{id}` | backend, cdk | |
-| B7 | Pipeline integration tests for every `/v1/` route against Test | backend, cdk | |
-| B8 | `public_api_calls`: SNS topic, Firehose, Glue table, router publish | backend, cdk | |
-| B9 | Monitoring → Public API page and `GET /public-api/metrics` | web-app, backend, cdk | |
-| C1 | `ByResident` index, `resident_pk` on new ideas, backfill script | customer/backend, cdk | |
-| C2 | Ideas read from `ByResident`; `resolution` and step rows; idea detail with `steps[]` | customer/backend | |
-| C3 | The action loop (§5.1–§5.2) | customer/backend, cdk | |
-| C4 | Resident memory (§5.4) | customer/backend | |
-| W1 | Idea Resolution UI (§6.1) | web-app | |
+| L0 | This doc; CLAUDE.md §5.2/§5.3 and `.claude/API.md`; Contact in `data-model.md` | docs | Built, pushed |
+| B1 | Search Requests domain: `orderService.getOrder`, `locationService.getLocation` | backend | Built, pushed |
+| B2 | Feature Requests domain: `Contacts` table, Contact model, `contactDao` (with `CRID#` pointer), `contactService` | backend, cdk | Built, pushed |
+| B3 | OpenAPI spec, `models/publicApi/` schemas, `publicV1ApiRoutes.ts`, parity tests | backend | Built, pushed |
+| B4 | Public API foundation: `Nyc311PublicApi` and domains, CORS, throttles, the `publicV1` bundle Lambda and router, `X-Requester`, `X-Call-Id`, errors, `publicApiService`, `GET /v1/openapi.yaml`, lint rules | backend, cdk | Built, pushed |
+| B5 | `POST /v1/requests/search` | backend, cdk | Built, pushed |
+| B6 | `POST /v1/feature-requests`, `GET /v1/feature-requests/{id}` | backend, cdk | Built, pushed |
+| B7 | Pipeline integration tests for every `/v1/` route against Test | backend, cdk | Built, pushed |
+| B8 | `public_api_calls`: SNS topic, Firehose, Glue table, router publish | backend, cdk | Built, pushed |
+| B9 | Monitoring → Public API page and `GET /public-api/metrics` | web-app, backend, cdk | Built, pushed |
+| C1 | `ByResident` index, `resident_pk` on new ideas, backfill script | customer/backend, cdk | Built, pushed |
+| C2 | Ideas read from `ByResident`; `resolution` and step rows; idea detail with `steps[]` | customer/backend | Built, not pushed |
+| C3 | The action loop (§5.1–§5.2) | customer/backend, cdk | Built, not pushed |
+| C4 | Resident memory (§5.4) | customer/backend | Built, not pushed |
+| W1 | Idea Resolution UI (§6.1) | web-app | Built, not pushed |
 
 Ordering constraints: C2 ships only after C1 is deployed to Prod and its backfill has run. C2 and W1 ship in the same push: C2's read API drops `status` and `actions` for `resolution` and `steps`, the web-app (deployed first, in DeployProd) must already read both shapes, and the customer stack follows in DeployCustomer. C3 ships only after B5 and B6 are live in Prod.
 
