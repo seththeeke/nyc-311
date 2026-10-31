@@ -22,6 +22,8 @@ export class Nyc311AppStage extends Stage {
   public readonly apiUrlOutput: CfnOutput;
   /** 9-admin-auth-integration.md §8 — same mechanism, for the integration suite's test-admin sign-in. */
   public readonly adminUserPoolClientIdOutput: CfnOutput;
+  /** 16-resident-action-models.md §2 — the public API's URL, for its integration tests. */
+  public readonly publicApiUrlOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: Nyc311AppStageProps) {
     super(scope, id, props);
@@ -34,5 +36,6 @@ export class Nyc311AppStage extends Stage {
 
     this.apiUrlOutput = nyc311Stack.apiUrlOutput;
     this.adminUserPoolClientIdOutput = nyc311Stack.adminUserPoolClientIdOutput;
+    this.publicApiUrlOutput = nyc311Stack.publicApiUrlOutput;
   }
 }
