@@ -511,3 +511,9 @@ See [#141](https://github.com/seththeeke/nyc-311/issues/141) — fixed this
 run, closes on merge.
 
 ---
+
+## Executive team: AI-agent COO, CPO, CFO and CTO with a Meet the Team org chart page
+
+See [#146](https://github.com/seththeeke/nyc-311/issues/146).
+
+---
