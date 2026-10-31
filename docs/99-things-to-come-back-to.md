@@ -505,6 +505,13 @@ used in every `models/` schema file across three packages — filed per the
 
 ---
 
+## Bump 25 patch/minor-outdated deps in backend/web-app/cdk/customer-backend within semver ranges
+
+See [#143](https://github.com/seththeeke/nyc-311/issues/143) — fixed this
+run, closes on merge.
+
+---
+
 ## Speed up backend/ test:coverage by reusing Vitest workers across files (isolate: false)
 
 See [#141](https://github.com/seththeeke/nyc-311/issues/141) — fixed this
