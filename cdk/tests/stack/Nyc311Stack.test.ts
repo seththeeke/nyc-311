@@ -203,18 +203,20 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
-  it("wires the data-warehouse landing zone: bucket, Glue db + 7 tables (6 sources + job_results), workgroup, 6 Firehoses (7-data-warehousing.md §5-§7/§11, Leg 6)", () => {
+  it("wires the data-warehouse landing zone: bucket, Glue db + 8 tables (7 sources + job_results), workgroup, 7 Firehoses (7-data-warehousing.md §5-§7/§11, Leg 6; 16-resident-action-models.md §4)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-warehouse-test" });
     template.hasResourceProperties("AWS::Glue::Database", { DatabaseInput: { Name: "nyc311_warehouse_test" } });
-    template.resourceCountIs("AWS::Glue::Table", 7);
+    template.resourceCountIs("AWS::Glue::Table", 8);
+    template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "public_api_calls" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "job_results" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "locations" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_events" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_snapshots" } });
     template.hasResourceProperties("AWS::Athena::WorkGroup", { Name: "Nyc311Analytics-Test" });
-    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 6);
+    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 7);
+    template.hasResourceProperties("AWS::KinesisFirehose::DeliveryStream", { DeliveryStreamName: "Nyc311Warehouse-PublicApiCalls-Test" });
     for (const name of [
       "Nyc311Warehouse-OrderEvents-Test",
       "Nyc311Warehouse-OrderSnapshots-Test",

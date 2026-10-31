@@ -10,12 +10,13 @@ import type {
 } from "../../../models/publicApi/publicApiCall";
 import { UNKNOWN_REQUESTER } from "../../../models/publicApi/publicApiCall";
 import { RequesterSchema } from "../../../models/publicApi/publicApiPrimitives";
+import { recordPublicApiCall } from "../../../service/publicApi/publicApiUsageService";
 import { publicError } from "./publicApiResponse";
 import type { PublicV1ApiRouteKey } from "./publicV1ApiRoutes";
 
 export type PublicV1Controller = (event: unknown, context: PublicCallContext) => Promise<PublicApiResult>;
 
-/* Records each finished call; B8 adds the warehouse publish. */
+/* Records each finished call: the usage line and the public_api_calls row. */
 export type PublicCallRecorder = (call: PublicApiCall) => Promise<void>;
 
 export interface PublicV1RouterDeps {
@@ -41,11 +42,6 @@ function outcomeOf(statusCode: number): PublicApiCall["outcome"] {
   return "SUCCESS";
 }
 
-/* The call line is the usage row's source, so it's logged even when nothing else records it. */
-const logCall: PublicCallRecorder = async (call) => {
-  logInfo("PublicApiCall", { ...call });
-};
-
 /**
  * Builds the public API's Lambda handler (16-resident-action-models.md
  * §2.2): a call id for every call, `X-Requester` checked before dispatch,
@@ -57,7 +53,7 @@ export function createPublicV1Router(
   deps: PublicV1RouterDeps = {}
 ): (event: unknown) => Promise<APIGatewayProxyStructuredResultV2> {
   const now = deps.now ?? Date.now;
-  const recordCall = deps.recordCall ?? logCall;
+  const recordCall = deps.recordCall ?? ((call: PublicApiCall) => recordPublicApiCall(call));
 
   return async (event) => {
     const startedAt = now();

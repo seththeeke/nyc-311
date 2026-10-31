@@ -131,9 +131,16 @@ describe("createPublicV1Router", () => {
     expect((await r2(event("GET /v1/openapi.yaml"))).statusCode).toBe(404);
   });
 
-  it("logs the call line by default", async () => {
+  it("records through the usage service by default, and still answers when that fails", async () => {
     const log = vi.spyOn(console, "log");
-    await createPublicV1Router({})(event("GET /v1/openapi.yaml"));
-    expect(log.mock.calls.some(([line]) => String(line).includes('"message":"PublicApiCall"'))).toBe(true);
+    const previous = process.env.PUBLIC_API_CALLS_TOPIC_ARN;
+    delete process.env.PUBLIC_API_CALLS_TOPIC_ARN;
+    try {
+      const response = await createPublicV1Router({})(event("GET /v1/openapi.yaml"));
+      expect(response.statusCode).toBe(404);
+      expect(log.mock.calls.some(([line]) => String(line).includes('"message":"PublicApiCall"'))).toBe(true);
+    } finally {
+      if (previous !== undefined) process.env.PUBLIC_API_CALLS_TOPIC_ARN = previous;
+    }
   });
 });

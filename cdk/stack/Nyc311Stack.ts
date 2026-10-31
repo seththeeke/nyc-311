@@ -42,6 +42,7 @@ import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { Nyc311PublicApi } from "../api/Nyc311PublicApi";
 import { Nyc311PublicApiLambda } from "../lambda/Nyc311PublicApiLambda";
+import { Nyc311PublicApiCallsTopic } from "../lambda/Nyc311PublicApiCallsTopic";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
@@ -460,6 +461,17 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
+    /* 16-resident-action-models.md §4 — public API usage, published by the public API's router. */
+    const publicApiCallsTopic = new Nyc311PublicApiCallsTopic(this, "Nyc311PublicApiCallsTopic", { envName: props.envName });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehousePublicApiCallsFirehose", {
+      envName: props.envName,
+      label: "PublicApiCalls",
+      tableName: "public_api_calls",
+      sourceTopic: publicApiCallsTopic.topic,
+      glueTable: warehouseCatalog.tables["public_api_calls"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
     new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOperatorSnapshotsFirehose", {
       envName: props.envName,
       label: "OperatorSnapshots",
@@ -692,6 +704,7 @@ export class Nyc311Stack extends Stack {
       ordersTable,
       locationsTable,
       contactsTable,
+      publicApiCallsTopic: publicApiCallsTopic.topic,
     });
     const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
       envName: props.envName,

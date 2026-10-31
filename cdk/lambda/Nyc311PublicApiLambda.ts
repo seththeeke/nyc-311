@@ -4,6 +4,7 @@ import { NodejsFunction, type ICommandHooks } from "aws-cdk-lib/aws-lambda-nodej
 import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
+import type * as sns from "aws-cdk-lib/aws-sns";
 import type { Construct } from "constructs";
 import type { ContactsTable } from "../data/ContactsTable";
 import type { LocationsTable } from "../data/LocationsTable";
@@ -18,6 +19,8 @@ export interface Nyc311PublicApiLambdaProps {
   locationsTable: LocationsTable;
   /** Feature requests — Contacts and their idempotency pointers. */
   contactsTable: ContactsTable;
+  /** One message per call, for the `public_api_calls` warehouse table (§4). */
+  publicApiCallsTopic: sns.ITopic;
 }
 
 /* The spec, relative to backend/, copied beside the bundled handler so publicApiService can serve it. */
@@ -68,6 +71,7 @@ export class Nyc311PublicApiLambda extends NodejsFunction {
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
         CONTACTS_TABLE_NAME: props.contactsTable.tableName,
+        PUBLIC_API_CALLS_TOPIC_ARN: props.publicApiCallsTopic.topicArn,
       },
     });
 
@@ -75,5 +79,6 @@ export class Nyc311PublicApiLambda extends NodejsFunction {
     props.locationsTable.grant(this, "dynamodb:GetItem");
     /* A create is one TransactWriteItems of two conditional Puts; a replay reads the pointer and the original. */
     props.contactsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem");
+    props.publicApiCallsTopic.grantPublish(this);
   }
 }

@@ -22,6 +22,7 @@ const TABLE_TO_MODEL: Record<string, { file: string; schema: string }> = {
   locations: { file: "location.ts", schema: "LocationSchema" },
   operator_events: { file: "operator.ts", schema: "OperatorEventSchema" },
   operator_snapshots: { file: "operator.ts", schema: "OperatorSchema" },
+  public_api_calls: { file: "publicApi/publicApiCall.ts", schema: "PublicApiCallSchema" },
 };
 
 function extractZodObjectFields(source: string, schemaName: string): string[] {
@@ -94,6 +95,7 @@ describe("warehouse schema sync (7-data-warehousing.md §4a)", () => {
       "locations",
       "operator_events",
       "operator_snapshots",
+      "public_api_calls",
     ]);
   });
 });
