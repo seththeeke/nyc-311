@@ -5,11 +5,12 @@ import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../models/featureTreatment";
+import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
 import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
 import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
+import { TEAM_PATH } from "../components/team/teamRoutes";
 
 /*
  * Every non-landing page is dynamic-imported so Vite/Rollup emits it as its
@@ -44,6 +45,7 @@ const ResidentsPage = lazy(() =>
 const ResidentIdeaPage = lazy(() =>
   import("../components/pages/ResidentIdeaPage").then((m) => ({ default: m.ResidentIdeaPage }))
 );
+const TeamPage = lazy(() => import("../components/pages/TeamPage").then((m) => ({ default: m.TeamPage })));
 const LoginPage = lazy(() => import("../components/pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const AdminPage = lazy(() => import("../components/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 const CapacityManagementPage = lazy(() =>
@@ -106,6 +108,14 @@ export function AppRoutes(): ReactElement {
         />
         <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
         <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
+        <Route
+          path={TEAM_PATH}
+          element={
+            <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
+              {withLoadingFallback(<TeamPage />)}
+            </FeatureFlagRoute>
+          }
+        />
         <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
         <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
         <Route

@@ -1,9 +1,10 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
-import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER } from "../../models/featureTreatment";
+import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
 import { MAP_V2_PATH } from "../mapv2/mapV2Routes";
 import { RESIDENTS_PATH } from "../residents/residentRoutes";
-import { AdminIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon } from "./shellIcons";
+import { TEAM_PATH } from "../team/teamRoutes";
+import { AdminIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
 
 /*
  * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
@@ -88,6 +89,15 @@ export const MENU: readonly MenuEntry[] = [
     to: RESIDENTS_PATH,
     alsoActiveOn: [],
     icon: ResidentsIcon,
+  },
+  {
+    kind: "LINK",
+    id: "TEAM",
+    label: "Meet the Team",
+    to: TEAM_PATH,
+    alsoActiveOn: [],
+    icon: TeamIcon,
+    featureFlag: { key: MEET_THE_TEAM_FLAG, showOn: [MEET_THE_TEAM_ON] },
   },
   {
     kind: "SECTION",

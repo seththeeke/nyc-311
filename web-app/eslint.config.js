@@ -173,7 +173,7 @@ export default tseslint.config(
   },
   {
     /* Resident models (13-customer-simulation.md Appendix P): small files, colours only from residentPalette.ts. */
-    files: ["src/components/residents/models/**/*.ts"],
+    files: ["src/components/residents/models/**/*.ts", "src/components/team/models/**/*.ts"],
     ignores: ["src/components/residents/models/residentPalette.ts"],
     rules: {
       "max-lines": ["error", { max: 120, skipBlankLines: true, skipComments: true }],

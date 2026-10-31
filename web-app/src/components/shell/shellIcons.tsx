@@ -48,6 +48,17 @@ export const ResidentsIcon = (p: IconProps): ReactElement => (
   </StrokeIcon>
 );
 
+/* An org chart: one box over three, joined by a bus line (Meet the Team, #146). */
+export const TeamIcon = (p: IconProps): ReactElement => (
+  <StrokeIcon {...p}>
+    <rect x="9" y="3" width="6" height="4.5" rx="1" />
+    <rect x="2.5" y="16" width="5" height="4.5" rx="1" />
+    <rect x="9.5" y="16" width="5" height="4.5" rx="1" />
+    <rect x="16.5" y="16" width="5" height="4.5" rx="1" />
+    <path d="M12 7.5V12M5 16v-4h14v4M12 12v4" />
+  </StrokeIcon>
+);
+
 export const MonitorIcon = (p: IconProps): ReactElement => (
   <StrokeIcon {...p}>
     <path d="M3 12h4l2.5-6 4 12L16 12h5" />
