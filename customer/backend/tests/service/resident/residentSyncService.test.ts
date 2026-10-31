@@ -7,7 +7,7 @@ import { current, seed } from "../../residentFixtures";
 const NOW = new Date("2026-10-17T12:00:00.000Z");
 
 function daoWith(existing: typeof current | null) {
-  const dao = { getCurrent: vi.fn().mockResolvedValue(existing), createResident: vi.fn(), addVersion: vi.fn() };
+  const dao = { getCurrentVersion: vi.fn().mockResolvedValue(existing), createResident: vi.fn(), addVersion: vi.fn() };
   return { dao, deps: { residentDao: dao as unknown as ResidentDao, now: () => NOW } };
 }
 

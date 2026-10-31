@@ -76,7 +76,7 @@ export async function syncResidents(rawSeeds: unknown[], deps: ResidentSyncDeps 
   const outcomes: Record<string, ResidentSyncOutcome> = {};
   for (const seed of seeds) {
     const content = buildResidentContent(seed);
-    const current = await dao.getCurrent(seed.persona_id);
+    const current = await dao.getCurrentVersion(seed.persona_id);
     if (!current) {
       await dao.createResident(
         { ...content, sk: versionSortKey(1), version: 1, created_at: now },

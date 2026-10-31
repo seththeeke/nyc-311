@@ -7,9 +7,11 @@ import {
   RESIDENT_ROSTER_PK,
   ResidentContentSchema,
   ResidentCurrentSchema,
+  ResidentCurrentVersionSchema,
   ResidentVersionSchema,
   type ResidentContent,
   type ResidentCurrent,
+  type ResidentCurrentVersion,
   type ResidentVersion,
 } from "../../models/resident";
 import { encodeCursor, type DynamoKey } from "../cursor";
@@ -36,6 +38,24 @@ export class ResidentDao {
     logInfo("ResidentDao.getCurrent", { table: this.tableName, personaId });
     const result = await this.client.send(new GetCommand({ TableName: this.tableName, Key: { persona_id: personaId, sk: RESIDENT_CURRENT_SK } }));
     return result.Item ? this.parse(ResidentCurrentSchema, result.Item) : null;
+  }
+
+  /**
+   * Only the version and content hash of a resident's CURRENT row, for the
+   * seed sync. Never the whole row: a row written under an older content
+   * shape must not stop the sync that rewrites it to the new one.
+   */
+  async getCurrentVersion(personaId: string): Promise<ResidentCurrentVersion | null> {
+    logInfo("ResidentDao.getCurrentVersion", { table: this.tableName, personaId });
+    const result = await this.client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { persona_id: personaId, sk: RESIDENT_CURRENT_SK },
+        ProjectionExpression: "version, content_hash",
+        ConsistentRead: true,
+      })
+    );
+    return result.Item ? this.parse(ResidentCurrentVersionSchema, result.Item) : null;
   }
 
   /** Every resident's CURRENT row, by name of id, through the sparse Roster index. */

@@ -90,6 +90,17 @@ export const ResidentCurrentSchema = ResidentContentSchema.extend({
 });
 export type ResidentCurrent = z.infer<typeof ResidentCurrentSchema>;
 
+/*
+ * The slice of a CURRENT row the seed sync compares: which version it is and
+ * what content it holds. Read on its own so a row written under an older
+ * content shape can still be brought up to date.
+ */
+export const ResidentCurrentVersionSchema = z.object({
+  version: z.number().int().min(1),
+  content_hash: z.string().min(1),
+});
+export type ResidentCurrentVersion = z.infer<typeof ResidentCurrentVersionSchema>;
+
 export const ResidentVersionSchema = ResidentContentSchema.extend({
   sk: z.string().regex(/^V#\d{4,}$/),
   version: z.number().int().min(1),
