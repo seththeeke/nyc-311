@@ -687,7 +687,11 @@ export class Nyc311Stack extends Stack {
       apiDomain: domainConfig.publicApiDomain,
       hostedZone,
     });
-    const publicApiLambda = new Nyc311PublicApiLambda(this, "Nyc311PublicApiLambda", { envName: props.envName });
+    const publicApiLambda = new Nyc311PublicApiLambda(this, "Nyc311PublicApiLambda", {
+      envName: props.envName,
+      ordersTable,
+      locationsTable,
+    });
     const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
       envName: props.envName,
       publicApiLambda,

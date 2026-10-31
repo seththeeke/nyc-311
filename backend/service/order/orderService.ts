@@ -2,7 +2,8 @@ import { logInfo } from "../../logger";
 import { requireEnv } from "../../env";
 import { createDocumentClient } from "../../dynamoClient";
 import { OrderDao } from "../../dao/order/orderDao";
-import type { Order } from "../../models/order";
+import type { Order, OrderRejectionReasonCode } from "../../models/order";
+import { ORDER_REJECTION_REASON_CODES } from "../../models/order";
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getOrderDao(): OrderDao {
@@ -27,4 +28,21 @@ export async function getOrder(orderId: string, deps: OrderServiceDeps = {}): Pr
   }
   logInfo("OrderFetched", { orderId, status: order.status, currentStage: order.current_stage });
   return order;
+}
+
+/**
+ * Why an Order was rejected: the `reason_code` of its latest `ORDER_REJECTED`
+ * event, which the projection doesn't carry. `null` if it has none.
+ */
+export async function getOrderRejectionReasonCode(
+  orderId: string,
+  deps: OrderServiceDeps = {}
+): Promise<OrderRejectionReasonCode | null> {
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const events = await orderDao.listOrderEvents(orderId);
+  const rejection = [...events].reverse().find((event) => event.event_type === "ORDER_REJECTED");
+  const reasonCode = rejection?.payload.reason_code;
+  const known = ORDER_REJECTION_REASON_CODES.find((code) => code === reasonCode) ?? null;
+  logInfo("OrderRejectionReasonRead", { orderId, eventCount: events.length, reasonCode: known });
+  return known;
 }

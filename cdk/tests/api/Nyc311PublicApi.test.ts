@@ -5,6 +5,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { PUBLIC_V1_API_ROUTES } from "../../../backend/controller/web-api/publicV1/publicV1ApiRoutes";
 import { Nyc311ApiDomain } from "../../api/Nyc311ApiDomain";
 import { Nyc311PublicApi, PUBLIC_API_DEFAULT_THROTTLE, PUBLIC_API_ROUTE_THROTTLES } from "../../api/Nyc311PublicApi";
+import { LocationsTable } from "../../data/LocationsTable";
+import { OrdersTable } from "../../data/OrdersTable";
 import { Nyc311PublicApiLambda } from "../../lambda/Nyc311PublicApiLambda";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -21,7 +23,11 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   });
   new Nyc311PublicApi(stack, "Nyc311PublicApi", {
     envName,
-    publicApiLambda: new Nyc311PublicApiLambda(stack, "Nyc311PublicApiLambda", { envName }),
+    publicApiLambda: new Nyc311PublicApiLambda(stack, "Nyc311PublicApiLambda", {
+      envName,
+      ordersTable: new OrdersTable(stack, "OrdersTable", { envName }),
+      locationsTable: new LocationsTable(stack, "LocationsTable", { envName }),
+    }),
     publicApiDomainName: domain.domainName,
   });
   return Template.fromStack(stack);

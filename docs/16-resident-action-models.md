@@ -92,7 +92,8 @@ Finds a resident's 311 complaint as BoroughSim is handling it.
 - `search_params` grows additively (311 number, borough, descriptor, date range, …). In v1, `order_id` is the only filter and is required.
 - `order_id` must be a ULID (`^[0-9A-HJKMNP-TV-Z]{26}$`), or `400 VALIDATION_ERROR`.
 - `200` with `{ items, next_cursor }`. A well-formed id that matches no Order returns `items: []`.
-- **Source: Order and Location only.** `orderService.getOrder` (a `GetItem` on `Orders`), then `locationService.getLocation` (a `GetItem` on `Locations`). No Request read, no index.
+- **Source: Order and Location only.** `orderService.getOrder` (a `GetItem` on `Orders`), then `locationService.getLocation` (a `GetItem` on `Locations`). No Request read, no index. For a rejected Order only, `orderService.getOrderRejectionReasonCode` reads its events (a key `Query` on the Order's own partition), since the projection doesn't carry the reason.
+- A `cursor` is a `400 VALIDATION_ERROR`: an `order_id` search has one page, so no cursor belongs to it.
 
 An item:
 
