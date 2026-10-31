@@ -516,8 +516,6 @@ export class Nyc311Stack extends Stack {
 
 
 
-
-
     /*
      * 7-data-warehousing.md §10 — the on-demand rebuild. A manually
      * triggered Step Functions state machine (the project's only one)
@@ -549,7 +547,6 @@ export class Nyc311Stack extends Stack {
     new CfnOutput(this, "Nyc311WarehouseRebuildStateMachineArn", {
       value: warehouseRebuildStateMachine.stateMachine.stateMachineArn,
     });
-
 
 
     /* 15-resource-consolidation.md §3.3 — the data Service API bundle. */
@@ -647,6 +644,27 @@ export class Nyc311Stack extends Stack {
       hostedZone,
     });
 
+    /* 16-resident-action-models.md §2 — the public API: its own domain, bundle Lambda and HTTP API. */
+    const publicApiDomain = new Nyc311ApiDomain(this, "Nyc311PublicApiDomain", {
+      envName: props.envName,
+      apiDomain: domainConfig.publicApiDomain,
+      hostedZone,
+    });
+    const publicApiLambda = new Nyc311PublicApiLambda(this, "Nyc311PublicApiLambda", {
+      envName: props.envName,
+      ordersTable,
+      locationsTable,
+      contactsTable,
+      publicApiCallsTopic: publicApiCallsTopic.topic,
+    });
+    const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
+      envName: props.envName,
+      publicApiLambda,
+      publicApiDomainName: publicApiDomain.domainName,
+    });
+    /* Read by the pipeline's integration tests, like Nyc311ApiUrl. */
+    this.publicApiUrlOutput = new CfnOutput(this, "Nyc311PublicApiUrl", { value: publicApi.apiEndpoint });
+
     /*
      * 15-resource-consolidation.md §3.3 — the monitoring Service API bundle,
      * which also serves the Lambda health tile (added after the 2026-08-22
@@ -669,6 +687,8 @@ export class Nyc311Stack extends Stack {
       dataApiFunctionName: dataApiLambda.functionName,
       fleetApiFunctionName: getFleetLocationsApiLambda.functionName,
       webhookSubscriptionsApiFunctionName: registerWebhookSubscriptionApiLambda.functionName,
+      publicV1ApiFunctionName: publicApiLambda.functionName,
+      publicApiId: publicApi.apiId,
     });
 
     const nyc311Api = new Nyc311Api(this, "Nyc311Api", {
@@ -693,27 +713,6 @@ export class Nyc311Stack extends Stack {
      */
     this.apiUrlOutput = new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
 
-    /* 16-resident-action-models.md §2 — the public API: its own domain, bundle Lambda and HTTP API. */
-    const publicApiDomain = new Nyc311ApiDomain(this, "Nyc311PublicApiDomain", {
-      envName: props.envName,
-      apiDomain: domainConfig.publicApiDomain,
-      hostedZone,
-    });
-    const publicApiLambda = new Nyc311PublicApiLambda(this, "Nyc311PublicApiLambda", {
-      envName: props.envName,
-      ordersTable,
-      locationsTable,
-      contactsTable,
-      publicApiCallsTopic: publicApiCallsTopic.topic,
-    });
-    const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
-      envName: props.envName,
-      publicApiLambda,
-      publicApiDomainName: publicApiDomain.domainName,
-    });
-    /* Read by the pipeline's integration tests, like Nyc311ApiUrl. */
-    this.publicApiUrlOutput = new CfnOutput(this, "Nyc311PublicApiUrl", { value: publicApi.apiEndpoint });
-
     /*
      * Deploys web-app/dist + the runtime env-config.json last, once both
      * WebsiteHosting (for the bucket/distribution) and Nyc311Api (for the
@@ -725,6 +724,7 @@ export class Nyc311Stack extends Stack {
       websiteHosting,
       /* The custom API domain (8-domain-name-assignment.md §1), not the raw execute-api URL — this is what the SPA calls at runtime. */
       apiBaseUrl: apiDomain.url,
+      publicApiBaseUrl: publicApiDomain.url,
       userPoolId: adminAuth.userPool.userPoolId,
       userPoolClientId: adminAuth.userPoolClient.userPoolClientId,
     });

@@ -14,6 +14,8 @@ export interface WebsiteDeploymentProps {
    * `loadRuntimeConfig` give each environment its own URL.
    */
   apiBaseUrl: string;
+  /** The public API's base URL (16-resident-action-models.md §2), for the Public API page — same runtime-file reason. */
+  publicApiBaseUrl: string;
   /**
    * The environment's Cognito User Pool / app client ids
    * (`9-admin-auth-integration.md` §3) — same "one build, two values"
@@ -42,6 +44,7 @@ export class WebsiteDeployment extends s3deploy.BucketDeployment {
         s3deploy.Source.asset(distDir),
         s3deploy.Source.jsonData("env-config.json", {
           apiBaseUrl: props.apiBaseUrl,
+          publicApiBaseUrl: props.publicApiBaseUrl,
           userPoolId: props.userPoolId,
           userPoolClientId: props.userPoolClientId,
         }),

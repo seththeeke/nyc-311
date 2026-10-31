@@ -6,6 +6,8 @@ export interface AppConfig {
   userPoolClientId: string;
   /** The residents' own API (`13-customer-simulation.md` §4) — one host for every environment, since the simulation runs only in Prod. */
   residentApiBaseUrl: string;
+  /** The public API (`16-resident-action-models.md` §2) — per environment, so runtime-injected like `apiBaseUrl`. */
+  publicApiBaseUrl: string;
 }
 
 /*
@@ -34,10 +36,12 @@ export const config: AppConfig = {
   userPoolId: import.meta.env.VITE_USER_POOL_ID || "",
   userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
   residentApiBaseUrl: import.meta.env.VITE_RESIDENT_API_BASE_URL || "https://customer-api.boroughsim.com",
+  publicApiBaseUrl: import.meta.env.VITE_PUBLIC_API_BASE_URL || "https://public-api.test.boroughsim.com",
 };
 
 interface RuntimeEnvConfig {
   apiBaseUrl?: string;
+  publicApiBaseUrl?: string;
   userPoolId?: string;
   userPoolClientId?: string;
 }
@@ -57,6 +61,9 @@ export async function loadRuntimeConfig(): Promise<void> {
     const runtime = (await response.json()) as RuntimeEnvConfig;
     if (typeof runtime.apiBaseUrl === "string" && runtime.apiBaseUrl.length > 0) {
       config.apiBaseUrl = runtime.apiBaseUrl;
+    }
+    if (typeof runtime.publicApiBaseUrl === "string" && runtime.publicApiBaseUrl.length > 0) {
+      config.publicApiBaseUrl = runtime.publicApiBaseUrl;
     }
     if (typeof runtime.userPoolId === "string" && runtime.userPoolId.length > 0) {
       config.userPoolId = runtime.userPoolId;

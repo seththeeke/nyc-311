@@ -27,11 +27,12 @@ describe("MENU", () => {
     expect((MENU.find((e) => e.kind === "LINK" && e.id === "RESIDENTS") as MenuLinkEntry).featureFlag).toBeUndefined();
   });
 
-  it("lists the six monitoring items, with Test Coverage flagged external", () => {
+  it("lists the seven monitoring items, with Test Coverage flagged external", () => {
     expect(monitoring.items.map((i) => i.label)).toEqual([
       "311 Request Metrics",
       "Pipeline",
       "Lambda Health",
+      "Public API",
       "Test Coverage",
       "Integration Tests",
       "Data Modeling",

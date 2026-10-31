@@ -19,6 +19,8 @@ const MONITORED = {
   dataApiFunctionName: "Nyc311DataApi-Test",
   fleetApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
   webhookSubscriptionsApiFunctionName: "Nyc311RegisterWebhookSubscriptionApi-Test",
+  publicV1ApiFunctionName: "Nyc311PublicV1Api-Test",
+  publicApiId: "pub123",
 };
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -77,8 +79,9 @@ describe("Nyc311MonitoringApiLambda", () => {
   it("carries the Requests table name plus every MONITORED_LAMBDA_* name the health tile reads", () => {
     const keys = envKeysOf(testTemplate);
     expect(keys).toContain("REQUESTS_TABLE_NAME");
-    expect(keys.filter((key) => key.startsWith("MONITORED_LAMBDA_"))).toHaveLength(16);
-    expect(keys).toHaveLength(17);
+    expect(keys.filter((key) => key.startsWith("MONITORED_LAMBDA_"))).toHaveLength(17);
+    expect(keys).toContain("PUBLIC_API_ID");
+    expect(keys).toHaveLength(19);
   });
 
   it("names itself as the monitored MonitoringApi Lambda, and every other web API bundle by its function name", () => {
@@ -92,11 +95,13 @@ describe("Nyc311MonitoringApiLambda", () => {
       MONITORED_LAMBDA_DATA_API: "Nyc311DataApi-Test",
       MONITORED_LAMBDA_FLEET_API: "Nyc311GetFleetLocationsApi-Test",
       MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: "Nyc311RegisterWebhookSubscriptionApi-Test",
+      MONITORED_LAMBDA_PUBLIC_V1_API: "Nyc311PublicV1Api-Test",
+      PUBLIC_API_ID: "pub123",
     });
     expect(Object.keys(variables).filter((key) => /METRICS_API|SCHEMA_API|JOBS_API|JOB_RESULT_API|FLEET_LOCATIONS_API/.test(key))).toEqual([]);
   });
 
-  it("grants exactly the two old roles' union: Requests Query/GetItem and CloudWatch metric reads", () => {
-    expect(actionsOf(testTemplate)).toEqual(["cloudwatch:GetMetricStatistics", "dynamodb:GetItem", "dynamodb:Query"]);
+  it("grants Requests Query/GetItem and CloudWatch metric reads (GetMetricData for the public API's health)", () => {
+    expect(actionsOf(testTemplate)).toEqual(["cloudwatch:GetMetricData", "cloudwatch:GetMetricStatistics", "dynamodb:GetItem", "dynamodb:Query"]);
   });
 });

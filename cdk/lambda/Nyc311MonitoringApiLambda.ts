@@ -28,11 +28,16 @@ export interface Nyc311MonitoringApiLambdaProps {
   dataApiFunctionName: string;
   fleetApiFunctionName: string;
   webhookSubscriptionsApiFunctionName: string;
+  /** The public API's bundle Lambda (16-resident-action-models.md §2), on the Lambda health tile. */
+  publicV1ApiFunctionName: string;
+  /** The public API's HTTP API id — `GET /public-api/metrics` reads its built-in metrics. */
+  publicApiId: string;
 }
 
 /**
  * The monitoring Service API bundle (`15-resource-consolidation.md`
- * §3.3): `GET /ingestion/metrics` and `GET /lambda-metrics`, entry
+ * §3.3): `GET /ingestion/metrics`, `GET /lambda-metrics` and
+ * `GET /public-api/metrics`, entry
  * `backend/controller/web-api/monitoring/monitoringApiRouter.ts`. Its
  * timeout is the Lambda-health route's: up to 48 parallel CloudWatch calls
  * (16 monitored Lambdas × 3 metrics), itself among them.
@@ -78,10 +83,12 @@ export class Nyc311MonitoringApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_FLEET_API: props.fleetApiFunctionName,
         MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: props.webhookSubscriptionsApiFunctionName,
         MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
+        MONITORED_LAMBDA_PUBLIC_V1_API: props.publicV1ApiFunctionName,
+        PUBLIC_API_ID: props.publicApiId,
       },
     });
 
     props.requestsTable.grant(this, "dynamodb:Query", "dynamodb:GetItem");
-    this.addToRolePolicy(new iam.PolicyStatement({ actions: ["cloudwatch:GetMetricStatistics"], resources: ["*"] }));
+    this.addToRolePolicy(new iam.PolicyStatement({ actions: ["cloudwatch:GetMetricStatistics", "cloudwatch:GetMetricData"], resources: ["*"] }));
   }
 }

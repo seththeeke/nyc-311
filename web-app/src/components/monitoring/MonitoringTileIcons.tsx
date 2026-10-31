@@ -45,6 +45,14 @@ export function LambdaHealthIcon(): ReactElement {
   );
 }
 
+export function PublicApiIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" />
+    </svg>
+  );
+}
+
 export function CoverageIcon(): ReactElement {
   return (
     <svg {...ICON_STROKE_PROPS} className="h-6 w-6">

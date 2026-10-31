@@ -77,6 +77,19 @@ describe("loadRuntimeConfig", () => {
     expect(config.userPoolClientId).toBe("client-deployed");
   });
 
+  it("defaults publicApiBaseUrl to Test's public API, and overwrites it from /env-config.json", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ publicApiBaseUrl: "https://public-api.boroughsim.com" }) })
+    );
+    const { config, loadRuntimeConfig } = await import("../src/config");
+    expect(config.publicApiBaseUrl).toBe("https://public-api.test.boroughsim.com");
+
+    await loadRuntimeConfig();
+
+    expect(config.publicApiBaseUrl).toBe("https://public-api.boroughsim.com");
+  });
+
   it("keeps the Vite-build-time default when the fetch 404s (local dev)", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://local-default.example.com");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
