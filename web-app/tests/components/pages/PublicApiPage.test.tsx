@@ -4,10 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { PublicApiPage } from "../../../src/components/pages/PublicApiPage";
 
 vi.mock("../../../src/components/publicApi/PublicApiHealth", () => ({ PublicApiHealth: () => <section>health</section> }));
-vi.mock("../../../src/components/publicApi/PublicApiReference", () => ({ PublicApiReference: () => <section>reference</section> }));
+vi.mock("../../../src/components/publicApi/PublicApiSpecDownload", () => ({ PublicApiSpecDownload: () => <section>download</section> }));
 
 describe("PublicApiPage", () => {
-  it("puts the overview, health and reference under one heading, with a link back to Monitoring", () => {
+  it("leads with health, then the operations, then the spec download", () => {
     render(
       <MemoryRouter>
         <PublicApiPage />
@@ -15,8 +15,8 @@ describe("PublicApiPage", () => {
     );
     expect(screen.getByRole("heading", { level: 1, name: "Public API" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /monitoring/i })).toHaveAttribute("href", "/monitoring");
-    expect(screen.getByRole("heading", { name: "Build on BoroughSim" })).toBeInTheDocument();
-    expect(screen.getByText("health")).toBeInTheDocument();
-    expect(screen.getByText("reference")).toBeInTheDocument();
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("health")).toBeLessThan(text.indexOf("Operations"));
+    expect(text.indexOf("Operations")).toBeLessThan(text.indexOf("download"));
   });
 });

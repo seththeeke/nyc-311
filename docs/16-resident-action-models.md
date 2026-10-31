@@ -186,7 +186,7 @@ The feature request (both routes):
 - **Hand-maintained** at `backend/controller/web-api/publicV1/openapi.yaml` (OpenAPI 3.1), written before the operations are built; the API is built to it.
 - **Served** by the API at `GET /v1/openapi.yaml` (bundled into the Lambda).
 - **Kept honest by tests** in `backend/`: the spec's paths and methods equal `publicV1ApiRoutes.ts` exactly, and every example in the spec parses through the matching `models/publicApi/` zod schema.
-- **Rendered** on the web-app's Public API page with lazy-loaded Swagger UI (§6.2).
+- **Downloadable** from the web-app's Public API page (§6.2), which fetches it with `X-Requester` and saves it as a file.
 
 ---
 
@@ -382,11 +382,11 @@ persona_id = hawthorn
 
 ### 6.2 Monitoring → Public API (`/monitoring/public-api`)
 
-One page, three sections:
+One page, three sections, in this order:
 
-1. **Overview** — the API as a product: what it is for, the base URL, a card per operation, `X-Requester`, idempotency, limits, and a `curl` example per operation.
-2. **Health** — the last 24 hours of `Nyc311PublicApi`'s built-in metrics (count, 4xx, 5xx, latency p50/p99), read through the internal monitoring-bundle route `GET /public-api/metrics`.
-3. **Reference** — Swagger UI, lazy-loaded, rendering `/v1/openapi.yaml`, with "Try it".
+1. **Health** — the last 24 hours of `Nyc311PublicApi`'s built-in metrics (count, 4xx, 5xx, latency p50/p99), read through the internal monitoring-bundle route `GET /public-api/metrics`.
+2. **Operations** — the base URL, the `X-Requester` requirement, and a card per operation with a `curl` example.
+3. **Download Swagger model** — a button that saves `/v1/openapi.yaml` as `boroughsim-public-api.yaml`. The spec route requires `X-Requester` like every `/v1/` route, so the page fetches it with one and offers the file; a plain link would get a 400.
 
 ---
 

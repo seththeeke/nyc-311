@@ -44,7 +44,7 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
   },
   {
     title: "Public API",
-    description: "The public API's last 24 hours, what it offers, and its OpenAPI reference.",
+    description: "The public API's health over the last 24 hours, its operations, and its OpenAPI model.",
     to: "/monitoring/public-api",
     accent: "emerald",
     icon: <PublicApiIcon />,

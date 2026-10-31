@@ -40,7 +40,7 @@ export function PublicApiHealth(): ReactElement {
   const { data, isPending, isError, error } = usePublicApiMetrics();
 
   return (
-    <section aria-labelledby="public-api-health" className="mt-10">
+    <section aria-labelledby="public-api-health" className="mt-6">
       <h2 id="public-api-health" className="text-xl font-bold text-fg">
         Health
       </h2>

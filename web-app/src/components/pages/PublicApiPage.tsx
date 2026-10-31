@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { config } from "../../config";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 import { PublicApiHealth } from "../publicApi/PublicApiHealth";
-import { PublicApiOverview } from "../publicApi/PublicApiOverview";
-import { PublicApiReference } from "../publicApi/PublicApiReference";
+import { PublicApiOperations } from "../publicApi/PublicApiOperations";
+import { PublicApiSpecDownload } from "../publicApi/PublicApiSpecDownload";
 
-/** Monitoring → Public API (16-resident-action-models.md §6.2): the pitch, its health, and the reference. */
+/** Monitoring → Public API (16-resident-action-models.md §6.2): its health, its operations, and the spec to download. */
 export function PublicApiPage(): ReactElement {
   return (
     <div className="relative min-h-full overflow-hidden bg-surface">
@@ -22,11 +22,10 @@ export function PublicApiPage(): ReactElement {
         <h1 className="mt-4 bg-gradient-to-r from-hue-cyan via-hue-emerald to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">
           Public API
         </h1>
-        <p className="mt-2 text-fg-subtle">BoroughSim, for everyone else&apos;s code.</p>
 
-        <PublicApiOverview baseUrl={config.publicApiBaseUrl} />
         <PublicApiHealth />
-        <PublicApiReference />
+        <PublicApiOperations baseUrl={config.publicApiBaseUrl} />
+        <PublicApiSpecDownload />
       </main>
     </div>
   );
