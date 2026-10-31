@@ -1,11 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { logInfo } from "../../logger";
-import { ValidationError } from "../../models/errors";
+import type { Contact, ContactStatus } from "../../models/contact";
+import { NotFoundError, ValidationError } from "../../models/errors";
 import type { Location } from "../../models/location";
 import type { Order, OrderRejectionReasonCode } from "../../models/order";
+import type { CreateFeatureRequestBody, FeatureRequest, FeatureRequestStatus } from "../../models/publicApi/featureRequest";
 import type { SearchRequestsBody, SearchRequestsResponse } from "../../models/publicApi/searchRequests";
 import type { ServiceRequest, ServiceRequestStatus } from "../../models/publicApi/serviceRequest";
+import { createContact, getContact } from "../contact/contactService";
 import { getLocation } from "../location/locationService";
 import { getOrder, getOrderRejectionReasonCode } from "../order/orderService";
 
@@ -92,4 +95,58 @@ export async function searchRequests(body: SearchRequestsBody): Promise<SearchRe
   const item = toServiceRequest(order, location, rejectionReasonCode);
   logInfo("PublicSearchRequestsMatched", { orderId, status: item.status, hasLocation: location !== null });
   return { items: [item], next_cursor: null };
+}
+
+/* Public feature-request status for each Contact status (16-resident-action-models.md §2.4.3). */
+const FEATURE_REQUEST_STATUSES_BY_CONTACT: Record<ContactStatus, FeatureRequestStatus> = {
+  RECEIVED: "RECEIVED",
+  IN_PROGRESS: "UNDER_REVIEW",
+  CLOSED: "CLOSED",
+};
+
+/** A FEATURE_REQUEST Contact as the public sees it: no email, idempotency key or contact type. */
+export function toFeatureRequest(contact: Contact): FeatureRequest {
+  return {
+    feature_request_id: contact.contact_id,
+    status: FEATURE_REQUEST_STATUSES_BY_CONTACT[contact.status],
+    status_reason_description: contact.closure_reason_description,
+    title: contact.title,
+    description: contact.description,
+    submitted_by: { name: contact.submitter.name },
+    created_at: contact.created_at,
+    updated_at: contact.updated_at,
+  };
+}
+
+/**
+ * `CREATE_FEATURE_REQUEST` (16-resident-action-models.md §2.4.2): files a
+ * Contact of type FEATURE_REQUEST. A repeated `idempotencyKey` returns the
+ * original feature request.
+ */
+export async function createFeatureRequest(body: CreateFeatureRequestBody, idempotencyKey: string | null): Promise<FeatureRequest> {
+  const contact = await createContact({
+    contact_type: "FEATURE_REQUEST",
+    title: body.title,
+    description: body.description,
+    submitter: { name: body.submitted_by.name, email: body.submitted_by.email ?? null },
+    client_request_id: idempotencyKey,
+  });
+  logInfo("PublicFeatureRequestCreated", { featureRequestId: contact.contact_id, hasIdempotencyKey: idempotencyKey !== null });
+  return toFeatureRequest(contact);
+}
+
+/**
+ * `GET_FEATURE_REQUEST` (16-resident-action-models.md §2.4.3). A Contact of
+ * any other type is not a feature request, so it reads as missing.
+ *
+ * @throws {@link NotFoundError} when no feature request has that id.
+ */
+export async function getFeatureRequest(featureRequestId: string): Promise<FeatureRequest> {
+  const contact = await getContact(featureRequestId);
+  if (contact.contact_type !== "FEATURE_REQUEST") {
+    logInfo("PublicFeatureRequestWrongType", { featureRequestId, contactType: contact.contact_type });
+    throw new NotFoundError(`No feature request ${featureRequestId}`);
+  }
+  logInfo("PublicFeatureRequestFetched", { featureRequestId, status: contact.status });
+  return toFeatureRequest(contact);
 }

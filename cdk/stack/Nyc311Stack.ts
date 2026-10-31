@@ -214,7 +214,7 @@ export class Nyc311Stack extends Stack {
     /* 11-street-condition-implementation.md §4 — the feature-flag/experiment service's table. */
     const featureFlagsTable = new FeatureFlagsTable(this, "FeatureFlagsTable", { envName: props.envName });
     /* 16-resident-action-models.md §3 — Contacts, reached only through the public API's feature requests. */
-    new ContactsTable(this, "ContactsTable", { envName: props.envName });
+    const contactsTable = new ContactsTable(this, "ContactsTable", { envName: props.envName });
     /* 15-resource-consolidation.md §3.3 — the featureFlags Service API bundle. */
     const featureFlagsApiLambda = new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
@@ -691,6 +691,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       ordersTable,
       locationsTable,
+      contactsTable,
     });
     const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
       envName: props.envName,
