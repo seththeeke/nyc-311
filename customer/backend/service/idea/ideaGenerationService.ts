@@ -83,6 +83,7 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     external_unique_key: order?.external_unique_key ?? null,
     ...(order ? { by_order_pk: byOrderKey(resident.persona_id, order.order_id) } : {}),
     feed_pk: IDEA_FEED_PK,
+    resident_pk: resident.persona_id,
     status: "OPEN",
     actions: [],
     model_id: resident.model_id,

@@ -7,8 +7,9 @@ import { CUSTOMER_ENV_SUFFIX } from "./customerConfig";
  * `ResidentIdeas` (`13-customer-simulation.md` §2 customer side,
  * decisions 4 and 9): partition `persona_id`, sort `sk` — `IDEA#<ulid>`
  * per idea and `ORDER#<order_id>` per thread. `ByOrder` (sparse, ideas
- * about an order) and `Feed` (every idea) both sort on `idea_id`. No TTL,
- * and retained: ideas are the simulation's history.
+ * about an order), `Feed` (every idea) and `ByResident` (sparse, idea rows
+ * only: a resident's ideas without their step rows, docs/16 §5.3) all sort
+ * on `idea_id`. No TTL, and retained: ideas are the simulation's history.
  */
 export class ResidentIdeasTable extends TableV2 {
   constructor(scope: Construct, id: string) {
@@ -25,6 +26,11 @@ export class ResidentIdeasTable extends TableV2 {
         {
           indexName: "Feed",
           partitionKey: { name: "feed_pk", type: AttributeType.STRING },
+          sortKey: { name: "idea_id", type: AttributeType.STRING },
+        },
+        {
+          indexName: "ByResident",
+          partitionKey: { name: "resident_pk", type: AttributeType.STRING },
           sortKey: { name: "idea_id", type: AttributeType.STRING },
         },
       ],

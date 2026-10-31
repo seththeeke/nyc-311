@@ -55,6 +55,7 @@ describe("runIdeaWorker", () => {
       external_unique_key: "69860415",
       by_order_pk: "hawthorn#FRESH",
       feed_pk: "ALL",
+      resident_pk: "hawthorn",
       actions: [],
       input_tokens: 600,
       created_at: NOW.toISOString(),

@@ -40,6 +40,8 @@ export const ResidentIdeaSchema = z.object({
   /* `persona_id#order_id`, only on ideas about an order (the sparse ByOrder index). */
   by_order_pk: z.string().min(1).optional(),
   feed_pk: z.literal(IDEA_FEED_PK),
+  /* `persona_id`, only on idea rows (the sparse ByResident index, docs/16 §5.3). Optional until older ideas are backfilled. */
+  resident_pk: z.string().min(1).optional(),
   status: z.enum(IDEA_STATUSES),
   actions: z.array(ResidentIdeaActionSchema),
   model_id: z.string().min(1),
