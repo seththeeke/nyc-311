@@ -37,6 +37,9 @@ export const CUSTOMER_READ_ROUTES = [
   "/ideas",
 ];
 
+/* BoroughSim's public API, which residents' tools call like any outside client (docs/16-resident-action-models.md §5.1). */
+export const CUSTOMER_PUBLIC_API_BASE_URL = "https://public-api.boroughsim.com";
+
 /* Same esbuild options BoroughSim's Lambdas use: minified, names kept. */
 export const CUSTOMER_LAMBDA_BUNDLING: BundlingOptions = {
   minify: true,

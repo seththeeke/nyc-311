@@ -12,6 +12,7 @@ import {
   type ResidentContent,
   type ResidentSeed,
 } from "../../models/resident";
+import { ACTION_PROMPT_VERSION, buildActionPrompt } from "./actionPrompt";
 import { IDEA_PROMPT_VERSION, buildIdeaPrompt } from "./ideaPrompt";
 
 /* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
@@ -38,7 +39,13 @@ function canonicalJson(value: unknown): string {
 
 /** A seed plus its assembled prompt and the hash of both — what one version freezes. */
 export function buildResidentContent(seed: ResidentSeed): ResidentContent {
-  const withPrompt = { ...seed, idea_prompt: buildIdeaPrompt(seed), prompt_version: IDEA_PROMPT_VERSION };
+  const withPrompt = {
+    ...seed,
+    idea_prompt: buildIdeaPrompt(seed),
+    prompt_version: IDEA_PROMPT_VERSION,
+    action_prompt: buildActionPrompt(seed),
+    action_prompt_version: ACTION_PROMPT_VERSION,
+  };
   const contentHash = `sha256:${createHash("sha256").update(canonicalJson(withPrompt)).digest("hex")}`;
   return { ...withPrompt, content_hash: contentHash };
 }

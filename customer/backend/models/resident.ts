@@ -11,12 +11,19 @@ import { z } from "zod";
 export const IDEA_TYPES = ["STATUS_CHECK", "SERVICED_CHECK", "ETA_REQUEST", "PRIORITY_INQUIRY", "ESCALATION", "FEATURE_REQUEST"] as const;
 export type IdeaType = (typeof IDEA_TYPES)[number];
 
-export const ACTION_TYPES = ["REQUEST_FEATURE", "CHECK_STATUS_API", "BROWSE_WEBSITE"] as const;
+/* The tools a resident can use on an idea, named for the public API operation each calls (docs/16 §5.1). */
+export const ACTION_TYPES = ["SEARCH_REQUESTS", "CREATE_FEATURE_REQUEST", "GET_FEATURE_REQUEST", "BROWSE_WEBSITE"] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
 
-/* The tool buckets granted to residents as each capability is built (decision 7). None is granted yet. */
-export const ACTION_BUCKETS = ["CONTACT", "STATUS_API", "WEBSITE"] as const;
+/* Tools are granted in buckets, named for the public resource they act on. WEBSITE is reserved for RPA. */
+export const ACTION_BUCKETS = ["REQUESTS", "FEATURE_REQUESTS", "WEBSITE"] as const;
 export type ActionBucket = (typeof ACTION_BUCKETS)[number];
+
+export const ACTION_BUCKET_TOOLS: Record<ActionBucket, ActionType[]> = {
+  REQUESTS: ["SEARCH_REQUESTS"],
+  FEATURE_REQUESTS: ["CREATE_FEATURE_REQUEST", "GET_FEATURE_REQUEST"],
+  WEBSITE: ["BROWSE_WEBSITE"],
+};
 
 const Dial = z.number().int().min(0).max(100);
 const Hour = z.number().int().min(0).max(23);
@@ -49,17 +56,21 @@ const ResidentSeedShape = z.object({
   /* Order `descriptor` values, e.g. "Cave-in" — every order's complaint type is the same "Street Condition". */
   interests: z.object({ boroughs: z.array(z.string().min(1)), descriptors: z.array(z.string().min(1)) }),
   action_buckets: z.array(z.enum(ACTION_BUCKETS)),
-  action_weights: z.object({ REQUEST_FEATURE: Dial, CHECK_STATUS_API: Dial, BROWSE_WEBSITE: Dial }),
+  /* Preference among granted tools, described to the model; never a code-side roll. */
+  action_weights: z.object({ SEARCH_REQUESTS: Dial, CREATE_FEATURE_REQUEST: Dial, GET_FEATURE_REQUEST: Dial, BROWSE_WEBSITE: Dial }),
 });
 
 /* One seed file in `residents/` — strict, so a typo in a hand-edited seed fails the sync and the tests. */
 export const ResidentSeedSchema = ResidentSeedShape.strict();
 export type ResidentSeed = z.infer<typeof ResidentSeedSchema>;
 
-/* Everything a version freezes: the seed, plus the prompt assembled from it and the hash the sync compares. */
+/* Everything a version freezes: the seed, plus the prompts assembled from it and the hash the sync compares. */
 export const ResidentContentSchema = ResidentSeedShape.extend({
   idea_prompt: z.string().min(1).max(8000),
   prompt_version: z.string().min(1),
+  /* The action loop's system prompt (docs/16 §5.2). */
+  action_prompt: z.string().min(1).max(8000),
+  action_prompt_version: z.string().min(1),
   content_hash: z.string().min(1),
 });
 export type ResidentContent = z.infer<typeof ResidentContentSchema>;

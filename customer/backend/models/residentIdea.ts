@@ -122,11 +122,40 @@ export const ResidentOrderThreadSchema = z.object({
   idea_count: z.number().int().min(1),
   first_idea_at: z.string().min(1),
   last_idea_at: z.string().min(1),
+  /* What the resident last saw when they searched for this order (docs/16 §5.4); absent until they do. */
+  last_known_status: z.string().min(1).optional(),
+  scheduled_window: z.object({ start: z.string().min(1), end: z.string().min(1) }).nullable().optional(),
+  last_checked_at: z.string().min(1).optional(),
 });
 export type ResidentOrderThread = z.infer<typeof ResidentOrderThreadSchema>;
 
+/* One per feature request the resident filed (docs/16 §5.4): their memory of it, and the check on GET_FEATURE_REQUEST. */
+export const ResidentFeatureRequestThreadSchema = z.object({
+  persona_id: z.string().min(1),
+  sk: z.string().regex(/^FEATURE_REQUEST#.+$/),
+  feature_request_id: z.string().min(1),
+  title: z.string().min(1),
+  filed_by_idea_id: z.string().min(1),
+  last_known_status: z.string().min(1),
+  last_known_status_reason: z.string().nullable(),
+  last_checked_at: z.string().min(1),
+  created_at: z.string().min(1),
+});
+export type ResidentFeatureRequestThread = z.infer<typeof ResidentFeatureRequestThreadSchema>;
+
+/* What a step changes in the resident's memory, written in the step's own transaction. */
+export type ThreadWrite =
+  | { kind: "ORDER_CHECKED"; order_id: string; status: string; scheduled_window: { start: string; end: string } | null; at: string }
+  | { kind: "FEATURE_REQUEST_FILED"; feature_request_id: string; title: string; idea_id: string; status: string; status_reason: string | null; at: string }
+  | { kind: "FEATURE_REQUEST_CHECKED"; feature_request_id: string; status: string; status_reason: string | null; at: string };
+
 export const IDEA_SK_PREFIX = "IDEA#";
 export const THREAD_SK_PREFIX = "ORDER#";
+export const FEATURE_REQUEST_THREAD_SK_PREFIX = "FEATURE_REQUEST#";
+
+export function featureRequestThreadSortKey(featureRequestId: string): string {
+  return `${FEATURE_REQUEST_THREAD_SK_PREFIX}${featureRequestId}`;
+}
 
 export function ideaSortKey(ideaId: string): string {
   return `${IDEA_SK_PREFIX}${ideaId}`;

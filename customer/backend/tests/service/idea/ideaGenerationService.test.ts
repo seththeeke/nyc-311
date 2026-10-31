@@ -20,7 +20,9 @@ function setup(result: GeneratorResult, resident: typeof current | null = curren
   };
   const orderDao = { sampleOpenOrders: vi.fn().mockResolvedValue([order("FRESH")]), batchGetOrders: vi.fn().mockResolvedValue([]) };
   const generate = vi.fn().mockResolvedValue(result);
+  const enqueueAction = vi.fn().mockResolvedValue(undefined);
   const deps: IdeaWorkerDeps = {
+    enqueueAction,
     residentDao: residentDao as unknown as ResidentDao,
     ideaDao: ideaDao as unknown as ResidentIdeaDao,
     orderDao: orderDao as unknown as WebhookCustomerFacingOrderDao,
@@ -28,7 +30,7 @@ function setup(result: GeneratorResult, resident: typeof current | null = curren
     random: () => roll,
     now: () => NOW,
   };
-  return { deps, ideaDao, generate };
+  return { deps, ideaDao, generate, enqueueAction };
 }
 
 beforeEach(() => {
@@ -108,5 +110,25 @@ describe("runIdeaWorker", () => {
     expect(bedrockMock.commandCalls(ConverseCommand)[0].args[0].input.modelId).toBe(current.model_id);
     bedrockMock.restore();
   });
-});
 
+  it("queues a new idea for the action worker when the resident has tools (docs/16 §5.2)", async () => {
+    const { deps, ideaDao, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens });
+    const result = await runIdeaWorker({ persona_id: "hawthorn" }, deps);
+    const [idea] = ideaDao.recordIdea.mock.calls[0];
+    expect(result).toEqual({ outcome: "CREATED", ideaId: idea.idea_id });
+    expect(enqueueAction).toHaveBeenCalledWith({ persona_id: "hawthorn", idea_id: idea.idea_id });
+  });
+
+  it("queues nothing for a resident with no tools", async () => {
+    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens }, { ...current, action_buckets: [] });
+    await runIdeaWorker({ persona_id: "hawthorn" }, deps);
+    expect(enqueueAction).not.toHaveBeenCalled();
+  });
+
+  it.each([new Error("sqs down"), "down"])("keeps the idea when the hand-off fails (%s)", async (failure) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens });
+    enqueueAction.mockRejectedValue(failure);
+    await expect(runIdeaWorker({ persona_id: "hawthorn" }, deps)).resolves.toMatchObject({ outcome: "CREATED" });
+  });
+});

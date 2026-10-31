@@ -34,14 +34,14 @@ describe("Nyc311CustomerStack", () => {
     template.resourceCountIs("Custom::ResidentSeedSync", 1);
   });
 
-  it("schedules every seeded resident, and lets the idea worker call only their models", () => {
+  it("schedules every seeded resident, and lets the idea and action workers call only their models", () => {
     for (const persona of ["ailanthus", "dogwood", "ginkgo", "hawthorn", "hornbeam", "juniper", "pineter-parker", "sassafras", "sycamore", "yellowwood"]) {
       template.hasResourceProperties("AWS::Scheduler::Schedule", { Name: `CustomerResident-${persona}-Prod` });
     }
     template.resourceCountIs("AWS::Scheduler::Schedule", 10);
     const bedrock = statements(template).filter((statement) => actionsOf(statement).includes("bedrock:InvokeModel"));
-    expect(bedrock).toHaveLength(1);
-    expect(bedrock[0].Resource).toBe("arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0");
+    expect(bedrock).toHaveLength(2);
+    for (const statement of bedrock) expect(statement.Resource).toBe("arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0");
   });
 
   it("outputs the callback URL to register with BoroughSim", () => {
@@ -84,8 +84,9 @@ describe("Nyc311CustomerStack isolation", () => {
     for (const marker of boroughSimMarkers) {
       expect(templateJson.includes(marker), `template mentions ${marker}`).toBe(false);
     }
-    /* BoroughSim's API host, as distinct from the customer's own `customer-api` name. */
+    /* BoroughSim's web-app API host, as distinct from `customer-api` and the sanctioned `public-api` (docs/16 §5.1). */
     expect(templateJson).not.toMatch(/[^-]api\.boroughsim\.com/);
+    expect(templateJson).toContain('"PUBLIC_API_BASE_URL":"https://public-api.boroughsim.com"');
   });
 
   it("grants its roles access only to its own tables, secret, Lambdas and the residents' models", () => {
@@ -104,6 +105,8 @@ describe("Nyc311CustomerStack isolation", () => {
           expect(resource).toContain(":parameter/customer/prod/webhook/signing-secret");
         } else if (action === "lambda:InvokeFunction" || action === "lambda:GetFunction") {
           expect(resource).toMatch(/"Fn::GetAtt":\["(CustomerResidentSyncLambda|CustomerIdeaWorkerLambda)[0-9A-F]{8}","Arn"\]/);
+        } else if (action.startsWith("sqs:")) {
+          expect(resource).toMatch(/^\{"Fn::GetAtt":\["IdeaActionsQueue[0-9A-F]{8}","Arn"\]\}$/);
         } else if (action === "bedrock:InvokeModel") {
           expect(resource).toMatch(/^"arn:aws:bedrock:us-east-1::foundation-model\/[a-z0-9.:-]+"$/);
         } else {
@@ -115,9 +118,9 @@ describe("Nyc311CustomerStack isolation", () => {
     }
   });
 
-  it("creates no queue, topic or alarm — nothing to share and nothing to pay for", () => {
-    for (const type of ["AWS::SQS::Queue", "AWS::SNS::Topic", "AWS::CloudWatch::Alarm"]) {
-      template.resourceCountIs(type, 0);
-    }
+  it("creates only its own idea-actions queue and DLQ — no topic, and no alarm by choice (docs/16 §7)", () => {
+    template.resourceCountIs("AWS::SQS::Queue", 2);
+    template.resourceCountIs("AWS::SNS::Topic", 0);
+    template.resourceCountIs("AWS::CloudWatch::Alarm", 0);
   });
 });

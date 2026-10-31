@@ -13,6 +13,6 @@
   "follow_up_propensity": 10,
   "idea_type_weights": { "STATUS_CHECK": 20, "SERVICED_CHECK": 15, "ETA_REQUEST": 15, "PRIORITY_INQUIRY": 20, "ESCALATION": 10, "FEATURE_REQUEST": 20 },
   "interests": { "boroughs": ["QUEENS", "MANHATTAN", "BROOKLYN", "BRONX", "STATEN ISLAND"], "descriptors": ["Cave-in", "Guard Rail - Street", "Crash Cushion Defect"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 50, "CREATE_FEATURE_REQUEST": 45, "GET_FEATURE_REQUEST": 35, "BROWSE_WEBSITE": 0 }
 }

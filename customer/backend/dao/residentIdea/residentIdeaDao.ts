@@ -5,17 +5,22 @@ import { logInfo } from "../../logger";
 import { TerminalError, ValidationError } from "../../models/errors";
 import { RESIDENT_CURRENT_SK } from "../../models/resident";
 import {
+  FEATURE_REQUEST_THREAD_SK_PREFIX,
   IDEA_FEED_PK,
   IdeaStepSchema,
+  ResidentFeatureRequestThreadSchema,
   ResidentIdeaSchema,
   ResidentOrderThreadSchema,
   THREAD_SK_PREFIX,
+  featureRequestThreadSortKey,
   ideaSortKey,
   threadSortKey,
   type IdeaResolution,
   type IdeaStep,
+  type ResidentFeatureRequestThread,
   type ResidentIdea,
   type ResidentOrderThread,
+  type ThreadWrite,
 } from "../../models/residentIdea";
 import { encodeCursor, type DynamoKey } from "../cursor";
 
@@ -112,15 +117,36 @@ export class ResidentIdeaDao {
     return { idea: this.parse(ResidentIdeaSchema, first), steps: rest.map((item) => this.parse(IdeaStepSchema, item)) };
   }
 
+  /** The feature requests this resident has filed (R2), from their thread rows. */
+  async listFeatureRequestThreads(personaId: string): Promise<ResidentFeatureRequestThread[]> {
+    logInfo("ResidentIdeaDao.listFeatureRequestThreads", { table: this.tableName, personaId });
+    const threads: ResidentFeatureRequestThread[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "persona_id = :persona AND begins_with(sk, :prefix)",
+          ExpressionAttributeValues: { ":persona": personaId, ":prefix": FEATURE_REQUEST_THREAD_SK_PREFIX },
+          ExclusiveStartKey: startKey,
+        })
+      );
+      threads.push(...(result.Items ?? []).map((item) => this.parse(ResidentFeatureRequestThreadSchema, item)));
+      startKey = result.LastEvaluatedKey;
+    } while (startKey && threads.length < MAX_THREADS);
+    return threads;
+  }
+
   /**
    * Appends one workstream step and sets the idea's resolution to match,
-   * in one transaction (docs/16 §5.3). The step must be new and the idea's
-   * `last_step_sequence` must be the step's predecessor, so a redelivered
-   * message can never write a step twice or out of order.
+   * in one transaction (docs/16 §5.3), with any memory the step changes
+   * (§5.4). The step must be new and the idea's `last_step_sequence` must
+   * be the step's predecessor, so a redelivered message can never write a
+   * step twice or out of order.
    *
    * @throws {@link TerminalError} when the step already exists or the idea moved on.
    */
-  async appendStep(step: IdeaStep, resolution: IdeaResolution): Promise<void> {
+  async appendStep(step: IdeaStep, resolution: IdeaResolution, threadWrites: ThreadWrite[] = []): Promise<void> {
     const validated = this.parse(IdeaStepSchema, step);
     logInfo("ResidentIdeaDao.appendStep", {
       table: this.tableName,
@@ -129,6 +155,7 @@ export class ResidentIdeaDao {
       sequence: validated.sequence,
       kind: validated.kind,
       resolutionStatus: resolution.status,
+      threadWrites,
     });
     try {
       await this.client.send(
@@ -145,6 +172,7 @@ export class ResidentIdeaDao {
                 ExpressionAttributeValues: { ":resolution": resolution, ":previous": validated.sequence - 1 },
               },
             },
+            ...threadWrites.map((write) => this.threadUpdate(validated.persona_id, write)),
           ],
         })
       );
@@ -214,6 +242,38 @@ export class ResidentIdeaDao {
         ],
       })
     );
+  }
+
+  /* One memory update: an order thread already exists (written with its idea); a feature-request thread is created on filing. */
+  private threadUpdate(personaId: string, write: ThreadWrite) {
+    if (write.kind === "ORDER_CHECKED") {
+      return {
+        Update: {
+          TableName: this.tableName,
+          Key: { persona_id: personaId, sk: threadSortKey(write.order_id) },
+          UpdateExpression: "SET last_known_status = :status, scheduled_window = :window, last_checked_at = :at",
+          ConditionExpression: "attribute_exists(sk)",
+          ExpressionAttributeValues: { ":status": write.status, ":window": write.scheduled_window, ":at": write.at },
+        },
+      };
+    }
+    const filed = write.kind === "FEATURE_REQUEST_FILED";
+    return {
+      Update: {
+        TableName: this.tableName,
+        Key: { persona_id: personaId, sk: featureRequestThreadSortKey(write.feature_request_id) },
+        UpdateExpression: filed
+          ? "SET feature_request_id = :id, title = :title, filed_by_idea_id = :idea, last_known_status = :status, last_known_status_reason = :reason, last_checked_at = :at, created_at = if_not_exists(created_at, :at)"
+          : "SET last_known_status = :status, last_known_status_reason = :reason, last_checked_at = :at",
+        ...(filed ? {} : { ConditionExpression: "attribute_exists(sk)" }),
+        ExpressionAttributeValues: {
+          ":status": write.status,
+          ":reason": write.status_reason,
+          ":at": write.at,
+          ...(filed ? { ":id": write.feature_request_id, ":title": write.title, ":idea": write.idea_id } : {}),
+        },
+      },
+    };
   }
 
   private parse<S extends ZodTypeAny>(schema: S, item: unknown): z.output<S> {

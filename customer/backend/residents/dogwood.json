@@ -13,6 +13,6 @@
   "follow_up_propensity": 45,
   "idea_type_weights": { "STATUS_CHECK": 15, "SERVICED_CHECK": 10, "ETA_REQUEST": 20, "PRIORITY_INQUIRY": 25, "ESCALATION": 25, "FEATURE_REQUEST": 5 },
   "interests": { "boroughs": ["BROOKLYN"], "descriptors": ["Blocked - Construction", "Dumpster - Construction Waste", "Unsafe Worksite", "Plate Condition - Open"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 55, "CREATE_FEATURE_REQUEST": 30, "GET_FEATURE_REQUEST": 15, "BROWSE_WEBSITE": 0 }
 }

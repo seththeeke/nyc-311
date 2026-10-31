@@ -13,6 +13,6 @@
   "follow_up_propensity": 40,
   "idea_type_weights": { "STATUS_CHECK": 15, "SERVICED_CHECK": 15, "ETA_REQUEST": 15, "PRIORITY_INQUIRY": 10, "ESCALATION": 5, "FEATURE_REQUEST": 40 },
   "interests": { "boroughs": ["BRONX"], "descriptors": ["Cave-in", "Rough, Pitted or Cracked Roads", "Defective Hardware", "Plate Condition - Noisy"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 40, "CREATE_FEATURE_REQUEST": 60, "GET_FEATURE_REQUEST": 30, "BROWSE_WEBSITE": 0 }
 }

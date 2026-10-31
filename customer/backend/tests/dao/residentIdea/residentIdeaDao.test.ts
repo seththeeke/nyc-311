@@ -133,4 +133,50 @@ describe("ResidentIdeaDao.appendStep", () => {
     await expect(dao.appendStep(searchStep, resolution)).rejects.toThrow("throttled");
     await expect(dao.appendStep({ ...searchStep, sk: idea.sk }, resolution)).rejects.toThrow("ResidentIdeas-Prod");
   });
+
+  it("adds the step's memory updates to the same transaction", async () => {
+    ddbMock.on(TransactWriteCommand).resolves({});
+    await dao.appendStep(searchStep, resolution, [
+      { kind: "ORDER_CHECKED", order_id: "01ORDER", status: "SCHEDULED", scheduled_window: { start: "S", end: "E" }, at: "AT" },
+      { kind: "FEATURE_REQUEST_FILED", feature_request_id: "01FR", title: "Texts", idea_id: idea.idea_id, status: "RECEIVED", status_reason: null, at: "AT" },
+      { kind: "FEATURE_REQUEST_CHECKED", feature_request_id: "01FR", status: "CLOSED", status_reason: "Shipped", at: "AT2" },
+    ]);
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input.TransactItems ?? [];
+    expect(items).toHaveLength(5);
+    expect(items[2].Update).toMatchObject({
+      Key: { persona_id: "hawthorn", sk: "ORDER#01ORDER" },
+      ConditionExpression: "attribute_exists(sk)",
+      ExpressionAttributeValues: { ":status": "SCHEDULED", ":window": { start: "S", end: "E" }, ":at": "AT" },
+    });
+    expect(items[3].Update).toMatchObject({
+      Key: { persona_id: "hawthorn", sk: "FEATURE_REQUEST#01FR" },
+      ExpressionAttributeValues: { ":id": "01FR", ":title": "Texts", ":idea": idea.idea_id, ":status": "RECEIVED", ":reason": null },
+    });
+    expect(items[3].Update?.ConditionExpression).toBeUndefined();
+    expect(items[3].Update?.UpdateExpression).toContain("if_not_exists(created_at, :at)");
+    expect(items[4].Update).toMatchObject({ ConditionExpression: "attribute_exists(sk)", ExpressionAttributeValues: { ":status": "CLOSED", ":reason": "Shipped", ":at": "AT2" } });
+  });
+});
+
+describe("ResidentIdeaDao.listFeatureRequestThreads", () => {
+  const thread = {
+    persona_id: "hawthorn",
+    sk: "FEATURE_REQUEST#01FR",
+    feature_request_id: "01FR",
+    title: "Texts",
+    filed_by_idea_id: idea.idea_id,
+    last_known_status: "RECEIVED",
+    last_known_status_reason: null,
+    last_checked_at: "AT",
+    created_at: "AT",
+  };
+
+  it("reads every feature-request thread across pages", async () => {
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({ Items: [thread], LastEvaluatedKey: { persona_id: "hawthorn", sk: thread.sk } })
+      .resolvesOnce({});
+    await expect(dao.listFeatureRequestThreads("hawthorn")).resolves.toEqual([thread]);
+    expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input.ExpressionAttributeValues).toEqual({ ":persona": "hawthorn", ":prefix": "FEATURE_REQUEST#" });
+  });
 });

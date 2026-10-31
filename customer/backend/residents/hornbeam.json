@@ -13,6 +13,6 @@
   "follow_up_propensity": 70,
   "idea_type_weights": { "STATUS_CHECK": 15, "SERVICED_CHECK": 10, "ETA_REQUEST": 20, "PRIORITY_INQUIRY": 20, "ESCALATION": 30, "FEATURE_REQUEST": 5 },
   "interests": { "boroughs": ["MANHATTAN"], "descriptors": ["Blocked - Construction", "Pothole", "Plate Condition - Open", "Unsafe Worksite"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 65, "CREATE_FEATURE_REQUEST": 25, "GET_FEATURE_REQUEST": 10, "BROWSE_WEBSITE": 0 }
 }
