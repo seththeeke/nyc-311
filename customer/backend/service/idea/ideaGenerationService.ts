@@ -63,6 +63,7 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     systemPrompt: resident.idea_prompt,
     userMessage: describeContext(ideaContext, now),
     orderIds: offered.map((order) => order.order_id),
+    featureRequestIds: ideaContext.featureRequests.map((thread) => thread.feature_request_id),
   });
 
   if (result.kind === "NOTHING_TO_SAY") {
@@ -85,6 +86,7 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     text: result.text,
     order_id: order?.order_id ?? null,
     external_unique_key: order?.external_unique_key ?? null,
+    feature_request_id: result.featureRequestId,
     ...(order ? { by_order_pk: byOrderKey(resident.persona_id, order.order_id) } : {}),
     feed_pk: IDEA_FEED_PK,
     resident_pk: resident.persona_id,

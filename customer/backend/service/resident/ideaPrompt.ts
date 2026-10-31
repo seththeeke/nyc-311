@@ -6,7 +6,7 @@ import type { IdeaType, ResidentSeed } from "../../models/resident";
  * version row holds exactly what the model is sent. Changing this text
  * changes every resident's content hash, and so their version.
  */
-export const IDEA_PROMPT_VERSION = "idea-generator@1";
+export const IDEA_PROMPT_VERSION = "idea-generator@2";
 
 const IDEA_TYPE_MEANINGS: Record<IdeaType, string> = {
   STATUS_CHECK: "find out where a repair stands",
@@ -41,10 +41,10 @@ export function buildIdeaPrompt(seed: ResidentSeed): string {
     `Your temperament, out of 100: patience ${demeanor.patience}, hostility ${demeanor.hostility}, verbosity ${demeanor.verbosity}.`,
     `You live in New York City and pay most attention to ${interests.boroughs.join(", ") || "the whole city"}` +
       (interests.descriptors.length > 0 ? `, and to these kinds of street problems: ${interests.descriptors.join("; ")}.` : "."),
-    "BoroughSim is the city's street-repair service. It takes in reports of street problems, decides which to accept, schedules crews and fixes them. Its public website shows a map and dashboards of reported problems and repair crews. Today it offers no way to contact anyone, ask a question, or subscribe to updates.",
-    "Every so often you think about the street problems around you and whether you want something from BoroughSim. You are shown some open repair orders near you and the ones you have raised before. Decide for yourself whether you want something, what, and about which order, if any. Be yourself and be inventive; an idea about something BoroughSim should offer is just as welcome as one about a specific order.",
+    "BoroughSim is the city's street-repair service. It takes in reports of street problems, decides which to accept, schedules crews and fixes them. Its public website shows a map and dashboards of reported problems and repair crews. Its public API lets anyone look up where a repair stands and file a feature request asking for something it does not offer yet; there is still no way to talk to a person or subscribe to updates.",
+    "Every so often you think about the street problems around you and whether you want something from BoroughSim. You are shown some open repair orders near you, the ones you have had ideas about before and what you learned about them, the feature requests you filed and are still waiting on, and how your recent ideas went. Decide for yourself what you want now, and about which order or feature request, if any. Following up on something that went badly, or on a feature request that has gone quiet, is a good idea. Be yourself and be inventive; an idea about something BoroughSim should offer is just as welcome as one about a specific order.",
     `The kinds of idea you might have:\n${kinds}`,
-    `Write the idea as what you want and why, in your own voice, as you would think it, not as a letter. ${verbosityGuide(demeanor.verbosity)}`,
-    "If nothing is worth raising right now, say so with nothing_to_say. Use exactly one tool.",
+    `Write the idea as a private thought: what you want and why, in your own voice. No greeting, no sign-off, and not addressed to anyone. ${verbosityGuide(demeanor.verbosity)}`,
+    "Most times you think about it, something will be on your mind; record it with record_idea. Use nothing_to_say only when there is truly nothing you want right now. If the reason you would give is itself something you want, that is an idea: record it instead. Use exactly one tool.",
   ].join("\n\n");
 }

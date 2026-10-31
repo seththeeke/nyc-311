@@ -143,3 +143,20 @@ describe("truncateBody", () => {
     expect(truncateBody("x".repeat(MAX_STORED_BODY_CHARS + 10))).toEqual({ truncated: true, text: "x".repeat(MAX_STORED_BODY_CHARS) });
   });
 });
+
+describe("GET_FEATURE_REQUEST on an idea that follows one up", () => {
+  const anchored = { ...featureIdea, feature_request_id: FR_ID };
+
+  it("takes the id from the idea, offering no input, even before the thread is listed", async () => {
+    const ctx = context({ idea: anchored, featureRequests: [] }, { status_code: 200, call_id: "C", body: { feature_request_id: FR_ID, status: "RECEIVED", status_reason_description: null, title: "T" } });
+    expect(get.runnable(ctx)).toBe(true);
+    expect(get.inputSchema(ctx)).toEqual({ type: "object", properties: {} });
+    const outcome = await get.run(ctx, { feature_request_id: "IGNORED" });
+    expect(outcome.execution.status).toBe("FAILED");
+    expect(ctx.call).not.toHaveBeenCalled();
+
+    const withThread = context({ idea: anchored }, { status_code: 200, call_id: "C", body: { feature_request_id: FR_ID, status: "RECEIVED", status_reason_description: null, title: "T" } });
+    await get.run(withThread, { feature_request_id: "IGNORED" });
+    expect(withThread.call).toHaveBeenCalledWith(expect.objectContaining({ path: `/v1/feature-requests/${FR_ID}` }));
+  });
+});

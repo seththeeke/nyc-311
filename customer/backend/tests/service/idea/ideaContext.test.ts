@@ -1,15 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResidentIdeaDao } from "../../../dao/residentIdea/residentIdeaDao";
 import type { WebhookCustomerFacingOrderDao } from "../../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
-import { MAX_CANDIDATES, describeContext, gatherIdeaContext } from "../../../service/idea/ideaContext";
+import type { ResidentFeatureRequestThread } from "../../../models/residentIdea";
+import { MAX_CANDIDATES, MAX_FEATURE_REQUESTS, describeContext, gatherIdeaContext } from "../../../service/idea/ideaContext";
 import { current, featureIdea, idea, order } from "../../residentFixtures";
 
 const NOW = new Date("2026-10-17T14:00:00.000Z");
 
-function deps(sampled: ReturnType<typeof order>[], threads: string[] = []) {
+function filed(id: string, overrides: Partial<ResidentFeatureRequestThread> = {}): ResidentFeatureRequestThread {
+  return {
+    persona_id: "hawthorn",
+    sk: `FEATURE_REQUEST#${id}`,
+    feature_request_id: id,
+    title: `Request ${id}`,
+    filed_by_idea_id: "01IDEA",
+    last_known_status: "RECEIVED",
+    last_known_status_reason: null,
+    last_checked_at: "2026-10-16T09:00:00.000Z",
+    created_at: `2026-10-${id.slice(-2)}T09:00:00.000Z`,
+    ...overrides,
+  };
+}
+
+function deps(sampled: ReturnType<typeof order>[], threads: string[] = [], featureRequests: ResidentFeatureRequestThread[] = []) {
   const ideaDao = {
     listThreads: vi.fn().mockResolvedValue(threads.map((id) => ({ order_id: id }))),
     listForResident: vi.fn().mockResolvedValue({ items: [idea, featureIdea], lastKey: null }),
+    listFeatureRequestThreads: vi.fn().mockResolvedValue(featureRequests),
   };
   const orderDao = {
     sampleOpenOrders: vi.fn().mockResolvedValue(sampled),
@@ -76,12 +93,70 @@ describe("describeContext", () => {
 
   it("says so when there is nothing new and no history, and copes with missing details", () => {
     const text = describeContext(
-      { candidates: [], recentIdeas: [], followedOrders: [order("X", { descriptor: null, address: null, borough: null, status: "CLOSED", resolved_at: null })] },
+      {
+        candidates: [],
+        recentIdeas: [],
+        followedOrders: [order("X", { descriptor: null, address: null, borough: null, status: "CLOSED", resolved_at: null })],
+        orderThreads: [],
+        featureRequests: [],
+      },
       NOW
     );
     expect(text).toContain("There are no new open repair orders near you right now.");
-    expect(text).toContain("You have not raised anything before.");
+    expect(text).toContain("You have not had any ideas before.");
+    expect(text).not.toContain("Feature requests you filed");
     expect(text).toContain("street problem at address unknown");
     expect(text).toMatch(/marked repaired$/m);
+  });
+
+  it("adds what the resident learned: their searches, open feature requests and how recent ideas went (docs/16 §5.4)", () => {
+    const finished = {
+      ...idea,
+      feature_request_id: "01FR17",
+      resolution: { ...idea.resolution, status: "UNSATISFIED" as const, summary: "Still no date.", follow_up: "Check Friday." },
+    };
+    const working = { ...featureIdea, resolution: { ...featureIdea.resolution, status: "IN_PROGRESS" as const } };
+    const quiet = { ...featureIdea, resolution: { ...featureIdea.resolution, status: "GAVE_UP" as const, summary: null, follow_up: null } };
+    const text = describeContext(
+      {
+        candidates: [],
+        recentIdeas: [finished, working, quiet],
+        followedOrders: [order("01ORDER")],
+        orderThreads: [
+          { persona_id: "hawthorn", sk: "ORDER#01ORDER", order_id: "01ORDER", idea_count: 1, first_idea_at: "a", last_idea_at: "a", last_known_status: "SCHEDULED", scheduled_window: { start: "2026-10-20T13:00Z", end: "E" }, last_checked_at: "2026-10-16T09:00:00.000Z" },
+        ],
+        featureRequests: [filed("01FR17", { last_known_status: "UNDER_REVIEW", last_known_status_reason: "Looking at it" })],
+      },
+      NOW
+    );
+    expect(text).toContain("when you last looked it up (2026-10-16) BoroughSim said scheduled, scheduled 2026-10-20T13:00Z");
+    expect(text).toContain('- 01FR17: "Request 01FR17", filed 2026-10-17; last seen under review on 2026-10-16 (Looking at it)');
+    expect(text).toContain('following up feature request 01FR17: I want a date for the trench outside my shop. → unsatisfied. You said: "Still no date." You meant to check: Check Friday.');
+    expect(text).toContain("(you are still working on it)");
+    expect(text).toMatch(/→ gave up\.$/m);
+  });
+
+  it("shows a search that found nothing scheduled", () => {
+    const text = describeContext(
+      {
+        candidates: [],
+        recentIdeas: [],
+        followedOrders: [order("01ORDER")],
+        orderThreads: [{ persona_id: "hawthorn", sk: "ORDER#01ORDER", order_id: "01ORDER", idea_count: 1, first_idea_at: "a", last_idea_at: "a", last_known_status: "ACCEPTED", scheduled_window: null, last_checked_at: "2026-10-16T09:00:00.000Z" }],
+        featureRequests: [],
+      },
+      NOW
+    );
+    expect(text).toContain("BoroughSim said accepted");
+  });
+});
+
+describe("gatherIdeaContext feature requests", () => {
+  it("offers only open feature requests, newest first, capped", async () => {
+    const threads = [filed("01FR10", { last_known_status: "CLOSED" }), ...["01FR11", "01FR12", "01FR13", "01FR14", "01FR15", "01FR16"].map((id) => filed(id))];
+    const { deps: d } = deps([], [], threads);
+    const context = await gatherIdeaContext(current, d);
+    expect(context.featureRequests.map((thread) => thread.feature_request_id)).toEqual(["01FR16", "01FR15", "01FR14", "01FR13", "01FR12"]);
+    expect(context.featureRequests).toHaveLength(MAX_FEATURE_REQUESTS);
   });
 });

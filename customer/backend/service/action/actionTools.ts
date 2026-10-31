@@ -180,20 +180,24 @@ const getFeatureRequest: ActionTool = {
   name: "GET_FEATURE_REQUEST",
   maxPerIdea: 2,
   description: "Check on a feature request you filed before.",
-  inputSchema: (context) => ({
-    type: "object",
-    properties: {
-      feature_request_id: {
-        type: "string",
-        enum: context.featureRequests.map((thread) => thread.feature_request_id),
-        description: "One of the feature requests you filed.",
-      },
-    },
-    required: ["feature_request_id"],
-  }),
-  runnable: (context) => context.featureRequests.length > 0,
+  /* An idea that follows up a feature request checks that one: the id comes from the idea, not the model (docs/16 §5.4). */
+  inputSchema: (context) =>
+    context.idea.feature_request_id
+      ? { type: "object", properties: {} }
+      : {
+          type: "object",
+          properties: {
+            feature_request_id: {
+              type: "string",
+              enum: context.featureRequests.map((thread) => thread.feature_request_id),
+              description: "One of the feature requests you filed.",
+            },
+          },
+          required: ["feature_request_id"],
+        },
+  runnable: (context) => context.idea.feature_request_id !== null || context.featureRequests.length > 0,
   run: async (context, input) => {
-    const id = typeof input.feature_request_id === "string" ? input.feature_request_id : "";
+    const id = context.idea.feature_request_id ?? (typeof input.feature_request_id === "string" ? input.feature_request_id : "");
     if (!context.featureRequests.some((thread) => thread.feature_request_id === id)) {
       return rejected(context, `Not checked: ${id || "no id"} is not a feature request you filed.`);
     }

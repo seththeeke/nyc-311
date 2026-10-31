@@ -15,6 +15,7 @@ function setup(result: GeneratorResult, resident: typeof current | null = curren
   const residentDao = { getCurrent: vi.fn().mockResolvedValue(resident) };
   const ideaDao = {
     listThreads: vi.fn().mockResolvedValue([]),
+    listFeatureRequestThreads: vi.fn().mockResolvedValue([]),
     listForResident: vi.fn().mockResolvedValue({ items: [], lastKey: null }),
     recordIdea: vi.fn().mockResolvedValue(undefined),
   };
@@ -44,7 +45,7 @@ afterEach(() => {
 
 describe("runIdeaWorker", () => {
   it("records the model's idea with its order, version, model and no actions", async () => {
-    const { deps, ideaDao, generate } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens });
+    const { deps, ideaDao, generate } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", featureRequestId: null, text: "When?", ...tokens });
     const result = await runIdeaWorker({ persona_id: "hawthorn" }, deps);
     expect(result).toMatchObject({ outcome: "CREATED" });
     expect(generate.mock.calls[0][0]).toMatchObject({ modelId: current.model_id, systemPrompt: current.idea_prompt, orderIds: ["FRESH"] });
@@ -66,7 +67,7 @@ describe("runIdeaWorker", () => {
   });
 
   it("records an idea about no order without order keys", async () => {
-    const { deps, ideaDao } = setup({ kind: "IDEA", ideaType: "FEATURE_REQUEST", orderId: null, text: "Text me.", ...tokens });
+    const { deps, ideaDao } = setup({ kind: "IDEA", ideaType: "FEATURE_REQUEST", orderId: null, featureRequestId: null, text: "Text me.", ...tokens });
     await runIdeaWorker({ persona_id: "hawthorn" }, deps);
     const idea = ideaDao.recordIdea.mock.calls[0][0];
     expect(idea).toMatchObject({ order_id: null, external_unique_key: null });
@@ -103,7 +104,7 @@ describe("runIdeaWorker", () => {
       usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
       output: { message: { role: "assistant", content: [{ toolUse: { toolUseId: "t", name: "nothing_to_say", input: { reason: "quiet" } } }] } },
     });
-    const { deps } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: null, text: "unused", ...tokens });
+    const { deps } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: null, featureRequestId: null, text: "unused", ...tokens });
     await expect(runIdeaWorker({ persona_id: "hawthorn" }, { ...deps, generate: undefined, now: undefined })).resolves.toEqual({
       outcome: "SKIPPED_NOTHING_TO_SAY",
     });
@@ -112,7 +113,7 @@ describe("runIdeaWorker", () => {
   });
 
   it("queues a new idea for the action worker when the resident has tools (docs/16 §5.2)", async () => {
-    const { deps, ideaDao, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens });
+    const { deps, ideaDao, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", featureRequestId: null, text: "When?", ...tokens });
     const result = await runIdeaWorker({ persona_id: "hawthorn" }, deps);
     const [idea] = ideaDao.recordIdea.mock.calls[0];
     expect(result).toEqual({ outcome: "CREATED", ideaId: idea.idea_id });
@@ -120,15 +121,26 @@ describe("runIdeaWorker", () => {
   });
 
   it("queues nothing for a resident with no tools", async () => {
-    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens }, { ...current, action_buckets: [] });
+    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", featureRequestId: null, text: "When?", ...tokens }, { ...current, action_buckets: [] });
     await runIdeaWorker({ persona_id: "hawthorn" }, deps);
     expect(enqueueAction).not.toHaveBeenCalled();
   });
 
   it.each([new Error("sqs down"), "down"])("keeps the idea when the hand-off fails (%s)", async (failure) => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", text: "When?", ...tokens });
+    const { deps, enqueueAction } = setup({ kind: "IDEA", ideaType: "ETA_REQUEST", orderId: "FRESH", featureRequestId: null, text: "When?", ...tokens });
     enqueueAction.mockRejectedValue(failure);
     await expect(runIdeaWorker({ persona_id: "hawthorn" }, deps)).resolves.toMatchObject({ outcome: "CREATED" });
+  });
+
+  it("stores the feature request an idea follows up on (docs/16 §5.4)", async () => {
+    const { deps, ideaDao, generate } = setup({ kind: "IDEA", ideaType: "STATUS_CHECK", orderId: null, featureRequestId: "01FR", text: "Any news?", ...tokens });
+    vi.mocked(ideaDao.listThreads).mockResolvedValue([]);
+    (ideaDao as unknown as { listFeatureRequestThreads: ReturnType<typeof vi.fn> }).listFeatureRequestThreads.mockResolvedValue([
+      { persona_id: "hawthorn", sk: "FEATURE_REQUEST#01FR", feature_request_id: "01FR", title: "T", filed_by_idea_id: "I", last_known_status: "RECEIVED", last_known_status_reason: null, last_checked_at: "a", created_at: "a" },
+    ]);
+    await runIdeaWorker({ persona_id: "hawthorn" }, deps);
+    expect(generate.mock.calls[0][0].featureRequestIds).toEqual(["01FR"]);
+    expect(ideaDao.recordIdea.mock.calls[0][0]).toMatchObject({ feature_request_id: "01FR", order_id: null });
   });
 });

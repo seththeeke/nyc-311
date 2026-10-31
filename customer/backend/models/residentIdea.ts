@@ -100,6 +100,8 @@ export const ResidentIdeaSchema = z.object({
   text: z.string().min(1),
   order_id: z.string().min(1).nullable(),
   external_unique_key: z.string().min(1).nullable(),
+  /* A feature request this idea follows up on (docs/16 §5.4); null for every idea before idea-generator@2. */
+  feature_request_id: z.string().min(1).nullable().default(null),
   /* `persona_id#order_id`, only on ideas about an order (the sparse ByOrder index). */
   by_order_pk: z.string().min(1).optional(),
   feed_pk: z.literal(IDEA_FEED_PK),

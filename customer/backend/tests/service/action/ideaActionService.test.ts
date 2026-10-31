@@ -222,6 +222,7 @@ describe("helpers", () => {
     expect(text).toContain(`${FR_ID}: "Texts please", last seen RECEIVED`);
     expect(describeIdea(featureIdea, [], NOW)).toContain("not about any particular order");
     expect(describeIdea({ ...idea, external_unique_key: null }, [], NOW)).toContain("about BoroughSim order 01ORDER.");
+    expect(describeIdea({ ...featureIdea, feature_request_id: FR_ID }, [], NOW)).toContain(`It follows up your feature request ${FR_ID}`);
   });
 
   it("rebuilds the conversation from tool steps only, marking failures as errors", () => {

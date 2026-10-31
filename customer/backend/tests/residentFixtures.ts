@@ -29,6 +29,7 @@ export const idea: ResidentIdea = {
   text: "I want a date for the trench outside my shop.",
   order_id: "01ORDER",
   external_unique_key: "69860415",
+  feature_request_id: null,
   by_order_pk: "hawthorn#01ORDER",
   feed_pk: IDEA_FEED_PK,
   resident_pk: "hawthorn",

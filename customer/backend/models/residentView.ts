@@ -46,6 +46,8 @@ export const ResidentIdeaViewSchema = z.object({
   idea_type: z.enum(IDEA_TYPES),
   text: z.string().min(1),
   anchor: IdeaAnchorViewSchema.nullable(),
+  /* The feature request this idea follows up on, if any (docs/16 §5.4). */
+  feature_request_id: z.string().min(1).nullable(),
   resolution: IdeaResolutionSchema,
   created_at: z.string().min(1),
   model_id: z.string().min(1),

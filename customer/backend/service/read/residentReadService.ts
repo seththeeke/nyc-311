@@ -79,6 +79,7 @@ export function toIdeaView(idea: ResidentIdea, orders: Map<string, WebhookCustom
     idea_type: idea.idea_type,
     text: idea.text,
     anchor,
+    feature_request_id: idea.feature_request_id,
     resolution: idea.resolution,
     created_at: idea.created_at,
     model_id: idea.model_id,

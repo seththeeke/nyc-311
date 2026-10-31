@@ -72,6 +72,7 @@ export function describeIdea(idea: ResidentIdea, featureRequests: ResidentFeatur
     idea.order_id
       ? `It is about BoroughSim order ${idea.order_id}${idea.external_unique_key ? ` (311 complaint ${idea.external_unique_key})` : ""}.`
       : "It is not about any particular order.",
+    ...(idea.feature_request_id ? [`It follows up your feature request ${idea.feature_request_id}; GET_FEATURE_REQUEST checks that one.`] : []),
   ];
   if (featureRequests.length > 0) {
     lines.push(

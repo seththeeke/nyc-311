@@ -92,6 +92,7 @@ describe("idea reads", () => {
     expect(view).toMatchObject({
       anchor: { order_id: "01ORDER", external_unique_key: "69860415", descriptor: null, borough: null, address: null },
       resolution: { status: "NOT_ACTIONED" },
+      feature_request_id: null,
     });
     expect(ResidentIdeaDetailViewSchema.parse(view).steps).toEqual([
       {
