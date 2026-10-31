@@ -40,6 +40,8 @@ import { Nyc311WarehouseJobScheduleGroup } from "../warehouse/Nyc311WarehouseJob
 import { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
 import { Nyc311Api } from "../api/Nyc311Api";
 import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
+import { Nyc311PublicApi } from "../api/Nyc311PublicApi";
+import { Nyc311PublicApiLambda } from "../lambda/Nyc311PublicApiLambda";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
@@ -95,16 +97,17 @@ export const ROOT_DOMAIN = "boroughsim.com";
 export const HOSTED_ZONE_ID = "Z014904580HQD5MMLQWU";
 
 /*
- * Per-environment public names for the site and the public API
- * (Nyc311Api). Prod is the apex; Test sits one label down, with its API a
+ * Per-environment public names for the site, the web-app's API
+ * (Nyc311Api) and the public API (Nyc311PublicApi,
+ * 16-resident-action-models.md §2.1). Prod is the apex; Test sits one label down, with its API a
  * further label down (api.test.boroughsim.com) — which is why the certs
  * are per-consumer, not one *.boroughsim.com wildcard (a wildcard is one
  * label only). Nyc311PipelineStatusApi is deliberately not here — it's a
  * singleton, not per-environment (8-domain-name-assignment.md §1).
  */
-export const DOMAIN_CONFIG: Record<Nyc311Environment, { siteDomain: string; apiDomain: string }> = {
-  TEST: { siteDomain: "test.boroughsim.com", apiDomain: "api.test.boroughsim.com" },
-  PROD: { siteDomain: "boroughsim.com", apiDomain: "api.boroughsim.com" },
+export const DOMAIN_CONFIG: Record<Nyc311Environment, { siteDomain: string; apiDomain: string; publicApiDomain: string }> = {
+  TEST: { siteDomain: "test.boroughsim.com", apiDomain: "api.test.boroughsim.com", publicApiDomain: "public-api.test.boroughsim.com" },
+  PROD: { siteDomain: "boroughsim.com", apiDomain: "api.boroughsim.com", publicApiDomain: "public-api.boroughsim.com" },
 };
 
 /*
@@ -134,6 +137,8 @@ const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
 export class Nyc311Stack extends Stack {
   /** 4-pipeline-integration-tests.md §5 — exposed so Nyc311AppStage can pass it to the pipeline's integration-test step via envFromCfnOutputs. */
   public readonly apiUrlOutput: CfnOutput;
+  /** The public API's `execute-api` endpoint (16-resident-action-models.md §2). */
+  public readonly publicApiUrlOutput: CfnOutput;
   /** 9-admin-auth-integration.md §8 — exposed the same way, for the integration suite's test-admin sign-in. */
   public readonly adminUserPoolClientIdOutput: CfnOutput;
 
@@ -675,6 +680,21 @@ export class Nyc311Stack extends Stack {
      * console.
      */
     this.apiUrlOutput = new CfnOutput(this, "Nyc311ApiUrl", { value: nyc311Api.apiEndpoint });
+
+    /* 16-resident-action-models.md §2 — the public API: its own domain, bundle Lambda and HTTP API. */
+    const publicApiDomain = new Nyc311ApiDomain(this, "Nyc311PublicApiDomain", {
+      envName: props.envName,
+      apiDomain: domainConfig.publicApiDomain,
+      hostedZone,
+    });
+    const publicApiLambda = new Nyc311PublicApiLambda(this, "Nyc311PublicApiLambda", { envName: props.envName });
+    const publicApi = new Nyc311PublicApi(this, "Nyc311PublicApi", {
+      envName: props.envName,
+      publicApiLambda,
+      publicApiDomainName: publicApiDomain.domainName,
+    });
+    /* Read by the pipeline's integration tests, like Nyc311ApiUrl. */
+    this.publicApiUrlOutput = new CfnOutput(this, "Nyc311PublicApiUrl", { value: publicApi.apiEndpoint });
 
     /*
      * Deploys web-app/dist + the runtime env-config.json last, once both
