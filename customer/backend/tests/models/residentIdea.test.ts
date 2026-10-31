@@ -27,6 +27,13 @@ describe("resident idea models", () => {
     expect(parsed).not.toHaveProperty("actions");
   });
 
+  it("reads a blank summary or follow_up as null, so one bad row can't break the feed (2026-10-31)", () => {
+    const stored = { ...idea, resolution: { ...idea.resolution, status: "UNSATISFIED", summary: "", follow_up: "" } };
+    const parsed = ResidentIdeaSchema.parse(stored);
+    expect(parsed.resolution.summary).toBeNull();
+    expect(parsed.resolution.follow_up).toBeNull();
+  });
+
   it("parses a step, and only under its idea's key", () => {
     expect(IdeaStepSchema.parse(searchStep)).toEqual(searchStep);
     expect(IdeaStepSchema.safeParse({ ...searchStep, sk: idea.sk }).success).toBe(false);

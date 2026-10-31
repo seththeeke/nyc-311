@@ -150,6 +150,12 @@ describe("runIdeaActions", () => {
     expect(saved[0].resolution).toMatchObject({ status: "MAX_DEPTH_REACHED", summary: null, finished_at: NOW.toISOString() });
   });
 
+  it("stores a blank follow_up as null, so the idea row stays readable (feed regression, 2026-10-31)", async () => {
+    const { deps, saved } = setup([turn("finish_idea", { resolution: "UNSATISFIED", summary: "Not enough.", follow_up: "  " })]);
+    await runIdeaActions(message, deps);
+    expect(saved[0].resolution.follow_up).toBeNull();
+  });
+
   it("accepts a finish whose follow_up is null, as Nova sends it", async () => {
     const { deps, saved } = setup([turn("finish_idea", { resolution: "UNSATISFIED", summary: "Still only received.", follow_up: null })]);
     await expect(runIdeaActions(message, deps)).resolves.toEqual({ outcome: "FINISHED", status: "UNSATISFIED", steps: 1 });

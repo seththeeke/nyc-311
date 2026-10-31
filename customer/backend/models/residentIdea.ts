@@ -17,12 +17,15 @@ export const RESOLUTION_STATUSES = ["NOT_ACTIONED", "IN_PROGRESS", "SATISFIED", 
 export type ResolutionStatus = (typeof RESOLUTION_STATUSES)[number];
 export const FINISHED_RESOLUTION_STATUSES: readonly ResolutionStatus[] = ["SATISFIED", "UNSATISFIED", "GAVE_UP", "MAX_DEPTH_REACHED"];
 
+/* A model may leave free text blank; blank means nothing was said (a blank follow_up broke the feed, 2026-10-31). */
+const OptionalText = z.preprocess((value) => (typeof value === "string" && value.trim() === "" ? null : value), z.string().min(1).nullable());
+
 /* The summary of an idea's workstream, kept on the idea row and updated with each step. */
 export const IdeaResolutionSchema = z.object({
   status: z.enum(RESOLUTION_STATUSES),
   /* The resident's own closing words; null until finished. */
-  summary: z.string().min(1).nullable(),
-  follow_up: z.string().min(1).nullable(),
+  summary: OptionalText,
+  follow_up: OptionalText,
   tools_used: z.array(z.string().min(1)),
   step_count: z.number().int().min(0),
   last_step_sequence: z.number().int().min(0),

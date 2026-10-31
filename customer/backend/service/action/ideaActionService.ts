@@ -231,7 +231,11 @@ export async function runIdeaActions(message: IdeaActionMessage, deps: IdeaActio
       const finish = FinishInputSchema.safeParse(turn.toolUse.input);
       if (finish.success) {
         const step: IdeaStep = { ...baseStep(sequence, turn), kind: "FINISH", decision: { tool: FINISH_TOOL, input: turn.toolUse.input, model_text: turn.text }, execution: null };
-        const next = nextResolution(resolution, step, resident, now().toISOString(), { status: finish.data.resolution, summary: finish.data.summary, follow_up: finish.data.follow_up ?? null });
+        const next = nextResolution(resolution, step, resident, now().toISOString(), {
+          status: finish.data.resolution,
+          summary: finish.data.summary,
+          follow_up: finish.data.follow_up || null,
+        });
         if (!(await save(step, next))) return { outcome: "STOPPED_CONFLICT" };
         logInfo("IdeaActionsFinished", { ...context, status: next.status, steps: steps.length });
         return { outcome: "FINISHED", status: next.status, steps: steps.length };
