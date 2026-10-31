@@ -34,6 +34,7 @@ export default defineConfig({
       USERS_TABLE_NAME: "Users",
       OPERATORS_TABLE_NAME: "Operators",
       FEATURE_FLAGS_TABLE_NAME: "FeatureFlags",
+      CONTACTS_TABLE_NAME: "Contacts",
       PIPELINE_NAME: "Nyc311Pipeline",
     },
     coverage: {

@@ -147,6 +147,11 @@ describe("Nyc311Stack", () => {
     });
   });
 
+  it("creates the Contacts table in both environments (16-resident-action-models.md §3)", () => {
+    testEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Contacts-Test" });
+    prodEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Contacts-Prod" });
+  });
+
   it("wires the outbound webhook leg in both environments: table, two queues, three Lambdas, two DLQ alarms and the registration route (13-customer-simulation.md §5)", () => {
     for (const [env, suffix] of [[testEnv, "Test"], [prodEnv, "Prod"]] as const) {
       const { template } = env;

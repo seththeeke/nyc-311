@@ -43,6 +43,7 @@ import { Nyc311ApiDomain } from "../api/Nyc311ApiDomain";
 import { WebsiteHosting } from "../web/WebsiteHosting";
 import { WebsiteDeployment } from "../web/WebsiteDeployment";
 import { UsersTable } from "../data/UsersTable";
+import { ContactsTable } from "../data/ContactsTable";
 import { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import { WebhookSubscriptionsTable } from "../data/WebhookSubscriptionsTable";
@@ -207,6 +208,8 @@ export class Nyc311Stack extends Stack {
     const operatorsTable = new OperatorsTable(this, "OperatorsTable", { envName: props.envName });
     /* 11-street-condition-implementation.md §4 — the feature-flag/experiment service's table. */
     const featureFlagsTable = new FeatureFlagsTable(this, "FeatureFlagsTable", { envName: props.envName });
+    /* 16-resident-action-models.md §3 — Contacts, reached only through the public API's feature requests. */
+    new ContactsTable(this, "ContactsTable", { envName: props.envName });
     /* 15-resource-consolidation.md §3.3 — the featureFlags Service API bundle. */
     const featureFlagsApiLambda = new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
