@@ -6,7 +6,7 @@ import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
 import type { IdeaWorkerEvent } from "../../models/ideaWorkerEvent";
-import { IDEA_FEED_PK, byOrderKey, ideaSortKey, type ResidentIdea } from "../../models/residentIdea";
+import { IDEA_FEED_PK, byOrderKey, ideaSortKey, notActionedResolution, type ResidentIdea } from "../../models/residentIdea";
 import { generateIdea, type GeneratorRequest, type GeneratorResult } from "./bedrockIdeaGenerator";
 import { describeContext, gatherIdeaContext } from "./ideaContext";
 import { newUlid } from "./ulid";
@@ -84,8 +84,7 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     ...(order ? { by_order_pk: byOrderKey(resident.persona_id, order.order_id) } : {}),
     feed_pk: IDEA_FEED_PK,
     resident_pk: resident.persona_id,
-    status: "OPEN",
-    actions: [],
+    resolution: notActionedResolution(),
     model_id: resident.model_id,
     prompt_version: resident.prompt_version,
     input_tokens: result.inputTokens,

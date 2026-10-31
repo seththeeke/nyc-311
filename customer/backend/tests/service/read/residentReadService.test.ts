@@ -4,7 +4,8 @@ import type { ResidentIdeaDao } from "../../../dao/residentIdea/residentIdeaDao"
 import type { WebhookCustomerFacingOrderDao } from "../../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import { NotFoundError, ValidationError } from "../../../models/errors";
 import { getIdea, getResident, listIdeas, listResidents, parseLimit, type ResidentReadDeps } from "../../../service/read/residentReadService";
-import { current, featureIdea, idea, order } from "../../residentFixtures";
+import { ResidentIdeaDetailViewSchema } from "../../../models/residentView";
+import { current, featureIdea, idea, order, searchStep } from "../../residentFixtures";
 
 const cursorFor = (key: Record<string, string>) => Buffer.from(JSON.stringify(key)).toString("base64url");
 
@@ -16,7 +17,7 @@ function setup() {
   const ideaDao = {
     listForResident: vi.fn().mockResolvedValue({ items: [idea, featureIdea], lastKey: null }),
     listFeed: vi.fn().mockResolvedValue({ items: [featureIdea], lastKey: "more" }),
-    getIdea: vi.fn().mockResolvedValueOnce(idea).mockResolvedValueOnce(null),
+    getIdeaWithSteps: vi.fn().mockResolvedValueOnce({ idea, steps: [searchStep] }).mockResolvedValueOnce(null),
   };
   const orderDao = { batchGetOrders: vi.fn().mockResolvedValue([order("01ORDER", { descriptor: "Cave-in" })]) };
   const deps: ResidentReadDeps = {
@@ -84,12 +85,27 @@ describe("idea reads", () => {
     );
   });
 
-  it("gets one idea, keeping its ids when the order row is missing, or 404s", async () => {
+  it("gets one idea with its steps, keeping its ids when the order row is missing, or 404s", async () => {
     const { deps, orderDao } = setup();
     orderDao.batchGetOrders.mockResolvedValue([]);
-    await expect(getIdea("hawthorn", idea.idea_id, deps)).resolves.toMatchObject({
+    const view = await getIdea("hawthorn", idea.idea_id, deps);
+    expect(view).toMatchObject({
       anchor: { order_id: "01ORDER", external_unique_key: "69860415", descriptor: null, borough: null, address: null },
+      resolution: { status: "NOT_ACTIONED" },
     });
+    expect(ResidentIdeaDetailViewSchema.parse(view).steps).toEqual([
+      {
+        sequence: 1,
+        kind: "TOOL_CALL",
+        decision: searchStep.decision,
+        execution: searchStep.execution,
+        input_tokens: 940,
+        output_tokens: 38,
+        created_at: searchStep.created_at,
+      },
+    ]);
+    expect(view).not.toHaveProperty("status");
+    expect(view).not.toHaveProperty("actions");
     await expect(getIdea("hawthorn", "nope", deps)).rejects.toThrow(NotFoundError);
   });
 

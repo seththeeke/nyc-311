@@ -1,32 +1,95 @@
 import { z } from "zod";
-import { ACTION_TYPES, IDEA_TYPES } from "./resident";
+import { IDEA_TYPES } from "./resident";
 
 /*
- * Rows in `ResidentIdeas` (docs/13-customer-simulation.md §2 customer side,
- * decisions 4, 6 and 7). Ideas sort under `IDEA#<ulid>`; one thread row per
- * resident per order under `ORDER#<order_id>`. An idea stores only the ids
- * of its order; the read API fills in the rest from the order row.
+ * Rows in `ResidentIdeas` (docs/13-customer-simulation.md §2 customer side;
+ * docs/16-resident-action-models.md §5.3). Ideas sort under `IDEA#<ulid>`,
+ * each idea's workstream steps under `IDEA#<ulid>#STEP#<nnnn>`, one thread
+ * row per resident per order under `ORDER#<order_id>`. An idea stores only
+ * the ids of its order; the read API fills in the rest from the order row.
  */
-
-export const IDEA_STATUSES = ["OPEN"] as const;
-export const ACTION_STATUSES = ["COMPLETED", "FAILED"] as const;
 
 /* Every idea carries this, so the Feed index lists all residents' ideas newest first. */
 export const IDEA_FEED_PK = "ALL";
 
-/* One tool invocation (decision 7). Evidence fields vary by tool, so the rest passes through. */
-export const ResidentIdeaActionSchema = z
-  .object({
-    sequence: z.number().int().min(1),
-    type: z.enum(ACTION_TYPES),
-    status: z.enum(ACTION_STATUSES),
-    started_at: z.string().min(1),
-    completed_at: z.string().min(1),
-    summary: z.string().min(1),
-    outcome: z.string().min(1).nullable(),
-  })
-  .passthrough();
-export type ResidentIdeaAction = z.infer<typeof ResidentIdeaActionSchema>;
+/* An idea's lifecycle (docs/16 §5.3): not actioned, being worked, or finished one of four ways. */
+export const RESOLUTION_STATUSES = ["NOT_ACTIONED", "IN_PROGRESS", "SATISFIED", "UNSATISFIED", "GAVE_UP", "MAX_DEPTH_REACHED"] as const;
+export type ResolutionStatus = (typeof RESOLUTION_STATUSES)[number];
+export const FINISHED_RESOLUTION_STATUSES: readonly ResolutionStatus[] = ["SATISFIED", "UNSATISFIED", "GAVE_UP", "MAX_DEPTH_REACHED"];
+
+/* The summary of an idea's workstream, kept on the idea row and updated with each step. */
+export const IdeaResolutionSchema = z.object({
+  status: z.enum(RESOLUTION_STATUSES),
+  /* The resident's own closing words; null until finished. */
+  summary: z.string().min(1).nullable(),
+  follow_up: z.string().min(1).nullable(),
+  tools_used: z.array(z.string().min(1)),
+  step_count: z.number().int().min(0),
+  last_step_sequence: z.number().int().min(0),
+  started_at: z.string().min(1).nullable(),
+  finished_at: z.string().min(1).nullable(),
+  prompt_version: z.string().min(1).nullable(),
+  input_tokens: z.number().int().min(0),
+  output_tokens: z.number().int().min(0),
+});
+export type IdeaResolution = z.infer<typeof IdeaResolutionSchema>;
+
+/** The resolution of an idea nobody has worked yet. */
+export function notActionedResolution(): IdeaResolution {
+  return {
+    status: "NOT_ACTIONED",
+    summary: null,
+    follow_up: null,
+    tools_used: [],
+    step_count: 0,
+    last_step_sequence: 0,
+    started_at: null,
+    finished_at: null,
+    prompt_version: null,
+    input_tokens: 0,
+    output_tokens: 0,
+  };
+}
+
+export const STEP_KINDS = ["TOOL_CALL", "FINISH", "FORCED_FINISH"] as const;
+export type StepKind = (typeof STEP_KINDS)[number];
+export const STEP_EXECUTION_STATUSES = ["COMPLETED", "FAILED"] as const;
+
+/* What the model chose on one turn: the tool it called (or finish_idea), its input, and anything it said. */
+export const StepDecisionSchema = z.object({
+  tool: z.string().min(1),
+  input: z.record(z.string(), z.unknown()),
+  model_text: z.string().nullable(),
+});
+
+/* What the tool's recipe did. A recipe check that fails before any call has no request or response. */
+export const StepExecutionSchema = z.object({
+  status: z.enum(STEP_EXECUTION_STATUSES),
+  summary: z.string().min(1),
+  request: z.object({ method: z.string().min(1), path: z.string().min(1), body: z.unknown().optional() }).nullable(),
+  response: z.object({ status_code: z.number().int(), call_id: z.string().min(1).nullable(), body: z.unknown() }).nullable(),
+  error: z.string().min(1).nullable(),
+  started_at: z.string().min(1),
+  completed_at: z.string().min(1),
+});
+export type StepExecution = z.infer<typeof StepExecutionSchema>;
+
+/* One model turn in an idea's workstream, written once (docs/16 §5.3). */
+export const IdeaStepSchema = z.object({
+  persona_id: z.string().min(1),
+  sk: z.string().regex(/^IDEA#.+#STEP#\d{4}$/),
+  idea_id: z.string().min(1),
+  sequence: z.number().int().min(1),
+  kind: z.enum(STEP_KINDS),
+  /* Null only on FORCED_FINISH, where the loop, not the model, closed the idea. */
+  decision: StepDecisionSchema.nullable(),
+  /* Null on FINISH and FORCED_FINISH. */
+  execution: StepExecutionSchema.nullable(),
+  input_tokens: z.number().int().min(0),
+  output_tokens: z.number().int().min(0),
+  created_at: z.string().min(1),
+});
+export type IdeaStep = z.infer<typeof IdeaStepSchema>;
 
 export const ResidentIdeaSchema = z.object({
   persona_id: z.string().min(1),
@@ -40,10 +103,10 @@ export const ResidentIdeaSchema = z.object({
   /* `persona_id#order_id`, only on ideas about an order (the sparse ByOrder index). */
   by_order_pk: z.string().min(1).optional(),
   feed_pk: z.literal(IDEA_FEED_PK),
-  /* `persona_id`, only on idea rows (the sparse ByResident index, docs/16 §5.3). Optional until older ideas are backfilled. */
+  /* `persona_id`, only on idea rows (the sparse ByResident index, docs/16 §5.3). Ideas from before C1 got it by backfill. */
   resident_pk: z.string().min(1).optional(),
-  status: z.enum(IDEA_STATUSES),
-  actions: z.array(ResidentIdeaActionSchema),
+  /* Ideas from before the action loop have none stored; they read as not actioned. */
+  resolution: IdeaResolutionSchema.default(notActionedResolution),
   model_id: z.string().min(1),
   prompt_version: z.string().min(1),
   input_tokens: z.number().int().min(0),
@@ -67,6 +130,11 @@ export const THREAD_SK_PREFIX = "ORDER#";
 
 export function ideaSortKey(ideaId: string): string {
   return `${IDEA_SK_PREFIX}${ideaId}`;
+}
+
+/** A step's sort key: under its idea's, so one query returns the idea and then its steps in order. */
+export function stepSortKey(ideaId: string, sequence: number): string {
+  return `${ideaSortKey(ideaId)}#STEP#${String(sequence).padStart(4, "0")}`;
 }
 
 export function threadSortKey(orderId: string): string {

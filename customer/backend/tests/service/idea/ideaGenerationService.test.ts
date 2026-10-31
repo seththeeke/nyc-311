@@ -56,7 +56,7 @@ describe("runIdeaWorker", () => {
       by_order_pk: "hawthorn#FRESH",
       feed_pk: "ALL",
       resident_pk: "hawthorn",
-      actions: [],
+      resolution: { status: "NOT_ACTIONED", last_step_sequence: 0 },
       input_tokens: 600,
       created_at: NOW.toISOString(),
     });

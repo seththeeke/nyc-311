@@ -1,6 +1,6 @@
 import hawthorn from "../residents/hawthorn.json";
 import { RESIDENT_CURRENT_SK, RESIDENT_ROSTER_PK, ResidentSeedSchema, type ResidentCurrent, type ResidentSeed } from "../models/resident";
-import { IDEA_FEED_PK, type ResidentIdea } from "../models/residentIdea";
+import { IDEA_FEED_PK, notActionedResolution, type IdeaStep, type ResidentIdea } from "../models/residentIdea";
 import type { WebhookCustomerFacingOrder } from "../models/webhookCustomerFacingOrder";
 import { buildResidentContent } from "../service/resident/residentSyncService";
 import { openOrder } from "./fixtures";
@@ -31,8 +31,8 @@ export const idea: ResidentIdea = {
   external_unique_key: "69860415",
   by_order_pk: "hawthorn#01ORDER",
   feed_pk: IDEA_FEED_PK,
-  status: "OPEN",
-  actions: [],
+  resident_pk: "hawthorn",
+  resolution: notActionedResolution(),
   model_id: "amazon.nova-micro-v1:0",
   prompt_version: "idea-generator@1",
   input_tokens: 812,
@@ -55,3 +55,25 @@ delete featureIdea.by_order_pk;
 export function order(id: string, overrides: Partial<WebhookCustomerFacingOrder> = {}): WebhookCustomerFacingOrder {
   return { ...openOrder, order_id: id, ...overrides };
 }
+
+/* A completed search step on `idea` (docs/16 §5.3). */
+export const searchStep: IdeaStep = {
+  persona_id: "hawthorn",
+  sk: `${idea.sk}#STEP#0001`,
+  idea_id: idea.idea_id,
+  sequence: 1,
+  kind: "TOOL_CALL",
+  decision: { tool: "SEARCH_REQUESTS", input: {}, model_text: "Let me see if they've booked it." },
+  execution: {
+    status: "COMPLETED",
+    summary: "Found it: scheduled 3 Nov, 13:00–15:00.",
+    request: { method: "POST", path: "/v1/requests/search", body: { search_params: { order_id: "01ORDER" } } },
+    response: { status_code: 200, call_id: "01K8D2ZZZZZZZZZZZZZZZZZZZZ", body: { items: [], next_cursor: null } },
+    error: null,
+    started_at: "2026-11-02T22:14:01.000Z",
+    completed_at: "2026-11-02T22:14:01.420Z",
+  },
+  input_tokens: 940,
+  output_tokens: 38,
+  created_at: "2026-11-02T22:14:01.420Z",
+};

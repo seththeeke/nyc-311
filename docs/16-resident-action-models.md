@@ -423,7 +423,7 @@ One local commit or more per leg, in this order; each passes build, lint, tests 
 | C4 | Resident memory (§5.4) | customer/backend | |
 | W1 | Idea Resolution UI (§6.1) | web-app | |
 
-Ordering constraints: C2 ships only after C1 is deployed to Prod and its backfill has run. C3 ships only after B5 and B6 are live in Prod.
+Ordering constraints: C2 ships only after C1 is deployed to Prod and its backfill has run. C2 and W1 ship in the same push: C2's read API drops `status` and `actions` for `resolution` and `steps`, the web-app (deployed first, in DeployProd) must already read both shapes, and the customer stack follows in DeployCustomer. C3 ships only after B5 and B6 are live in Prod.
 
 ---
 

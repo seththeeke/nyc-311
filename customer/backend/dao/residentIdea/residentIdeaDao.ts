@@ -1,28 +1,39 @@
-import { GetCommand, QueryCommand, TransactWriteCommand, type DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import type { ZodType } from "zod";
+import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { QueryCommand, TransactWriteCommand, type DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import type { z, ZodTypeAny } from "zod";
 import { logInfo } from "../../logger";
-import { ValidationError } from "../../models/errors";
+import { TerminalError, ValidationError } from "../../models/errors";
 import { RESIDENT_CURRENT_SK } from "../../models/resident";
 import {
   IDEA_FEED_PK,
-  IDEA_SK_PREFIX,
+  IdeaStepSchema,
   ResidentIdeaSchema,
   ResidentOrderThreadSchema,
   THREAD_SK_PREFIX,
   ideaSortKey,
   threadSortKey,
+  type IdeaResolution,
+  type IdeaStep,
   type ResidentIdea,
   type ResidentOrderThread,
 } from "../../models/residentIdea";
 import { encodeCursor, type DynamoKey } from "../cursor";
 
 export const IDEA_FEED_INDEX = "Feed";
+/* Idea rows only, so a resident's ideas list without their step rows (docs/16 §5.3). */
+export const IDEA_BY_RESIDENT_INDEX = "ByResident";
 /* Thread rows read per resident when choosing what is new to them; far above any real resident's history today. */
 const MAX_THREADS = 500;
 
 export interface IdeaPage {
   items: ResidentIdea[];
   lastKey: string | null;
+}
+
+export interface IdeaWithSteps {
+  idea: ResidentIdea;
+  /* In order, oldest first. */
+  steps: IdeaStep[];
 }
 
 /**
@@ -39,14 +50,15 @@ export class ResidentIdeaDao {
     private readonly residentsTableName: string
   ) {}
 
-  /** One resident's ideas, newest first. */
+  /** One resident's ideas, newest first, through the ByResident index (A3). */
   async listForResident(personaId: string, limit: number, startKey: DynamoKey | undefined): Promise<IdeaPage> {
-    logInfo("ResidentIdeaDao.listForResident", { table: this.tableName, personaId, limit, startKey });
+    logInfo("ResidentIdeaDao.listForResident", { table: this.tableName, index: IDEA_BY_RESIDENT_INDEX, personaId, limit, startKey });
     const result = await this.client.send(
       new QueryCommand({
         TableName: this.tableName,
-        KeyConditionExpression: "persona_id = :persona AND begins_with(sk, :prefix)",
-        ExpressionAttributeValues: { ":persona": personaId, ":prefix": IDEA_SK_PREFIX },
+        IndexName: IDEA_BY_RESIDENT_INDEX,
+        KeyConditionExpression: "resident_pk = :persona",
+        ExpressionAttributeValues: { ":persona": personaId },
         ScanIndexForward: false,
         Limit: limit,
         ExclusiveStartKey: startKey,
@@ -72,10 +84,76 @@ export class ResidentIdeaDao {
     return { items: (result.Items ?? []).map((item) => this.parse(ResidentIdeaSchema, item)), lastKey: encodeCursor(result.LastEvaluatedKey) };
   }
 
-  async getIdea(personaId: string, ideaId: string): Promise<ResidentIdea | null> {
-    logInfo("ResidentIdeaDao.getIdea", { table: this.tableName, personaId, ideaId });
-    const result = await this.client.send(new GetCommand({ TableName: this.tableName, Key: { persona_id: personaId, sk: ideaSortKey(ideaId) } }));
-    return result.Item ? this.parse(ResidentIdeaSchema, result.Item) : null;
+  /**
+   * One idea and its whole workstream in a single query (R1): the idea row
+   * sorts first, its `#STEP#` rows after it in order. Strongly consistent,
+   * since the action worker resumes from it.
+   */
+  async getIdeaWithSteps(personaId: string, ideaId: string): Promise<IdeaWithSteps | null> {
+    logInfo("ResidentIdeaDao.getIdeaWithSteps", { table: this.tableName, personaId, ideaId });
+    const ideaKey = ideaSortKey(ideaId);
+    const items: Record<string, unknown>[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "persona_id = :persona AND begins_with(sk, :idea)",
+          ExpressionAttributeValues: { ":persona": personaId, ":idea": ideaKey },
+          ConsistentRead: true,
+          ExclusiveStartKey: startKey,
+        })
+      );
+      items.push(...(result.Items ?? []));
+      startKey = result.LastEvaluatedKey;
+    } while (startKey);
+    const [first, ...rest] = items;
+    if (!first || first.sk !== ideaKey) return null;
+    return { idea: this.parse(ResidentIdeaSchema, first), steps: rest.map((item) => this.parse(IdeaStepSchema, item)) };
+  }
+
+  /**
+   * Appends one workstream step and sets the idea's resolution to match,
+   * in one transaction (docs/16 §5.3). The step must be new and the idea's
+   * `last_step_sequence` must be the step's predecessor, so a redelivered
+   * message can never write a step twice or out of order.
+   *
+   * @throws {@link TerminalError} when the step already exists or the idea moved on.
+   */
+  async appendStep(step: IdeaStep, resolution: IdeaResolution): Promise<void> {
+    const validated = this.parse(IdeaStepSchema, step);
+    logInfo("ResidentIdeaDao.appendStep", {
+      table: this.tableName,
+      personaId: validated.persona_id,
+      ideaId: validated.idea_id,
+      sequence: validated.sequence,
+      kind: validated.kind,
+      resolutionStatus: resolution.status,
+    });
+    try {
+      await this.client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            { Put: { TableName: this.tableName, Item: validated, ConditionExpression: "attribute_not_exists(sk)" } },
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: { persona_id: validated.persona_id, sk: ideaSortKey(validated.idea_id) },
+                UpdateExpression: "SET resolution = :resolution",
+                ConditionExpression:
+                  "attribute_exists(sk) AND (attribute_not_exists(resolution) OR resolution.last_step_sequence = :previous)",
+                ExpressionAttributeValues: { ":resolution": resolution, ":previous": validated.sequence - 1 },
+              },
+            },
+          ],
+        })
+      );
+    } catch (err) {
+      if (err instanceof TransactionCanceledException) {
+        throw new TerminalError(`Step ${validated.sequence} of idea ${validated.idea_id} conflicts with what is stored`, err);
+      }
+      throw err;
+    }
   }
 
   /** Every order this resident has had an idea about (A6). */
@@ -138,7 +216,7 @@ export class ResidentIdeaDao {
     );
   }
 
-  private parse<T>(schema: ZodType<T>, item: unknown): T {
+  private parse<S extends ZodTypeAny>(schema: S, item: unknown): z.output<S> {
     const parsed = schema.safeParse(item);
     if (!parsed.success) throw new ValidationError(`Failed to validate item against schema for table ${this.tableName}`, parsed.error.issues);
     return parsed.data;

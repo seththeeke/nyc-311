@@ -7,8 +7,8 @@ import { requireEnv } from "../../env";
 import { logInfo } from "../../logger";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import type { ResidentCurrent } from "../../models/resident";
-import type { ResidentIdea } from "../../models/residentIdea";
-import type { Page, ResidentIdeaView, ResidentView } from "../../models/residentView";
+import type { IdeaStep, ResidentIdea } from "../../models/residentIdea";
+import type { IdeaStepView, Page, ResidentIdeaDetailView, ResidentIdeaView, ResidentView } from "../../models/residentView";
 import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFacingOrder";
 
 export const DEFAULT_PAGE_SIZE = 20;
@@ -79,13 +79,24 @@ export function toIdeaView(idea: ResidentIdea, orders: Map<string, WebhookCustom
     idea_type: idea.idea_type,
     text: idea.text,
     anchor,
-    status: idea.status,
+    resolution: idea.resolution,
     created_at: idea.created_at,
     model_id: idea.model_id,
     prompt_version: idea.prompt_version,
     input_tokens: idea.input_tokens,
     output_tokens: idea.output_tokens,
-    actions: idea.actions,
+  };
+}
+
+export function toStepView(step: IdeaStep): IdeaStepView {
+  return {
+    sequence: step.sequence,
+    kind: step.kind,
+    decision: step.decision,
+    execution: step.execution,
+    input_tokens: step.input_tokens,
+    output_tokens: step.output_tokens,
+    created_at: step.created_at,
   };
 }
 
@@ -127,10 +138,15 @@ export async function listIdeas(
   return { items: await withAnchors(page.items, deps), nextCursor: page.lastKey };
 }
 
-/** @throws {@link NotFoundError} for an unknown idea. */
-export async function getIdea(personaId: string, ideaId: string, deps: ResidentReadDeps = {}): Promise<ResidentIdeaView> {
-  const idea = await ideaDaoOf(deps).getIdea(personaId, ideaId);
-  if (!idea) throw new NotFoundError(`No idea ${ideaId} for resident ${personaId}`);
-  const [view] = await withAnchors([idea], deps);
-  return view;
+/**
+ * One idea with its whole workstream (docs/16 §5.3, R1), from one query.
+ *
+ * @throws {@link NotFoundError} for an unknown idea.
+ */
+export async function getIdea(personaId: string, ideaId: string, deps: ResidentReadDeps = {}): Promise<ResidentIdeaDetailView> {
+  const found = await ideaDaoOf(deps).getIdeaWithSteps(personaId, ideaId);
+  if (!found) throw new NotFoundError(`No idea ${ideaId} for resident ${personaId}`);
+  const [view] = await withAnchors([found.idea], deps);
+  logInfo("IdeaRead", { personaId, ideaId, stepCount: found.steps.length, resolution: found.idea.resolution.status });
+  return { ...view, steps: found.steps.map(toStepView) };
 }

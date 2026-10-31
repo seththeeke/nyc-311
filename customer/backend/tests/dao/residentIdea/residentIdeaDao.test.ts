@@ -1,8 +1,11 @@
-import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResidentIdeaDao } from "../../../dao/residentIdea/residentIdeaDao";
-import { featureIdea, idea } from "../../residentFixtures";
+import { TerminalError } from "../../../models/errors";
+import type { IdeaResolution } from "../../../models/residentIdea";
+import { featureIdea, idea, searchStep } from "../../residentFixtures";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const dao = new ResidentIdeaDao(ddbMock as unknown as DynamoDBDocumentClient, "ResidentIdeas-Prod", "Residents-Prod");
@@ -15,12 +18,17 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("ResidentIdeaDao reads", () => {
-  it("lists one resident's ideas newest first", async () => {
+  it("lists one resident's ideas newest first through ByResident, so no step rows", async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [idea], LastEvaluatedKey: { persona_id: "hawthorn", sk: idea.sk } });
     const page = await dao.listForResident("hawthorn", 20, undefined);
     expect(page.items).toEqual([idea]);
     expect(page.lastKey).not.toBeNull();
-    expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input).toMatchObject({ ScanIndexForward: false, ExpressionAttributeValues: { ":prefix": "IDEA#" } });
+    expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input).toMatchObject({
+      IndexName: "ByResident",
+      KeyConditionExpression: "resident_pk = :persona",
+      ScanIndexForward: false,
+      ExpressionAttributeValues: { ":persona": "hawthorn" },
+    });
   });
 
   it("lists every resident's ideas through the Feed index", async () => {
@@ -29,10 +37,24 @@ describe("ResidentIdeaDao reads", () => {
     expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input).toMatchObject({ IndexName: "Feed", ScanIndexForward: false });
   });
 
-  it("gets one idea, or null", async () => {
-    ddbMock.on(GetCommand).resolvesOnce({ Item: idea }).resolvesOnce({});
-    await expect(dao.getIdea("hawthorn", idea.idea_id)).resolves.toEqual(idea);
-    await expect(dao.getIdea("hawthorn", "nope")).resolves.toBeNull();
+  it("gets an idea and its steps in order from one consistent query, across pages", async () => {
+    const step2 = { ...searchStep, sk: `${idea.sk}#STEP#0002`, sequence: 2 };
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({ Items: [idea, searchStep], LastEvaluatedKey: { persona_id: "hawthorn", sk: searchStep.sk } })
+      .resolvesOnce({ Items: [step2] });
+    await expect(dao.getIdeaWithSteps("hawthorn", idea.idea_id)).resolves.toEqual({ idea, steps: [searchStep, step2] });
+    expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input).toMatchObject({
+      KeyConditionExpression: "persona_id = :persona AND begins_with(sk, :idea)",
+      ExpressionAttributeValues: { ":persona": "hawthorn", ":idea": idea.sk },
+      ConsistentRead: true,
+    });
+  });
+
+  it("returns null for an unknown idea, or steps with no idea row", async () => {
+    ddbMock.on(QueryCommand).resolvesOnce({ Items: [] }).resolvesOnce({ Items: [searchStep] });
+    await expect(dao.getIdeaWithSteps("hawthorn", "nope")).resolves.toBeNull();
+    await expect(dao.getIdeaWithSteps("hawthorn", idea.idea_id)).resolves.toBeNull();
   });
 
   it("reads every thread row across pages", async () => {
@@ -50,8 +72,8 @@ describe("ResidentIdeaDao reads", () => {
   });
 
   it("rejects a malformed stored idea", async () => {
-    ddbMock.on(GetCommand).resolves({ Item: { ...idea, idea_type: "GOSSIP" } });
-    await expect(dao.getIdea("hawthorn", idea.idea_id)).rejects.toThrow("ResidentIdeas-Prod");
+    ddbMock.on(QueryCommand).resolves({ Items: [{ ...idea, idea_type: "GOSSIP" }] });
+    await expect(dao.getIdeaWithSteps("hawthorn", idea.idea_id)).rejects.toThrow("ResidentIdeas-Prod");
   });
 });
 
@@ -70,5 +92,45 @@ describe("ResidentIdeaDao.recordIdea", () => {
     ddbMock.on(TransactWriteCommand).resolves({});
     await dao.recordIdea(featureIdea);
     expect(ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input.TransactItems).toHaveLength(2);
+  });
+});
+
+describe("ResidentIdeaDao.appendStep", () => {
+  const resolution: IdeaResolution = {
+    status: "IN_PROGRESS",
+    summary: null,
+    follow_up: null,
+    tools_used: ["SEARCH_REQUESTS"],
+    step_count: 1,
+    last_step_sequence: 1,
+    started_at: "2026-11-02T22:14:00.000Z",
+    finished_at: null,
+    prompt_version: "idea-actioner@1",
+    input_tokens: 940,
+    output_tokens: 38,
+  };
+
+  it("writes the step and the idea's resolution in one transaction, conditioned on the previous step", async () => {
+    ddbMock.on(TransactWriteCommand).resolves({});
+    await dao.appendStep(searchStep, resolution);
+    const [put, update] = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input.TransactItems ?? [];
+    expect(put.Put).toMatchObject({ Item: searchStep, ConditionExpression: "attribute_not_exists(sk)" });
+    expect(update.Update).toMatchObject({
+      Key: { persona_id: "hawthorn", sk: idea.sk },
+      UpdateExpression: "SET resolution = :resolution",
+      ExpressionAttributeValues: { ":resolution": resolution, ":previous": 0 },
+    });
+    expect(update.Update?.ConditionExpression).toContain("resolution.last_step_sequence = :previous");
+  });
+
+  it("refuses a step that already exists or skips ahead", async () => {
+    ddbMock.on(TransactWriteCommand).rejects(new TransactionCanceledException({ message: "cancelled", $metadata: {} }));
+    await expect(dao.appendStep(searchStep, resolution)).rejects.toThrow(TerminalError);
+  });
+
+  it("rethrows any other failure, and validates the step first", async () => {
+    ddbMock.on(TransactWriteCommand).rejects(new Error("throttled"));
+    await expect(dao.appendStep(searchStep, resolution)).rejects.toThrow("throttled");
+    await expect(dao.appendStep({ ...searchStep, sk: idea.sk }, resolution)).rejects.toThrow("ResidentIdeas-Prod");
   });
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ACTION_TYPES, IDEA_TYPES } from "./resident";
-import { ACTION_STATUSES, IDEA_STATUSES } from "./residentIdea";
+import { IDEA_TYPES } from "./resident";
+import { IdeaResolutionSchema, STEP_KINDS, StepDecisionSchema, StepExecutionSchema } from "./residentIdea";
 
 /*
  * What the public read API returns (docs/13-customer-simulation.md §4,
@@ -46,15 +46,32 @@ export const ResidentIdeaViewSchema = z.object({
   idea_type: z.enum(IDEA_TYPES),
   text: z.string().min(1),
   anchor: IdeaAnchorViewSchema.nullable(),
-  status: z.enum(IDEA_STATUSES),
+  resolution: IdeaResolutionSchema,
   created_at: z.string().min(1),
   model_id: z.string().min(1),
   prompt_version: z.string().min(1),
   input_tokens: z.number().int().min(0),
   output_tokens: z.number().int().min(0),
-  actions: z.array(z.object({ type: z.enum(ACTION_TYPES), status: z.enum(ACTION_STATUSES) }).passthrough()),
 });
 export type ResidentIdeaView = z.infer<typeof ResidentIdeaViewSchema>;
+
+/* One workstream step as the read API returns it: the stored step without its keys (docs/16 §5.3). */
+export const IdeaStepViewSchema = z.object({
+  sequence: z.number().int().min(1),
+  kind: z.enum(STEP_KINDS),
+  decision: StepDecisionSchema.nullable(),
+  execution: StepExecutionSchema.nullable(),
+  input_tokens: z.number().int().min(0),
+  output_tokens: z.number().int().min(0),
+  created_at: z.string().min(1),
+});
+export type IdeaStepView = z.infer<typeof IdeaStepViewSchema>;
+
+/* `GET /residents/{id}/ideas/{ideaId}`: the idea with its whole workstream, from one query. */
+export const ResidentIdeaDetailViewSchema = ResidentIdeaViewSchema.extend({
+  steps: z.array(IdeaStepViewSchema),
+});
+export type ResidentIdeaDetailView = z.infer<typeof ResidentIdeaDetailViewSchema>;
 
 export interface Page<T> {
   items: T[];
