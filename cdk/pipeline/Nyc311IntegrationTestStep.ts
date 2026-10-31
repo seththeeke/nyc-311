@@ -26,6 +26,8 @@ export interface IntegrationTestStepProps {
   apiUrlOutput: CfnOutput;
   /** That environment's Nyc311Stack.adminUserPoolClientIdOutput (via Nyc311AppStage) — wired in as USER_POOL_CLIENT_ID for the admin-whoami test's Cognito sign-in (9-admin-auth-integration.md §8). */
   adminUserPoolClientIdOutput: CfnOutput;
+  /** That environment's Nyc311Stack.publicApiUrlOutput — wired in as PUBLIC_API_BASE_URL for the public API's tests (16-resident-action-models.md §2). */
+  publicApiUrlOutput: CfnOutput;
   /** Reused from the pipeline's own source, so backend/ is present in this step's workspace. */
   source: pipelines.CodePipelineSource;
 }
@@ -63,6 +65,7 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
     envFromCfnOutputs: {
       API_BASE_URL: props.apiUrlOutput,
       USER_POOL_CLIENT_ID: props.adminUserPoolClientIdOutput,
+      PUBLIC_API_BASE_URL: props.publicApiUrlOutput,
     },
     commands: [runAndCaptureExit, syncReport, invalidate, finish],
     /* MEDIUM, not the pipeline's SMALL default: this is Test's blocking gate, and a starved Vitest run would flake it. */

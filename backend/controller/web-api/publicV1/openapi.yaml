@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: BoroughSim Public API
+  version: "1.0.0"
+  summary: Look up how BoroughSim is handling a 311 complaint, and ask for new features.
+  description: |
+    The BoroughSim public API is the stable, documented way for anyone outside BoroughSim to work with it.
+
+    **Every request** carries an `X-Requester` header naming the calling client (for example `resident:hawthorn`).
+    It is format-checked, not authenticated. **Every response** carries `X-Call-Id`, a unique id for that call.
+
+    **Compatibility:** within `/v1/` changes are additive only. New fields and new enum values may appear in
+    responses at any time; clients must ignore what they don't recognise. A breaking change gets a new version.
+
+    **Errors** share one shape: `{ "error": { "code", "message", "details" } }`.
+    Rate limits are enforced by the gateway and answered with `429`.
+servers:
+  - url: https://public-api.boroughsim.com
+    description: Production
+  - url: https://public-api.test.boroughsim.com
+    description: Test
+tags:
+  - name: Requests
+    description: 311 complaints and how BoroughSim is handling them.
+  - name: Feature requests
+    description: Ask BoroughSim for something it doesn't do yet, and check on it later.
+  - name: Meta
+    description: This document.
+paths:
+  /v1/requests/search:
+    post:
+      operationId: searchRequests
+      tags: [Requests]
+      summary: Search requests
+      description: |
+        Finds 311 complaints BoroughSim is handling. `search_params` will grow over time; in v1 the only filter is
+        `order_id`, which is required. A well-formed id that matches nothing returns an empty list.
+      parameters:
+        - $ref: "#/components/parameters/XRequester"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequestsBody"
+            examples:
+              byOrder:
+                summary: Search by order id
+                value:
+                  search_params:
+                    order_id: 01K7XWQ2B9N4M8F3T6RZ0Y5DKA
+                  limit: 20
+      responses:
+        "200":
+          description: Matching requests (possibly none).
+          headers:
+            X-Call-Id:
+              $ref: "#/components/headers/XCallId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchRequestsResponse"
+              examples:
+                scheduled:
+                  summary: A scheduled request
+                  value:
+                    items:
+                      - order_id: 01K7XWQ2B9N4M8F3T6RZ0Y5DKA
+                        request_id: 01K7XW9F0C2A7K5D8S3TQ1M4EB
+                        complaint_type: Street Condition
+                        borough: BROOKLYN
+                        address: 412 ATLANTIC AVENUE
+                        zip: "11217"
+                        status: SCHEDULED
+                        status_reason_description: null
+                        scheduled_window:
+                          start: "2026-11-03T13:00:00.000Z"
+                          end: "2026-11-03T15:00:00.000Z"
+                        received_at: "2026-10-14T14:03:11.000Z"
+                        status_updated_at: "2026-11-02T09:10:00.000Z"
+                    next_cursor: null
+                notServiced:
+                  summary: A request BoroughSim won't service
+                  value:
+                    items:
+                      - order_id: 01K7XWQ2B9N4M8F3T6RZ0Y5DKB
+                        request_id: 01K7XW9F0C2A7K5D8S3TQ1M4EC
+                        complaint_type: Noise
+                        borough: null
+                        address: null
+                        zip: null
+                        status: NOT_SERVICED
+                        status_reason_description: This type of request isn't serviced.
+                        scheduled_window: null
+                        received_at: "2026-10-14T14:03:11.000Z"
+                        status_updated_at: "2026-10-14T14:03:12.000Z"
+                    next_cursor: null
+                noMatch:
+                  summary: No request has that order id
+                  value:
+                    items: []
+                    next_cursor: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/feature-requests:
+    post:
+      operationId: createFeatureRequest
+      tags: [Feature requests]
+      summary: Create a feature request
+      description: |
+        Asks BoroughSim for a feature. Send an `Idempotency-Key` (a UUID) to make retries safe: a repeat with the
+        same key returns the original feature request instead of filing a second one. Bodies of repeats are not
+        compared. The body may be at most 8 KB.
+      parameters:
+        - $ref: "#/components/parameters/XRequester"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeatureRequestBody"
+            examples:
+              textAlerts:
+                summary: A feature request
+                value:
+                  title: Text me when a repair near me is scheduled
+                  description: I ride past these every night. Let me subscribe to a street and get a text when work is booked.
+                  submitted_by:
+                    name: Hawthorn
+                    email: null
+      responses:
+        "201":
+          description: The feature request, as filed (or as originally filed, on a repeated `Idempotency-Key`).
+          headers:
+            X-Call-Id:
+              $ref: "#/components/headers/XCallId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureRequest"
+              examples:
+                received:
+                  summary: A new feature request
+                  value:
+                    feature_request_id: 01K8C4T1W7H3P9N2M6QZ8V0RJD
+                    status: RECEIVED
+                    status_reason_description: null
+                    title: Text me when a repair near me is scheduled
+                    description: I ride past these every night. Let me subscribe to a street and get a text when work is booked.
+                    submitted_by:
+                      name: Hawthorn
+                    created_at: "2026-11-02T22:14:02.000Z"
+                    updated_at: "2026-11-02T22:14:02.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/feature-requests/{feature_request_id}:
+    get:
+      operationId: getFeatureRequest
+      tags: [Feature requests]
+      summary: Get a feature request
+      description: A feature request's current status.
+      parameters:
+        - $ref: "#/components/parameters/XRequester"
+        - name: feature_request_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Ulid"
+      responses:
+        "200":
+          description: The feature request.
+          headers:
+            X-Call-Id:
+              $ref: "#/components/headers/XCallId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureRequest"
+              examples:
+                underReview:
+                  summary: A feature request under review
+                  value:
+                    feature_request_id: 01K8C4T1W7H3P9N2M6QZ8V0RJD
+                    status: UNDER_REVIEW
+                    status_reason_description: null
+                    title: Text me when a repair near me is scheduled
+                    description: I ride past these every night. Let me subscribe to a street and get a text when work is booked.
+                    submitted_by:
+                      name: Hawthorn
+                    created_at: "2026-11-02T22:14:02.000Z"
+                    updated_at: "2026-11-04T10:00:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/openapi.yaml:
+    get:
+      operationId: getOpenApiSpec
+      tags: [Meta]
+      summary: Get this document
+      parameters:
+        - $ref: "#/components/parameters/XRequester"
+      responses:
+        "200":
+          description: This OpenAPI document, as YAML.
+          headers:
+            X-Call-Id:
+              $ref: "#/components/headers/XCallId"
+          content:
+            application/yaml:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+components:
+  parameters:
+    XRequester:
+      name: X-Requester
+      in: header
+      required: true
+      description: The calling client, e.g. `resident:hawthorn`. Lowercase letters, digits and `:._-`, starting with a letter or digit, at most 64 characters.
+      schema:
+        type: string
+        pattern: "^[a-z0-9][a-z0-9:._-]{0,63}$"
+      example: resident:hawthorn
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Makes a create safe to retry. Use a UUID; keys are global.
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9_-]{8,128}$"
+      example: b6f0c1e2-7a4d-4c1e-9d55-2f0e8c3a9b11
+  headers:
+    XCallId:
+      description: A unique id for this call (a ULID). Quote it when asking about a call.
+      schema:
+        $ref: "#/components/schemas/Ulid"
+  responses:
+    BadRequest:
+      description: The request was malformed, or `X-Requester` was missing or malformed.
+      headers:
+        X-Call-Id:
+          $ref: "#/components/headers/XCallId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            validation:
+              summary: A field failed validation
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: The request body is invalid.
+                  details:
+                    - field: search_params.order_id
+                      issue: must be a ULID
+            requester:
+              summary: X-Requester missing or malformed
+              value:
+                error:
+                  code: INVALID_REQUESTER
+                  message: The X-Requester header is missing or malformed.
+    NotFound:
+      description: Nothing exists with that id.
+      headers:
+        X-Call-Id:
+          $ref: "#/components/headers/XCallId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            notFound:
+              summary: Unknown id
+              value:
+                error:
+                  code: NOT_FOUND
+                  message: No feature request has that id.
+    RateLimited:
+      description: Too many requests. Sent by the gateway; the body is not in the error shape.
+    InternalError:
+      description: Something went wrong on BoroughSim's side.
+      headers:
+        X-Call-Id:
+          $ref: "#/components/headers/XCallId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            internal:
+              summary: Internal error
+              value:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Something went wrong. Quote the X-Call-Id when reporting it.
+  schemas:
+    Ulid:
+      type: string
+      pattern: "^[0-9A-HJKMNP-TV-Z]{26}$"
+      example: 01K8C4T1W7H3P9N2M6QZ8V0RJD
+    Timestamp:
+      type: string
+      format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, INVALID_REQUESTER, NOT_FOUND, INTERNAL_ERROR]
+              description: May grow; treat an unknown code like INTERNAL_ERROR.
+            message:
+              type: string
+            details:
+              type: array
+              description: Present on VALIDATION_ERROR, one entry per failing field.
+              items:
+                type: object
+                required: [field, issue]
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+    SearchRequestsBody:
+      type: object
+      required: [search_params]
+      additionalProperties: false
+      properties:
+        search_params:
+          type: object
+          required: [order_id]
+          additionalProperties: false
+          description: Filters. More will be added; in v1 `order_id` is the only one.
+          properties:
+            order_id:
+              $ref: "#/components/schemas/Ulid"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+        cursor:
+          type: [string, "null"]
+          description: The `next_cursor` of the previous page of the same search.
+    ServiceRequest:
+      type: object
+      required: [order_id, request_id, complaint_type, borough, address, zip, status, status_reason_description, scheduled_window, received_at, status_updated_at]
+      properties:
+        order_id:
+          $ref: "#/components/schemas/Ulid"
+        request_id:
+          type: string
+        complaint_type:
+          type: [string, "null"]
+        borough:
+          type: [string, "null"]
+          description: Null when the location couldn't be resolved.
+        address:
+          type: [string, "null"]
+        zip:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [RECEIVED, ACCEPTED, SCHEDULED, IN_PROGRESS, RESOLVED, NOT_SERVICED]
+          description: May grow.
+        status_reason_description:
+          type: [string, "null"]
+          description: Why the request is in this status, when there is more to say.
+        scheduled_window:
+          description: When the work is booked; null until it is scheduled.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [start, end]
+              properties:
+                start:
+                  $ref: "#/components/schemas/Timestamp"
+                end:
+                  $ref: "#/components/schemas/Timestamp"
+        received_at:
+          $ref: "#/components/schemas/Timestamp"
+        status_updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    SearchRequestsResponse:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceRequest"
+        next_cursor:
+          type: [string, "null"]
+    CreateFeatureRequestBody:
+      type: object
+      required: [title, description, submitted_by]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 120
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        submitted_by:
+          type: object
+          required: [name]
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 80
+            email:
+              type: [string, "null"]
+              format: email
+              description: Optional; never returned.
+    FeatureRequest:
+      type: object
+      required: [feature_request_id, status, status_reason_description, title, description, submitted_by, created_at, updated_at]
+      properties:
+        feature_request_id:
+          $ref: "#/components/schemas/Ulid"
+        status:
+          type: string
+          enum: [RECEIVED, UNDER_REVIEW, CLOSED]
+          description: May grow.
+        status_reason_description:
+          type: [string, "null"]
+        title:
+          type: string
+        description:
+          type: string
+        submitted_by:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"

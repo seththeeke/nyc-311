@@ -27,6 +27,11 @@ export const KNOWN_ROUTES = [
   "/admin/feature-flags/{flag_key}",
   /* Test-only route (the webhook sink) — reads as "not hit" in a Prod report. */
   "/webhook-sink/deliveries",
+  /* The public API (16-resident-action-models.md §2), on its own host. */
+  "/v1/requests/search",
+  "/v1/feature-requests",
+  "/v1/feature-requests/{feature_request_id}",
+  "/v1/openapi.yaml",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

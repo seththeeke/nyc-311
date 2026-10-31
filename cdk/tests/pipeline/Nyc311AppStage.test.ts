@@ -19,6 +19,7 @@ vi.mock("../../stack/Nyc311Stack", async () => {
   class FakeNyc311Stack extends RealStack {
     public readonly apiUrlOutput: InstanceType<typeof RealCfnOutput>;
     public readonly adminUserPoolClientIdOutput: InstanceType<typeof RealCfnOutput>;
+    public readonly publicApiUrlOutput: InstanceType<typeof RealCfnOutput>;
 
     constructor(scope: Construct, id: string, props: Nyc311StackProps) {
       super(scope, id, props);
@@ -26,6 +27,7 @@ vi.mock("../../stack/Nyc311Stack", async () => {
       this.adminUserPoolClientIdOutput = new RealCfnOutput(this, "FakeAdminUserPoolClientId", {
         value: "fake-admin-client-id",
       });
+      this.publicApiUrlOutput = new RealCfnOutput(this, "FakePublicApiUrl", { value: "fake-public-api-url" });
     }
   }
   return { Nyc311Stack: FakeNyc311Stack };
@@ -48,15 +50,17 @@ describe("Nyc311AppStage", () => {
     expect(stack.stackName).toBe("Nyc311-Prod");
   });
 
-  it("forwards the wrapped stack's apiUrlOutput and adminUserPoolClientIdOutput", () => {
+  it("forwards the wrapped stack's apiUrlOutput, adminUserPoolClientIdOutput and publicApiUrlOutput", () => {
     const app = new App();
     const stage = new Nyc311AppStage(app, "DeployTest", { envName: "TEST" });
     const stack = stage.node.findChild("Nyc311Stack") as unknown as {
       apiUrlOutput: CfnOutput;
       adminUserPoolClientIdOutput: CfnOutput;
+      publicApiUrlOutput: CfnOutput;
     };
 
     expect(stage.apiUrlOutput).toBe(stack.apiUrlOutput);
     expect(stage.adminUserPoolClientIdOutput).toBe(stack.adminUserPoolClientIdOutput);
+    expect(stage.publicApiUrlOutput).toBe(stack.publicApiUrlOutput);
   });
 });

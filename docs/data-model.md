@@ -33,6 +33,7 @@
 | [User](#user) | Defined | Expanded from `claude-prompt-initial.md` §3.1 with activity/audit fields |
 | [WebhookSubscription](#webhooksubscription) | Defined | One row per subscriber endpoint for the outbound lifecycle webhooks (`13-customer-simulation.md` §2/§5) |
 | [WebhookSinkDelivery](#webhooksinkdelivery) | Defined | Test-only: what the webhook sink subscriber received |
+| [Contact](#contact) | Defined | Someone reaching BoroughSim; first type `FEATURE_REQUEST` (`16-resident-action-models.md` §3) |
 
 ---
 
@@ -400,6 +401,29 @@ because DAO folders follow this document.
 | `received_at` | Timestamp. |
 | `signature_valid` | Whether the delivery's signature verified against the sink's secret. Invalid deliveries are recorded too. |
 | `expires_at` | TTL, one week after receipt. |
+
+---
+
+## Contact
+
+Someone reaching BoroughSim (`16-resident-action-models.md` §3).
+`contact_type` classifies it. Separate from Case, which is system-raised;
+the two are not linked. The public API exposes a `FEATURE_REQUEST` Contact
+as a feature request and never names the Contact.
+
+### Fields
+
+| Field | Description |
+|---|---|
+| `contact_id` | Identity. A ULID. |
+| `contact_type` | `feature_request`. |
+| `status` | `received` \| `in_progress` \| `closed`. Only `received` is written today. |
+| `title` | Short summary, 5–120 characters. |
+| `description` | The request in the submitter's words, 10–2000 characters. |
+| `submitter` | `{ name, email }`; `name` required, `email` nullable. Who the person is, as they gave it. No caller identity, IP or user agent. |
+| `closure_reason_code` / `closure_reason_description` | Null until `closed`. |
+| `client_request_id` | Nullable idempotency key. A create with a key already used returns the original Contact. |
+| `created_at` / `updated_at` | Timestamps. |
 
 ---
 

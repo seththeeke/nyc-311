@@ -125,6 +125,17 @@ const CONTROLLER_IMPORT_PATTERNS = [
   },
 ];
 
+/* CLAUDE.md §5.2 / 16-resident-action-models.md §2.3: only the public layer itself imports the public layer. */
+const NO_PUBLIC_API_IMPORTS = {
+  regex: "(^|/)(models|service)/publicApi(/|$)",
+  message: "Only service/publicApi/ and the publicV1 bundle import the public API layer; domain code never does (.claude/API.md §4).",
+};
+
+const NO_DAO_IMPORTS = {
+  group: ["**/dao/**"],
+  message: "The public API service calls domain services, never a DAO (.claude/API.md §4).",
+};
+
 const NO_ADMIN_BUNDLE_IMPORTS = {
   regex: "(^|/)web-api/admin(/|$)",
   message: "Only the admin bundle imports from controller/web-api/admin/ (15-resource-consolidation.md §4.4).",
@@ -140,6 +151,27 @@ module.exports = tseslint.config(
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "local/comment-format": "error",
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS, NO_PUBLIC_API_IMPORTS] }],
+    },
+  },
+  {
+    /* Tests may import any layer to exercise it. */
+    files: ["tests/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
+    },
+  },
+  {
+    /* The public service reaches domain services only. */
+    files: ["service/publicApi/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS, NO_DAO_IMPORTS] }],
+    },
+  },
+  {
+    /* Public models import each other relatively and nothing from the domain. */
+    files: ["models/publicApi/**/*.ts"],
+    rules: {
       "no-restricted-imports": ["error", { patterns: [NO_CUSTOMER_IMPORTS] }],
     },
   },
@@ -150,7 +182,7 @@ module.exports = tseslint.config(
        (15-resource-consolidation.md §4.4). */
     files: ["controller/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [...CONTROLLER_IMPORT_PATTERNS, NO_ADMIN_BUNDLE_IMPORTS] }],
+      "no-restricted-imports": ["error", { patterns: [...CONTROLLER_IMPORT_PATTERNS, NO_ADMIN_BUNDLE_IMPORTS, NO_PUBLIC_API_IMPORTS] }],
     },
   },
   {
@@ -166,6 +198,29 @@ module.exports = tseslint.config(
             {
               regex: "^\\.\\./(?!shared/|\\.\\./)",
               message: "A Service API bundle imports only ../shared/ from web-api/ — never another bundle (15-resource-consolidation.md §4.4).",
+            },
+            NO_PUBLIC_API_IMPORTS,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /* The public bundle goes through service/publicApi/ and no other service (.claude/API.md §4). */
+    files: ["controller/web-api/publicV1/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            ...CONTROLLER_IMPORT_PATTERNS,
+            {
+              regex: "^\\.\\./(?!shared/|\\.\\./)",
+              message: "A Service API bundle imports only ../shared/ from web-api/ — never another bundle (15-resource-consolidation.md §4.4).",
+            },
+            {
+              regex: "(^|/)service/(?!publicApi/)",
+              message: "Public controllers call service/publicApi/ only, even for a pass-through (.claude/API.md §4).",
             },
           ],
         },

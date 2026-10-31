@@ -226,6 +226,12 @@ The backend will follow a basic controller, service, and data access object(DAO)
    -> admin - every admin route, plus `requireAdminUser.ts`
    -> featureFlags, data, monitoring, fleet, webhookSubscriptions,
       webhookSink - the public bundles (`15-resource-consolidation.md` §3.3)
+   -> publicV1 - the **public API** (`16-resident-action-models.md` §2), served
+      by its own HTTP API at `public-api.boroughsim.com/v1/`, not
+      `api.boroughsim.com`. One bundle, one Lambda, one controller per route,
+      plus `openapi.yaml`, the hand-maintained spec. Every controller calls
+      `service/publicApi/` and no other service. Changes follow
+      `.claude/API.md`
   -> ingestion - controller endpoints for scheduled external-data ingestion
      (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
      EventBridge Scheduler trigger, not API Gateway or Step Functions —
@@ -250,6 +256,11 @@ The backend will follow a basic controller, service, and data access object(DAO)
      Test-only sink) live under web-api like every other route
  -> service
   -> grouped into logical processing services, not necessarily by entity
+  -> publicApi - the public API service layer (`16-resident-action-models.md`
+     §2.3): maps a `models/publicApi/` request to domain service calls and
+     the domain result back to a public response. It calls domain services
+     only, never a DAO, and nothing outside it and the `publicV1` bundle
+     imports it
  -> dao - explicitely grouped by entity we store, names matching
     data-model.md exactly. The one carve-out is `dao/analytics/` — the
     data-warehouse bookkeeping tables (`WarehouseJobRuns`, `AnalyticsRollups`
@@ -264,6 +275,8 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> shift
   -> user
   -> webhookSubscription
+  -> contact - Contacts (`16-resident-action-models.md` §3), including the
+     `CRID#` idempotency pointer rows
   -> webhookSinkDelivery - the Test-only webhook sink's delivery record
      (`13-customer-simulation.md` §5); listed in data-model.md like any
      other entity rather than carved out
@@ -283,10 +296,21 @@ The backend will follow a basic controller, service, and data access object(DAO)
     them propagate with a distinguishable `.name` so cdk/'s Catch/Retry
     blocks can route on error type (retry Transient, go straight to
     Case-creation on Terminal, per claude-prompt-initial.md §4.1).
+  -> publicApi - the public API's request and response models, separate from
+     the domain models they map to; no domain model imports them
  -> tests - the test file structure will mirror the overall code structure to ensure even coverage throughout and easy navigation.
 
 **Decisions filled in below (Claude's suggestions, reviewed one by one):**
 
+- **The public API sits on top of the domain layers**
+  (`16-resident-action-models.md` §2.3). A public operation runs
+  `publicV1` controller → `publicApiService` → domain service(s) → DAO, and
+  the public layer never skips a level: no DAO import in `service/publicApi/`,
+  no import of `models/publicApi/` or `service/publicApi/` outside the public
+  layer, and no other service import in the `publicV1` bundle — all lint
+  errors (`eslint.config.js`). Internal routes may still call domain
+  services directly. Read `.claude/API.md` before changing anything under
+  `publicV1/`, `service/publicApi/` or `models/publicApi/`.
 - **Runtime validation at every trust boundary.** "No `any`" is compile-time
   only. Every controller validates its incoming payload (API Gateway body,
   Step Functions input, EventBridge detail) through a `zod` schema before it
@@ -451,7 +475,7 @@ suffix.
  -> data - contains any data related constructs like DDB, Data Lake, etc
  -> step-function - contains the step function construct and its composition, importing lambdas where needed
  -> web - static-site hosting constructs (S3 + CloudFront) for `web-app/`, per `claude-prompt-initial.md` §5/§7's hosting decision
- -> api - the public API Gateway (HTTP API) and its route/integration constructs, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint. Each bundle's routes are built from its `backend/controller/web-api/<bundle>/<bundle>ApiRoutes.ts`, all on that bundle's one `HttpLambdaIntegration` — the one sanctioned `cdk/` → `backend/` import, legal only because that file imports nothing
+ -> api - the API Gateway HTTP APIs and their route/integration constructs: `Nyc311Api` (the web-app's API, `api.boroughsim.com`) and `Nyc311PublicApi` (the public API, `public-api.boroughsim.com`, `16-resident-action-models.md` §2), each with its own domain construct, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint. Each bundle's routes are built from its `backend/controller/web-api/<bundle>/<bundle>ApiRoutes.ts`, all on that bundle's one `HttpLambdaIntegration` — the one sanctioned `cdk/` → `backend/` import, legal only because that file imports nothing
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
  -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above
@@ -603,6 +627,13 @@ Goal is **less volume, not fewer comments** — still write one wherever the
  * loop needs to distinguish "drained" from "the API broke" cleanly).
  */
 ```
+
+### 6.2 Public API changes
+
+Any change to the public API (`public-api.boroughsim.com/v1/`) — a route,
+a field, a status value, an error code, the spec — follows
+**`.claude/API.md`**: spec first, additive-only within `/v1/`, through
+`publicApiService`, with its checklist run before the change is done.
 
 ## 7. Code Commits
 

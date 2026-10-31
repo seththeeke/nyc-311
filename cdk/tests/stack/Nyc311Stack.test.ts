@@ -147,6 +147,21 @@ describe("Nyc311Stack", () => {
     });
   });
 
+  it("wires the public API in both environments: domain, bundle Lambda, its own HTTP API and a URL output (16-resident-action-models.md §2)", () => {
+    for (const [env, suffix, domain] of [[testEnv, "Test", "public-api.test.boroughsim.com"], [prodEnv, "Prod", "public-api.boroughsim.com"]] as const) {
+      env.template.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: domain });
+      env.template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: `Nyc311PublicV1Api-${suffix}` });
+      env.template.hasResourceProperties("AWS::ApiGatewayV2::Api", { Name: `Nyc311PublicApi-${suffix}` });
+    }
+    expect(testEnv.stack.publicApiUrlOutput).toBeInstanceOf(CfnOutput);
+    testEnv.template.hasOutput("Nyc311PublicApiUrl", {});
+  });
+
+  it("creates the Contacts table in both environments (16-resident-action-models.md §3)", () => {
+    testEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Contacts-Test" });
+    prodEnv.template.hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Contacts-Prod" });
+  });
+
   it("wires the outbound webhook leg in both environments: table, two queues, three Lambdas, two DLQ alarms and the registration route (13-customer-simulation.md §5)", () => {
     for (const [env, suffix] of [[testEnv, "Test"], [prodEnv, "Prod"]] as const) {
       const { template } = env;
