@@ -4,6 +4,15 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     /*
+     * Vitest spawns one isolated worker per test file by default; this
+     * suite's 142 files make that spawn/teardown cost dominate over the
+     * ~2s of actual test work (measured via vitest's own "Isolate" summary
+     * hint). Safe here because every test that mutates process.env/timers/
+     * globals already saves and restores it in beforeEach/afterEach, so no
+     * file depends on a fresh module registry from the next.
+     */
+    isolate: false,
+    /*
      * Real-integration tests (testing-framework.md §4) hit a live deployed
      * Nyc311-Test environment over the network — they run only via the
      * separate `npm run test:integration` (vitest.integration.config.ts),
