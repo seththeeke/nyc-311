@@ -150,6 +150,12 @@ describe("runIdeaActions", () => {
     expect(saved[0].resolution).toMatchObject({ status: "MAX_DEPTH_REACHED", summary: null, finished_at: NOW.toISOString() });
   });
 
+  it("accepts a finish whose follow_up is null, as Nova sends it", async () => {
+    const { deps, saved } = setup([turn("finish_idea", { resolution: "UNSATISFIED", summary: "Still only received.", follow_up: null })]);
+    await expect(runIdeaActions(message, deps)).resolves.toEqual({ outcome: "FINISHED", status: "UNSATISFIED", steps: 1 });
+    expect(saved[0].resolution).toMatchObject({ follow_up: null, summary: "Still only received." });
+  });
+
   it("treats a malformed finish or an unoffered tool as an unusable turn, and carries on", async () => {
     const { deps, saved } = setup([turn("finish_idea", { resolution: "THRILLED" }), turn("BROWSE_WEBSITE"), finish()]);
     await expect(runIdeaActions(message, deps)).resolves.toMatchObject({ status: "SATISFIED", steps: 1 });

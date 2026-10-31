@@ -29,7 +29,8 @@ export const FINISH_TOOL = "finish_idea";
 const FinishInputSchema = z.object({
   resolution: z.enum(["SATISFIED", "UNSATISFIED", "GAVE_UP"]),
   summary: z.string().trim().min(1).max(1000),
-  follow_up: z.string().trim().max(500).optional(),
+  /* Models send null as often as they leave it out; both mean no follow-up (seen in Prod, 2026-10-31). */
+  follow_up: z.string().trim().max(500).nullable().optional(),
 });
 
 const FINISH_TOOL_SPEC: ModelTool = {
