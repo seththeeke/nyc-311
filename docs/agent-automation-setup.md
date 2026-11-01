@@ -295,25 +295,38 @@ Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run
 
 ## Team Chat for an agent
 
-An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team-chat` MCP server, signed in as its own Cognito user. Setting one up takes four manual steps, run by the CEO:
+An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team-chat` MCP server, signed in as its own Cognito user.
 
-1. **Create the user** in the admin pool, `Nyc311AdminPool-<Test|Prod>`, with the email `<agent>@agents.boroughsim.com` (for example `devx-agent@agents.boroughsim.com`). Mark the email verified and set a permanent password.
-2. **Add the user to `BOROUGH_SIM_TEAM`**, plus `BOROUGH_SIM_OPERATIONS` for the COO only.
-3. **Store the password in the Mac mini's login Keychain** as a generic password, with service `nyc311-team-chat-<Test|Prod>` and account `<agent>`:
-   ```
-   security add-generic-password -s nyc311-team-chat-Prod -a devx-agent -w
-   ```
-4. **Set `TEAM_CHAT_ENV=TEST` or `PROD`** in `scripts/agent-schedules/<agent>.env`.
+**1. Create the sign-in on an admin machine (the MacBook):**
 
-On each run, `agent-worktree.sh` calls `scripts/agent-team-chat-config.sh`. That script signs the agent in and writes the run's MCP config into its own `0700` temporary directory, and `agent-worktree.sh` deletes the directory when the run ends. The tokens are only in that file, read by the MCP server, so parallel runs never share credentials.
+```
+scripts/agent-credentials.py create devx-agent TEST
+scripts/agent-credentials.py create devx-agent PROD
+```
 
-If the sign-in fails, the run log shows a `WARN` and the run goes ahead without chat. `.claude/hooks/team-chat-guard.sh` stops the agent reaching chat any other way: no Keychain reads, no Cognito calls, no direct calls to the chat API.
+For each environment, the script:
+- creates `<agent>@agents.boroughsim.com` in that admin pool. No email is sent, and no inbox is needed.
+- generates a password and sets it as permanent.
+- adds the user to `BOROUGH_SIM_TEAM`, plus any `--group` you pass.
+- saves the password to `~/.nyc-311/credentials` (directory `700`, file `600`) under `[<agent>]` as `test_password` and `prod_password`.
+
+The password is never printed. Re-running the script rotates it.
+
+**2. Copy `~/.nyc-311/credentials` to the Mac mini,** at the same path, keeping mode `600`. The sign-in refuses a file with a wider mode.
+
+**3. Set `TEAM_CHAT_ENV=TEST` or `PROD`** in `scripts/agent-schedules/<agent>.env`.
+
+On each run, `agent-worktree.sh` calls `scripts/agent-team-chat-config.sh`. That script reads the password from the file and signs in to Cognito. Signing in needs no AWS credentials: the client ids come from `scripts/agent-schedules/team-chat.env`. It then writes the run's MCP config into its own `0700` temporary directory, which `agent-worktree.sh` deletes when the run ends. The tokens are only in that file, read by the MCP server, so parallel runs never share credentials.
+
+If the sign-in fails, the run log shows a `WARN` and the run goes ahead without chat. The agent can't reach chat any other way:
+- its settings deny `Read` on `~/.nyc-311/**`;
+- `.claude/hooks/team-chat-guard.sh` blocks the credentials file, Cognito calls and direct calls to the chat API from Bash.
 
 ### The COO
 
 `coo-agent` follows the same steps, plus three differences:
 
-- **Groups:** its user, `coo-agent@agents.boroughsim.com`, is in both `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`.
+- **Groups:** create its sign-in with `scripts/agent-credentials.py create coo-agent PROD --group BOROUGH_SIM_OPERATIONS`, so its user is in both `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`.
 - **Ops tools:** `scripts/agent-schedules/coo-agent.env` sets `OPS_TOOLS=1`. The run's MCP config then adds the `boroughsim-ops` server, which reaches the capacity routes on `api.boroughsim.com` with the same sign-in.
 - **Schedule kind:** it is `KIND=operations`. Every fire is one run, with no PRs or issues to count.
 

@@ -2,8 +2,9 @@
 #
 # PreToolUse guard for agents that use Team Chat (docs/17-executive-team.md
 # §10.7). Chat is reachable only through the team-chat MCP tools, which act
-# as the agent that started them. Bash may not read the Keychain, sign in to
-# Cognito, touch a run's private MCP config, or call the chat API directly.
+# as the agent that started them. Bash may not read ~/.nyc-311/credentials or
+# the Keychain, sign in to Cognito, touch a run's private MCP config, or call
+# the chat API directly.
 # Exit 2 = block and tell the agent why; exit 0 = allow.
 
 input=$(cat)
@@ -25,6 +26,7 @@ deny() {
 printf '%s' "$cmd" | grep -qE 'security[[:space:]]+(find|dump|export)' && deny "reading the Keychain is blocked."
 printf '%s' "$cmd" | grep -qE 'cognito-idp' && deny "signing in to Cognito is blocked."
 printf '%s' "$cmd" | grep -qE 'nyc311-team-chat-' && deny "a run's private chat config is off limits."
+printf '%s' "$cmd" | grep -qE '\.nyc-311' && deny "the agents' credentials file is off limits."
 printf '%s' "$cmd" | grep -qE 'chat-api(\.test)?\.boroughsim\.com' && deny "calling the chat API directly is blocked."
 printf '%s' "$cmd" | grep -qE 'TEAM_CHAT_(ID|REFRESH)_TOKEN|AGENT_(ID|REFRESH)_TOKEN' && deny "agent tokens are off limits."
 printf '%s' "$cmd" | grep -qE 'api(\.test)?\.boroughsim\.com/capacity' && deny "capacity changes go through the boroughsim-ops tools."

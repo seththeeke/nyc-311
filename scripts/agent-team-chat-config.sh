@@ -12,8 +12,9 @@
 # With AGENT_OPS_TOOLS set, the config also carries the boroughsim-ops MCP
 # server (§12.4) on the same sign-in, for the COO's capacity tools.
 #
-# Needs: the agent's Cognito password in the login Keychain as a generic
-# password, service "nyc311-team-chat-<Test|Prod>", account "<agent>". No AWS
+# Needs: the agent's Cognito password in ~/.nyc-311/credentials, under
+# [<agent>] as test_password / prod_password, written by
+# scripts/agent-credentials.py (file mode 600). No AWS
 # credentials: the client id comes from agent-schedules/team-chat.env, and
 # the Cognito sign-in is an unauthenticated call.
 
@@ -38,8 +39,19 @@ tsx="$worktree/backend/node_modules/.bin/tsx"
 [ -f "$server" ] || die "no MCP server at $server"
 [ -x "$tsx" ] || die "no tsx at $tsx (run npm ci in backend/)"
 
-password=$(security find-generic-password -s "nyc311-team-chat-$suffix" -a "$agent" -w 2>/dev/null) \
-  || die "no Keychain password for $agent (service nyc311-team-chat-$suffix)"
+credentials=${NYC311_CREDENTIALS_FILE:-$HOME/.nyc-311/credentials}
+[ -f "$credentials" ] || die "no credentials file at $credentials (scripts/agent-credentials.py writes it)"
+case "$(stat -f '%Lp' "$credentials" 2>/dev/null || stat -c '%a' "$credentials")" in
+  600 | 400) : ;;
+  *) die "$credentials must be mode 600 (chmod 600 $credentials)" ;;
+esac
+password=$(CREDS=$credentials AGENT=$agent KEY="$(printf '%s' "$env_name" | tr 'A-Z' 'a-z')_password" python3 -c '
+import configparser, os
+config = configparser.ConfigParser(interpolation=None)
+config.read(os.environ["CREDS"])
+print(config.get(os.environ["AGENT"], os.environ["KEY"], fallback=""))
+') || die "could not read $credentials"
+[ -n "$password" ] || die "no ${env_name} password for $agent in $credentials"
 # shellcheck disable=SC1091
 . "$(dirname -- "$0")/agent-schedules/team-chat.env"
 if [ "$env_name" = TEST ]; then client_id=${TEAM_CHAT_CLIENT_ID_TEST:-}; else client_id=${TEAM_CHAT_CLIENT_ID_PROD:-}; fi

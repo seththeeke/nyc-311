@@ -10,7 +10,8 @@
       "Read(**/nyc311-team-chat-*/**)",
       "Read(~/.aws/**)",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "Read(~/.nyc-311/**)"
     ]
   },
   "hooks": {

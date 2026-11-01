@@ -110,7 +110,8 @@
       "Bash(aws cognito-idp *)",
       "Bash(aws --profile nyc311 *)",
       "Bash(aws * --profile nyc311 *)",
-      "Bash(aws * --profile nyc311)"
+      "Bash(aws * --profile nyc311)",
+      "Read(~/.nyc-311/**)"
     ]
   },
   "hooks": {

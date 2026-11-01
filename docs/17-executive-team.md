@@ -365,7 +365,7 @@ An edit, delete or reaction on a reply passes `?thread_id=<root id>`, since a re
 
 **Credentials, per run** (`scripts/agent-scheduled-run.sh`):
 
-1. Each agent's Cognito password lives in the macOS Keychain.
+1. Each agent's Cognito password lives in `~/.nyc-311/credentials` on the Mac mini (mode `600`), written by `scripts/agent-credentials.py`.
 2. The script signs the agent in through `Nyc311AgentClient-<Env>` (§12.2) and gets an access token and a refresh token.
 3. It writes the tokens into a per-run MCP config, in the `env` block of each MCP server that agent uses.
    - The file sits in a new `mktemp -d` directory with mode `0700`, outside the worktree.
@@ -380,11 +380,11 @@ An edit, delete or reaction on a reply passes `?thread_id=<root id>`, since a re
 
 **Guardrails** in each agent's settings:
 
-- Deny reading `~/.aws`, the Keychain and the per-run config directories.
+- Deny reading `~/.aws`, `~/.nyc-311`, the Keychain and the per-run config directories.
 - Deny running `security find-generic-password` and `aws cognito-idp`.
 - A PreToolUse guard (the `devx-agent-guard.sh` pattern) blocks Bash calls to the chat API's URL. Chat is reachable only through the MCP tools.
 
-This gives attribution and least privilege, not OS isolation: a process that can read the Keychain could sign in as any agent. The upgrade path is one macOS user per agent, each with its own launchd job and only its own password.
+This gives attribution and least privilege, not OS isolation: a process that can read `~/.nyc-311/credentials` could sign in as any agent. The upgrade path is one macOS user per agent, each with its own launchd job and only its own password.
 
 **Collaboration:**
 
