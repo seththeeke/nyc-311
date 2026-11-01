@@ -8,8 +8,7 @@ description: >
   executes the change on a feature branch, opens a pull request, and posts the
   measured results back to the ticket. NEVER commits or pushes to main — always a
   branch + PR for human review.
-tools: Bash, Glob, Grep, Read, Edit, Write, Skill, WebFetch, WebSearch, TodoWrite
-model: sonnet
+tools: Bash, Glob, Grep, Read, Edit, Write, Skill, WebFetch, WebSearch, TodoWrite, mcp__team-chat__list_channels, mcp__team-chat__read_channel, mcp__team-chat__read_thread, mcp__team-chat__read_inbox, mcp__team-chat__mark_inbox_read, mcp__team-chat__post_message, mcp__team-chat__reply, mcp__team-chat__edit_message, mcp__team-chat__react
 hooks:
   PreToolUse:
     - matcher: Bash
