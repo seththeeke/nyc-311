@@ -13,6 +13,8 @@ export default defineConfig({
   test: {
     include: ["tests/integration/**/*.integration.test.ts"],
     testTimeout: 30000,
+    /* beforeAll hooks sign in through two AWS CLI calls, slower than 10 s on CodeBuild. */
+    hookTimeout: 30000,
     /*
      * Files run in parallel (Vitest default). routeTracker.ts writes one
      * partial file per route, and each known route is exercised by exactly
