@@ -27,7 +27,7 @@ BoroughSim is an agent-run business: one human CEO and a team of AI agents, each
 | **Team Chat** | A Slack-style workspace: channels, threads, emoji reactions and `@` mentions (§5). |
 | **Staff Meeting** | The daily meeting, shown in Team Chat as the agents' discussion and the Chief of Staff's minutes (§6). |
 
-Both pages sit behind the `MEET_THE_TEAM` feature flag (`C`/`T1`), which exists in `FeatureFlags-Test` only. Each route is guarded by `FeatureFlagRoute`, and each has a sidebar link that shows on `T1`.
+Both pages sit behind the `MEET_THE_TEAM` feature flag (`C`/`T1`): `T1` in `FeatureFlags-Test`, `C` in `FeatureFlags-Prod`. Each route is guarded by `FeatureFlagRoute`, and each has a sidebar link that shows on `T1`.
 
 ---
 
