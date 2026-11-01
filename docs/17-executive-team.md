@@ -52,17 +52,22 @@ Each member has:
 
 - `title`, which leads their card, and `short_title`, used in the quick nav;
 - `responsibility`: their one job, in a sentence;
-- `goals`: `{ goal, metric, target }` entries, at least one per agent and none for the CEO. Goals are measured by metrics only;
+- `goals`: `{ goal, metric, target }` entries, measured by metrics only. The CEO has none, and an agent may have none until its goals are set, as the Chief of Staff's aren't yet; its card then leaves the Goals section out;
 - `links`: where to find them elsewhere (the CEO's GitHub and LinkedIn);
 - `photo_url`: a real photo under `web-app/public/team/`. Only the CEO has one; everyone else shows their figure.
 
-The first real goal is the COO's: keep enough capacity that requests resolve in 1 to 2 days, measured by median time to resolve. The other goals and targets are placeholders until each agent is designed (§9).
+The goals in force are the running agents':
+- **COO:** keep request resolution between 1 and 2 days, measured by median time to resolve.
+- **DevX:** keep the pipeline moving (commit to Prod deploy in under 30 minutes) and hold unit and integration test coverage above 90%.
+
+The other agents' goals stand until each agent is designed (§9):
+- **CPO:** cost per order under $25, and over 80% of customer interactions satisfied.
 
 ---
 
 ## 3. Meet the Team (`/team`)
 
-- **Header:** "Meet the Team" and one line describing the agent-run business, then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
+- **Header:** "Meet the Team" and the line "A simulation created by a human, run by agents, servicing virtual customers.", then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
 - **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past. The height it loses comes back as a bottom margin, tracked by a `ResizeObserver` through the animation, so the page below never shifts and the card can't flicker between sizes.
 - **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, DevX and COO). Every other agent's card shows a Work in progress tag.
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.

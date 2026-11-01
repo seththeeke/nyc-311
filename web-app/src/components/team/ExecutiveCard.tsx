@@ -63,17 +63,21 @@ export function ExecutiveCard({ member, flip, onViewContributions }: ExecutiveCa
         </p>
         <h3 className={`${LABEL} mt-6`}>Responsibility</h3>
         <p className="mt-2 text-base leading-relaxed text-fg">{member.responsibility}</p>
-        <h3 className={`${LABEL} mt-6`}>{member.goals.length === 1 ? "Goal" : "Goals"}</h3>
-        <ul className="mt-2 space-y-2">
-          {member.goals.map((goal) => (
-            <li key={goal.goal} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-4 py-3">
-              <span className="text-sm text-fg">{goal.goal}</span>
-              <span className="text-xs text-fg-muted">
-                {goal.metric} <span className="ml-1 rounded-full bg-cyan-500/10 px-2 py-0.5 font-semibold text-hue-cyan">{goal.target}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        {member.goals.length > 0 && (
+          <>
+          <h3 className={`${LABEL} mt-6`}>{member.goals.length === 1 ? "Goal" : "Goals"}</h3>
+          <ul className="mt-2 space-y-2">
+            {member.goals.map((goal) => (
+              <li key={goal.goal} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-4 py-3">
+                <span className="text-sm text-fg">{goal.goal}</span>
+                <span className="text-xs text-fg-muted">
+                  {goal.metric} <span className="ml-1 rounded-full bg-cyan-500/10 px-2 py-0.5 font-semibold text-hue-cyan">{goal.target}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          </>
+        )}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-xs">
           <dl className="flex flex-wrap gap-x-6 gap-y-1">
             {member.agent_name && (

@@ -22,7 +22,7 @@ export function TeamPage(): ReactElement {
     <main className={PAGE_CONTENT_CLASSES}>
       <header className="rounded-3xl border border-line bg-panel px-6 py-10 text-center lg:px-12">
         <h1 className="text-3xl font-semibold text-fg lg:text-4xl">Meet the Team</h1>
-        <p className="mx-auto mt-3 max-w-xl text-base text-fg-muted">An agent-run business: one human CEO and a team of AI agents, each built for one job.</p>
+        <p className="mx-auto mt-3 max-w-xl text-base text-fg-muted">A simulation created by a human, run by agents, servicing virtual customers.</p>
         <nav aria-label="Jump to" className="mt-6 flex flex-wrap justify-center gap-2">
           {AGENTS.map((member) => (
             <button
