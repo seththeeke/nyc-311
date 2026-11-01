@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CapacityLimitsSchema } from "./capacitySnapshot";
 import { OperatorSchema } from "./operator";
 
 /**
@@ -13,5 +14,7 @@ export const CapacityStatusSchema = z.object({
   fleet_size: z.number().int().nonnegative(),
   hourly_burn_rate: z.number().nonnegative(),
   roster: z.array(OperatorSchema),
+  /* The COO's daily caps and today's counts (docs/17-executive-team.md §12.3). */
+  limits: CapacityLimitsSchema,
 });
 export type CapacityStatus = z.infer<typeof CapacityStatusSchema>;

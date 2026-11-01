@@ -8,6 +8,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import type { IStateMachine } from "aws-cdk-lib/aws-stepfunctions";
 import type { Construct } from "constructs";
 import type { FeatureFlagsTable } from "../data/FeatureFlagsTable";
+import type { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import type { LocationsTable } from "../data/LocationsTable";
 import type { OperatorsTable } from "../data/OperatorsTable";
 import type { OrdersTable } from "../data/OrdersTable";
@@ -29,6 +30,8 @@ export interface Nyc311AdminApiLambdaProps {
   requestsTable: RequestsTable;
   locationsTable: LocationsTable;
   featureFlagsTable: FeatureFlagsTable;
+  /** Read by GET /capacity/snapshot (docs/17-executive-team.md §12.3). */
+  liveWorkspaceMetricsTable: LiveWorkspaceMetricsTable;
   jobRunsTable: WarehouseJobRunsTable;
   warehouseBucket: Nyc311WarehouseBucket;
   warehouseCatalog: Nyc311WarehouseCatalog;
@@ -82,6 +85,7 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
         ORDER_EXECUTION_STATE_MACHINE_ARN: props.orderExecutionStateMachine.stateMachineArn,
         FEATURE_FLAGS_TABLE_NAME: props.featureFlagsTable.tableName,
+        LIVE_WORKSPACE_METRICS_TABLE_NAME: props.liveWorkspaceMetricsTable.tableName,
         AD_HOC_ATHENA_WORKGROUP: props.adHocQueryWorkgroup.workgroupName,
         WAREHOUSE_DATABASE_NAME: props.warehouseCatalog.databaseName,
         WAREHOUSE_JOB_RUNS_TABLE_NAME: props.jobRunsTable.tableName,
@@ -98,6 +102,7 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
     props.usersTable.grant(this, "dynamodb:Query", "dynamodb:PutItem");
     props.operatorsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
     props.ordersTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
+    props.liveWorkspaceMetricsTable.grant(this, "dynamodb:BatchGetItem");
     props.requestsTable.grant(this, "dynamodb:GetItem");
     props.locationsTable.grant(this, "dynamodb:GetItem");
     props.featureFlagsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem");

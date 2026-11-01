@@ -3,8 +3,8 @@ import type { IconProps } from "../icons";
 import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
 import { MAP_V2_PATH } from "../mapv2/mapV2Routes";
 import { RESIDENTS_PATH } from "../residents/residentRoutes";
-import { TEAM_PATH } from "../team/teamRoutes";
-import { AdminIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
+import { TEAM_CHAT_PATH, TEAM_PATH } from "../team/teamRoutes";
+import { AdminIcon, ChatIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
 
 /*
  * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
@@ -100,6 +100,15 @@ export const MENU: readonly MenuEntry[] = [
     featureFlag: { key: MEET_THE_TEAM_FLAG, showOn: [MEET_THE_TEAM_ON] },
   },
   {
+    kind: "LINK",
+    id: "TEAM_CHAT",
+    label: "Team Chat",
+    to: TEAM_CHAT_PATH,
+    alsoActiveOn: [],
+    icon: ChatIcon,
+    featureFlag: { key: MEET_THE_TEAM_FLAG, showOn: [MEET_THE_TEAM_ON] },
+  },
+  {
     kind: "SECTION",
     id: "MONITORING",
     label: "System Monitoring",
@@ -169,8 +178,9 @@ export function pathIsInAnySection(pathname: string): boolean {
   return MENU.some((entry) => entry.kind === "SECTION" && sectionContainsPath(entry, pathname));
 }
 
-/* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents. */
+/* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents, unless a deeper link owns that sub-page (Team Chat under /team). */
 export function linkIsActive(entry: MenuLinkEntry, pathname: string): boolean {
   if (pathname === entry.to || entry.alsoActiveOn.includes(pathname)) return true;
-  return entry.to !== "/" && pathname.startsWith(`${entry.to}/`);
+  if (entry.to === "/" || !pathname.startsWith(`${entry.to}/`)) return false;
+  return !MENU.some((other) => other.kind === "LINK" && other.to.startsWith(`${entry.to}/`) && (pathname === other.to || pathname.startsWith(`${other.to}/`)));
 }

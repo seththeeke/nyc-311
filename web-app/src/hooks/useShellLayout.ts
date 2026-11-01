@@ -22,7 +22,7 @@ export interface ShellLayout {
  * The right panel auto-collapses below 1024px and on any route flagged
  * `hidesSecondary` (the monitoring/admin pages); a manual toggle overrides the
  * auto behaviour until the viewport next crosses a breakpoint or the route
- * changes — so returning to the map brings the panel back.
+ * changes or the route stops hiding it (a Team Chat thread opening).
  */
 export function useShellLayout(pathname: string, hidesSecondary: boolean): ShellLayout {
   const isWide = useMediaQuery("(min-width: 1024px)");
@@ -32,6 +32,7 @@ export function useShellLayout(pathname: string, hidesSecondary: boolean): Shell
 
   const [seenBreakpoint, setSeenBreakpoint] = useState<ShellBreakpoint>(breakpoint);
   const [seenPathname, setSeenPathname] = useState(pathname);
+  const [seenHides, setSeenHides] = useState(hidesSecondary);
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
   const [rightOverride, setRightOverride] = useState<boolean | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -42,8 +43,9 @@ export function useShellLayout(pathname: string, hidesSecondary: boolean): Shell
     setRightOverride(null);
     setOverlayOpen(false);
   }
-  if (seenPathname !== pathname) {
+  if (seenPathname !== pathname || seenHides !== hidesSecondary) {
     setSeenPathname(pathname);
+    setSeenHides(hidesSecondary);
     setRightOverride(null);
   }
 

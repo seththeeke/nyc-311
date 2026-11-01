@@ -2,9 +2,9 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { AddCapacityRequestSchema } from "../../../models/capacityRequest";
-import { ValidationError } from "../../../models/errors";
+import { ConflictError, ValidationError } from "../../../models/errors";
 import { addCapacity } from "../../../service/capacity/capacityService";
-import { requireAdminUser } from "./requireAdminUser";
+import { capacityChangeOf } from "./capacityCaller";
 import { jsonResponse } from "../shared/jsonResponse";
 
 /**
@@ -38,13 +38,15 @@ export const addCapacityController = async (event: unknown): Promise<APIGatewayP
   }
 
   try {
-    await requireAdminUser(parsedEvent.data);
-    const operator = await addCapacity(parsedBody.data.name, parsedBody.data.rate_per_hour);
+    const change = await capacityChangeOf(parsedEvent.data, parsedBody.data.reason);
+    const operator = await addCapacity(parsedBody.data.name, parsedBody.data.rate_per_hour, {}, change);
     logInfo("AddCapacityControllerCompleted", { operatorId: operator.operator_id });
     return jsonResponse(201, operator);
   } catch (err) {
     logError("AddCapacityControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to add capacity" });
+    /* The COO reads these messages: a 409 names the daily cap it hit (docs/17-executive-team.md §12.3). */
+    if (err instanceof ConflictError) return jsonResponse(409, { message: err.message });
+    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
+    return jsonResponse(500, { message: "Failed to add capacity" });
   }
 };

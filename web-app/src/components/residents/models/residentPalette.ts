@@ -55,11 +55,43 @@ export const HERO = {
   LENS: "#f5f7fa",
 } as const;
 
-/* The executive team's office wear (#146): a crisp shirt, a tie and a blazer colour the residents don't wear. */
-export const OFFICE = {
-  SHIRT: "#eceae4",
-  BURGUNDY: "#6b2e3a",
-  PLUM: "#5a4566",
+/*
+ * The executive team's fiction cast (#146): a typewriter mascot, a dwarf,
+ * an oracle, a leprechaun, a mech pilot, a gnome and a sidekick. Each
+ * character only reads in its own colours, so these are brighter than
+ * the residents' (like HERO).
+ */
+export const FICTION = {
+  TYPEWRITER: "#3f7f86",
+  KEY: "#f1ead8",
+  BRASS: "#b38a3c",
+  HOLO: "#7fe3e0",
+  GLOVE: "#f7f5ef",
+  LEATHER: "#6e4a2f",
+  GINGER: "#b4562a",
+  SHAMROCK: "#3d7a3a",
+  GOLD: "#e2b33c",
+  ROBE: "#3a2f6b",
+  STAR: "#e9d27a",
+  CRYSTAL: "#a9d8f5",
+  GUNMETAL: "#5a6168",
+  VISOR: "#ffb347",
+  GNOME_HAT: "#a8382e",
+  SIDEKICK: "#2b8fb3",
+  EMBER: "#e0782d",
+  BEARD: "#e6e2d8",
+} as const;
+
+/* Faces at the executives' higher detail: irises, lips, blush and the catchlight in each eye. */
+export const FACE = {
+  IRIS_BROWN: "#6b4423",
+  IRIS_GREEN: "#4f8a4b",
+  IRIS_VIOLET: "#7b5fb3",
+  IRIS_BLUE: "#4a7fb5",
+  IRIS_GREY: "#7c8794",
+  LIP: "#b7615a",
+  BLUSH: "#e39a8c",
+  CATCHLIGHT: "#ffffff",
 } as const;
 
 /* Studio lighting for the avatar snapshot. */
@@ -67,7 +99,10 @@ export const LIGHT = {
   SKY: "#ffffff",
   GROUND: "#8a8f98",
   KEY: "#fff6ea",
+  /* The executives' studio (#146): a cool fill and a warm rim behind them. */
+  FILL: "#cfe0ff",
+  RIM: "#ffd9a8",
 } as const;
 
 /** Every colour a model may put on a material, for the palette test. */
-export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL, HERO, OFFICE].flatMap((group) => Object.values(group));
+export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL, HERO, FICTION, FACE].flatMap((group) => Object.values(group));

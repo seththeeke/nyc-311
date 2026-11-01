@@ -2,26 +2,26 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeamPage } from "../../../src/components/pages/TeamPage";
-import { useStaffMeetings } from "../../../src/hooks/useStaffMeetings";
-import { MOCK_STAFF_MEETINGS } from "../../../src/test-data/staffMeetings";
 import { inRouter } from "../team/teamFixtures";
 
-vi.mock("../../../src/hooks/useStaffMeetings", () => ({ useStaffMeetings: vi.fn() }));
-vi.mocked(useStaffMeetings).mockReturnValue({ data: MOCK_STAFF_MEETINGS, isLoading: false, error: null } as ReturnType<typeof useStaffMeetings>);
 
 describe("TeamPage", () => {
-  it("shows the goal until someone is picked, then their profile, and back", async () => {
+  it("leads with the goal, then a card for everyone: a chip jumps to a card", async () => {
     const user = userEvent.setup();
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
     render(inRouter(<TeamPage />));
     expect(screen.getByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "The goal" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Staff Meeting" })).toBeInTheDocument();
+    expect(screen.getByText(/An agent-run business/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Chief Executive Officer" })).toBeInTheDocument();
+    expect(screen.getAllByRole("article")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: "CEO" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Priya Lafayette/ }));
+    await user.click(screen.getByRole("button", { name: "CPO" }));
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("?member=cpo");
-    expect(screen.getByRole("region", { name: "Priya Lafayette" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Close profile" }));
-    expect(screen.getByRole("region", { name: "The goal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "CPO" })).toHaveAttribute("aria-current", "true");
+    await user.click(screen.getAllByRole("button", { name: "View Contributions" })[1]);
+    expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("contributions=coo");
+    expect(scroll).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
 });

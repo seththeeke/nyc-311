@@ -1,8 +1,26 @@
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { AccountRecovery, Mfa, UserPool, UserPoolClient } from "aws-cdk-lib/aws-cognito";
+import { AccountRecovery, CfnUserPoolGroup, Mfa, UserPool, UserPoolClient } from "aws-cdk-lib/aws-cognito";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+
+/*
+ * The pool's groups (docs/17-executive-team.md §12.2). Must match
+ * `backend/models/cognitoGroup.ts`'s COGNITO_GROUPS, which the routes check;
+ * declared here because cdk/ imports nothing from backend/ but route lists.
+ */
+export const COGNITO_GROUP_NAMES = ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS"] as const;
+
+/*
+ * Where the pool's ids are published for Nyc311TeamChatStack, which reads
+ * them at deploy time instead of a CloudFormation export
+ * (docs/17-executive-team.md §10.5).
+ */
+export function adminPoolParameterNames(suffix: string): { userPoolId: string; webClientId: string; agentClientId: string } {
+  const base = `/Nyc311/${suffix}/AdminPool`;
+  return { userPoolId: `${base}/UserPoolId`, webClientId: `${base}/WebClientId`, agentClientId: `${base}/AgentClientId` };
+}
 
 export interface Nyc311AdminAuthProps {
   envName: Nyc311Environment;
@@ -19,6 +37,8 @@ export interface Nyc311AdminAuthProps {
 export class Nyc311AdminAuth extends Construct {
   public readonly userPool: UserPool;
   public readonly userPoolClient: UserPoolClient;
+  /** Agents' sign-in client (docs/17-executive-team.md §12.2): USER_PASSWORD_AUTH only, no hosted UI. */
+  public readonly agentClient: UserPoolClient;
   public readonly authorizer: HttpUserPoolAuthorizer;
 
   constructor(scope: Construct, id: string, props: Nyc311AdminAuthProps) {
@@ -61,8 +81,28 @@ export class Nyc311AdminAuth extends Construct {
       idTokenValidity: Duration.hours(1),
     });
 
-    this.authorizer = new HttpUserPoolAuthorizer("Nyc311AdminAuthorizer", this.userPool, {
-      userPoolClients: [this.userPoolClient],
+    this.agentClient = new UserPoolClient(this, "AgentClient", {
+      userPool: this.userPool,
+      userPoolClientName: `Nyc311AgentClient-${suffix}`,
+      generateSecret: false,
+      authFlows: { userPassword: true },
+      accessTokenValidity: Duration.hours(1),
+      idTokenValidity: Duration.hours(1),
+      refreshTokenValidity: Duration.days(1),
     });
+
+    /* A valid token grants nothing on its own: every JWT route checks these groups (§12.2). */
+    for (const groupName of COGNITO_GROUP_NAMES) {
+      new CfnUserPoolGroup(this, `Group${groupName}`, { userPoolId: this.userPool.userPoolId, groupName });
+    }
+
+    this.authorizer = new HttpUserPoolAuthorizer("Nyc311AdminAuthorizer", this.userPool, {
+      userPoolClients: [this.userPoolClient, this.agentClient],
+    });
+
+    const names = adminPoolParameterNames(suffix);
+    new StringParameter(this, "UserPoolIdParameter", { parameterName: names.userPoolId, stringValue: this.userPool.userPoolId });
+    new StringParameter(this, "WebClientIdParameter", { parameterName: names.webClientId, stringValue: this.userPoolClient.userPoolClientId });
+    new StringParameter(this, "AgentClientIdParameter", { parameterName: names.agentClientId, stringValue: this.agentClient.userPoolClientId });
   }
 }

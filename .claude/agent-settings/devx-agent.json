@@ -79,17 +79,18 @@
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/comments --paginate)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews --paginate)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline get-pipeline-state *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline list-pipeline-executions *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline list-action-executions *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codebuild batch-get-builds *)",
-      "Bash(aws --profile nyc311 --region us-east-1 logs get-log-events *)",
-      "Bash(aws --profile nyc311 --region us-east-1 logs filter-log-events *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline get-pipeline-state *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-pipeline-executions *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-action-executions *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codebuild batch-get-builds *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 logs get-log-events *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 logs filter-log-events *)",
       "Skill(log-backlog-item)",
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:docs.aws.amazon.com)"
+      "WebFetch(domain:docs.aws.amazon.com)",
+      "mcp__team-chat"
     ],
     "deny": [
       "Bash(gh pr merge *)",
@@ -102,7 +103,28 @@
       "Bash(cdk deploy *)",
       "Bash(npx cdk deploy *)",
       "Bash(npm run deploy *)",
-      "Bash(npm run deploy)"
+      "Bash(npm run deploy)",
+      "Read(**/nyc311-team-chat-*/**)",
+      "Read(~/.aws/**)",
+      "Bash(security *)",
+      "Bash(aws cognito-idp *)",
+      "Bash(aws --profile nyc311 *)",
+      "Bash(aws * --profile nyc311 *)",
+      "Bash(aws * --profile nyc311)",
+      "Read(~/.nyc-311/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/team-chat-guard.sh"
+          }
+        ]
+      }
     ]
   }
 }

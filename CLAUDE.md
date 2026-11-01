@@ -234,7 +234,13 @@ The backend will follow a basic controller, service, and data access object(DAO)
       `api.boroughsim.com`. One bundle, one Lambda, one controller per route,
       plus `openapi.yaml`, the hand-maintained spec. Every controller calls
       `service/publicApi/` and no other service. Changes follow
-      `.claude/API.md`
+      `.claude/API.md`. It is the only bundle whose routes carry a `/v<n>/`
+      prefix; a test fails any other bundle that declares one
+   -> teamChat - the Team Chat API (`17-executive-team.md` §10), served by
+      `Nyc311TeamChatStack`'s own HTTP API at `chat-api.boroughsim.com`, not
+      `api.boroughsim.com`. Internal and unversioned. The one bundle that
+      holds both unauthenticated reads and JWT-authorized writes, because
+      the whole API is its own surface; it imports nothing from `admin/`
   -> ingestion - controller endpoints for scheduled external-data ingestion
      (e.g. the NYC 311 poller, `1-data-ingestion.md`) — entry point is an
      EventBridge Scheduler trigger, not API Gateway or Step Functions —
@@ -251,6 +257,13 @@ The backend will follow a basic controller, service, and data access object(DAO)
      the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
      — plus the SQS-triggered consumer that folds accepted/resolved Orders into
      the live workspace metric buckets (`12-UX-workspace-refactor.md`)
+  -> teamChat - the Team Chat seed sync, a CloudFormation custom resource
+     run on every deploy of `Nyc311TeamChatStack`
+  -> mcp - MCP servers the agents run on the Mac mini over stdio
+     (`17-executive-team.md` §10.7, §12.4), e.g. `teamChatMcpServer.ts`. An
+     MCP tool call is a trigger like any other: each tool is a controller
+     that validates its input with zod and calls a service. Run with `tsx`,
+     never deployed
   -> webhook - controller endpoints for BoroughSim's outbound lifecycle
      webhooks (`13-customer-simulation.md` §5): the SQS-triggered dispatch
      Lambda (one public event -> one delivery message per ACTIVE
@@ -283,6 +296,9 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> webhookSinkDelivery - the Test-only webhook sink's delivery record
      (`13-customer-simulation.md` §5); listed in data-model.md like any
      other entity rather than carved out
+  -> teamChat - the one Team Chat table (`17-executive-team.md` §10.3):
+     members, channels, messages, inbox entries, retry markers and write
+     counters
   -> analytics - warehouseJobRunsDao, analyticsRollupsDao, liveWorkspaceMetricsDao
      (see carve-out above; the live workspace metrics table is the same kind
      of non-domain bookkeeping)
@@ -439,6 +455,8 @@ There is a single stack for the entire application. We will not create another s
 CodePipeline (`aws-code-pipeline-plan.md`) is CI/CD tooling, not
 application infrastructure, and is permitted its own CloudFormation stack
 (`Nyc311PipelineStack`, under `cdk/pipeline/`), separate from `Nyc311Stack`.
+It also holds the agents' AWS identities (`cdk/agents/`): per agent, its own
+IAM user and its own role, account-level tooling like the pipeline.
 Any further exception still requires the explicit-specification bar this
 rule sets.
 
@@ -451,6 +469,15 @@ reference in either direction. The customer reaches BoroughSim only
 through public URLs. The one shared resource is a DNS record in the
 `boroughsim.com` hosted zone. Its Prod-only resources keep the `-Prod`
 suffix.
+
+**Third standing exception — Team Chat.** `Nyc311TeamChatStack` (under
+`cdk/teamChat/`, `17-executive-team.md` §10) is its own stack, deployed to
+Test and Prod as a second stack inside the existing `DeployTest` and
+`DeployProd` stages (`Nyc311AppStage`). It holds the Team Chat table,
+Lambda, HTTP API, domain and alarms. It reads what it needs from
+`Nyc311Stack` (the admin pool's issuer and client ids) from SSM parameters,
+never from CloudFormation exports. Its resources follow the per-environment
+naming rule below.
 
 **Customer boundary rules — all lint errors, not review conventions**
 (`cdk/eslint.config.js`):
@@ -481,6 +508,8 @@ suffix.
  -> api - the API Gateway HTTP APIs and their route/integration constructs: `Nyc311Api` (the web-app's API, `api.boroughsim.com`) and `Nyc311PublicApi` (the public API, `public-api.boroughsim.com`, `16-resident-action-models.md` §2), each with its own domain construct, per `claude-prompt-initial.md` §5/§7 — first added for `1-data-ingestion.md` §8a's ingestion-metrics endpoint. Each bundle's routes are built from its `backend/controller/web-api/<bundle>/<bundle>ApiRoutes.ts`, all on that bundle's one `HttpLambdaIntegration` — the one sanctioned `cdk/` → `backend/` import, legal only because that file imports nothing
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
+ -> teamChat - `Nyc311TeamChatStack` and its constructs, per the third standing exception above
+ -> agents - every agent's AWS identity: per agent, its own IAM user (`AgentUser.ts`) and its own role (e.g. `DevxAgentRole.ts`), instantiated from `Nyc311PipelineStack` because it's account-level agent tooling, not per environment
  -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
@@ -717,6 +746,9 @@ copied in.
   `gen-purpose-dev` label, tracking each through the label state machine in
   `scripts/agent-issue-state.sh` and landing it as a draft PR from a
   `gen-purpose-dev/<issue>-<slug>` branch.
+  `coo-agent` (`17-executive-team.md` §12) is an operating agent
+  (`KIND=operations`): no code, no PRs. It changes the Prod fleet only
+  through the `boroughsim-ops` MCP tools and posts to Team Chat.
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

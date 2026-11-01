@@ -40,19 +40,40 @@ describe("Nyc311AdminAuth", () => {
     });
   });
 
-  it("creates one app client with no secret, named per environment", () => {
+  it("creates the web client and the agent client, with no secrets, named per environment", () => {
     const template = synthesize("TEST");
     template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
       ClientName: "Nyc311AdminPoolClient-Test",
       GenerateSecret: false,
     });
-    template.resourceCountIs("AWS::Cognito::UserPoolClient", 1);
+    template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
+      ClientName: "Nyc311AgentClient-Test",
+      GenerateSecret: false,
+      ExplicitAuthFlows: ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+    });
+    template.resourceCountIs("AWS::Cognito::UserPoolClient", 2);
+  });
+
+  it("creates the ADMIN, BOROUGH_SIM_TEAM and BOROUGH_SIM_OPERATIONS groups", () => {
+    const template = synthesize("TEST");
+    template.resourceCountIs("AWS::Cognito::UserPoolGroup", 3);
+    for (const GroupName of ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS"]) {
+      template.hasResourceProperties("AWS::Cognito::UserPoolGroup", { GroupName });
+    }
+  });
+
+  it("publishes the pool and client ids to SSM for the chat stack", () => {
+    const template = synthesize("PROD");
+    for (const Name of ["/Nyc311/Prod/AdminPool/UserPoolId", "/Nyc311/Prod/AdminPool/WebClientId", "/Nyc311/Prod/AdminPool/AgentClientId"]) {
+      template.hasResourceProperties("AWS::SSM::Parameter", { Name, Type: "String" });
+    }
   });
 
   it("enables both SRP (browser) and USER_PASSWORD_AUTH (server-side integration test) flows on the app client", () => {
     const template = synthesize("TEST");
     const clients = template.findResources("AWS::Cognito::UserPoolClient");
-    const flows = (Object.values(clients)[0]?.Properties as { ExplicitAuthFlows: string[] }).ExplicitAuthFlows;
+    const web = Object.values(clients).find((client) => (client.Properties as { ClientName: string }).ClientName === "Nyc311AdminPoolClient-Test");
+    const flows = (web?.Properties as { ExplicitAuthFlows: string[] }).ExplicitAuthFlows;
 
     expect(flows).toEqual(expect.arrayContaining(["ALLOW_USER_SRP_AUTH", "ALLOW_USER_PASSWORD_AUTH"]));
   });

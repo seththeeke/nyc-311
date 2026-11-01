@@ -3,10 +3,11 @@ import { OperatorDao } from "../../../dao/operator/operatorDao";
 import {
   DEFAULT_OPERATOR_RATE_PER_HOUR,
   addCapacity,
+  getCapacityLimits,
   getCapacityStatus,
   removeCapacity,
 } from "../../../service/capacity/capacityService";
-import { NotFoundError, ValidationError } from "../../../models/errors";
+import { ConflictError, NotFoundError, ValidationError } from "../../../models/errors";
 import type { Operator } from "../../../models/operator";
 import { HOME_DEPOT_LOCATION } from "../../../models/gpsLocation";
 
@@ -34,6 +35,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/* 2026-11-01 10:00 in New York. */
+const NOW = new Date("2026-11-01T14:00:00.000Z");
+const LIMITS_NONE = { max_recruits_per_day: 2, max_releases_per_day: 2, recruits_today: 0, releases_today: 0, day: "2026-11-01", day_resets_at: "2026-11-02 00:00 America/New_York" };
+const AGENT = { actor: "AGENT" as const, reason: "Median 2.6 days", by: "coo-agent@agents.boroughsim.com" };
+
+describe("getCapacityLimits and the COO's caps", () => {
+  const today = "2026-11-01T13:00:00.000Z";
+  const yesterday = "2026-10-31T13:00:00.000Z";
+  const roster = [
+    makeOperator({ operator_id: "R1", added_by: "AGENT", start_datetime: today }),
+    makeOperator({ operator_id: "R2", added_by: "AGENT", start_datetime: yesterday }),
+    makeOperator({ operator_id: "R3", added_by: "ADMIN", start_datetime: today }),
+    makeOperator({ operator_id: "R4", status: "INACTIVE", released_by: "AGENT", released_at: today }),
+    makeOperator({ operator_id: "R5", released_by: "AGENT", released_at: today }),
+    makeOperator({ operator_id: "R6", released_by: "ADMIN", released_at: today }),
+  ];
+
+  it("counts only the agent's recruits and releases on today's New York date", async () => {
+    const limits = await getCapacityLimits({ operatorDao: { listRoster: vi.fn().mockResolvedValue(roster) } as unknown as OperatorDao, now: () => NOW });
+    expect(limits).toEqual({ ...LIMITS_NONE, recruits_today: 1, releases_today: 2 });
+  });
+
+  it("refuses an agent's release past the cap with ConflictError, but never the admin", async () => {
+    const operatorDao = { listRoster: vi.fn().mockResolvedValue(roster), getOperator: vi.fn().mockResolvedValue(makeOperator()), finalizeRemoval: vi.fn().mockResolvedValue(makeOperator()) } as unknown as OperatorDao;
+    await expect(removeCapacity("01OPERATOR", { operatorDao, now: () => NOW }, AGENT)).rejects.toThrow("Daily release limit reached: 2 of 2 today");
+    await expect(removeCapacity("01OPERATOR", { operatorDao, now: () => NOW })).resolves.toBeDefined();
+  });
+
+  it("lets an agent recruit under the cap, stamping the change, and refuses past it", async () => {
+    const addOperator = vi.fn().mockResolvedValue(makeOperator());
+    const under = { listRoster: vi.fn().mockResolvedValue(roster), addOperator } as unknown as OperatorDao;
+    await addCapacity("Truck 13", undefined, { operatorDao: under, now: () => NOW }, AGENT);
+    expect(addOperator).toHaveBeenCalledWith("Truck 13", DEFAULT_OPERATOR_RATE_PER_HOUR, AGENT);
+    const full = { listRoster: vi.fn().mockResolvedValue([...roster, makeOperator({ operator_id: "R7", added_by: "AGENT", start_datetime: today })]), addOperator } as unknown as OperatorDao;
+    await expect(addCapacity("Truck 14", undefined, { operatorDao: full, now: () => NOW }, AGENT)).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("uses the real clock and DAO by default", async () => {
+    const spy = vi.spyOn(OperatorDao.prototype, "listRoster").mockResolvedValue([]);
+    await expect(getCapacityLimits()).resolves.toMatchObject({ recruits_today: 0, releases_today: 0 });
+    spy.mockRestore();
+  });
+});
+
 describe("addCapacity", () => {
   it("falls back to the module's own default OperatorDao when deps.operatorDao is omitted", async () => {
     const spy = vi.spyOn(OperatorDao.prototype, "addOperator").mockResolvedValue(makeOperator());
@@ -46,7 +91,7 @@ describe("addCapacity", () => {
 
     await addCapacity("Truck 12", 60, { operatorDao: { addOperator } as unknown as OperatorDao });
 
-    expect(addOperator).toHaveBeenCalledWith("Truck 12", 60);
+    expect(addOperator).toHaveBeenCalledWith("Truck 12", 60, { actor: "ADMIN", reason: null, by: null });
   });
 
   it("defaults to DEFAULT_OPERATOR_RATE_PER_HOUR when rate_per_hour is omitted", async () => {
@@ -54,7 +99,7 @@ describe("addCapacity", () => {
 
     await addCapacity("Truck 12", undefined, { operatorDao: { addOperator } as unknown as OperatorDao });
 
-    expect(addOperator).toHaveBeenCalledWith("Truck 12", DEFAULT_OPERATOR_RATE_PER_HOUR);
+    expect(addOperator).toHaveBeenCalledWith("Truck 12", DEFAULT_OPERATOR_RATE_PER_HOUR, { actor: "ADMIN", reason: null, by: null });
   });
 });
 
@@ -99,7 +144,7 @@ describe("removeCapacity", () => {
       operatorDao: { getOperator, finalizeRemoval } as unknown as OperatorDao,
     });
 
-    expect(finalizeRemoval).toHaveBeenCalledWith("01OPERATOR");
+    expect(finalizeRemoval).toHaveBeenCalledWith("01OPERATOR", { actor: "ADMIN", reason: null, by: null });
     expect(result).toEqual(finalized);
   });
 
@@ -112,7 +157,7 @@ describe("removeCapacity", () => {
       operatorDao: { getOperator, queueRemoval } as unknown as OperatorDao,
     });
 
-    expect(queueRemoval).toHaveBeenCalledWith("01OPERATOR");
+    expect(queueRemoval).toHaveBeenCalledWith("01OPERATOR", { actor: "ADMIN", reason: null, by: null });
     expect(result).toEqual(queued);
   });
 
@@ -136,26 +181,25 @@ describe("getCapacityStatus", () => {
       }),
     ];
     const listActiveRoster = vi.fn().mockResolvedValue(roster);
+    const listRoster = vi.fn().mockResolvedValue(roster);
 
-    const status = await getCapacityStatus({ operatorDao: { listActiveRoster } as unknown as OperatorDao });
+    const status = await getCapacityStatus({ operatorDao: { listActiveRoster, listRoster } as unknown as OperatorDao, now: () => NOW });
 
     expect(status).toEqual({
       available_count: 1,
       fleet_size: 3,
       hourly_burn_rate: 120,
       roster,
+      limits: LIMITS_NONE,
     });
   });
 
   it("falls back to the module's own default OperatorDao when deps.operatorDao is omitted", async () => {
     const spy = vi.spyOn(OperatorDao.prototype, "listActiveRoster").mockResolvedValue([]);
-    await expect(getCapacityStatus()).resolves.toEqual({
-      available_count: 0,
-      fleet_size: 0,
-      hourly_burn_rate: 0,
-      roster: [],
-    });
+    const rosterSpy = vi.spyOn(OperatorDao.prototype, "listRoster").mockResolvedValue([]);
+    await expect(getCapacityStatus()).resolves.toMatchObject({ available_count: 0, fleet_size: 0, hourly_burn_rate: 0, roster: [], limits: { recruits_today: 0 } });
     spy.mockRestore();
+    rosterSpy.mockRestore();
   });
 });
 

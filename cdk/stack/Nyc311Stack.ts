@@ -1,3 +1,4 @@
+import { TEAM_CHAT_API_DOMAIN } from "../teamChat/teamChatConfig";
 import { CfnOutput, Stack, StackProps, Tags } from "aws-cdk-lib";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import type { Construct } from "constructs";
@@ -127,7 +128,7 @@ export const POLLER_ENABLED: Record<Nyc311Environment, boolean> = {
  * 1-data-ingestion.md §5 — same address the pipeline's own failure
  * notifications already go to (pipeline/Nyc311PipelineStack.ts).
  */
-const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
+export const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
 
 /**
  * The application's single stack shape (CLAUDE.md §5.3) — one Stack class,
@@ -622,6 +623,7 @@ export class Nyc311Stack extends Stack {
       requestsTable,
       locationsTable,
       featureFlagsTable,
+      liveWorkspaceMetricsTable,
       jobRunsTable: warehouseJobRunsTable,
       warehouseBucket,
       warehouseCatalog,
@@ -725,6 +727,8 @@ export class Nyc311Stack extends Stack {
       /* The custom API domain (8-domain-name-assignment.md §1), not the raw execute-api URL — this is what the SPA calls at runtime. */
       apiBaseUrl: apiDomain.url,
       publicApiBaseUrl: publicApiDomain.url,
+      /* A fixed name per environment (teamChatConfig.ts), not a reference into Nyc311TeamChatStack. */
+      chatApiBaseUrl: `https://${TEAM_CHAT_API_DOMAIN[props.envName]}`,
       userPoolId: adminAuth.userPool.userPoolId,
       userPoolClientId: adminAuth.userPoolClient.userPoolClientId,
     });

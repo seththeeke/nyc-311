@@ -1,19 +1,24 @@
-import type { ResidentRig } from "../../residents/models/residentFigure";
-import { buildDeeVarick } from "./deeVarick";
-import { buildDexMercer } from "./dexMercer";
-import { buildHalPearl } from "./halPearl";
-import { buildJenGreene } from "./jenGreene";
-import { buildJuneBleecker } from "./juneBleecker";
-import { buildPriyaLafayette } from "./priyaLafayette";
-import { buildTheoHudson } from "./theoHudson";
+import type { TeamRig } from "./kit/teamBody";
+import { finishRig } from "./kit/teamMotion";
+import { buildBroganAnvilhand } from "./brogan/broganAnvilhand";
+import { buildCelestineVey } from "./celestine/celestineVey";
+import { buildFergusFarthing } from "./fergus/fergusFarthing";
+import { buildRexRivet } from "./rex/rexRivet";
+import { buildPipSprocketwhistle } from "./pip/pipSprocketwhistle";
+import { buildKidKestrel } from "./kestrel/kidKestrel";
+import { buildPennyPlaten } from "./penny/pennyPlaten";
 
 /* Every executive team model, by the `model_key` on the roster (#146). The resident avatar and stage look keys up here too. */
-export const TEAM_MODELS: Readonly<Record<string, () => ResidentRig>> = {
-  "june-bleecker": buildJuneBleecker,
-  "dee-varick": buildDeeVarick,
-  "priya-lafayette": buildPriyaLafayette,
-  "hal-pearl": buildHalPearl,
-  "theo-hudson": buildTheoHudson,
-  "dex-mercer": buildDexMercer,
-  "jen-greene": buildJenGreene,
+export const TEAM_MODELS: Readonly<Record<string, () => TeamRig>> = {
+  "penny-platen": () => finishRig(buildPennyPlaten()),
+  "brogan-anvilhand": () => finishRig(buildBroganAnvilhand()),
+  "celestine-vey": () => finishRig(buildCelestineVey()),
+  "fergus-farthing": () => finishRig(buildFergusFarthing()),
+  "rex-rivet": () => finishRig(buildRexRivet()),
+  "pip-sprocketwhistle": () => finishRig(buildPipSprocketwhistle()),
+  "kid-kestrel": () => finishRig(buildKidKestrel()),
 };
+
+export function isTeamModel(modelKey: string | null): modelKey is string {
+  return modelKey !== null && modelKey in TEAM_MODELS;
+}

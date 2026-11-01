@@ -139,6 +139,10 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       { name: "rate_per_hour", type: "double" },
       { name: "current_location", type: "string" },
       { name: "last_event_sequence", type: "bigint" },
+      /* Who changed the fleet (docs/17-executive-team.md §12.3). */
+      { name: "added_by", type: "string" },
+      { name: "released_at", type: "string" },
+      { name: "released_by", type: "string" },
       ...INGEST_METADATA_COLUMNS,
     ],
   },

@@ -97,6 +97,26 @@ describe("Nyc311IntegrationTestStep", () => {
     });
   });
 
+  it("wires each environment's Team Chat API URL output in as CHAT_API_BASE_URL (docs/17-executive-team.md §14, L4)", () => {
+    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
+      Stages: Match.arrayWith(
+        (["Test", "Prod"] as const).map((env) =>
+          Match.objectLike({
+            Name: `Deploy${env}`,
+            Actions: Match.arrayWith([
+              Match.objectLike({
+                Name: `IntegrationTests${env}`,
+                Configuration: Match.objectLike({
+                  EnvironmentVariables: Match.stringLikeRegexp('.*"CHAT_API_BASE_URL".*#\\{.*\\.TeamChatApiUrl\\}.*'),
+                }),
+              }),
+            ]),
+          })
+        )
+      ),
+    });
+  });
+
   it("wires each environment's real Nyc311AdminUserPoolClientId output in as USER_POOL_CLIENT_ID, not a hardcoded value", () => {
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Stages: Match.arrayWith([

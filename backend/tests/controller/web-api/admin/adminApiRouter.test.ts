@@ -7,6 +7,7 @@ import { createWarehouseJobController } from "../../../../controller/web-api/adm
 import { deleteFeatureFlagController } from "../../../../controller/web-api/admin/deleteFeatureFlagController";
 import { deleteWarehouseJobController } from "../../../../controller/web-api/admin/deleteWarehouseJobController";
 import { getCapacityController } from "../../../../controller/web-api/admin/getCapacityController";
+import { getCapacitySnapshotController } from "../../../../controller/web-api/admin/getCapacitySnapshotController";
 import { getWarehouseJobSqlController } from "../../../../controller/web-api/admin/getWarehouseJobSqlController";
 import { listWarehouseJobRunsController } from "../../../../controller/web-api/admin/listWarehouseJobRunsController";
 import { listWarehouseJobsController } from "../../../../controller/web-api/admin/listWarehouseJobsController";
@@ -24,6 +25,7 @@ vi.mock("../../../../controller/web-api/admin/createWarehouseJobController", () 
 vi.mock("../../../../controller/web-api/admin/deleteFeatureFlagController", () => ({ deleteFeatureFlagController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/deleteWarehouseJobController", () => ({ deleteWarehouseJobController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/getCapacityController", () => ({ getCapacityController: vi.fn() }));
+vi.mock("../../../../controller/web-api/admin/getCapacitySnapshotController", () => ({ getCapacitySnapshotController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/getWarehouseJobSqlController", () => ({ getWarehouseJobSqlController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/listWarehouseJobRunsController", () => ({ listWarehouseJobRunsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/listWarehouseJobsController", () => ({ listWarehouseJobsController: vi.fn() }));
@@ -38,6 +40,7 @@ vi.mock("../../../../controller/web-api/admin/whoamiController", () => ({ whoami
 const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "GET /admin/whoami": whoamiController,
   "GET /capacity": getCapacityController,
+  "GET /capacity/snapshot": getCapacitySnapshotController,
   "POST /capacity": addCapacityController,
   "DELETE /capacity/{operator_id}": removeCapacityController,
   "POST /scheduling/run": runSchedulingController,
@@ -54,7 +57,7 @@ const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "POST /admin/warehouse/job-runs/results": postJobRunResultsController,
 };
 
-const CLAIMS = { sub: "abc-123", email: "admin@example.com" };
+const CLAIMS = { sub: "abc-123", email: "admin@example.com", "cognito:groups": "[ADMIN BOROUGH_SIM_TEAM]" };
 
 function eventFor(routeKey: string, claims: Record<string, string> | null = CLAIMS): unknown {
   return {
@@ -78,9 +81,9 @@ afterEach(() => {
 });
 
 describe("adminApiRouter", () => {
-  it("covers exactly the 16 admin routes", () => {
-    expect(ADMIN_API_ROUTES).toHaveLength(16);
-    expect(new Set(ADMIN_API_ROUTES).size).toBe(16);
+  it("covers exactly the 17 admin routes", () => {
+    expect(ADMIN_API_ROUTES).toHaveLength(17);
+    expect(new Set(ADMIN_API_ROUTES).size).toBe(17);
   });
 
   it.each(ADMIN_API_ROUTES)("dispatches %s to its controller with the raw event", async (routeKey) => {
@@ -102,6 +105,19 @@ describe("adminApiRouter", () => {
 
     expect(response.statusCode).toBe(400);
     expect(whoamiController).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 without dispatching when the caller isn't in the route's groups", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com", "cognito:groups": "[BOROUGH_SIM_TEAM]" }));
+    expect(response.statusCode).toBe(403);
+    expect(whoamiController).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when the caller holds no groups at all", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com" }));
+    expect(response.statusCode).toBe(403);
   });
 
   it("returns 500 without dispatching when the event has no JWT claims", async () => {

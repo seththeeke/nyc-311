@@ -524,3 +524,27 @@ run, closes on merge.
 See [#146](https://github.com/seththeeke/nyc-311/issues/146).
 
 ---
+
+## Validate the idea resolution on write in ResidentIdeaDao.appendStep
+
+See [#147](https://github.com/seththeeke/nyc-311/issues/147).
+
+---
+
+## Post-deploy integration tests for the customer read API in DeployCustomer
+
+See [#148](https://github.com/seththeeke/nyc-311/issues/148).
+
+---
+
+## Customer read API: return 500, not 400, when a stored row can't be parsed
+
+See [#149](https://github.com/seththeeke/nyc-311/issues/149).
+
+---
+
+## Canary or alarm on the customer read API
+
+Folded into the customer stack monitoring work: see [#108](https://github.com/seththeeke/nyc-311/issues/108#issuecomment-6549766100).
+
+---

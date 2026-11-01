@@ -59,6 +59,13 @@ export const TeamIcon = (p: IconProps): ReactElement => (
   </StrokeIcon>
 );
 
+export const ChatIcon = (p: IconProps): ReactElement => (
+  <StrokeIcon {...p}>
+    <path d="M4 5h16v11H9l-5 4z" />
+    <path d="M8 9h8M8 12h5" />
+  </StrokeIcon>
+);
+
 export const MonitorIcon = (p: IconProps): ReactElement => (
   <StrokeIcon {...p}>
     <path d="M3 12h4l2.5-6 4 12L16 12h5" />

@@ -118,6 +118,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     jobRunnerLambda: warehouseJobRunnerLambda,
     failureNotificationEmail: "ops@example.com",
   });
+  const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName });
   const adminApiLambda = new Nyc311AdminApiLambda(stack, "Nyc311AdminApiLambda", {
     envName,
     usersTable,
@@ -126,6 +127,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     requestsTable,
     locationsTable,
     featureFlagsTable,
+    liveWorkspaceMetricsTable,
     jobRunsTable: warehouseJobRunsTable,
     warehouseBucket,
     warehouseCatalog,
@@ -146,7 +148,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     dataApiLambda: new Nyc311DataApiLambda(stack, "Nyc311DataApiLambda", {
       envName,
       warehouseCatalog,
-      liveWorkspaceMetricsTable: new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName }),
+      liveWorkspaceMetricsTable,
     }),
     monitoringApiLambda: new Nyc311MonitoringApiLambda(stack, "Nyc311MonitoringApiLambda", { envName, ...MONITORED, requestsTable }),
     fleetApiLambda: getFleetLocationsApiLambda,

@@ -15,13 +15,13 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly six primary entries in order: Map (classic), Map (/mapv2), Residents, Meet the Team, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "Map", "Residents", "Meet the Team", "System Monitoring", "Admin"]);
+  it("has exactly seven primary entries in order: Map (classic), Map (/mapv2), Residents, Meet the Team, Team Chat, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Map", "Residents", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
   });
 
-  it("flags the classic Map (hidden on MAP_V2 = T2), the 3-D Map (T1/T2) and Meet the Team (T1); Residents is unflagged", () => {
+  it("flags the classic Map (hidden on MAP_V2 = T2), the 3-D Map (T1/T2) and Meet the Team and Team Chat (T1); Residents is unflagged", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
-    expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2", "TEAM"]);
+    expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2", "TEAM", "TEAM_CHAT"]);
     expect(flagged[2]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
     expect(flagged[0]).toMatchObject({ to: "/", featureFlag: { key: "MAP_V2", hideOn: ["T2"] } });
     expect(flagged[1]).toMatchObject({ to: "/mapv2", featureFlag: { key: "MAP_V2", showOn: ["T1", "T2"] } });
@@ -92,6 +92,22 @@ describe("linkIsActive", () => {
     expect(linkIsActive(residents, "/residents")).toBe(true);
     expect(linkIsActive(residents, "/residents/hawthorn/ideas/01K7IDEA0014")).toBe(true);
     expect(linkIsActive(residents, "/residentsx")).toBe(false);
+  });
+
+  it("hands a sub-page to the deeper link that owns it: Team Chat, not Meet the Team, on /team/chat", () => {
+    const team = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM")!;
+    const chat = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM_CHAT")!;
+    expect(linkIsActive(team, "/team/chat")).toBe(false);
+    expect(linkIsActive(chat, "/team/chat")).toBe(true);
+    expect(linkIsActive(team, "/team/other")).toBe(true);
+  });
+
+  it("hands a sub-page to the deeper link that owns it: Team Chat, not Meet the Team, on /team/chat", () => {
+    const team = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM")!;
+    const chat = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM_CHAT")!;
+    expect(linkIsActive(team, "/team/chat")).toBe(false);
+    expect(linkIsActive(chat, "/team/chat")).toBe(true);
+    expect(linkIsActive(team, "/team/other")).toBe(true);
   });
 });
 

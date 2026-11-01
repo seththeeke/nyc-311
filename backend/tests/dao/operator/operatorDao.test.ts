@@ -369,3 +369,41 @@ describe("OperatorDao.listActiveRoster", () => {
     await expect(operatorDao.listActiveRoster()).rejects.toThrow(ValidationError);
   });
 });
+
+describe("OperatorDao capacity changes (docs/17-executive-team.md §12.3)", () => {
+  const AGENT = { actor: "AGENT" as const, reason: "Median 2.6 days", by: "coo-agent@agents.boroughsim.com" };
+  const items = () => ddbMock.commandCalls(TransactWriteCommand).at(-1)?.args[0].input.TransactItems ?? [];
+
+  it("stamps the actor, reason and added_by on a recruit", async () => {
+    const operator = await operatorDao.addOperator("Truck 13", 45, AGENT);
+    expect(operator).toMatchObject({ added_by: "AGENT", released_at: null, released_by: null });
+    expect(items()[0]?.Put?.Item).toMatchObject({ actor: "AGENT", payload: { reason: "Median 2.6 days", by: AGENT.by } });
+  });
+
+  it("stamps released_* on a queued removal and keeps them at finalize", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ current_activity: "WORKING" }) });
+    const queued = await operatorDao.queueRemoval("01OPERATOR", AGENT);
+    expect(queued).toMatchObject({ released_by: "AGENT" });
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem({ released_at: "2026-11-01T10:00:00.000Z", released_by: "AGENT" }) });
+    const finalized = await operatorDao.finalizeRemoval("01OPERATOR");
+    expect(finalized).toMatchObject({ status: "INACTIVE", released_at: "2026-11-01T10:00:00.000Z", released_by: "AGENT" });
+  });
+
+  it("stamps released_* on an immediate removal", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+    const finalized = await operatorDao.finalizeRemoval("01OPERATOR", AGENT);
+    expect(finalized.released_by).toBe("AGENT");
+    expect(finalized.released_at).toBe(finalized.end_datetime);
+  });
+
+  it("lists every operator across pages of the roster index", async () => {
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({ Items: [makeOperatorItem({ operator_id: "01A" })], LastEvaluatedKey: { operator_id: "01A" } })
+      .resolvesOnce({ Items: [makeOperatorItem({ operator_id: "01B", status: "INACTIVE" })] })
+      .resolvesOnce({});
+    expect((await operatorDao.listRoster()).map((operator) => operator.operator_id)).toEqual(["01A", "01B"]);
+    expect(ddbMock.commandCalls(QueryCommand)[1].args[0].input.ExclusiveStartKey).toEqual({ operator_id: "01A" });
+    expect(await operatorDao.listRoster()).toEqual([]);
+  });
+});

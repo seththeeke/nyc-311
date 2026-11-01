@@ -90,6 +90,14 @@ describe("loadRuntimeConfig", () => {
     expect(config.publicApiBaseUrl).toBe("https://public-api.boroughsim.com");
   });
 
+  it("defaults chatApiBaseUrl to Test's chat API, and overwrites it from /env-config.json", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ chatApiBaseUrl: "https://chat-api.boroughsim.com" }) }));
+    const { config, loadRuntimeConfig } = await import("../src/config");
+    expect(config.chatApiBaseUrl).toBe("https://chat-api.test.boroughsim.com");
+    await loadRuntimeConfig();
+    expect(config.chatApiBaseUrl).toBe("https://chat-api.boroughsim.com");
+  });
+
   it("keeps the Vite-build-time default when the fetch 404s (local dev)", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://local-default.example.com");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));

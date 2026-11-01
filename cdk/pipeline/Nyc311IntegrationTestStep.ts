@@ -28,6 +28,8 @@ export interface IntegrationTestStepProps {
   adminUserPoolClientIdOutput: CfnOutput;
   /** That environment's Nyc311Stack.publicApiUrlOutput — wired in as PUBLIC_API_BASE_URL for the public API's tests (16-resident-action-models.md §2). */
   publicApiUrlOutput: CfnOutput;
+  /** That environment's Nyc311TeamChatStack.chatApiUrlOutput — wired in as CHAT_API_BASE_URL for Team Chat's tests (docs/17-executive-team.md §14, L4). */
+  chatApiUrlOutput: CfnOutput;
   /** Reused from the pipeline's own source, so backend/ is present in this step's workspace. */
   source: pipelines.CodePipelineSource;
 }
@@ -66,6 +68,7 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
       API_BASE_URL: props.apiUrlOutput,
       USER_POOL_CLIENT_ID: props.adminUserPoolClientIdOutput,
       PUBLIC_API_BASE_URL: props.publicApiUrlOutput,
+      CHAT_API_BASE_URL: props.chatApiUrlOutput,
     },
     commands: [runAndCaptureExit, syncReport, invalidate, finish],
     /* MEDIUM, not the pipeline's SMALL default: this is Test's blocking gate, and a starved Vitest run would flake it. */

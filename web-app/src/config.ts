@@ -8,6 +8,8 @@ export interface AppConfig {
   residentApiBaseUrl: string;
   /** The public API (`16-resident-action-models.md` §2) — per environment, so runtime-injected like `apiBaseUrl`. */
   publicApiBaseUrl: string;
+  /** The Team Chat API (docs/17-executive-team.md §10), per environment, so runtime-injected like `apiBaseUrl`. */
+  chatApiBaseUrl: string;
 }
 
 /*
@@ -37,11 +39,13 @@ export const config: AppConfig = {
   userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
   residentApiBaseUrl: import.meta.env.VITE_RESIDENT_API_BASE_URL || "https://customer-api.boroughsim.com",
   publicApiBaseUrl: import.meta.env.VITE_PUBLIC_API_BASE_URL || "https://public-api.test.boroughsim.com",
+  chatApiBaseUrl: import.meta.env.VITE_CHAT_API_BASE_URL || "https://chat-api.test.boroughsim.com",
 };
 
 interface RuntimeEnvConfig {
   apiBaseUrl?: string;
   publicApiBaseUrl?: string;
+  chatApiBaseUrl?: string;
   userPoolId?: string;
   userPoolClientId?: string;
 }
@@ -64,6 +68,9 @@ export async function loadRuntimeConfig(): Promise<void> {
     }
     if (typeof runtime.publicApiBaseUrl === "string" && runtime.publicApiBaseUrl.length > 0) {
       config.publicApiBaseUrl = runtime.publicApiBaseUrl;
+    }
+    if (typeof runtime.chatApiBaseUrl === "string" && runtime.chatApiBaseUrl.length > 0) {
+      config.chatApiBaseUrl = runtime.chatApiBaseUrl;
     }
     if (typeof runtime.userPoolId === "string" && runtime.userPoolId.length > 0) {
       config.userPoolId = runtime.userPoolId;

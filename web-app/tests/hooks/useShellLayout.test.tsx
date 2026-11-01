@@ -106,6 +106,20 @@ describe("useShellLayout", () => {
     expect(result.current.rightCollapsed).toBe(false);
   });
 
+  it("a page that stops hiding the panel opens it, even after a manual toggle, and closes it again", () => {
+    mockViewport(1400);
+    const { result, rerender } = renderHook(({ pathname, hides }) => useShellLayout(pathname, hides), {
+      initialProps: { pathname: "/team/chat", hides: true },
+    });
+    act(() => result.current.toggleRight());
+    act(() => result.current.toggleRight());
+    expect(result.current.rightCollapsed).toBe(true);
+    rerender({ pathname: "/team/chat", hides: false });
+    expect(result.current.rightCollapsed).toBe(false);
+    rerender({ pathname: "/team/chat", hides: true });
+    expect(result.current.rightCollapsed).toBe(true);
+  });
+
   it("a route change discards a manual right-panel override but keeps the sidebar's", () => {
     mockViewport(1400);
     const { result, rerender } = renderHook(({ pathname, hides }) => useShellLayout(pathname, hides), {
