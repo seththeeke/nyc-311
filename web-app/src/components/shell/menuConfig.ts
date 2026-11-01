@@ -1,10 +1,10 @@
 import type { ComponentType } from "react";
 import type { IconProps } from "../icons";
-import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
-import { MAP_V2_PATH } from "../mapv2/mapV2Routes";
+import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
+import { MAP_PATH } from "../map/mapRoutes";
 import { RESIDENTS_PATH } from "../residents/residentRoutes";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../team/teamRoutes";
-import { AdminIcon, ChatIcon, CityIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
+import { AdminIcon, ChatIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
 
 /*
  * The sidebar's primary entries (12-UX-workspace-refactor.md §3.2),
@@ -18,19 +18,10 @@ export interface MenuLeaf {
   external?: boolean;
 }
 
-/**
- * How a flag shapes a link. With `showOn`, the link appears only on those
- * treatments (loading, missing and failed flags read as off). With
- * `hideOn`, it appears unless the flag is on one of those (loading,
- * missing and failed read as on, so nothing blinks out). `alsoActiveOnFor`
- * and `iconOn` adjust the highlighted paths and the icon per treatment.
- */
+/** How a flag gates a link: it appears only on the `showOn` treatments (loading, missing and failed flags read as off). */
 export interface MenuFlagRule {
   key: string;
-  showOn?: readonly string[];
-  hideOn?: readonly string[];
-  alsoActiveOnFor?: Readonly<Record<string, readonly string[]>>;
-  iconOn?: Readonly<Record<string, ComponentType<IconProps>>>;
+  showOn: readonly string[];
 }
 
 export interface MenuLinkEntry {
@@ -38,7 +29,7 @@ export interface MenuLinkEntry {
   id: string;
   label: string;
   to: string;
-  /* Extra paths that should also highlight this entry (e.g. /about renders the map). */
+  /* Extra paths (and their sub-pages) that should also highlight this entry (e.g. /about renders the map). */
   alsoActiveOn: readonly string[];
   icon: ComponentType<IconProps>;
   /* A short tag after the label, e.g. Beta. */
@@ -65,24 +56,9 @@ export const MENU: readonly MenuEntry[] = [
     kind: "LINK",
     id: "MAP",
     label: "Map",
-    to: "/",
-    alsoActiveOn: ["/about"],
+    to: MAP_PATH,
+    alsoActiveOn: ["/about", "/job"],
     icon: MapIcon,
-    featureFlag: { key: MAP_V2_FLAG, hideOn: [MAP_V2_TAKEOVER] },
-  },
-  {
-    kind: "LINK",
-    id: "MAP_V2",
-    label: "Map",
-    to: MAP_V2_PATH,
-    alsoActiveOn: [],
-    icon: CityIcon,
-    featureFlag: {
-      key: MAP_V2_FLAG,
-      showOn: [MAP_V2_ON, MAP_V2_TAKEOVER],
-      iconOn: { [MAP_V2_TAKEOVER]: MapIcon },
-      alsoActiveOnFor: { [MAP_V2_TAKEOVER]: ["/about"] },
-    },
   },
   {
     kind: "LINK",
@@ -144,24 +120,11 @@ export const MENU: readonly MenuEntry[] = [
   },
 ];
 
-/**
- * The link as it should render for `treatment` (`undefined` while loading,
- * `null` when the flag is missing or failed), or `null` when it's hidden.
- */
+/** The link, or `null` while its flag hides it (`treatment` is `undefined` while loading, `null` when missing or failed). */
 export function resolveFlaggedLink(entry: MenuLinkEntry, treatment: string | null | undefined): MenuLinkEntry | null {
   const rule = entry.featureFlag;
   if (!rule) return entry;
-  const resolved = treatment ?? null;
-  const visible = rule.showOn
-    ? resolved !== null && rule.showOn.includes(resolved)
-    : resolved === null || !(rule.hideOn ?? []).includes(resolved);
-  if (!visible) return null;
-  if (resolved === null) return entry;
-  return {
-    ...entry,
-    icon: rule.iconOn?.[resolved] ?? entry.icon,
-    alsoActiveOn: [...entry.alsoActiveOn, ...(rule.alsoActiveOnFor?.[resolved] ?? [])],
-  };
+  return treatment && rule.showOn.includes(treatment) ? entry : null;
 }
 
 function pathIsWithin(pathname: string, base: string): boolean {
@@ -183,7 +146,7 @@ export function pathIsInAnySection(pathname: string): boolean {
 
 /* `/` is exact (every path starts with it); any other link also stays active on its sub-pages, e.g. an Idea Detail view under /residents, unless a deeper link owns that sub-page (Team Chat under /team). */
 export function linkIsActive(entry: MenuLinkEntry, pathname: string): boolean {
-  if (pathname === entry.to || entry.alsoActiveOn.includes(pathname)) return true;
+  if (pathname === entry.to || entry.alsoActiveOn.some((path) => pathIsWithin(pathname, path))) return true;
   if (entry.to === "/" || !pathname.startsWith(`${entry.to}/`)) return false;
   return !MENU.some((other) => other.kind === "LINK" && other.to.startsWith(`${entry.to}/`) && (pathname === other.to || pathname.startsWith(`${other.to}/`)));
 }

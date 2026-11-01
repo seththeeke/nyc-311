@@ -1,6 +1,6 @@
 # Maps refactor — Mapv2, the 3-D city map
 
-**Status (2026-10-17):** built and behind the `MAP_V2` flag. Test defaults to `T1`, Prod to `C`. Pre-`T2` pass done 2026-10-17 (§8): context-loss recovery, pinned versions, a pipeline browser smoke test, and a UI polish round. No backend or API changes; the only CDK change is that pipeline step.
+**Status (2026-11-01):** the 3-D map is BoroughSim's only map, at `/`. Prod ran `MAP_V2` = `T2` from 2026-10-18; the flag, the `T1` path and the classic Leaflet map were then removed (#135, §9). Sections 1–8 describe the flagged rollout as it was built and are kept as history.
 
 **Read this first.** Mapv2 was built quickly as a prototype ("vibe coded") to prove the look and the interaction, not as hardened production code. It passes the normal gates: build, lint, tests and the 90% per-file coverage gate. But nothing exercises it in a real browser with a real GPU, and Three.js has failure modes this repo has never had to guard against. Section 4 lists the guardrails to add, and section 5 lists the assumptions the frontend makes. Work through both before setting `T2` in Prod.
 
@@ -308,7 +308,7 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
 - [ ] API: `current_order.location`, an order stage/progress field and a complaint descriptor in the fleet feed (§5.1)
 - [ ] A "Live" indicator driven by data freshness (§5.1)
 - [ ] Palettes derived from the theme tokens (§5.3)
-- [ ] Once `T2` holds in Prod, remove the classic map, then `T1`, then the flag (§2)
+- [x] Once `T2` holds in Prod, remove the classic map, then `T1`, then the flag (§2) — done 2026-11-01, §9
 
 ---
 
@@ -328,3 +328,16 @@ The fleet feed (`GET /fleet/locations`, `fleetLocation.ts`) is a point-in-time s
 - **Error boundary (§4.1), still open:**
   - What it covers: errors React sees, i.e. ones thrown while rendering or inside an effect. That includes `new Map(...)` or `new WebGLRenderer(...)` failing to create a context (the WebGL2 probe passed, but the real context fails, e.g. past Chrome's ~16-context limit) and a scene build throwing. Today any of these unmounts the whole app: there's no error boundary anywhere in the web-app, so the page goes white, sidebar included.
   - What it doesn't cover: errors inside MapLibre's or the dive's frame loop (`requestAnimationFrame`). A boundary never sees those; they freeze the canvas, but the page stays up.
+
+---
+
+## 9. Flag cleanup (2026-11-01, #135)
+
+`T2` became permanent. What the web-app is now:
+
+- **Routes:** the map is one layout route over `/`, `/about` and `/job/:orderId` (`mapRoutes.ts`: `MAP_PATH`, `MAP_JOB_PATTERN`, `mapJobPath`), so a dive-in never remounts the city. `/mapv2/*` redirects to `/`.
+- **Menu:** one unflagged **Map** entry at `/`, also active on `/about` and `/job/*`. `MenuFlagRule` is `showOn` only; `hideOn`, `iconOn`, `alsoActiveOnFor` and `CityIcon` are gone.
+- **Renames:** `components/mapv2/` → `components/map/`, `MapV2Page` → `MapPage`, `MapV2Glyph` → `MapGlyph`, `mapV2Routes.ts` → `mapRoutes.ts`; the smoke test is `tests/smoke/map.spec.ts`, the city's test id `map-city`, the chunk budget key `MapPage`.
+- **Removed:** `MapV2TakeoverRoute`, `HomePage`, `FleetMap`, `FleetMapLegend`, `OperatorTrail`, `FleetMapWidget` and the `FLEET_MAP` widget, the `FULL` widget size, `leaflet`, `react-leaflet`, `@types/leaflet`, the `--map-tile-filter` token, and the `MAP_V2` constants and mock flag.
+- **Without WebGL2,** `WebGlFallback` explains that the map can't run; there is no classic map to link to.
+- **Still in DynamoDB:** the `MAP_V2` rows in `FeatureFlags-Test` and `FeatureFlags-Prod`. Nothing reads them; delete them from Admin → Feature Flags or the CLI when convenient.

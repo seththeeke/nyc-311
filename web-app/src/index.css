@@ -44,7 +44,6 @@
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #898781;
-  --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.7);
   --aurora-opacity: 1;
   --t-glass-highlight: rgb(255 255 255 / 0.1);
   --t-glass-shadow: rgb(0 0 0 / 0.3);
@@ -87,7 +86,6 @@
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #c3c2b7;
-  --map-tile-filter: none;
   --aurora-opacity: 0.35;
   --t-glass-highlight: rgb(255 255 255 / 0.9);
   --t-glass-shadow: rgb(15 23 42 / 0.08);
@@ -163,10 +161,6 @@ body {
   opacity: var(--aurora-opacity);
 }
 
-.theme-map-tiles .leaflet-tile-pane {
-  filter: var(--map-tile-filter);
-}
-
 @keyframes aurora-drift-1 {
   0%,
   100% {
@@ -217,8 +211,8 @@ body {
   }
 }
 
-/* Mapv2's dive-in: the close-up resolves out of a blur, as if the camera punched through. */
-@keyframes mapv2-dive-in {
+/* The map's dive-in: the close-up resolves out of a blur, as if the camera punched through. */
+@keyframes map-dive-in {
   from {
     opacity: 0;
     transform: scale(1.08);

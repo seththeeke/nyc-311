@@ -1,22 +1,19 @@
 import { lazy, Suspense, type ReactElement } from "react";
-import { HomePage } from "../components/pages/HomePage";
 import { PublicRoute } from "./PublicRoute";
 import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { MAP_V2_FLAG, MAP_V2_ON, MAP_V2_TAKEOVER, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
-import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
-import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
+import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
+import { MAP_JOB_PATTERN, MAP_PATH } from "../components/map/mapRoutes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
 
 /*
- * Every non-landing page is dynamic-imported so Vite/Rollup emits it as its
- * own chunk instead of folding all 14 pages (SQL console, charts, diagrams
- * included) into one bundle — `npm run build` flagged that bundle at 802 kB
- * minified. HomePage stays eager since it's the default route.
+ * Every page is dynamic-imported so Vite/Rollup emits it as its own chunk
+ * instead of folding them all (SQL console, charts, diagrams, the 3-D map)
+ * into one bundle — `npm run build` flagged that bundle at 802 kB minified.
  */
 const DataPage = lazy(() => import("../components/pages/DataPage").then((m) => ({ default: m.DataPage })));
 const MonitoringPage = lazy(() =>
@@ -37,8 +34,8 @@ const PublicApiPage = lazy(() =>
 const IntegrationTestReportPage = lazy(() =>
   import("../components/pages/IntegrationTestReportPage").then((m) => ({ default: m.IntegrationTestReportPage }))
 );
-/* Mapv2 pulls in MapLibre and Three.js. One `/*` route, not one per path, so diving into a job never remounts the city behind it. */
-const MapV2Page = lazy(() => import("../components/pages/MapV2Page").then((m) => ({ default: m.MapV2Page })));
+/* The map pulls in MapLibre and Three.js. Its paths share one layout route, so diving into a job never remounts the city behind it. */
+const MapPage = lazy(() => import("../components/pages/MapPage").then((m) => ({ default: m.MapPage })));
 const ResidentsPage = lazy(() =>
   import("../components/pages/ResidentsPage").then((m) => ({ default: m.ResidentsPage }))
 );
@@ -84,29 +81,15 @@ export function AppRoutes(): ReactElement {
     <Routes>
       <Route element={<ShellRoute />}>
         <Route
-          path="/"
-          element={
-            <PublicRoute>
-              <MapV2TakeoverRoute classic={<HomePage />} takeover={<Navigate to={MAP_V2_PATH} replace />} />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/about"
-          element={
-            <PublicRoute>
-              <MapV2TakeoverRoute classic={<HomePage />} takeover={withLoadingFallback(<MapV2Page />)} />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path={`${MAP_V2_PATH}/*`}
-          element={
-            <FeatureFlagRoute flagKey={MAP_V2_FLAG} onTreatments={[MAP_V2_ON, MAP_V2_TAKEOVER]}>
-              {withLoadingFallback(<MapV2Page />)}
-            </FeatureFlagRoute>
-          }
-        />
+          element={<PublicRoute>{withLoadingFallback(<MapPage />)}</PublicRoute>}
+        >
+          <Route path={MAP_PATH} />
+          {/* The About drawer lives in the sidebar footer; the map renders underneath. */}
+          <Route path="/about" />
+          <Route path={MAP_JOB_PATTERN} />
+        </Route>
+        {/* The map's old path, kept so bookmarks still land on it. */}
+        <Route path="/mapv2/*" element={<Navigate to={MAP_PATH} replace />} />
         <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
         <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
         <Route

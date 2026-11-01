@@ -97,25 +97,25 @@ function runBudgetGuard(bundle: Record<string, unknown>): string | null {
 describe("findBundleBudgetViolations", () => {
   it("returns nothing when every tracked chunk is within budget", () => {
     const bundle = {
-      "a.js": { type: "chunk" as const, fileName: "assets/MapV2Page-abc123.js", code: "x".repeat(1000) },
+      "a.js": { type: "chunk" as const, fileName: "assets/MapPage-abc123.js", code: "x".repeat(1000) },
       "b.js": { type: "chunk" as const, fileName: "assets/threeKit-def456.js", code: "x".repeat(1000) },
     };
     expect(findBundleBudgetViolations(bundle)).toEqual([]);
   });
 
   it("flags a tracked chunk over its budget", () => {
-    const oversized = CHUNK_SIZE_BUDGETS_BYTES.MapV2Page + 1;
+    const oversized = CHUNK_SIZE_BUDGETS_BYTES.MapPage + 1;
     const bundle = {
-      "a.js": { type: "chunk" as const, fileName: "assets/MapV2Page-abc123.js", code: "x".repeat(oversized) },
+      "a.js": { type: "chunk" as const, fileName: "assets/MapPage-abc123.js", code: "x".repeat(oversized) },
     };
     expect(findBundleBudgetViolations(bundle)).toEqual([
-      `MapV2Page chunk is ${oversized.toLocaleString()} bytes minified, over its ${CHUNK_SIZE_BUDGETS_BYTES.MapV2Page.toLocaleString()}-byte budget`,
+      `MapPage chunk is ${oversized.toLocaleString()} bytes minified, over its ${CHUNK_SIZE_BUDGETS_BYTES.MapPage.toLocaleString()}-byte budget`,
     ]);
   });
 
   it("ignores assets and chunks with no matching budget key", () => {
     const bundle = {
-      "a.css": { type: "asset" as const, fileName: "assets/MapV2Page-abc123.css", source: "x".repeat(10_000_000) },
+      "a.css": { type: "asset" as const, fileName: "assets/MapPage-abc123.css", source: "x".repeat(10_000_000) },
       "b.js": { type: "chunk" as const, fileName: "assets/index-abc123.js", code: "x".repeat(10_000_000) },
     };
     expect(findBundleBudgetViolations(bundle)).toEqual([]);

@@ -9,7 +9,7 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* No flag resolves here, so the show-on 3-D Map entry stays hidden; its own tests set treatments. */
+/* No flag resolves here, so the show-on Meet the Team entries stay hidden; their own tests set treatments. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
   useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
   useFeatureEnabled: vi.fn(() => false),
@@ -279,23 +279,21 @@ describe("Sidebar brand", () => {
 describe("Sidebar flagged entries", () => {
   afterEach(() => withTreatments({}));
 
-  it("MAP_V2 = T1: shows the 3-D Map directly under the classic Map, highlighted on a job dive-in", () => {
-    withTreatments({ MAP_V2: "T1" });
-    renderSidebar({ path: "/mapv2/job/01MOCKORDER001" });
+  it("MEET_THE_TEAM = T1: shows Meet the Team and Team Chat after Residents", () => {
+    withTreatments({ MEET_THE_TEAM: "T1" });
+    renderSidebar();
     const links = screen.getAllByRole("link").map((link) => link.textContent);
-    const maps = screen.getAllByRole("link", { name: "Map" });
-    expect(maps.map((link) => link.getAttribute("href"))).toEqual(["/", "/mapv2"]);
-    expect(links.lastIndexOf("Map")).toBe(links.indexOf("Map") + 1);
-    expect(maps[1]).toHaveAttribute("aria-current", "page");
-    expect(maps[0]).not.toHaveAttribute("aria-current");
+    expect(links.indexOf("Meet the Team")).toBe(links.indexOf("Residents") + 1);
+    expect(screen.getByRole("link", { name: /Team Chat/ })).toHaveAttribute("href", "/team/chat");
   });
+});
 
-  it("MAP_V2 = T2: hides the classic Map, leaving one Map at /mapv2, active on /about", () => {
-    withTreatments({ MAP_V2: "T2" });
-    renderSidebar({ path: "/about" });
+describe("Sidebar map entry", () => {
+  it("shows one Map, highlighted on a job dive-in", () => {
+    renderSidebar({ path: "/job/01MOCKORDER001" });
     const maps = screen.getAllByRole("link", { name: "Map" });
     expect(maps).toHaveLength(1);
-    expect(maps[0]).toHaveAttribute("href", "/mapv2");
+    expect(maps[0]).toHaveAttribute("href", "/");
     expect(maps[0]).toHaveAttribute("aria-current", "page");
   });
 });

@@ -5,7 +5,7 @@ import { DETAIL } from "./residentPalette";
 /*
  * The shared body every resident model starts from (style guide,
  * 13-customer-simulation.md Appendix P): Mii-like proportions — a big
- * round head on a short, rounded body — in the Mapv2 flat-shaded
+ * round head on a short, rounded body — in the 3-D map's flat-shaded
  * low-poly look. About 1.4 m, facing +x with y up. Hips, shoulders and
  * the head are pivot groups, so poses are rotations only.
  */
