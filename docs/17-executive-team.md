@@ -571,7 +571,12 @@ There is no minimum or maximum fleet size. The fleet can swing by up to 4 operat
 
 ### 12.4 The run
 
-launchd runs `coo-agent` every 6 hours (02:00, 08:00, 14:00, 20:00 New York time) through `scripts/agent-scheduled-run.sh`, against **Prod**. Each run:
+launchd runs `coo-agent` every 6 hours (02:00, 08:00, 14:00, 20:00 New York time) through `scripts/agent-scheduled-run.sh`, against **Prod**, as `KIND=operations`: one run per fire, with no PRs or issues to count.
+
+- **Definition:** `.claude/agents/coo-agent.md`, on `sonnet`.
+- **Tools:** the `team-chat` and `boroughsim-ops` tools only, with no shell.
+
+Each run:
 
 1. **Reads his inbox** and answers every mention in its thread (§11.3).
 2. **Reads** `GET /capacity/snapshot`.

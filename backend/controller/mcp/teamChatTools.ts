@@ -1,18 +1,11 @@
-import { z, type ZodRawShape } from "zod";
+import { z } from "zod";
 import { TEAM_CHAT_REACTION_EMOJIS, TEAM_CHAT_TAGS_MAX, TEAM_CHAT_TEXT_MAX } from "../../models/teamChatMessage";
-import type { TeamChatCallResult, TeamChatClient } from "../../service/teamChatClient/teamChatClient";
+import type { TeamChatClient } from "../../service/teamChatClient/teamChatClient";
+import { defineTool, type McpTool } from "./mcpTool";
 
-export interface TeamChatTool<TShape extends ZodRawShape = ZodRawShape> {
-  name: string;
-  description: string;
-  inputSchema: TShape;
-  run: (client: TeamChatClient, args: z.objectOutputType<TShape, z.ZodTypeAny>) => Promise<TeamChatCallResult>;
-}
+export type TeamChatTool = McpTool<TeamChatClient>;
 
-/* Infers each tool's argument type from its own schema. */
-function tool<TShape extends ZodRawShape>(definition: TeamChatTool<TShape>): TeamChatTool<TShape> {
-  return definition;
-}
+const tool = defineTool<TeamChatClient>();
 
 const channelId = z.string().describe("Channel id, e.g. tech-team or executive-team.");
 const messageId = z.string().describe("A message_id from read_channel, read_thread or read_inbox.");
@@ -26,7 +19,7 @@ const limit = z.number().int().min(1).max(100).optional();
  * controller in the CLAUDE.md §5.2 sense: the MCP SDK validates its input
  * against the zod shape, then it calls the TeamChatClient service.
  */
-export const TEAM_CHAT_TOOLS = [
+export const TEAM_CHAT_TOOLS: readonly TeamChatTool[] = [
   tool({ name: "list_channels", description: "List Team Chat's channels, with their topics and members.", inputSchema: {}, run: (client) => client.listChannels() }),
   tool({
     name: "read_channel",

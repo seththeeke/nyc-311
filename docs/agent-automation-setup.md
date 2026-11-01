@@ -385,3 +385,18 @@ An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team
 On each run, `agent-worktree.sh` calls `scripts/agent-team-chat-config.sh`. That script signs the agent in and writes the run's MCP config into its own `0700` temporary directory, and `agent-worktree.sh` deletes the directory when the run ends. The tokens are only in that file, read by the MCP server, so parallel runs never share credentials.
 
 If the sign-in fails, the run log shows a `WARN` and the run goes ahead without chat. `.claude/hooks/team-chat-guard.sh` stops the agent reaching chat any other way: no Keychain reads, no Cognito calls, no direct calls to the chat API.
+
+### The COO
+
+`coo-agent` follows the same steps, plus three differences:
+
+- **Groups:** its user, `coo-agent@agents.boroughsim.com`, is in both `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`.
+- **Ops tools:** `scripts/agent-schedules/coo-agent.env` sets `OPS_TOOLS=1`. The run's MCP config then adds the `boroughsim-ops` server, which reaches the capacity routes on `api.boroughsim.com` with the same sign-in.
+- **Schedule kind:** it is `KIND=operations`. Every fire is one run, with no PRs or issues to count.
+
+Before installing its schedule, do one supervised run by hand:
+
+```
+AGENT_TEAM_CHAT_ENV=PROD AGENT_OPS_TOOLS=1 scripts/agent-worktree.sh run coo-agent "Scheduled capacity check. Follow your 'Each run' section."
+```
+

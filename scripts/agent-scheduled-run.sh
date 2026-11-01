@@ -104,16 +104,20 @@ fi
 rm -f "$latest_config"
 # AGENT_MAX_OPEN_PRS overrides the limit for a manual test (e.g. =0 forces REVISE).
 MAX_OPEN_PRS=${AGENT_MAX_OPEN_PRS:-${MAX_OPEN_PRS:-}}
-: "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}"
 KIND=${KIND:-pr-limit}
 # Team Chat environment for this agent's runs (docs/17-executive-team.md §11.4); unset runs without chat.
 AGENT_TEAM_CHAT_ENV=${TEAM_CHAT_ENV:-}
 export AGENT_TEAM_CHAT_ENV
 case "$KIND" in
-  pr-limit) : ;;
-  assigned-issue) : "${PROMPT_RESUME:?}" ;;
-  *) die "unknown KIND '$KIND' in $agent.env (pr-limit | assigned-issue)" ;;
+  pr-limit) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" ;;
+  assigned-issue) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" "${PROMPT_RESUME:?}" ;;
+  # An operating agent (docs/17-executive-team.md §12.4): every fire is one run of PROMPT_NEW, with no PRs or issues to count.
+  operations) : "${PROMPT_NEW:?}" ;;
+  *) die "unknown KIND '$KIND' in $agent.env (pr-limit | assigned-issue | operations)" ;;
 esac
+# The boroughsim-ops MCP server rides along with team-chat for agents that act on operations.
+AGENT_OPS_TOOLS=${OPS_TOOLS:-}
+export AGENT_OPS_TOOLS
 
 # ---- lock: one run per agent at a time ---------------------------------------
 
@@ -238,12 +242,21 @@ pick_new() {
 
 # ---- 2. pick the mode --------------------------------------------------------
 
-prs_before=$(open_prs) || die "could not list open PRs"
-count=$(printf '%s' "$prs_before" | wc -w | tr -d ' ')
 issue=""
 pr=""
+if [ "$KIND" = "operations" ]; then
+  prs_before=""
+  count=0
+else
+  prs_before=$(open_prs) || die "could not list open PRs"
+  count=$(printf '%s' "$prs_before" | wc -w | tr -d ' ')
+fi
 
-if [ "$KIND" = "assigned-issue" ]; then
+if [ "$KIND" = "operations" ]; then
+  mode=RUN
+  prompt="$PROMPT_NEW"
+  log "operations run → $mode"
+elif [ "$KIND" = "assigned-issue" ]; then
   command -v jq >/dev/null 2>&1 || die "'jq' not on PATH"
   issue_state ensure-labels || die "could not ensure the agent labels exist"
   sweep_done
@@ -305,8 +318,10 @@ else
     if [ -n "$chat_line" ]; then log "team-chat: ${chat_line#*Chat post:}"; else log "WARN: no chat post reported"; fi
   fi
 
-  prs_after=$(open_prs || echo "?")
-  log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
+  if [ "$KIND" != "operations" ]; then
+    prs_after=$(open_prs || echo "?")
+    log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
+  fi
 
   if [ "$KIND" = "assigned-issue" ]; then
     park_orphans "The run exited with status $status without reaching review or parking itself."

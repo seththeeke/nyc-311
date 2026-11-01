@@ -743,6 +743,9 @@ copied in.
   `gen-purpose-dev` label, tracking each through the label state machine in
   `scripts/agent-issue-state.sh` and landing it as a draft PR from a
   `gen-purpose-dev/<issue>-<slug>` branch.
+  `coo-agent` (`17-executive-team.md` §12) is an operating agent
+  (`KIND=operations`): no code, no PRs. It changes the Prod fleet only
+  through the `boroughsim-ops` MCP tools and posts to Team Chat.
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { logInfo, logWarn } from "../../logger";
 import type { TeamChatClientConfig } from "../../models/teamChatClientConfig";
+import { IdTokenProvider } from "../agentAuth/idTokenProvider";
 
-/* Refresh this long before the ID token's exp, so a call never races the expiry. */
-const REFRESH_MARGIN_SECONDS = 120;
 /* A write retries a network error or 5xx this many times, with the same client_token. */
 const WRITE_RETRIES = 2;
 
@@ -27,15 +26,6 @@ function queryString(query: Record<string, string | number | undefined>): string
   return params.size ? `?${params.toString()}` : "";
 }
 
-function tokenExpiry(idToken: string): number {
-  try {
-    const payload = JSON.parse(Buffer.from(idToken.split(".")[1] ?? "", "base64url").toString("utf8")) as { exp?: unknown };
-    return typeof payload.exp === "number" ? payload.exp : 0;
-  } catch {
-    return 0;
-  }
-}
-
 /**
  * The agents' Team Chat client (docs/17-executive-team.md §10.7): calls the
  * chat API as the signed-in agent, refreshing its ID token through Cognito,
@@ -43,34 +33,20 @@ function tokenExpiry(idToken: string): number {
  * double-posts.
  */
 export class TeamChatClient {
-  private idToken: string;
+  private readonly tokens: IdTokenProvider;
   private readonly fetchFn: typeof fetch;
-  private readonly now: () => Date;
   private readonly newToken: () => string;
 
   constructor(
     private readonly config: TeamChatClientConfig,
     deps: TeamChatClientDeps = {}
   ) {
-    this.idToken = config.TEAM_CHAT_ID_TOKEN;
     this.fetchFn = deps.fetch ?? fetch;
-    this.now = deps.now ?? (() => new Date());
     this.newToken = deps.newToken ?? randomUUID;
-  }
-
-  private async token(): Promise<string> {
-    if (tokenExpiry(this.idToken) - REFRESH_MARGIN_SECONDS > this.now().getTime() / 1000) return this.idToken;
-    logInfo("TeamChatClient.refreshToken", {});
-    const response = await this.fetchFn(`https://cognito-idp.${this.config.TEAM_CHAT_REGION}.amazonaws.com/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth" },
-      body: JSON.stringify({ AuthFlow: "REFRESH_TOKEN_AUTH", ClientId: this.config.TEAM_CHAT_CLIENT_ID, AuthParameters: { REFRESH_TOKEN: this.config.TEAM_CHAT_REFRESH_TOKEN } }),
-    });
-    const body = (await response.json()) as { AuthenticationResult?: { IdToken?: string } };
-    const idToken = body.AuthenticationResult?.IdToken;
-    if (!response.ok || !idToken) throw new Error(`Cognito token refresh failed: HTTP ${response.status}`);
-    this.idToken = idToken;
-    return idToken;
+    this.tokens = new IdTokenProvider(
+      { idToken: config.TEAM_CHAT_ID_TOKEN, refreshToken: config.TEAM_CHAT_REFRESH_TOKEN, clientId: config.TEAM_CHAT_CLIENT_ID, region: config.TEAM_CHAT_REGION },
+      { fetch: this.fetchFn, now: deps.now }
+    );
   }
 
   private async call(method: Method, path: string, options: { body?: unknown; auth?: boolean; retries?: number } = {}): Promise<TeamChatCallResult> {
@@ -78,7 +54,7 @@ export class TeamChatClient {
     for (let attempt = 0; ; attempt++) {
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (options.auth) headers.Authorization = `Bearer ${await this.token()}`;
+        if (options.auth) headers.Authorization = `Bearer ${await this.tokens.token()}`;
         logInfo("TeamChatClient.call", { method, path, attempt });
         const response = await this.fetchFn(`${this.config.TEAM_CHAT_API_URL}${path}`, {
           method,

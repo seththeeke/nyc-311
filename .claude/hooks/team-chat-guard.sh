@@ -26,5 +26,6 @@ printf '%s' "$cmd" | grep -qE 'security[[:space:]]+(find|dump|export)' && deny "
 printf '%s' "$cmd" | grep -qE 'cognito-idp' && deny "signing in to Cognito is blocked."
 printf '%s' "$cmd" | grep -qE 'nyc311-team-chat-' && deny "a run's private chat config is off limits."
 printf '%s' "$cmd" | grep -qE 'chat-api(\.test)?\.boroughsim\.com' && deny "calling the chat API directly is blocked."
-printf '%s' "$cmd" | grep -qE 'TEAM_CHAT_(ID|REFRESH)_TOKEN' && deny "chat tokens are off limits."
+printf '%s' "$cmd" | grep -qE 'TEAM_CHAT_(ID|REFRESH)_TOKEN|AGENT_(ID|REFRESH)_TOKEN' && deny "agent tokens are off limits."
+printf '%s' "$cmd" | grep -qE 'api(\.test)?\.boroughsim\.com/capacity' && deny "capacity changes go through the boroughsim-ops tools."
 exit 0
