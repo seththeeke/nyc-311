@@ -168,129 +168,50 @@ Not yet covered, and waiting on the orchestrator
 (`agent-orchestration-spec.md`): a per-run wall-clock cap, cost circuit
 breaker, and a run trace in a UI. Today a run's trace is its host log.
 
-### AWS access — the `nyc311-agent` profile
+### AWS access — one role per agent
 
-> **Not created yet.** Until the steps below are run, `gen-purpose-dev` has no
-> AWS access at all: its allowlist permits only `aws --profile nyc311-agent …`
-> and denies the admin `nyc311` profile outright. It works fine without AWS —
-> it just can't inspect live resources.
+Each agent reaches AWS only under its own IAM role, never a human admin credential. Every role is defined in CDK under `cdk/agents/` (one file per role), deployed with `Nyc311PipelineStack`.
 
-The agent investigates under its own IAM principal — never a human admin
-credential.
-
-| | |
+| Piece | What it is |
 |---|---|
-| Principal | IAM role `Nyc311AgentReadOnly`, account `178280182163` |
-| Assumed by | a dedicated IAM user `nyc311-agent-host` whose **only** permission is `sts:AssumeRole` + `sts:SetSourceIdentity` on that role — its access key is the only long-lived AWS secret on the agent host |
-| Session | 1 hour max (`MaxSessionDuration` 3600); no long-lived keys for the role itself |
-| Attribution | `sts:SourceIdentity` = the agent name, required by the trust policy, so every CloudTrail event carries `userIdentity.sessionContext.sourceIdentity = gen-purpose-dev` |
-| Can | describe/list/get on the resources it inspects: CloudFormation, CloudWatch + Logs (incl. Insights queries), CodePipeline/CodeBuild, Lambda config, DynamoDB table metadata, SQS attributes, Step Functions, EventBridge/Scheduler, API Gateway, Glue catalog, Athena metadata, S3 bucket listing |
-| Cannot | any write; read table items, S3 objects, or Lambda code; read secrets or decrypt (`secretsmanager:GetSecretValue`, `ssm:GetParameter*`, `kms:Decrypt` explicitly denied) |
+| `nyc311-agent-host` | The Mac mini's one IAM user. It holds no permissions beyond assuming the agent roles. Its access key, created by hand, is the only long-lived AWS secret on the mini. |
+| `Nyc311DevxAgentRole` | `devx-agent`'s role: AWS `ReadOnlyAccess` for Test and Prod (one account), with Secrets Manager values, SSM parameters and KMS decrypts denied. Assumable only by the host user with source identity `devx-agent`, so CloudTrail attributes every call. One-hour sessions. |
 
-Anything that would change a real resource becomes a note on the ticket for a
-human, not an action. Heavy validation runs in CI on the agent's PR, not from
-its credentials.
+`gen-purpose-dev` has no role yet. Its allowlist names `nyc311-agent`, which doesn't exist, so it runs without AWS. `coo-agent` needs no AWS role: everything it does goes through Cognito.
 
-**Setup** (mutates IAM — run it yourself, with the admin profile; `CLAUDE.md`
-§3). Trust policy, `trust.json`:
+Team Chat needs no AWS credentials either. The sign-in reads the agent client ids from `scripts/agent-schedules/team-chat.env`.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": { "AWS": "arn:aws:iam::178280182163:user/nyc311-agent-host" },
-      "Action": ["sts:AssumeRole", "sts:SetSourceIdentity"],
-      "Condition": { "StringLike": { "sts:SourceIdentity": ["gen-purpose-dev", "devx-agent"] } }
-    }
-  ]
-}
-```
+**Setup on the Mac mini, after the pipeline deploys `cdk/agents/`:**
 
-Permissions, `policy.json`:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ReadOnlyInvestigation",
-      "Effect": "Allow",
-      "Action": [
-        "cloudformation:Describe*", "cloudformation:List*", "cloudformation:GetTemplate*",
-        "cloudwatch:Describe*", "cloudwatch:Get*", "cloudwatch:List*",
-        "logs:Describe*", "logs:Get*", "logs:FilterLogEvents", "logs:StartQuery", "logs:StopQuery",
-        "codepipeline:Get*", "codepipeline:List*",
-        "codebuild:BatchGet*", "codebuild:List*",
-        "lambda:List*", "lambda:GetFunctionConfiguration", "lambda:GetPolicy", "lambda:GetEventSourceMapping",
-        "dynamodb:Describe*", "dynamodb:List*",
-        "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:List*",
-        "states:Describe*", "states:List*", "states:GetExecutionHistory",
-        "events:Describe*", "events:List*", "scheduler:Get*", "scheduler:List*",
-        "apigateway:GET",
-        "glue:GetDatabase*", "glue:GetTable*", "glue:GetPartition*",
-        "athena:Get*", "athena:List*",
-        "s3:ListAllMyBuckets", "s3:ListBucket", "s3:GetBucketLocation",
-        "firehose:Describe*", "firehose:List*",
-        "cognito-idp:Describe*", "cognito-idp:List*",
-        "cloudfront:Get*", "cloudfront:List*"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "NeverSecrets",
-      "Effect": "Deny",
-      "Action": ["secretsmanager:GetSecretValue", "ssm:GetParameter*", "kms:Decrypt", "athena:GetQueryResults"],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-```
-aws --profile nyc311 iam create-user --user-name nyc311-agent-host
-aws --profile nyc311 iam create-role --role-name Nyc311AgentReadOnly \
-  --max-session-duration 3600 --assume-role-policy-document file://trust.json
-aws --profile nyc311 iam put-role-policy --role-name Nyc311AgentReadOnly \
-  --policy-name ReadOnlyInvestigation --policy-document file://policy.json
-aws --profile nyc311 iam put-user-policy --user-name nyc311-agent-host \
-  --policy-name AssumeAgentRole --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["sts:AssumeRole","sts:SetSourceIdentity"],"Resource":"arn:aws:iam::178280182163:role/Nyc311AgentReadOnly"}]}'
-aws --profile nyc311 iam create-access-key --user-name nyc311-agent-host   # → [nyc311-agent-host] in ~/.aws/credentials on the agent host
-```
-
-The AWS CLI can't set a source identity from a plain `role_arn` profile, so
-the profile uses a `credential_process` that calls `assume-role` with one. On
-the agent host, save as `~/.aws/nyc311-agent-credentials.sh` (`chmod 700`):
-
-```sh
-#!/bin/sh
-exec aws --profile nyc311-agent-host sts assume-role \
-  --role-arn arn:aws:iam::178280182163:role/Nyc311AgentReadOnly \
-  --role-session-name "$1" --source-identity "$1" --duration-seconds 3600 \
-  --query '{Version:`1`,AccessKeyId:Credentials.AccessKeyId,SecretAccessKey:Credentials.SecretAccessKey,SessionToken:Credentials.SessionToken,Expiration:Credentials.Expiration}' \
-  --output json
-```
-
-and in `~/.aws/config`:
-
-```
-[profile nyc311-agent]
-region = us-east-1
-credential_process = /Users/<you>/.aws/nyc311-agent-credentials.sh gen-purpose-dev
-```
-
-**Verify** (the acceptance check — a read works, a write is refused, and the
-call is attributed):
-
-```
-aws --profile nyc311-agent sts get-caller-identity          # …assumed-role/Nyc311AgentReadOnly/gen-purpose-dev
-aws --profile nyc311-agent cloudformation describe-stacks --stack-name Nyc311-Test --query 'Stacks[0].StackStatus'
-aws --profile nyc311-agent sqs purge-queue --queue-url <any Nyc311-Test queue url>   # must fail: AccessDenied
-```
-
-The agent host must **not** have the admin `nyc311` profile configured — the
-allowlist denies it, but an absent credential is the stronger guarantee.
+1. **Access key.** In the IAM console, open Users → `nyc311-agent-host` → Security credentials → Create access key. Put it in the mini's `~/.aws/credentials`:
+   ```
+   [nyc311-agent-host]
+   aws_access_key_id = …
+   aws_secret_access_key = …
+   ```
+2. **Credential script.** The CLI can't stamp a source identity from a plain `role_arn` profile. Save this as `~/.aws/nyc311-agent-credentials.sh` and `chmod 700` it:
+   ```sh
+   #!/bin/sh
+   # usage: nyc311-agent-credentials.sh <role-name> <agent-name>
+   exec aws --profile nyc311-agent-host sts assume-role \
+     --role-arn "arn:aws:iam::178280182163:role/$1" \
+     --role-session-name "$2" --source-identity "$2" --duration-seconds 3600 \
+     --query '{Version:`1`,AccessKeyId:Credentials.AccessKeyId,SecretAccessKey:Credentials.SecretAccessKey,SessionToken:Credentials.SessionToken,Expiration:Credentials.Expiration}' \
+     --output json
+   ```
+3. **Profile.** Add to `~/.aws/config`:
+   ```
+   [profile nyc311-devx-agent]
+   region = us-east-1
+   credential_process = /Users/<you>/.aws/nyc311-agent-credentials.sh Nyc311DevxAgentRole devx-agent
+   ```
+4. **Verify.** A read works, a write is refused, and the call is attributed:
+   ```
+   aws --profile nyc311-devx-agent sts get-caller-identity    # …assumed-role/Nyc311DevxAgentRole/devx-agent
+   aws --profile nyc311-devx-agent codepipeline list-pipeline-executions --pipeline-name Nyc311Pipeline --max-items 1
+   aws --profile nyc311-devx-agent sqs purge-queue --queue-url <any queue url>   # must fail: AccessDenied
+   ```
+5. **Remove the admin profile** (`nyc311`) from the mini. `devx-agent.json` and `devx-agent-guard.sh` already deny it.
 
 ## One-time machine setup
 

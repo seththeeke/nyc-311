@@ -79,12 +79,12 @@
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/comments --paginate)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews --paginate)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline get-pipeline-state *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline list-pipeline-executions *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codepipeline list-action-executions *)",
-      "Bash(aws --profile nyc311 --region us-east-1 codebuild batch-get-builds *)",
-      "Bash(aws --profile nyc311 --region us-east-1 logs get-log-events *)",
-      "Bash(aws --profile nyc311 --region us-east-1 logs filter-log-events *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline get-pipeline-state *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-pipeline-executions *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-action-executions *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 codebuild batch-get-builds *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 logs get-log-events *)",
+      "Bash(aws --profile nyc311-devx-agent --region us-east-1 logs filter-log-events *)",
       "Skill(log-backlog-item)",
       "WebSearch",
       "WebFetch(domain:github.com)",
@@ -107,7 +107,10 @@
       "Read(**/nyc311-team-chat-*/**)",
       "Read(~/.aws/**)",
       "Bash(security *)",
-      "Bash(aws cognito-idp *)"
+      "Bash(aws cognito-idp *)",
+      "Bash(aws --profile nyc311 *)",
+      "Bash(aws * --profile nyc311 *)",
+      "Bash(aws * --profile nyc311)"
     ]
   },
   "hooks": {

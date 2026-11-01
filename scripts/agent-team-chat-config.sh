@@ -13,8 +13,9 @@
 # server (§12.4) on the same sign-in, for the COO's capacity tools.
 #
 # Needs: the agent's Cognito password in the login Keychain as a generic
-# password, service "nyc311-team-chat-<Test|Prod>", account "<agent>"; and
-# read access to the pool's SSM parameter through the nyc311 profile.
+# password, service "nyc311-team-chat-<Test|Prod>", account "<agent>". No AWS
+# credentials: the client id comes from agent-schedules/team-chat.env, and
+# the Cognito sign-in is an unauthenticated call.
 
 set -eu
 
@@ -39,8 +40,10 @@ tsx="$worktree/backend/node_modules/.bin/tsx"
 
 password=$(security find-generic-password -s "nyc311-team-chat-$suffix" -a "$agent" -w 2>/dev/null) \
   || die "no Keychain password for $agent (service nyc311-team-chat-$suffix)"
-client_id=$(aws ssm get-parameter --profile nyc311 --region "$region" --name "/Nyc311/$suffix/AdminPool/AgentClientId" --query Parameter.Value --output text) \
-  || die "could not read the agent client id from SSM"
+# shellcheck disable=SC1091
+. "$(dirname -- "$0")/agent-schedules/team-chat.env"
+if [ "$env_name" = TEST ]; then client_id=${TEAM_CHAT_CLIENT_ID_TEST:-}; else client_id=${TEAM_CHAT_CLIENT_ID_PROD:-}; fi
+[ -n "$client_id" ] || die "no agent client id for $env_name in scripts/agent-schedules/team-chat.env"
 
 dir=$(mktemp -d "${TMPDIR:-/tmp}/nyc311-team-chat-XXXXXX")
 chmod 700 "$dir"

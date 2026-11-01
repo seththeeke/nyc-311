@@ -165,12 +165,14 @@ whether `Nyc311Pipeline` is broken. A red pipeline blocks every deploy for
 everyone, so a broken pipeline **outranks every other kind of work you do**,
 including tending your open PRs and requested issues.
 
-Use these exact command forms, each run as **one line** (they are wrapped
+Your AWS profile is `nyc311-devx-agent`: AWS read-only access as
+`Nyc311DevxAgentRole`, never secrets. The admin `nyc311` profile is denied
+to you. Use these exact command forms, each run as **one line** (they are wrapped
 here for reading; the allowlist in `.claude/agent-settings/devx-agent.json`
 matches the prefix up to the subcommand). Everything here is read-only:
 
 ```
-aws --profile nyc311 --region us-east-1 codepipeline list-pipeline-executions \
+aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-pipeline-executions \
   --pipeline-name Nyc311Pipeline --max-items 10 \
   --query 'pipelineExecutionSummaries[].[pipelineExecutionId,status,sourceRevisions[0].revisionId,startTime]' \
   --output text
@@ -183,13 +185,13 @@ remaining one decides:
 - `Failed` → broken. Find the failing action and read its log:
 
   ```
-  aws --profile nyc311 --region us-east-1 codepipeline list-action-executions \
+  aws --profile nyc311-devx-agent --region us-east-1 codepipeline list-action-executions \
     --pipeline-name Nyc311Pipeline --filter pipelineExecutionId=<id> \
     --query 'actionExecutionDetails[?status==`Failed`].[stageName,actionName,output.executionResult.externalExecutionId]' \
     --output text
-  aws --profile nyc311 --region us-east-1 codebuild batch-get-builds --ids <externalExecutionId> \
+  aws --profile nyc311-devx-agent --region us-east-1 codebuild batch-get-builds --ids <externalExecutionId> \
     --query 'builds[0].logs.[groupName,streamName]' --output text
-  aws --profile nyc311 --region us-east-1 logs get-log-events --log-group-name <group> \
+  aws --profile nyc311-devx-agent --region us-east-1 logs get-log-events --log-group-name <group> \
     --log-stream-name <stream> --start-from-head --limit 10000 \
     --query 'events[].message' --output text
   ```
@@ -308,7 +310,7 @@ workflow applies unchanged except:
 **Otherwise, find your own problem.** Investigate the repo for a concrete,
 bounded problem. Useful starting points:
 
-- `aws --profile nyc311 --region us-east-1 codepipeline get-pipeline-state --name Nyc311Pipeline`
+- `aws --profile nyc311-devx-agent --region us-east-1 codepipeline get-pipeline-state --name Nyc311Pipeline`
   then the failed CodeBuild's CloudWatch logs — recurring Synth failures.
 - `cd <pkg> && npx vitest run --reporter=verbose` — per-file timings; anything
   much slower than its siblings.

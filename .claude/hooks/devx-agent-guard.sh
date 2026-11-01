@@ -27,6 +27,12 @@ deny() {
   exit 2
 }
 
+# The admin profile is never the agent's (docs/agent-automation-setup.md): it uses nyc311-devx-agent.
+if printf '%s' "$cmd" | grep -qE -- '--profile[= ]nyc311([[:space:]]|$|["'"'"'])'; then
+  echo "devx-agent guard: the admin nyc311 profile is blocked. Use --profile nyc311-devx-agent (read-only)." >&2
+  exit 2
+fi
+
 if printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_-])git[[:space:]]+push([^[:alnum:]_-]|$)'; then
   if printf '%s' "$cmd" | grep -qE '(:|[[:space:]])main([[:space:]]|$|["'"'"'])' \
     || printf '%s' "$cmd" | grep -qE 'HEAD:main'; then

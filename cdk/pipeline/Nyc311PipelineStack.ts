@@ -6,6 +6,7 @@ import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import type { Construct } from "constructs";
+import { AgentRoles } from "../agents/AgentRoles";
 import { Nyc311AppStage } from "./Nyc311AppStage";
 import { Nyc311CustomerStage } from "./Nyc311CustomerStage";
 import { Nyc311PipelineStatusLambda } from "./Nyc311PipelineStatusLambda";
@@ -301,6 +302,9 @@ export class Nyc311PipelineStack extends Stack {
      * Nyc311Stack) because the pipeline itself is a singleton, not
      * per-environment (§2 of that doc).
      */
+    /* The agents' AWS identities (cdk/agents/): account-level agent tooling, like the pipeline itself. */
+    new AgentRoles(this, "AgentRoles");
+
     const pipelineStatusLambda = new Nyc311PipelineStatusLambda(this, "Nyc311PipelineStatusLambda", {
       pipelineName: PIPELINE_NAME,
       pipelineArn: pipeline.pipeline.pipelineArn,
