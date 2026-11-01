@@ -3,6 +3,7 @@ import { PublicRoute } from "./PublicRoute";
 import { ShellRoute } from "./ShellRoute";
 import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
+import { MarketingGate } from "./MarketingGate";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
 import { MAP_JOB_PATTERN, MAP_PATH } from "../components/map/mapRoutes";
@@ -79,75 +80,77 @@ function withLoadingFallback(page: ReactElement): ReactElement {
 export function AppRoutes(): ReactElement {
   return (
     <Routes>
-      <Route element={<ShellRoute />}>
-        <Route
-          element={<PublicRoute>{withLoadingFallback(<MapPage />)}</PublicRoute>}
-        >
-          <Route path={MAP_PATH} />
-          {/* The About drawer lives in the sidebar footer; the map renders underneath. */}
-          <Route path="/about" />
-          <Route path={MAP_JOB_PATTERN} />
+      <Route element={<MarketingGate />}>
+        <Route element={<ShellRoute />}>
+          <Route
+            element={<PublicRoute>{withLoadingFallback(<MapPage />)}</PublicRoute>}
+          >
+            <Route path={MAP_PATH} />
+            {/* The About drawer lives in the sidebar footer; the map renders underneath. */}
+            <Route path="/about" />
+            <Route path={MAP_JOB_PATTERN} />
+          </Route>
+          {/* The map's old path, kept so bookmarks still land on it. */}
+          <Route path="/mapv2/*" element={<Navigate to={MAP_PATH} replace />} />
+          <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
+          <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
+          <Route
+            path={TEAM_PATH}
+            element={
+              <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
+                {withLoadingFallback(<TeamPage />)}
+              </FeatureFlagRoute>
+            }
+          />
+          <Route
+            path={TEAM_CHAT_PATH}
+            element={
+              <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
+                {withLoadingFallback(<TeamChatPage />)}
+              </FeatureFlagRoute>
+            }
+          />
+          <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
+          <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
+          <Route
+            path="/monitoring/ingestion"
+            element={<PublicRoute>{withLoadingFallback(<IngestionMonitoringPage />)}</PublicRoute>}
+          />
+          <Route
+            path="/monitoring/pipeline"
+            element={<PublicRoute>{withLoadingFallback(<PipelineMonitoringPage />)}</PublicRoute>}
+          />
+          <Route
+            path="/monitoring/lambda-health"
+            element={<PublicRoute>{withLoadingFallback(<LambdaMonitoringPage />)}</PublicRoute>}
+          />
+          <Route
+            path="/monitoring/public-api"
+            element={<PublicRoute>{withLoadingFallback(<PublicApiPage />)}</PublicRoute>}
+          />
+          <Route
+            path="/monitoring/integration-tests"
+            element={<PublicRoute>{withLoadingFallback(<IntegrationTestReportPage />)}</PublicRoute>}
+          />
+          <Route path="/login" element={<PublicRoute>{withLoadingFallback(<LoginPage />)}</PublicRoute>} />
+          <Route path="/admin" element={<AdminRoute>{withLoadingFallback(<AdminPage />)}</AdminRoute>} />
+          <Route
+            path="/admin/capacity"
+            element={<AdminRoute>{withLoadingFallback(<CapacityManagementPage />)}</AdminRoute>}
+          />
+          <Route
+            path="/admin/scheduling"
+            element={<AdminRoute>{withLoadingFallback(<SchedulingManagementPage />)}</AdminRoute>}
+          />
+          <Route
+            path="/admin/warehouse"
+            element={<AdminRoute>{withLoadingFallback(<AdminWarehousePage />)}</AdminRoute>}
+          />
+          <Route
+            path="/admin/feature-flags"
+            element={<AdminRoute>{withLoadingFallback(<FeatureFlagsPage />)}</AdminRoute>}
+          />
         </Route>
-        {/* The map's old path, kept so bookmarks still land on it. */}
-        <Route path="/mapv2/*" element={<Navigate to={MAP_PATH} replace />} />
-        <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
-        <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
-        <Route
-          path={TEAM_PATH}
-          element={
-            <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
-              {withLoadingFallback(<TeamPage />)}
-            </FeatureFlagRoute>
-          }
-        />
-        <Route
-          path={TEAM_CHAT_PATH}
-          element={
-            <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
-              {withLoadingFallback(<TeamChatPage />)}
-            </FeatureFlagRoute>
-          }
-        />
-        <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
-        <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
-        <Route
-          path="/monitoring/ingestion"
-          element={<PublicRoute>{withLoadingFallback(<IngestionMonitoringPage />)}</PublicRoute>}
-        />
-        <Route
-          path="/monitoring/pipeline"
-          element={<PublicRoute>{withLoadingFallback(<PipelineMonitoringPage />)}</PublicRoute>}
-        />
-        <Route
-          path="/monitoring/lambda-health"
-          element={<PublicRoute>{withLoadingFallback(<LambdaMonitoringPage />)}</PublicRoute>}
-        />
-        <Route
-          path="/monitoring/public-api"
-          element={<PublicRoute>{withLoadingFallback(<PublicApiPage />)}</PublicRoute>}
-        />
-        <Route
-          path="/monitoring/integration-tests"
-          element={<PublicRoute>{withLoadingFallback(<IntegrationTestReportPage />)}</PublicRoute>}
-        />
-        <Route path="/login" element={<PublicRoute>{withLoadingFallback(<LoginPage />)}</PublicRoute>} />
-        <Route path="/admin" element={<AdminRoute>{withLoadingFallback(<AdminPage />)}</AdminRoute>} />
-        <Route
-          path="/admin/capacity"
-          element={<AdminRoute>{withLoadingFallback(<CapacityManagementPage />)}</AdminRoute>}
-        />
-        <Route
-          path="/admin/scheduling"
-          element={<AdminRoute>{withLoadingFallback(<SchedulingManagementPage />)}</AdminRoute>}
-        />
-        <Route
-          path="/admin/warehouse"
-          element={<AdminRoute>{withLoadingFallback(<AdminWarehousePage />)}</AdminRoute>}
-        />
-        <Route
-          path="/admin/feature-flags"
-          element={<AdminRoute>{withLoadingFallback(<FeatureFlagsPage />)}</AdminRoute>}
-        />
       </Route>
     </Routes>
   );

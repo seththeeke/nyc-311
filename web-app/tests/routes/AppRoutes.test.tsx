@@ -11,9 +11,10 @@ import { authResult, ADMIN_USER } from "../testUtils/authFixtures";
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
-/* Every flag resolves to T1, so flag-gated routes render. */
+/* Every flag resolves to T1, so flag-gated routes render, except MARKETING_PAGE, off unless a test turns it on. */
+let marketing = "C";
 vi.mock("../../src/hooks/useFeatureTreatment", () => ({
-  useFeatureTreatment: () => ({ treatment: "T1", isLoading: false }),
+  useFeatureTreatment: (flagKey: string) => ({ treatment: flagKey === "MARKETING_PAGE" ? marketing : "T1", isLoading: false }),
   useFeatureEnabled: () => true,
 }));
 let webGl = false;
@@ -87,6 +88,20 @@ describe("AppRoutes", () => {
       expect(await screen.findByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
     } finally {
       webGl = false;
+    }
+  });
+
+  it("shows the marketing page at / while MARKETING_PAGE is on, and Enter fleet lands on the map", async () => {
+    marketing = "T1";
+    window.sessionStorage.clear();
+    try {
+      renderAt("/");
+      expect(await screen.findByRole("heading", { level: 1, name: /BoroughSim fixes it/ })).toBeInTheDocument();
+      await userEvent.click(screen.getAllByRole("button", { name: /Enter fleet/ })[0]);
+      expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
+    } finally {
+      marketing = "C";
+      window.sessionStorage.clear();
     }
   });
 

@@ -13,3 +13,7 @@ export type FeatureTreatment = z.infer<typeof FeatureTreatmentSchema>;
 /* MEET_THE_TEAM gates the Meet the Team page (#146): C hides it, T1 shows it. */
 export const MEET_THE_TEAM_FLAG = "MEET_THE_TEAM";
 export const MEET_THE_TEAM_ON = "T1";
+
+/* MARKETING_PAGE puts the marketing page at / ahead of the map: C keeps the map, T1 shows the page. */
+export const MARKETING_PAGE_FLAG = "MARKETING_PAGE";
+export const MARKETING_PAGE_ON = "T1";
