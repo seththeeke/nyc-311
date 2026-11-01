@@ -179,6 +179,7 @@ describe("AppRoutes", () => {
   it("locked Admin flow: clicking an admin item while signed out lands on /login inside the shell", async () => {
     renderAt("/");
     const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Admin/ }));
     await user.click(await screen.findByRole("link", { name: /Capacity/ }));
     const primary = screen.getByRole("region", { name: "Primary workspace" });
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();

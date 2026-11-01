@@ -81,11 +81,13 @@ describe("WorkspaceShell — secondary workspace follows the menu selection", ()
     const user = userEvent.setup();
     const secondary = () => screen.queryByRole("complementary", { name: "Secondary workspace" });
 
+    await user.click(screen.getByRole("button", { name: "System Monitoring" }));
     await user.click(screen.getByRole("link", { name: "Pipeline" }));
     expect(secondary()).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show secondary panel" }));
     expect(secondary()).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Admin/ }));
     await user.click(screen.getByRole("link", { name: /^Capacity/ }));
     expect(secondary()).not.toBeInTheDocument();
 

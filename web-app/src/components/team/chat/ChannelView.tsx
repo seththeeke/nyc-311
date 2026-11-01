@@ -13,6 +13,7 @@ interface ChannelViewProps {
   /* Shown in place of the messages: loading, or why they couldn't load. */
   notice?: ReactElement | null;
   onOpenThread: (messageId: string) => void;
+  onOpenProfile?: (memberId: string) => void;
 }
 
 /* Same author within five minutes reads as one block. */
@@ -29,7 +30,7 @@ function continues(previous: TeamChatMessage | undefined, message: TeamChatMessa
 }
 
 /** A channel: its header and members, the messages by day, and a read-only composer. */
-export function ChannelView({ channel, messages, notice = null, onOpenThread }: ChannelViewProps): ReactElement {
+export function ChannelView({ channel, messages, notice = null, onOpenThread, onOpenProfile }: ChannelViewProps): ReactElement {
   const members = channel.member_ids.map((id) => memberById(id)).filter((member) => member !== null);
   return (
     <section aria-label={`#${channel.name}`} className="flex min-h-0 min-w-0 flex-col">
@@ -65,7 +66,7 @@ export function ChannelView({ channel, messages, notice = null, onOpenThread }: 
                         <span className="h-px flex-1 bg-line" />
                       </li>
                     )}
-                    <ChatMessageRow message={message} continued={!newDay && continues(messages[i - 1], message)} onOpenThread={onOpenThread} />
+                    <ChatMessageRow message={message} continued={!newDay && continues(messages[i - 1], message)} onOpenThread={onOpenThread} {...(onOpenProfile ? { onOpenProfile } : {})} />
                   </Fragment>
                 );
               })}

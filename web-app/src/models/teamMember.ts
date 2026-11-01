@@ -42,5 +42,7 @@ export const TeamMemberSchema = z.object({
   goals: z.array(TeamGoalSchema),
   /* Where to find them elsewhere: the CEO's GitHub and LinkedIn. */
   links: z.array(z.object({ label: z.string().min(1), url: z.string().url() })),
+  /* True once the agent actually runs (docs/17-executive-team.md); false shows a Work in progress tag. */
+  live: z.boolean(),
 });
 export type TeamMember = z.infer<typeof TeamMemberSchema>;

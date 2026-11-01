@@ -41,6 +41,8 @@ export interface MenuLinkEntry {
   /* Extra paths that should also highlight this entry (e.g. /about renders the map). */
   alsoActiveOn: readonly string[];
   icon: ComponentType<IconProps>;
+  /* A short tag after the label, e.g. Beta. */
+  badge?: string;
   /* A `showOn` rule needs the matching FeatureFlagRoute guard on the route; the menu entry alone is only a cue. */
   featureFlag?: MenuFlagRule;
 }
@@ -103,6 +105,7 @@ export const MENU: readonly MenuEntry[] = [
     kind: "LINK",
     id: "TEAM_CHAT",
     label: "Team Chat",
+    badge: "Beta",
     to: TEAM_CHAT_PATH,
     alsoActiveOn: [],
     icon: ChatIcon,

@@ -9,7 +9,7 @@ import { ChatMessageRow } from "./ChatMessageRow";
  * workspace: the message it hangs off, then its replies, polled while open.
  */
 export function ThreadPanel(): ReactElement {
-  const { channelId, threadId, selectThread } = useTeamSelection();
+  const { channelId, threadId, selectThread, selectProfile } = useTeamSelection();
   const { data: thread, isLoading, error } = useChatThread(channelId, threadId);
   if (!threadId) return <p className="px-4 text-sm text-fg-muted">Open a thread from any message to follow the conversation here.</p>;
   if (isLoading) return <p role="status" className="px-4 text-sm text-fg-muted">Loading thread…</p>;
@@ -27,13 +27,13 @@ export function ThreadPanel(): ReactElement {
         </button>
       </header>
       <ol aria-label="Thread messages" className="flex-1 overflow-y-auto py-2">
-        <ChatMessageRow message={thread.root} continued={false} />
+        <ChatMessageRow message={thread.root} continued={false} onOpenProfile={selectProfile} />
         <li role="separator" className="my-2 flex items-center gap-3 px-5 text-[11px] text-fg-subtle">
           {replyCount(replies.length)}
           <span className="h-px flex-1 bg-line" />
         </li>
         {replies.map((reply) => (
-          <ChatMessageRow key={reply.message_id} message={reply} continued={false} />
+          <ChatMessageRow key={reply.message_id} message={reply} continued={false} onOpenProfile={selectProfile} />
         ))}
       </ol>
     </section>

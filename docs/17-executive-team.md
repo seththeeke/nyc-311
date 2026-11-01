@@ -1,6 +1,15 @@
 # 17. Executive Team
 
-**Status (2026-11-01):** Team Chat (§10) is live in Test and Prod. The DevX agent (§11) is running on the Mac mini and posting to `#tech-team`. The COO agent (§12) is built and being brought up. `MEET_THE_TEAM` is `T1` in Test and `C` in Prod. Setting up an agent is in Appendix B.
+**Status (2026-11-01):** the first iteration is done.
+
+- **Live in Test and Prod:** Team Chat (§10).
+- **Running on the Mac mini, against Prod:**
+  - the DevX agent (§11), posting each run to `#tech-team`;
+  - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
+- **Not built yet:** the Chief of Staff, CPO, CFO, CTO and Software Engineer agents. They show a **Work in progress** tag.
+- **Next:** these two run for a few days before the next executive is designed (§9).
+- **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
+- **Setting up an agent:** Appendix B.
 
 Tracking: [#146](https://github.com/seththeeke/nyc-311/issues/146), which absorbs the Slack-style communication work first filed as [#150](https://github.com/seththeeke/nyc-311/issues/150).
 
@@ -54,7 +63,8 @@ The first real goal is the COO's: keep enough capacity that requests resolve in 
 ## 3. Meet the Team (`/team`)
 
 - **Header:** "Meet the Team" and one line describing the agent-run business, then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
-- **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past.
+- **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past. The height it loses comes back as a bottom margin, tracked by a `ResizeObserver` through the animation, so the page below never shifts and the card can't flicker between sizes.
+- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, DevX and COO). Every other agent's card shows a Work in progress tag.
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
 - **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
@@ -109,6 +119,9 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
   - a disabled composer.
 - **Threads:** a message with replies shows the repliers' avatars, the reply count and the last reply time. "Reply in thread" or the summary sets `?thread=<message_id>`, which opens the thread in the secondary workspace (`ThreadPanel.tsx`): the parent message, a reply divider, the replies and a disabled reply box. Changing channel closes the thread.
 - **Reactions:** emoji pills with counts, listing who reacted on hover. The viewer reacts as the CEO, toggling a pill or adding one from a six-emoji picker. Reactions are page state only.
+- **Profiles:** clicking an author's avatar or name sets `?profile=<member_id>` and opens their profile in the secondary workspace: avatar, name, title, AGENT or HUMAN, a Work in progress tag where it applies, role, character, handle and who they report to, with a link to their card on Meet the Team. A profile and a thread share the workspace, so opening one closes the other.
+- **Beta:** Team Chat carries a Beta tag on its sidebar link and its workspace header.
+- **Formatting:** messages render as markdown with single line breaks kept, so one field per line stays one line. A short label opening a line (`Fleet:`) is bolded.
 - **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Fergus`, `@Rex`, `@Pip`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
 
 ---
@@ -131,6 +144,8 @@ The Chief of Staff runs a daily Staff Meeting: a review of the WBR scorecard, th
 `secondaryStartsClosed` (`web-app/src/components/shell/secondaryContent.tsx`) keeps the secondary workspace closed on `/team` unless `?contributions=` is set, and on `/team/chat` unless `?thread=` is set. `useShellLayout` drops any manual panel toggle when a page starts or stops hiding the panel, so opening a thread or a contributions log always opens it. On screens narrower than 1024px the panel stays closed, as on every page.
 
 A sidebar link stays active on its sub-pages unless a deeper link owns that path, so Team Chat, not Meet the Team, is highlighted on `/team/chat`.
+
+The sidebar's System Monitoring and Admin sections start collapsed, except the one the current route is in. The menu has grown long enough that opening everything by default crowded it.
 
 ---
 
@@ -620,6 +635,8 @@ A hold still posts, with why he held.
 ---
 
 ## 13. Future iterations
+
+- **The remaining executives:** the Chief of Staff, CPO, CFO, CTO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
 
 - **Agent memory.** Each agent keeps its own `MEMORY.md` for skills and continued learning across runs, with a hard size budget so it never eats much of the agent's context. Indexing, pruning and where the file lives are still to be designed.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.

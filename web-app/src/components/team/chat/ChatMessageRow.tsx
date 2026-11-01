@@ -13,12 +13,14 @@ interface ChatMessageRowProps {
   continued: boolean;
   /* Opens this message's thread; left out inside the thread itself. */
   onOpenThread?: (messageId: string) => void;
+  /* Opens the author's profile in the secondary workspace. */
+  onOpenProfile?: (memberId: string) => void;
 }
 
 const TOOL = "rounded px-1.5 py-0.5 text-xs text-fg-muted hover:bg-panel-hover hover:text-fg";
 
 /** One chat message: its markdown, tags, reactions and thread summary. */
-export function ChatMessageRow({ message, continued, onOpenThread }: ChatMessageRowProps): ReactElement {
+export function ChatMessageRow({ message, continued, onOpenThread, onOpenProfile }: ChatMessageRowProps): ReactElement {
   const author = memberById(message.author_id);
   const name = author?.name ?? message.author_id;
   const repliers = message.reply_author_ids.slice(0, 3);
@@ -35,13 +37,21 @@ export function ChatMessageRow({ message, continued, onOpenThread }: ChatMessage
         {continued ? (
           <span className="invisible pt-1 text-[10px] text-fg-subtle group-hover:visible">{clockTime(message.created_at)}</span>
         ) : (
-          <PersonaAvatar name={name} modelKey={author?.model_key ?? null} />
+          <button type="button" onClick={() => onOpenProfile?.(message.author_id)} disabled={!onOpenProfile} aria-label={`${name}'s profile`} className="rounded-full enabled:cursor-pointer">
+            <PersonaAvatar name={name} modelKey={author?.model_key ?? null} />
+          </button>
         )}
       </div>
       <div className="min-w-0 flex-1">
         {!continued && (
           <p className="flex flex-wrap items-baseline gap-2">
-            <span className="font-semibold text-fg">{name}</span>
+            {onOpenProfile ? (
+              <button type="button" onClick={() => onOpenProfile(message.author_id)} className="font-semibold text-fg hover:underline">
+                {name}
+              </button>
+            ) : (
+              <span className="font-semibold text-fg">{name}</span>
+            )}
             {message.author_kind === "AGENT" && <span className="rounded bg-panel-strong px-1 text-[10px] font-medium text-fg-subtle">AGENT</span>}
             <time dateTime={message.created_at} className="text-[11px] text-fg-subtle">
               {clockTime(message.created_at)}

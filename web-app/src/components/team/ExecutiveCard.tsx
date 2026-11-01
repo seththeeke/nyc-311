@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactElement, useRef } from "react";
 import type { TeamMember } from "../../models/teamMember";
 import { isWebGlAvailable } from "../three/webgl";
 import { memberById } from "./teamRoster";
+import { WorkInProgressTag } from "./WorkInProgressTag";
 import { useInView } from "./useInView";
 
 const TeamStage = lazy(() => import("./TeamStage"));
@@ -53,7 +54,10 @@ export function ExecutiveCard({ member, flip, onViewContributions }: ExecutiveCa
         <Portrait member={member} inView={inView} />
       </div>
       <div className="flex min-w-0 flex-col p-6 lg:p-8">
-        <h2 className="text-3xl font-semibold tracking-tight text-fg">{member.title}</h2>
+        <h2 className="flex flex-wrap items-center gap-3 text-3xl font-semibold tracking-tight text-fg">
+          {member.title}
+          {!member.live && <WorkInProgressTag />}
+        </h2>
         <p className="mt-1 text-sm text-fg-muted">
           {member.name} · <span className="italic">{member.character}</span>
         </p>

@@ -5,6 +5,8 @@ import type { IconProps } from "../icons";
 interface SidebarLinkProps {
   to: string;
   label: string;
+  /* A short tag after the label, e.g. Beta; hidden when collapsed. */
+  badge?: string;
   icon: ComponentType<IconProps>;
   active: boolean;
   collapsed: boolean;
@@ -19,7 +21,7 @@ export function rowStateClasses(active: boolean): string {
 }
 
 /** A top-level menu link (Map). Collapsed, it's an icon-only rail button whose accessible name is the label. */
-export function SidebarLink({ to, label, icon: Icon, active, collapsed, onNavigate }: SidebarLinkProps): ReactElement {
+export function SidebarLink({ to, label, badge, icon: Icon, active, collapsed, onNavigate }: SidebarLinkProps): ReactElement {
   return (
     <Link
       to={to}
@@ -30,6 +32,7 @@ export function SidebarLink({ to, label, icon: Icon, active, collapsed, onNaviga
     >
       <Icon className="h-5 w-5 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && badge && <span className="ml-auto rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-hue-violet">{badge}</span>}
     </Link>
   );
 }

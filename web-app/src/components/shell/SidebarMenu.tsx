@@ -14,15 +14,16 @@ interface SidebarMenuProps {
 
 /**
  * The primary entries; a flagged link is shown, hidden or relabelled by its flag. Accordion open-state lives here: every section
- * starts expanded (plenty of room), and a section also re-opens when the route
- * moves inside it; the user can still close any of them.
+ * starts collapsed, since the menu is long, except the one the current route is
+ * in; a section also opens when the route moves inside it, and the user can
+ * open or close any of them.
  * The Admin lock is a UI cue only — `AdminRoute` and the API's JWT
  * authorizer remain the real enforcement.
  */
 export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProps): ReactElement {
   const { pathname } = useLocation();
   const { user, isLoading } = useAuth();
-  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => allSectionIds());
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => sectionsContaining(pathname));
   const [seenPathname, setSeenPathname] = useState(pathname);
 
   if (seenPathname !== pathname) {
@@ -50,6 +51,7 @@ export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProp
     <SidebarLink
       to={entry.to}
       label={entry.label}
+      {...(entry.badge ? { badge: entry.badge } : {})}
       icon={entry.icon}
       active={linkIsActive(entry, pathname)}
       collapsed={collapsed}
@@ -84,6 +86,6 @@ export function SidebarMenu({ collapsed, onExpand, onNavigate }: SidebarMenuProp
   );
 }
 
-function allSectionIds(): ReadonlySet<string> {
-  return new Set(MENU.filter((entry) => entry.kind === "SECTION").map((entry) => entry.id));
+function sectionsContaining(pathname: string): ReadonlySet<string> {
+  return new Set(MENU.filter((entry): entry is MenuSectionEntry => entry.kind === "SECTION" && sectionContainsPath(entry, pathname)).map((entry) => entry.id));
 }
