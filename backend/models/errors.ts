@@ -87,3 +87,27 @@ export class UnauthorizedError extends Error {
     this.name = "UnauthorizedError";
   }
 }
+
+/**
+ * The caller is authenticated but not allowed this action: not a member
+ * of the channel, not the author, or disabled. API Gateway controllers
+ * map this to a `403`.
+ */
+export class ForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
+/**
+ * The caller is over a write cap (docs/17-executive-team.md §10.5).
+ * Retryable later, not by resending now. API Gateway controllers map this
+ * to a `429`.
+ */
+export class RateLimitedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitedError";
+  }
+}

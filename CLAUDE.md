@@ -257,6 +257,8 @@ The backend will follow a basic controller, service, and data access object(DAO)
      the read paths behind `GET /data/{schema,jobs,rollups}` live under web-api
      — plus the SQS-triggered consumer that folds accepted/resolved Orders into
      the live workspace metric buckets (`12-UX-workspace-refactor.md`)
+  -> teamChat - the Team Chat seed sync, a CloudFormation custom resource
+     run on every deploy of `Nyc311TeamChatStack`
   -> mcp - MCP servers the agents run on the Mac mini over stdio
      (`17-executive-team.md` §10.7, §12.4), e.g. `teamChatMcpServer.ts`. An
      MCP tool call is a trigger like any other: each tool is a controller
@@ -294,6 +296,9 @@ The backend will follow a basic controller, service, and data access object(DAO)
   -> webhookSinkDelivery - the Test-only webhook sink's delivery record
      (`13-customer-simulation.md` §5); listed in data-model.md like any
      other entity rather than carved out
+  -> teamChat - the one Team Chat table (`17-executive-team.md` §10.3):
+     members, channels, messages, inbox entries, retry markers and write
+     counters
   -> analytics - warehouseJobRunsDao, analyticsRollupsDao, liveWorkspaceMetricsDao
      (see carve-out above; the live workspace metrics table is the same kind
      of non-domain bookkeeping)
