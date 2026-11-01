@@ -127,15 +127,36 @@ cmd_run() {
   # prompt, so anything not allowed is silently denied.
   agent_settings=".claude/agent-settings/$agent.json"
 
+  # Team Chat (docs/17-executive-team.md §10.7): AGENT_TEAM_CHAT_ENV=TEST|PROD
+  # signs the agent in and hands this run its own MCP config. A failed
+  # sign-in is logged and the run goes ahead without chat.
+  mcp_config=""
+  if [ -n "${AGENT_TEAM_CHAT_ENV:-}" ]; then
+    if mcp_config=$("$PRIMARY/scripts/agent-team-chat-config.sh" "$agent" "$AGENT_TEAM_CHAT_ENV" "$dest"); then
+      printf 'agent-worktree: team-chat signed in (%s)\n' "$AGENT_TEAM_CHAT_ENV" >&2
+    else
+      printf 'agent-worktree: WARN: team-chat sign-in failed; running without chat\n' >&2
+      mcp_config=""
+    fi
+  fi
+  cleanup_chat() { [ -n "$mcp_config" ] && rm -rf "$(dirname -- "$mcp_config")"; return 0; }
+  trap cleanup_chat EXIT INT TERM
+
   set +e
+  if [ -n "$mcp_config" ]; then
+    set -- --mcp-config "$mcp_config" --strict-mcp-config -p "$*"
+  else
+    set -- -p "$*"
+  fi
   if [ -f "$dest/$agent_settings" ]; then
-    (cd "$dest" && claude --agent "$agent" --settings "$agent_settings" -p "$*")
+    (cd "$dest" && claude --agent "$agent" --settings "$agent_settings" "$@")
   else
     printf 'agent-worktree: note: no %s — %s runs with the base allowlist only\n' "$agent_settings" "$agent" >&2
-    (cd "$dest" && claude --agent "$agent" -p "$*")
+    (cd "$dest" && claude --agent "$agent" "$@")
   fi
   status=$?
   set -e
+  cleanup_chat
 
   dirty=$(git -C "$dest" status --porcelain 2>/dev/null | grep -c . || true)
   if [ "$status" -eq 0 ] && [ "$dirty" -eq 0 ]; then

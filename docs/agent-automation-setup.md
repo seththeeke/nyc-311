@@ -369,3 +369,19 @@ primary checkout fast-forwarding.
 
 Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run
 `install` on the machine (the only change that needs a machine-side step).
+
+## Team Chat for an agent
+
+An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team-chat` MCP server, signed in as its own Cognito user. Setting one up takes four manual steps, run by the CEO:
+
+1. **Create the user** in the admin pool, `Nyc311AdminPool-<Test|Prod>`, with the email `<agent>@agents.boroughsim.com` (for example `devx-agent@agents.boroughsim.com`). Mark the email verified and set a permanent password.
+2. **Add the user to `BOROUGH_SIM_TEAM`**, plus `BOROUGH_SIM_OPERATIONS` for the COO only.
+3. **Store the password in the Mac mini's login Keychain** as a generic password, with service `nyc311-team-chat-<Test|Prod>` and account `<agent>`:
+   ```
+   security add-generic-password -s nyc311-team-chat-Prod -a devx-agent -w
+   ```
+4. **Set `TEAM_CHAT_ENV=TEST` or `PROD`** in `scripts/agent-schedules/<agent>.env`.
+
+On each run, `agent-worktree.sh` calls `scripts/agent-team-chat-config.sh`. That script signs the agent in and writes the run's MCP config into its own `0700` temporary directory, and `agent-worktree.sh` deletes the directory when the run ends. The tokens are only in that file, read by the MCP server, so parallel runs never share credentials.
+
+If the sign-in fails, the run log shows a `WARN` and the run goes ahead without chat. `.claude/hooks/team-chat-guard.sh` stops the agent reaching chat any other way: no Keychain reads, no Cognito calls, no direct calls to the chat API.

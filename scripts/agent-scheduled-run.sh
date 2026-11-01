@@ -106,6 +106,9 @@ rm -f "$latest_config"
 MAX_OPEN_PRS=${AGENT_MAX_OPEN_PRS:-${MAX_OPEN_PRS:-}}
 : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}"
 KIND=${KIND:-pr-limit}
+# Team Chat environment for this agent's runs (docs/17-executive-team.md §11.4); unset runs without chat.
+AGENT_TEAM_CHAT_ENV=${TEAM_CHAT_ENV:-}
+export AGENT_TEAM_CHAT_ENV
 case "$KIND" in
   pr-limit) : ;;
   assigned-issue) : "${PROMPT_RESUME:?}" ;;
