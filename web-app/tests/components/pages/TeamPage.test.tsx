@@ -13,12 +13,14 @@ describe("TeamPage", () => {
     render(inRouter(<TeamPage />));
     expect(screen.getByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
     expect(screen.getByText(/An agent-run business/)).toBeInTheDocument();
-    expect(screen.getAllByRole("article")).toHaveLength(8);
+    expect(screen.getByRole("region", { name: "Chief Executive Officer" })).toBeInTheDocument();
+    expect(screen.getAllByRole("article")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: "CEO" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "CPO" }));
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("?member=cpo");
     expect(screen.getByRole("button", { name: "CPO" })).toHaveAttribute("aria-current", "true");
-    await user.click(screen.getAllByRole("button", { name: "View Contributions" })[2]);
+    await user.click(screen.getAllByRole("button", { name: "View Contributions" })[1]);
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("contributions=coo");
     expect(scroll).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });

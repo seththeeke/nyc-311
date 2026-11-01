@@ -44,14 +44,9 @@ describe("ExecutiveCard", () => {
     expect(screen.getByRole("heading", { name: "Goals" })).toBeInTheDocument();
   });
 
-  it("shows the CEO's photo, and an initial for anyone with no photo or figure", () => {
-    webGl = true;
-    render(<ExecutiveCard member={memberById("ceo")!} flip={false} onViewContributions={vi.fn()} />);
-    expect(screen.getByRole("img", { name: "Seth Theeke" })).toHaveAttribute("src", "/team/seth-theeke.jpeg");
-    expect(screen.queryByText("Agent")).not.toBeInTheDocument();
-    expect(screen.queryByText("Reports to")).not.toBeInTheDocument();
-    webGl = false;
+  it("shows an initial for an agent when there's no WebGL", () => {
     render(<ExecutiveCard member={memberById("cto")!} flip={false} onViewContributions={vi.fn()} />);
     expect(screen.getByText("R")).toBeInTheDocument();
   });
+
 });

@@ -43,7 +43,8 @@ Each member has:
 
 - `title`, which leads their card, and `short_title`, used in the quick nav;
 - `responsibility`: their one job, in a sentence;
-- `goals`: one or more `{ goal, metric, target }` entries. Goals are measured by metrics only.
+- `goals`: `{ goal, metric, target }` entries, at least one per agent and none for the CEO. Goals are measured by metrics only;
+- `links`: where to find them elsewhere (the CEO's GitHub and LinkedIn);
 - `photo_url`: a real photo under `web-app/public/team/`. Only the CEO has one; everyone else shows their figure.
 
 The first real goal is the COO's: keep enough capacity that requests resolve in 1 to 2 days, measured by median time to resolve. The other goals and targets are placeholders until each agent is designed (§9).
@@ -52,9 +53,10 @@ The first real goal is the COO's: keep enough capacity that requests resolve in 
 
 ## 3. Meet the Team (`/team`)
 
-- **Header:** "Meet the Team" and one line describing the agent-run business, then a quick nav of short titles. Each chip scrolls to that card and sets `?member=`.
-- **Cards** (`ExecutiveCard.tsx`): one per member, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
-- **Portrait:** the photo if there is one, otherwise the member's figure on its own stage (§4), otherwise an initial. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
+- **Header:** "Meet the Team" and one line describing the agent-run business, then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
+- **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past.
+- **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
+- **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
 - **Contributions** (`ContributionsPanel.tsx`): View Contributions sets `?contributions=<member_id>` and opens the secondary workspace. The panel lists the member's recent actions, newest first. Each entry has a kind (`CAPACITY`, `PULL_REQUEST`, `ISSUE`, `BUDGET`, `DECISION`, `MEETING`, `REVIEW`), what they did, why, the time, and a link where there is one. The content is demo data in `teamContributions.ts`.
 

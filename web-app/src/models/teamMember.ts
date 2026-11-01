@@ -38,6 +38,9 @@ export const TeamMemberSchema = z.object({
   photo_url: z.string().nullable(),
   /* Their one job, in a sentence. */
   responsibility: z.string().min(1),
-  goals: z.array(TeamGoalSchema).min(1),
+  /* Empty for the CEO, who isn't measured like the agents. */
+  goals: z.array(TeamGoalSchema),
+  /* Where to find them elsewhere: the CEO's GitHub and LinkedIn. */
+  links: z.array(z.object({ label: z.string().min(1), url: z.string().url() })),
 });
 export type TeamMember = z.infer<typeof TeamMemberSchema>;

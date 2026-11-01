@@ -15,9 +15,8 @@ interface ExecutiveCardProps {
 
 const LABEL = "text-xs font-medium uppercase tracking-wide text-fg-subtle";
 
-/* A photo, the figure performing (only while on screen), or an initial. */
+/* The figure performing (only while on screen), or an initial without WebGL. */
 function Portrait({ member, inView }: { member: TeamMember; inView: boolean }): ReactElement | null {
-  if (member.photo_url) return <img src={member.photo_url} alt={member.name} className="size-56 rounded-full object-cover shadow-md" />;
   if (member.model_key !== null && isWebGlAvailable()) {
     return inView ? (
       <Suspense fallback={<div className="h-[26rem] w-full max-w-xs" />}>
@@ -33,7 +32,7 @@ function Portrait({ member, inView }: { member: TeamMember; inView: boolean }): 
 }
 
 /**
- * One team member, large (#146): their title up front, their one job,
+ * One agent, large (#146): their title up front, their one job,
  * and the goals they're measured on. The card rises into place the first
  * time it scrolls into view.
  */

@@ -14,7 +14,8 @@ describe("TEAM_ROSTER", () => {
     expect(TEAM_ROSTER.filter((member) => member.reports_to === null)).toEqual([memberById(CEO_ID)]);
     expect(TEAM_ROSTER.filter((member) => member.kind === "HUMAN").map((member) => member.role)).toEqual(["CEO"]);
     expect(memberById("devx")).toMatchObject({ agent_name: "devx-agent", reports_to: "cto" });
-    expect(memberById(CEO_ID)?.photo_url).toBe("/team/seth-theeke.jpeg");
+    expect(memberById(CEO_ID)).toMatchObject({ photo_url: "/team/seth-theeke.jpeg", responsibility: "Creator, builder, learning as much as possible", goals: [] });
+    for (const member of TEAM_ROSTER) expect(member.goals.length > 0).toBe(member.kind === "AGENT");
     expect(memberById("coo")?.goals[0]).toEqual({ goal: "Keep enough capacity that requests resolve in 1 to 2 days", metric: "Median time to resolve", target: "1–2 days" });
   });
 });

@@ -21,8 +21,12 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     model_key: null,
     short_title: "CEO",
     photo_url: "/team/seth-theeke.jpeg",
-    responsibility: "Sets the company's direction, approves budgets and anything irreversible, and settles what the agents can't.",
-    goals: [{ goal: "Run BoroughSim at lower cost with the same service", metric: "Cost per resolved order", target: "Under $38" }],
+    responsibility: "Creator, builder, learning as much as possible",
+    goals: [],
+    links: [
+      { label: "GitHub", url: "https://github.com/seththeeke" },
+      { label: "LinkedIn", url: "https://www.linkedin.com/in/sptheeke/" },
+    ],
   },
   {
     member_id: "chief-of-staff",
@@ -38,6 +42,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Runs the daily Staff Meeting and tracks every action item to a measured outcome.",
     goals: [{ goal: "Close action items on time", metric: "Action items done by their due date", target: "90% or more" }],
+    links: [],
   },
   {
     member_id: "coo",
@@ -53,6 +58,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Matches driver capacity to demand, adding and releasing operators against the forecast and the backlog.",
     goals: [{ goal: "Keep enough capacity that requests resolve in 1 to 2 days", metric: "Median time to resolve", target: "1–2 days" }],
+    links: [],
   },
   {
     member_id: "cpo",
@@ -68,6 +74,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Turns resident ideas and request patterns into product changes that cut the work per order.",
     goals: [{ goal: "Clear the feature request queue", metric: "Open feature requests", target: "10 or fewer" }],
+    links: [],
   },
   {
     member_id: "cfo",
@@ -83,6 +90,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Owns the budget and the unit economics, and flags spend before it lands.",
     goals: [{ goal: "Hold cloud spend under budget", metric: "AWS spend, month to date", target: "Under $20" }, { goal: "Bring down the cost of each order", metric: "Cost per resolved order", target: "Under $38" }],
+    links: [],
   },
   {
     member_id: "cto",
@@ -98,6 +106,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Decides what gets built, keeps the platform reliable and leads the engineering agents.",
     goals: [{ goal: "Keep order execution reliable", metric: "Execution failure rate", target: "Under 2%" }],
+    links: [],
   },
   {
     member_id: "devx",
@@ -113,6 +122,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Finds and fixes developer friction: slow builds, flaky tests and gaps in coverage.",
     goals: [{ goal: "Keep the pipeline fast", metric: "Commit to Prod deploy time", target: "Under 30 min" }],
+    links: [],
   },
   {
     member_id: "gen-dev",
@@ -128,6 +138,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Works assigned issues end to end and lands them as reviewed pull requests.",
     goals: [{ goal: "Land assigned work quickly", metric: "Assigned issues merged within 3 days", target: "80% or more" }],
+    links: [],
   },
 ];
 
