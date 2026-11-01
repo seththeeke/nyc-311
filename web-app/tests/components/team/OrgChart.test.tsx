@@ -8,11 +8,11 @@ describe("OrgChart", () => {
     render(<OrgChart selectedId="cto" onSelect={vi.fn()} />);
     expect(screen.getAllByRole("button")).toHaveLength(8);
     expect(screen.getByRole("button", { name: /Seth Theeke.*Human/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Theo Hudson/ })).toHaveAttribute("aria-pressed", "true");
-    const engineers = screen.getByRole("list", { name: "Reports to Theo Hudson" });
+    expect(screen.getByRole("button", { name: /Rex Rivet/ })).toHaveAttribute("aria-pressed", "true");
+    const engineers = screen.getByRole("list", { name: "Reports to Rex Rivet" });
     expect(within(engineers).getAllByRole("button").map((button) => button.textContent)).toEqual([
-      expect.stringContaining("Dex Mercer"),
-      expect.stringContaining("Jen Greene"),
+      expect.stringContaining("Pip Sprocketwhistle"),
+      expect.stringContaining("Kid Kestrel"),
     ]);
   });
 
@@ -20,9 +20,9 @@ describe("OrgChart", () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<OrgChart selectedId="cto" onSelect={onSelect} />);
-    await user.click(screen.getByRole("button", { name: /June Bleecker/ }));
+    await user.click(screen.getByRole("button", { name: /Penny Platen/ }));
     expect(onSelect).toHaveBeenLastCalledWith("chief-of-staff");
-    await user.click(screen.getByRole("button", { name: /Theo Hudson/ }));
+    await user.click(screen.getByRole("button", { name: /Rex Rivet/ }));
     expect(onSelect).toHaveBeenLastCalledWith(null);
   });
 });

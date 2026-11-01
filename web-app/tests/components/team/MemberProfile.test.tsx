@@ -6,8 +6,8 @@ import { memberById } from "../../../src/components/team/teamRoster";
 
 let webGl = false;
 vi.mock("../../../src/components/three/webgl", () => ({ isWebGlAvailable: () => webGl }));
-vi.mock("../../../src/components/residents/ResidentStage", () => ({
-  default: ({ name }: { name: string }) => <canvas role="img" aria-label={`${name}, waving`} />,
+vi.mock("../../../src/components/team/TeamStage", () => ({
+  default: ({ name }: { name: string }) => <canvas role="img" aria-label={`${name}, performing`} />,
 }));
 
 afterEach(() => {
@@ -18,7 +18,8 @@ describe("MemberProfile", () => {
   it("shows the mandate, the friction, owned metrics, the agent and the manager, and closes", async () => {
     const onClose = vi.fn();
     render(<MemberProfile member={memberById("coo")!} onClose={onClose} />);
-    expect(screen.getByRole("heading", { name: "Dolores “Dee” Varick" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Brogan Anvilhand" })).toBeInTheDocument();
+    expect(screen.getByText("Dwarf foreman")).toBeInTheDocument();
     expect(screen.getByText("Hire and release drivers against the forecast and backlog")).toBeInTheDocument();
     expect(screen.getByText("Any saving that shows up later as a missed SLA.")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Owns" })).toHaveTextContent("On-time ordersOpen backlogActive drivers");
@@ -32,7 +33,7 @@ describe("MemberProfile", () => {
   it("puts the figure on stage when WebGL is there", async () => {
     webGl = true;
     render(<MemberProfile member={memberById("cto")!} onClose={vi.fn()} />);
-    expect(await screen.findByRole("img", { name: "Theo Hudson, waving" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "Rex Rivet, performing" })).toBeInTheDocument();
   });
 
   it("leaves out the agent, the manager and the metrics for the human CEO", () => {

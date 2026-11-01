@@ -3,6 +3,8 @@ import { disposeObject } from "../../three/threeKit";
 import { poseResident } from "./residentFigure";
 import { buildResidentModel } from "./residentModels";
 import { portraitCamera, studioScene } from "./residentScene";
+import { isTeamModel } from "../../team/models/teamModels";
+import { photographTeamMember } from "../../team/models/teamPortrait";
 
 /*
  * The small avatar (13-customer-simulation.md §2 customer side, decision
@@ -28,6 +30,7 @@ function sharedRenderer(): WebGLRenderer {
 
 /** A PNG data URL of the resident, or null when `modelKey` names no model. */
 export function renderResidentAvatar(modelKey: string): string | null {
+  if (isTeamModel(modelKey)) return photographTeamMember(sharedRenderer(), modelKey);
   const rig = buildResidentModel(modelKey);
   if (!rig) return null;
   poseResident(rig, "IDLE", 0);

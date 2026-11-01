@@ -27,7 +27,7 @@ describe("StaffMeetingSection", () => {
     expect(within(scorecard).getAllByLabelText("worse than last meeting").length).toBeGreaterThan(0);
     const log = screen.getByRole("log", { name: "Transcript" });
     expect(within(log).getAllByRole("listitem")).toHaveLength(15);
-    expect(screen.getByText("Notes by June Bleecker")).toBeInTheDocument();
+    expect(screen.getByText("Notes by Penny Platen")).toBeInTheDocument();
     expect(screen.getByText("Batching stays the top engineering priority.")).toBeInTheDocument();
     const items = screen.getByRole("list", { name: "Action items" });
     expect(within(items).getAllByText("Carried from 2026-10-29")).toHaveLength(1);

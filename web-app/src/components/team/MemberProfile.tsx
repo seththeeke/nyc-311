@@ -4,7 +4,7 @@ import { isWebGlAvailable } from "../three/webgl";
 import { METRIC_LABEL } from "./teamFormat";
 import { memberById } from "./teamRoster";
 
-const ResidentStage = lazy(() => import("../residents/ResidentStage"));
+const TeamStage = lazy(() => import("./TeamStage"));
 
 interface MemberProfileProps {
   member: TeamMember;
@@ -20,7 +20,9 @@ export function MemberProfile({ member, onClose }: MemberProfileProps): ReactEle
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-fg">{member.name}</h2>
-          <p className="text-sm text-fg-muted">{member.title}</p>
+          <p className="text-sm text-fg-muted">
+            {member.title} · <span className="italic">{member.character}</span>
+          </p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close profile" className="rounded-lg px-2 py-1 text-fg-subtle hover:bg-panel-hover hover:text-fg">
           ×
@@ -28,8 +30,8 @@ export function MemberProfile({ member, onClose }: MemberProfileProps): ReactEle
       </div>
       <div className="mt-3 flex flex-col items-center gap-4">
         {showStage && member.model_key && (
-          <Suspense fallback={<div className="h-64 w-48 shrink-0" />}>
-            <ResidentStage name={member.name} modelKey={member.model_key} />
+          <Suspense fallback={<div className="h-[26rem] w-full max-w-xs" />}>
+            <TeamStage name={member.name} modelKey={member.model_key} />
           </Suspense>
         )}
         <div className="w-full min-w-0">

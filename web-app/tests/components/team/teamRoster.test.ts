@@ -19,7 +19,7 @@ describe("TEAM_ROSTER", () => {
 
 describe("memberById / directReports", () => {
   it("finds a member or returns null", () => {
-    expect(memberById("cfo")?.name).toBe("Hal Pearl");
+    expect(memberById("cfo")?.name).toBe("Fergus Farthing");
     expect(memberById("nobody")).toBeNull();
     expect(memberById(null)).toBeNull();
   });

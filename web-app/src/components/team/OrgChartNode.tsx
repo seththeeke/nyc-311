@@ -23,6 +23,7 @@ export function OrgChartNode({ member, selected, onSelect }: OrgChartNodeProps):
       <span className="min-w-0">
         <span className="block font-semibold leading-tight text-fg">{member.name}</span>
         <span className="mt-0.5 block text-xs text-fg-muted">{member.title}</span>
+        <span className="block text-[11px] italic text-fg-subtle">{member.character}</span>
         <span
           className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
             member.kind === "HUMAN" ? "bg-indigo-500/15 text-hue-indigo" : "bg-violet-500/15 text-hue-violet"

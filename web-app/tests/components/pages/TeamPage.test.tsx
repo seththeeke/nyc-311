@@ -17,9 +17,9 @@ describe("TeamPage", () => {
     expect(screen.getByRole("region", { name: "The goal" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Staff Meeting" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Priya Lafayette/ }));
+    await user.click(screen.getByRole("button", { name: /Celestine Vey/ }));
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("?member=cpo");
-    expect(screen.getByRole("region", { name: "Priya Lafayette" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Celestine Vey" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Close profile" }));
     expect(screen.getByRole("region", { name: "The goal" })).toBeInTheDocument();

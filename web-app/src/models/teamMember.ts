@@ -16,6 +16,8 @@ export const TeamMemberSchema = z.object({
   member_id: z.string().min(1),
   name: z.string().min(1),
   title: z.string().min(1),
+  /* Who they are in the cast: a dwarf foreman, an oracle, a leprechaun. */
+  character: z.string().min(1),
   role: z.enum(TEAM_ROLES),
   kind: z.enum(MEMBER_KINDS),
   /* The agent definition this persona fronts (`.claude/agents/<name>.md`); null for the human. */
