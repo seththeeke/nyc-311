@@ -170,30 +170,30 @@ breaker, and a run trace in a UI. Today a run's trace is its host log.
 
 ### AWS access — one role per agent
 
-Each agent reaches AWS only under its own IAM role, never a human admin credential. Every role is defined in CDK under `cdk/agents/` (one file per role), deployed with `Nyc311PipelineStack`.
+Each agent that needs AWS gets its own IAM user, holding its own access key, and its own role, which only that user can assume. No agent uses a human admin credential. A leaked or misused key reaches only that agent, and one agent can be disabled or rotated without touching the others. Users and roles are defined in CDK under `cdk/agents/`, deployed with `Nyc311PipelineStack`.
 
 | Piece | What it is |
 |---|---|
-| `nyc311-agent-host` | The Mac mini's one IAM user. It holds no permissions beyond assuming the agent roles. Its access key, created by hand, is the only long-lived AWS secret on the mini. |
-| `Nyc311DevxAgentRole` | `devx-agent`'s role: AWS `ReadOnlyAccess` for Test and Prod (one account), with Secrets Manager values, SSM parameters and KMS decrypts denied. Assumable only by the host user with source identity `devx-agent`, so CloudTrail attributes every call. One-hour sessions. |
+| `devx-agent` (user) | `devx-agent`'s IAM user. It holds no permissions beyond assuming `Nyc311DevxAgentRole`. Its access key is created by hand, never in CDK. |
+| `Nyc311DevxAgentRole` | `devx-agent`'s role: AWS `ReadOnlyAccess` for Test and Prod (one account), with Secrets Manager values, SSM parameters and KMS decrypts denied. Assumable only by the `devx-agent` user with source identity `devx-agent`, so CloudTrail attributes every call. One-hour sessions. |
 
-`gen-purpose-dev` has no role yet. Its allowlist names `nyc311-agent`, which doesn't exist, so it runs without AWS. `coo-agent` needs no AWS role: everything it does goes through Cognito.
+`gen-purpose-dev` has no user or role yet. Its allowlist names `nyc311-agent`, which doesn't exist, so it runs without AWS. `coo-agent` needs no AWS role: everything it does goes through Cognito.
 
 Team Chat needs no AWS credentials either. The sign-in reads the agent client ids from `scripts/agent-schedules/team-chat.env`.
 
 **Setup on the Mac mini, after the pipeline deploys `cdk/agents/`:**
 
-1. **Access key.** In the IAM console, open Users → `nyc311-agent-host` → Security credentials → Create access key. Put it in the mini's `~/.aws/credentials`:
+1. **Access key.** In the IAM console, open Users → `devx-agent` → Security credentials → Create access key. Put it in the mini's `~/.aws/credentials`:
    ```
-   [nyc311-agent-host]
+   [devx-agent-key]
    aws_access_key_id = …
    aws_secret_access_key = …
    ```
 2. **Credential script.** The CLI can't stamp a source identity from a plain `role_arn` profile. Save this as `~/.aws/nyc311-agent-credentials.sh` and `chmod 700` it:
    ```sh
    #!/bin/sh
-   # usage: nyc311-agent-credentials.sh <role-name> <agent-name>
-   exec aws --profile nyc311-agent-host sts assume-role \
+   # usage: nyc311-agent-credentials.sh <role-name> <agent-name>   (the key profile is <agent-name>-key)
+   exec aws --profile "$2-key" sts assume-role \
      --role-arn "arn:aws:iam::178280182163:role/$1" \
      --role-session-name "$2" --source-identity "$2" --duration-seconds 3600 \
      --query '{Version:`1`,AccessKeyId:Credentials.AccessKeyId,SecretAccessKey:Credentials.SecretAccessKey,SessionToken:Credentials.SessionToken,Expiration:Credentials.Expiration}' \
@@ -212,6 +212,8 @@ Team Chat needs no AWS credentials either. The sign-in reads the agent client id
    aws --profile nyc311-devx-agent sqs purge-queue --queue-url <any queue url>   # must fail: AccessDenied
    ```
 5. **Remove the admin profile** (`nyc311`) from the mini. `devx-agent.json` and `devx-agent-guard.sh` already deny it.
+
+A future agent repeats these steps with its own user, key profile (`<agent>-key`), role and `nyc311-<agent>` profile.
 
 ## One-time machine setup
 

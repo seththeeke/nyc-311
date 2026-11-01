@@ -455,8 +455,8 @@ There is a single stack for the entire application. We will not create another s
 CodePipeline (`aws-code-pipeline-plan.md`) is CI/CD tooling, not
 application infrastructure, and is permitted its own CloudFormation stack
 (`Nyc311PipelineStack`, under `cdk/pipeline/`), separate from `Nyc311Stack`.
-It also holds the agents' AWS identities (`cdk/agents/`): the Mac mini's
-host user and one role per agent, account-level tooling like the pipeline.
+It also holds the agents' AWS identities (`cdk/agents/`): per agent, its own
+IAM user and its own role, account-level tooling like the pipeline.
 Any further exception still requires the explicit-specification bar this
 rule sets.
 
@@ -509,7 +509,7 @@ naming rule below.
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
  -> teamChat - `Nyc311TeamChatStack` and its constructs, per the third standing exception above
- -> agents - every agent's AWS identity: the Mac mini's host user and one role per agent (e.g. `DevxAgentRole.ts`), instantiated from `Nyc311PipelineStack` because it's account-level agent tooling, not per environment
+ -> agents - every agent's AWS identity: per agent, its own IAM user (`AgentUser.ts`) and its own role (e.g. `DevxAgentRole.ts`), instantiated from `Nyc311PipelineStack` because it's account-level agent tooling, not per environment
  -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 

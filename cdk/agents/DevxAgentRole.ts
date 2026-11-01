@@ -4,16 +4,16 @@ import type { Construct } from "constructs";
 import { DEVX_AGENT } from "./agentIdentities";
 
 export interface DevxAgentRoleProps {
-  /** The host user on the Mac mini that assumes this role (Nyc311AgentHostUser). */
-  hostUser: iam.IUser;
+  /** devx-agent's own IAM user, the only principal that can assume this role. */
+  agentUser: iam.IUser;
 }
 
 /**
  * The devx-agent's AWS role: AWS's managed ReadOnlyAccess, for its
  * pipeline, build-log and stack checks, in Test and Prod alike (one
  * account). It can never read secrets: Secrets Manager values, SSM
- * parameters and KMS decrypts are denied outright. Only the host user can
- * assume it, and only with the source identity `devx-agent`, so every
+ * parameters and KMS decrypts are denied outright. Only devx-agent's own
+ * user can assume it, and only with the source identity `devx-agent`, so every
  * session is attributed in CloudTrail. Sessions last an hour; the CLI's
  * credential_process renews them.
  */
@@ -22,7 +22,7 @@ export class DevxAgentRole extends iam.Role {
     super(scope, id, {
       roleName: DEVX_AGENT.roleName,
       description: "devx-agent: read-only AWS access from the Mac mini, never secrets",
-      assumedBy: new iam.ArnPrincipal(props.hostUser.userArn).withConditions({ StringEquals: { "sts:SourceIdentity": DEVX_AGENT.name } }),
+      assumedBy: new iam.ArnPrincipal(props.agentUser.userArn).withConditions({ StringEquals: { "sts:SourceIdentity": DEVX_AGENT.name } }),
       maxSessionDuration: Duration.hours(1),
       managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("ReadOnlyAccess")],
     });
@@ -30,7 +30,7 @@ export class DevxAgentRole extends iam.Role {
     this.assumeRolePolicy?.addStatements(
       new iam.PolicyStatement({
         actions: ["sts:SetSourceIdentity"],
-        principals: [new iam.ArnPrincipal(props.hostUser.userArn)],
+        principals: [new iam.ArnPrincipal(props.agentUser.userArn)],
         conditions: { StringEquals: { "sts:SourceIdentity": DEVX_AGENT.name } },
       })
     );

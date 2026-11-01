@@ -1,8 +1,13 @@
 /*
- * The agents that get their own AWS role (docs/agent-automation-setup.md),
- * by the name each one stamps on its sessions as the source identity, so
- * CloudTrail records which agent acted. One entry per role in this folder.
+ * Each agent with AWS access gets its own IAM user (holding its own access
+ * key, created by hand) and its own role, which only that user can assume
+ * (docs/agent-automation-setup.md). `name` is the source identity stamped on
+ * every session, so CloudTrail records which agent acted.
  */
-export const AGENT_HOST_USER_NAME = "nyc311-agent-host";
+export interface AgentIdentity {
+  name: string;
+  userName: string;
+  roleName: string;
+}
 
-export const DEVX_AGENT = { name: "devx-agent", roleName: "Nyc311DevxAgentRole" } as const;
+export const DEVX_AGENT: AgentIdentity = { name: "devx-agent", userName: "devx-agent", roleName: "Nyc311DevxAgentRole" };

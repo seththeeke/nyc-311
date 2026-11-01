@@ -12,12 +12,13 @@ beforeAll(() => {
 });
 
 describe("AgentRoles", () => {
-  it("creates the host user with no access key", () => {
-    template.hasResourceProperties("AWS::IAM::User", { UserName: "nyc311-agent-host" });
+  it("creates devx-agent's own user, with no access key", () => {
+    template.hasResourceProperties("AWS::IAM::User", { UserName: "devx-agent" });
+    template.resourceCountIs("AWS::IAM::User", 1);
     template.resourceCountIs("AWS::IAM::AccessKey", 0);
   });
 
-  it("gives devx-agent AWS ReadOnlyAccess, an hour per session, assumable only by the host user as devx-agent", () => {
+  it("gives devx-agent AWS ReadOnlyAccess, an hour per session, assumable only by its own user as devx-agent", () => {
     template.hasResourceProperties("AWS::IAM::Role", {
       RoleName: "Nyc311DevxAgentRole",
       MaxSessionDuration: 3600,
@@ -38,9 +39,9 @@ describe("AgentRoles", () => {
     expect(deny?.Action).toEqual(expect.arrayContaining(["secretsmanager:GetSecretValue", "ssm:GetParameter", "kms:Decrypt"]));
   });
 
-  it("lets the host user assume only the agent roles", () => {
+  it("lets devx-agent's user assume only its own role", () => {
     const policies = Object.values(template.findResources("AWS::IAM::Policy"));
-    const hostStatements = policies.filter((p) => JSON.stringify(p.Properties.Users ?? []).includes("AgentHostUser")).flatMap((p) => p.Properties.PolicyDocument.Statement as { Action: string[]; Resource: unknown }[]);
+    const hostStatements = policies.filter((p) => JSON.stringify(p.Properties.Users ?? []).includes("DevxAgentUser")).flatMap((p) => p.Properties.PolicyDocument.Statement as { Action: string[]; Resource: unknown }[]);
     expect(hostStatements).toHaveLength(1);
     expect(hostStatements[0].Action).toEqual(["sts:AssumeRole", "sts:SetSourceIdentity"]);
     expect(JSON.stringify(hostStatements[0].Resource)).toContain("DevxAgentRole");
