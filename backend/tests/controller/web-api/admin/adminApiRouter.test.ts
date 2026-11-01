@@ -54,7 +54,7 @@ const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "POST /admin/warehouse/job-runs/results": postJobRunResultsController,
 };
 
-const CLAIMS = { sub: "abc-123", email: "admin@example.com" };
+const CLAIMS = { sub: "abc-123", email: "admin@example.com", "cognito:groups": "[ADMIN BOROUGH_SIM_TEAM]" };
 
 function eventFor(routeKey: string, claims: Record<string, string> | null = CLAIMS): unknown {
   return {
@@ -102,6 +102,19 @@ describe("adminApiRouter", () => {
 
     expect(response.statusCode).toBe(400);
     expect(whoamiController).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 without dispatching when the caller isn't in the route's groups", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com", "cognito:groups": "[BOROUGH_SIM_TEAM]" }));
+    expect(response.statusCode).toBe(403);
+    expect(whoamiController).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when the caller holds no groups at all", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com" }));
+    expect(response.statusCode).toBe(403);
   });
 
   it("returns 500 without dispatching when the event has no JWT claims", async () => {

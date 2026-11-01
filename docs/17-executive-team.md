@@ -512,8 +512,8 @@ The admin Cognito pool has three groups. A user can belong to several, and the t
 How a route is authorized:
 
 - Routes keep the existing JWT authorizer.
-- `requireAdminUser` becomes `requireGroup(event, groups)`, which reads the token's `cognito:groups` claim.
-- Each route in `adminApiRoutes.ts` declares the groups it allows. A route that declares no groups allows `ADMIN` only.
+- Each admin route declares the groups it allows in `adminRouteGroups.ts`. The file is typed on the route-key union, so a route can't ship without them.
+- The admin router calls `requireGroup` (`controller/web-api/shared/requireGroup.ts`) before dispatching. It reads the token's `cognito:groups` claim. `requireAdminUser` still resolves the caller to a User.
 - A caller outside the allowed groups gets `403`.
 
 Agent users:

@@ -3,6 +3,8 @@ import { logError, logInfo } from "../../../logger";
 import { ApiRouterEventSchema } from "../../../models/apiRouterEvent";
 import type { ApiController } from "../shared/createApiRouter";
 import { jsonResponse } from "../shared/jsonResponse";
+import { requireGroup } from "../shared/requireGroup";
+import { ADMIN_ROUTE_GROUPS } from "./adminRouteGroups";
 import { ADMIN_API_ROUTES, type AdminApiRouteKey } from "./adminApiRoutes";
 import { addCapacityController } from "./addCapacityController";
 import { createFeatureFlagController } from "./createFeatureFlagController";
@@ -50,8 +52,8 @@ function isAdminApiRouteKey(routeKey: string): routeKey is AdminApiRouteKey {
  * §3.2/§4.3) — one Lambda for every JWT-authorized route. Routing only:
  * refuses an event with no JWT claims before dispatching (a public route
  * wired here by mistake is a misconfiguration, hence 500 like
- * `requireAdminUser`), then hands the raw event to that route's
- * controller, which parses and logs it in full as before.
+ * `requireAdminUser`), refuses a caller outside the route's Cognito groups
+ * with 403, then hands the raw event to that route's controller.
  */
 export const adminApiRouter = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   const parsedEvent = ApiRouterEventSchema.safeParse(event);
@@ -70,6 +72,10 @@ export const adminApiRouter = async (event: unknown): Promise<APIGatewayProxyStr
   if (!isAdminApiRouteKey(routeKey)) {
     logError("AdminApiRouterUnknownRoute", { routeKey });
     return jsonResponse(404, { message: "Not found" });
+  }
+
+  if (!requireGroup(claims, ADMIN_ROUTE_GROUPS[routeKey], routeKey)) {
+    return jsonResponse(403, { message: "Forbidden" });
   }
 
   logInfo("AdminApiRouterDispatch", { routeKey });
