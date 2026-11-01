@@ -8,6 +8,7 @@ import { OperatorSchema, OperatorEventSchema } from "../../models/operator";
 import type { GpsLocation } from "../../models/gpsLocation";
 import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
 import { ConflictError, ValidationError } from "../../models/errors";
+import { ADMIN_CAPACITY_CHANGE, type CapacityChange } from "../../models/capacityChange";
 
 const ROSTER_INDEX = "gsi2-roster";
 const ROSTER_PARTITION_KEY = "OPERATOR";
@@ -43,7 +44,7 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
   }
 
   /** Fleet entry — always a new `operator_id`, never reactivates a retired one (§1.1). */
-  async addOperator(name: string, ratePerHour: number): Promise<Operator> {
+  async addOperator(name: string, ratePerHour: number, change: CapacityChange = ADMIN_CAPACITY_CHANGE): Promise<Operator> {
     const operatorId = ulid();
     const now = new Date().toISOString();
 
@@ -53,9 +54,9 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         operator_id: operatorId,
         sequence_number: nextSequence,
         event_type: "OPERATOR_ADDED",
-        payload: { name, rate_per_hour: ratePerHour, location: HOME_DEPOT_LOCATION },
+        payload: { name, rate_per_hour: ratePerHour, location: HOME_DEPOT_LOCATION, reason: change.reason, by: change.by },
         occurred_at: now,
-        actor: "ADMIN",
+        actor: change.actor,
       }),
       (_previous, event) => ({
         operator_id: operatorId,
@@ -68,6 +69,9 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         rate_per_hour: ratePerHour,
         current_location: HOME_DEPOT_LOCATION,
         last_event_sequence: event.sequence_number,
+        added_by: change.actor,
+        released_at: null,
+        released_by: null,
       }),
       projectionAttributes
     );
@@ -83,7 +87,7 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
    * whatever it was; finalized once its current execution resolves
    * (`orderExecutionService.resolveOrder`). No other projection field changes.
    */
-  async queueRemoval(operatorId: string): Promise<Operator> {
+  async queueRemoval(operatorId: string, change: CapacityChange = ADMIN_CAPACITY_CHANGE): Promise<Operator> {
     const now = new Date().toISOString();
 
     return this.appendEvent(
@@ -92,20 +96,20 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         operator_id: operatorId,
         sequence_number: nextSequence,
         event_type: "OPERATOR_REMOVAL_REQUESTED",
-        payload: {},
+        payload: { reason: change.reason, by: change.by },
         occurred_at: now,
-        actor: "ADMIN",
+        actor: change.actor,
       }),
       (previous, event) => {
         const base = this.requirePreviousProjection(operatorId, previous);
-        return { ...base, removal_requested_at: now, last_event_sequence: event.sequence_number };
+        return { ...base, removal_requested_at: now, released_at: now, released_by: change.actor, last_event_sequence: event.sequence_number };
       },
       projectionAttributes
     );
   }
 
   /** Finalizes retirement — immediately for an already-idle Operator, or once a queued removal's execution resolves. */
-  async finalizeRemoval(operatorId: string): Promise<Operator> {
+  async finalizeRemoval(operatorId: string, change: CapacityChange = ADMIN_CAPACITY_CHANGE): Promise<Operator> {
     const now = new Date().toISOString();
 
     return this.appendEvent(
@@ -114,13 +118,15 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         operator_id: operatorId,
         sequence_number: nextSequence,
         event_type: "OPERATOR_REMOVED",
-        payload: {},
+        payload: { reason: change.reason, by: change.by },
         occurred_at: now,
-        actor: "ADMIN",
+        actor: change.actor,
       }),
       (previous, event) => {
         const base = this.requirePreviousProjection(operatorId, previous);
-        return { ...base, status: "INACTIVE", end_datetime: now, last_event_sequence: event.sequence_number };
+        /* A queued removal already stamped who released it; an immediate one stamps it now. */
+        const released = base.released_at ? {} : { released_at: now, released_by: change.actor };
+        return { ...base, ...released, status: "INACTIVE", end_datetime: now, last_event_sequence: event.sequence_number };
       },
       projectionAttributes
     );
@@ -283,6 +289,27 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
       })
     );
     return (result.Items ?? []).map((item) => this.validateRosterItem(item));
+  }
+
+  /** Every operator, active and retired, from the roster index (§12.3's daily change counts). */
+  async listRoster(): Promise<Operator[]> {
+    logInfo("OperatorDao.listRoster", { table: this.tableName });
+    const operators: Operator[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const result = await this.client.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: ROSTER_INDEX,
+          KeyConditionExpression: "gsi2pk = :pk",
+          ExpressionAttributeValues: { ":pk": ROSTER_PARTITION_KEY },
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+      operators.push(...(result.Items ?? []).map((item) => this.validateRosterItem(item)));
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+    return operators;
   }
 
   private requirePreviousProjection(operatorId: string, previous: Operator | null): Operator {

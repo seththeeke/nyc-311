@@ -17,12 +17,12 @@ const operator = {
 
 describe("CapacityStatusSchema", () => {
   it("accepts a well-formed CapacityStatus", () => {
-    const status = { available_count: 1, fleet_size: 1, hourly_burn_rate: 45, roster: [operator] };
+    const status = { available_count: 1, fleet_size: 1, hourly_burn_rate: 45, roster: [operator], limits: { max_recruits_per_day: 2, max_releases_per_day: 2, recruits_today: 0, releases_today: 0, day: "2026-11-01", day_resets_at: "2026-11-02 00:00 America/New_York" } };
     expect(CapacityStatusSchema.parse(status)).toEqual(status);
   });
 
   it("accepts an empty roster", () => {
-    const status = { available_count: 0, fleet_size: 0, hourly_burn_rate: 0, roster: [] };
+    const status = { available_count: 0, fleet_size: 0, hourly_burn_rate: 0, roster: [], limits: { max_recruits_per_day: 2, max_releases_per_day: 2, recruits_today: 0, releases_today: 0, day: "2026-11-01", day_resets_at: "2026-11-02 00:00 America/New_York" } };
     expect(CapacityStatusSchema.parse(status)).toEqual(status);
   });
 

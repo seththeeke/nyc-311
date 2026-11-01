@@ -3,12 +3,13 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../../models/errors";
 import { getCapacityStatus } from "../../../service/capacity/capacityService";
-import { requireAdminUser } from "./requireAdminUser";
+import { requireCapacityReader } from "./capacityCaller";
 import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `GET /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —
- * admin-authorized (the whole Capacity page lives behind `AdminRoute`,
+ * for the admin and the COO (docs/17-executive-team.md §12.3), with
+ * today's change caps in `limits`; admin-authorized (the whole Capacity page lives behind `AdminRoute`,
  * §2.2 — unlike every other GET route in this project, this one isn't
  * public).
  */
@@ -22,7 +23,7 @@ export const getCapacityController = async (event: unknown): Promise<APIGatewayP
   }
 
   try {
-    await requireAdminUser(parsedEvent.data);
+    await requireCapacityReader(parsedEvent.data);
     const status = await getCapacityStatus();
     logInfo("GetCapacityControllerCompleted", { fleetSize: status.fleet_size, availableCount: status.available_count });
     return jsonResponse(200, status);

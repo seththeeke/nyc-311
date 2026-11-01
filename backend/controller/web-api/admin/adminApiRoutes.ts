@@ -7,6 +7,7 @@
 export const ADMIN_API_ROUTES = [
   "GET /admin/whoami",
   "GET /capacity",
+  "GET /capacity/snapshot",
   "POST /capacity",
   "DELETE /capacity/{operator_id}",
   "POST /scheduling/run",

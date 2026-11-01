@@ -67,5 +67,10 @@ export const OperatorSchema = z.object({
    */
   current_location: GpsLocationSchema.nullable(),
   last_event_sequence: z.number().int().nonnegative(),
+  /* Who added the operator (docs/17-executive-team.md §12.3); absent on rows from before the field, which were the admin's. */
+  added_by: z.enum(OPERATOR_ACTORS).optional(),
+  /* When and by whom removal was first asked for, queued or immediate; null or absent while active. Counts the COO's daily releases. */
+  released_at: z.string().min(1).nullable().optional(),
+  released_by: z.enum(OPERATOR_ACTORS).nullable().optional(),
 });
 export type Operator = z.infer<typeof OperatorSchema>;

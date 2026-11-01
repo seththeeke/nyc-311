@@ -12,6 +12,7 @@ import { createWarehouseJobController } from "./createWarehouseJobController";
 import { deleteFeatureFlagController } from "./deleteFeatureFlagController";
 import { deleteWarehouseJobController } from "./deleteWarehouseJobController";
 import { getCapacityController } from "./getCapacityController";
+import { getCapacitySnapshotController } from "./getCapacitySnapshotController";
 import { getWarehouseJobSqlController } from "./getWarehouseJobSqlController";
 import { listWarehouseJobRunsController } from "./listWarehouseJobRunsController";
 import { listWarehouseJobsController } from "./listWarehouseJobsController";
@@ -27,6 +28,7 @@ import { whoamiController } from "./whoamiController";
 const ADMIN_API_CONTROLLERS: Record<AdminApiRouteKey, ApiController> = {
   "GET /admin/whoami": whoamiController,
   "GET /capacity": getCapacityController,
+  "GET /capacity/snapshot": getCapacitySnapshotController,
   "POST /capacity": addCapacityController,
   "DELETE /capacity/{operator_id}": removeCapacityController,
   "POST /scheduling/run": runSchedulingController,

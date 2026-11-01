@@ -550,11 +550,19 @@ There is no minimum or maximum fleet size. The fleet can swing by up to 4 operat
 **`GET /capacity/snapshot`** returns:
 
 - **Fleet:** size, idle count, busy count, and each active operator's `current_activity` and `start_datetime`.
-- **Median time to resolve:** over the trailing 7 days, and per day for the last 14 days, read from the live workspace metric day buckets.
+- **Median time to resolve:** over the trailing 7 days (`median_days_to_resolve_7d`), and per day for the last 14 days, read from the live workspace metric day buckets, in days.
+- **Target:** the 1-to-2-day band, as `target_median_days`.
 - **Flow:** orders accepted and resolved per day for the last 14 days.
 - **Backlog:** the count of orders waiting in `SCHEDULE`, and the age of the oldest.
 - **Spend:** the current burn rate.
 - **Limits:** the `limits` object above.
+
+**How the counts are kept:**
+
+- Each operator records who added it (`added_by`) and who first released it, and when (`released_by`, `released_at`).
+- The counts are agent recruits and releases on today's New York date, read from the whole roster, retired operators included.
+- There is no counter row, so nothing extra reaches the Operators stream or the warehouse, which gains the three columns.
+- Two agent calls racing could both pass; the COO runs one at a time.
 
 **Enforcement:**
 

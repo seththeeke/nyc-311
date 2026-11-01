@@ -3,6 +3,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { beforeAll, describe, expect, it } from "vitest";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
+import { LiveWorkspaceMetricsTable } from "../../data/LiveWorkspaceMetricsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
 import { OrdersTable } from "../../data/OrdersTable";
@@ -41,6 +42,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     requestsTable: new RequestsTable(stack, "RequestsTable", { envName }),
     locationsTable: new LocationsTable(stack, "LocationsTable", { envName }),
     featureFlagsTable: new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName }),
+    liveWorkspaceMetricsTable: new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName }),
     jobRunsTable,
     warehouseBucket,
     warehouseCatalog,
@@ -103,6 +105,7 @@ describe("Nyc311AdminApiLambda", () => {
       [
         "AD_HOC_ATHENA_WORKGROUP",
         "FEATURE_FLAGS_TABLE_NAME",
+        "LIVE_WORKSPACE_METRICS_TABLE_NAME",
         "JOB_RESULTS_BUCKET",
         "LOCATIONS_TABLE_NAME",
         "OPERATORS_TABLE_NAME",
@@ -127,6 +130,7 @@ describe("Nyc311AdminApiLambda", () => {
         "athena:GetQueryExecution",
         "athena:GetQueryResults",
         "athena:StartQueryExecution",
+        "dynamodb:BatchGetItem",
         "dynamodb:DeleteItem",
         "dynamodb:GetItem",
         "dynamodb:PutItem",

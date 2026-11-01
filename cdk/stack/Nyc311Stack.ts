@@ -623,6 +623,7 @@ export class Nyc311Stack extends Stack {
       requestsTable,
       locationsTable,
       featureFlagsTable,
+      liveWorkspaceMetricsTable,
       jobRunsTable: warehouseJobRunsTable,
       warehouseBucket,
       warehouseCatalog,

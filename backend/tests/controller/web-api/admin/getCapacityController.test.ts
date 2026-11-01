@@ -24,13 +24,19 @@ const admin: User = {
   display_name: null,
 };
 
-const status: CapacityStatus = { available_count: 1, fleet_size: 1, hourly_burn_rate: 45, roster: [] };
+const status: CapacityStatus = {
+  available_count: 1,
+  fleet_size: 1,
+  hourly_burn_rate: 45,
+  roster: [],
+  limits: { max_recruits_per_day: 2, max_releases_per_day: 2, recruits_today: 0, releases_today: 0, day: "2026-11-01", day_resets_at: "2026-11-02 00:00 America/New_York" },
+};
 
 const validEvent = {
   rawPath: "/capacity",
   requestContext: {
     http: { method: "GET" },
-    authorizer: { jwt: { claims: { sub: "abc-123", email: "admin@example.com" } } },
+    authorizer: { jwt: { claims: { sub: "abc-123", email: "admin@example.com", "cognito:groups": "[ADMIN]" } } },
   },
 };
 
@@ -79,15 +85,6 @@ describe("getCapacityController", () => {
     const result = await getCapacityController(validEvent);
 
     expect(result.statusCode).toBe(500);
-  });
-
-  it("returns 500 when requireAdminUser itself fails", async () => {
-    mockedRequireAdminUser.mockRejectedValue(new Error("no claims"));
-
-    const result = await getCapacityController(validEvent);
-
-    expect(result.statusCode).toBe(500);
-    expect(mockedGetCapacityStatus).not.toHaveBeenCalled();
   });
 
   it("returns 500 and logs a thrown non-Error value", async () => {
