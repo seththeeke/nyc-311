@@ -32,6 +32,18 @@ export const KNOWN_ROUTES = [
   "/v1/feature-requests",
   "/v1/feature-requests/{feature_request_id}",
   "/v1/openapi.yaml",
+  /* Team Chat (docs/17-executive-team.md §10.4), on chat-api; writes run in Test only. */
+  "chat-api GET /channels",
+  "chat-api GET /channels/{channel_id}/messages",
+  "chat-api GET /channels/{channel_id}/messages/{message_id}/thread",
+  "chat-api POST /channels/{channel_id}/messages",
+  "chat-api POST /channels/{channel_id}/messages/{message_id}/replies",
+  "chat-api PATCH /channels/{channel_id}/messages/{message_id}",
+  "chat-api DELETE /channels/{channel_id}/messages/{message_id}",
+  "chat-api PUT /channels/{channel_id}/messages/{message_id}/reactions/{emoji}",
+  "chat-api DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji}",
+  "chat-api GET /inbox",
+  "chat-api PUT /inbox/read",
 ] as const;
 export type KnownRoute = (typeof KNOWN_ROUTES)[number];
 

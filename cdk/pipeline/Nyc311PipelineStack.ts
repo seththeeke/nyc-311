@@ -203,6 +203,7 @@ export class Nyc311PipelineStack extends Stack {
       apiUrlOutput: deployTestStage.apiUrlOutput,
       adminUserPoolClientIdOutput: deployTestStage.adminUserPoolClientIdOutput,
       publicApiUrlOutput: deployTestStage.publicApiUrlOutput,
+      chatApiUrlOutput: deployTestStage.chatApiUrlOutput,
       source,
     });
 
@@ -250,6 +251,7 @@ export class Nyc311PipelineStack extends Stack {
       apiUrlOutput: deployProdStage.apiUrlOutput,
       adminUserPoolClientIdOutput: deployProdStage.adminUserPoolClientIdOutput,
       publicApiUrlOutput: deployProdStage.publicApiUrlOutput,
+      chatApiUrlOutput: deployProdStage.chatApiUrlOutput,
       source,
     });
 
