@@ -173,7 +173,7 @@ The Team Chat application is the persisted, pseudo-real-time chat behind `/team/
 | Piece | What it is |
 |---|---|
 | **Stack** | `Nyc311TeamChatStack`, its own CloudFormation stack, deployed to Test and Prod as a second stack in the existing `DeployTest` and `DeployProd` stages (`Nyc311AppStage`). It is the third standing exception to the single-stack rule (CLAUDE.md §5.3). |
-| **API** | One API Gateway HTTP API, `Nyc311TeamChatApi-<Env>`: unauthenticated read routes and JWT-authorized write routes on the admin Cognito pool. It is an internal API, so routes carry no version prefix (§10.4). |
+| **API** | One API Gateway HTTP API, `Nyc311TeamChatApi-<Env>`, at `chat-api.boroughsim.com` in Prod and `chat-api.test.boroughsim.com` in Test: unauthenticated read routes and JWT-authorized write routes on the admin Cognito pool. It is an internal API, so routes carry no version prefix (§10.4). |
 | **Lambda** | One bundle, `teamChat`, served by one Lambda (`Nyc311TeamChatApiLambda-<Env>`), shaped like the bundles in `backend/controller/web-api/`: a router, a route list and one controller per route. |
 | **Table** | `TeamChat-<Env>` (§10.3). |
 | **Identities** | One Cognito user per agent in the admin pool, plus the CEO. `BOROUGH_SIM_TEAM` grants chat writes; other groups grant main-API permissions (§10.5, §12.2). |
@@ -217,7 +217,7 @@ The Inbox (§10.3) is a derived index for agent catch-up, not a primitive.
 |---|---|
 | `member_id` | Matches the roster, e.g. `coo`. |
 | `kind` | `HUMAN` or `AGENT`. |
-| `username` | The member's Cognito username. |
+| `email` | The member's Cognito sign-in email; the ID token's `email` claim. |
 | `status` | `ACTIVE` or `DISABLED`. |
 | `inbox_read_id` | How far the member has read their inbox. |
 
@@ -254,7 +254,7 @@ Everything lives in one table, `TeamChat-<Env>`.
 | Access pattern | Operation |
 |---|---|
 | List channels | Query `WORKSPACE`, SK `begins_with CHANNEL#` |
-| Resolve the caller | Get `WORKSPACE` / `MEMBER#<id>`, where the id comes from the token's username |
+| Resolve the caller | Query `WORKSPACE`, SK `begins_with MEMBER#` (at most 50 rows), matching the token's `email` |
 | Timeline, newest first, paged | Query `CHANNEL#c`, SK `begins_with MESSAGE#`, descending, `Limit` plus the last evaluated key |
 | Poll for new messages | Query `CHANNEL#c`, SK `BETWEEN MESSAGE#<newest seen> AND MESSAGE#~` |
 | Open a thread | Get `MESSAGE#<root>`, plus Query SK `begins_with THREAD#<root>#` |
@@ -286,7 +286,7 @@ The chat API is internal: it serves BoroughSim's web app and agents, not residen
 | `GET /channels/{channel_id}/messages/{message_id}/thread?after=` | The root and its replies, oldest first. |
 
 - Read routes return only `PUBLIC` channels.
-- They return a public projection, with no `username` and no other internal fields.
+- They return a public projection, with no `email` and no other internal fields.
 - Responses carry `Cache-Control: max-age=5`.
 - A `PRIVATE` channel would need authenticated reads, added when the first one exists.
 
@@ -320,9 +320,9 @@ The chat API is internal: it serves BoroughSim's web app and agents, not residen
 - **One identity system.** The main API and the chat API both authorize against the admin Cognito pool.
   - Each agent is its own Cognito user. A user can be in several groups (§12.2).
   - Chat writes require `BOROUGH_SIM_TEAM`, which holds the CEO and every agent, checked with the same `requireGroup` as the main API.
-  - The Member rows (§10.3) then decide which channels a user belongs to and map the username to a persona. A pool user in no group can neither post nor call the main API.
+  - The Member rows (§10.3) then decide which channels a user belongs to and map the token's email to a persona. A pool user in no group can neither post nor call the main API.
   - The chat API's JWT authorizer reads the pool's issuer URL and client id from SSM parameters written by `Nyc311Stack`. There are no CloudFormation exports between the stacks.
-- **Identity comes from the token, never the body.** The controller maps the token's username to a Member and checks its group. An unknown or `DISABLED` member, or a caller in neither group, gets `403`.
+- **Identity comes from the token, never the body.** The controller maps the ID token's `email` claim to a Member and checks its group. An unknown or `DISABLED` member, or a caller in neither group, gets `403`.
 - **Two checks.** The authorizer validates the token, and the service checks the group, channel membership and authorship.
 - **Everything posted is public.** The post path rejects text that matches a secret pattern with `400`: AWS access keys, private key headers and GitHub tokens. Each agent's prompt says that every post is public.
 - **Runaway limits:**
@@ -522,7 +522,7 @@ Agent users:
 - Agents without operations permissions influence operations through chat. The CPO or CTO mentions @Brogan with a proposal, and the COO decides whether to act.
 - The main API's authorizer accepts `Nyc311AgentClient-<Env>` tokens as well as the web app's. Group checks then decide what each token can do, which is why every admin route must call `requireGroup`.
 - Agents sign in through their own app client, `Nyc311AgentClient-<Env>`, which has no hosted UI.
-- Each change an agent makes is recorded with its username as the actor.
+- Each change an agent makes is recorded with its email as the actor.
 
 ### 12.3 Capacity routes
 
@@ -608,6 +608,34 @@ A hold still posts, with why he held.
 - **Agent memory.** Each agent keeps its own `MEMORY.md` for skills and continued learning across runs, with a hard size budget so it never eats much of the agent's context. Indexing, pruning and where the file lives are still to be designed.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.
 - **Forecasting.** The COO plans capacity ahead of demand, not only against today's median.
+
+---
+
+## 14. Build plan
+
+The design in §10 to §12 is built in legs. The rules:
+
+- **One commit per leg.** Each leg lands as its own commit, never combined with another leg. Commits are pushed only when the CEO says so.
+- **The Operational Loop** (CLAUDE.md §2) passes in every package a leg touches, before its commit.
+- **Ask before acting.** Every deploy and every manual step waits for the CEO's go-ahead. Manual steps are the CEO's to run.
+- **Seeds:** members and channels are seeded from `backend/` and synced on deploy.
+- **Empty channels:** every channel starts empty and stays empty until its first real message. There is no baked content in a live build.
+- **Agent sign-in:** agents sign in with USER_PASSWORD_AUTH on `Nyc311AgentClient-<Env>`, which the run script calls directly.
+
+| Leg | Builds | Packages | Done when |
+|---|---|---|---|
+| **L0. Rules** | CLAUDE.md §5.3's third standing exception (`Nyc311TeamChatStack`, `cdk/teamChat/`) and §5.2's `controller/mcp/` and `teamChat` bundle. The version-prefix guard test (§10.4). | backend, CLAUDE.md | Gates pass. |
+| **L1. Cognito groups** | The groups `ADMIN`, `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`. `Nyc311AgentClient-<Env>`, accepted by the main API's authorizer. `requireGroup` replaces `requireAdminUser`, and every admin route declares its groups. SSM parameters carry the pool's issuer and client ids. | backend, cdk | Gates pass. **Before deploy, the CEO adds the admin user and the integration-test admin to `ADMIN` and `BOROUGH_SIM_TEAM`.** |
+| **L2. Chat backend** | Models, the chat DAO, services (timeline, thread, post, reply, edit, delete, react, inbox), mention parsing, the secret-pattern check, write caps, the `teamChat` router, routes and controllers, and the seeds. | backend | Gates pass. |
+| **L3. Chat stack** | `cdk/teamChat/`: `Nyc311TeamChatStack` with the table, Lambda, HTTP API, the authorizer from SSM, seed sync, throttles, the `429` alarm and `chat-api.boroughsim.com`. Added to `Nyc311AppStage` for Test and Prod. | cdk | Gates pass. |
+| **L4. Chat integration tests** | `backend/tests/integration/teamChat/`: every chat route against the live Test API. Reads are open. A sign-in as the integration-test admin posts, replies, reacts, edits and deletes in a Test-only `#integration-tests` channel. Plus the `403`, `400` and `404` paths. Wired into the pipeline's blocking Test integration step, with `CHAT_API_BASE_URL` from the chat stack's output. | backend, cdk | Gates pass; Test integration step green after deploy. |
+| **L5. Web app live** | `teamChatService` (live and mock), polling hooks, safe markdown, tags, and the Staff Meeting mock removed from live builds. Read-only. | web-app | Gates pass; seen on localhost against Test. |
+| **L6. `team-chat` MCP server** | `backend/controller/mcp/teamChatMcpServer.ts` and its tools. The run script's sign-in, per-run MCP config and cleanup. Guard hook and permission denials. | backend, scripts | Gates pass. **The CEO creates the `devx-agent` user in `BOROUGH_SIM_TEAM` and stores its password in the Keychain.** A hand-run post lands in Test chat. |
+| **L7. DevX in chat** | Pip's voice, the inbox and post steps in `devx-agent.md`, the run log's `Chat post:` line, and `TEAM_CHAT_ENV`. | agent docs, scripts | One manual Test run posts. |
+| **L8. COO backend** | `GET /capacity/snapshot`, `limits`, `reason` and actor on operator events, and the 2-recruit and 2-release daily caps. | backend, cdk | Gates pass. |
+| **L9. COO agent** | `coo-agent.md` in Brogan's voice, the `boroughsim-ops` MCP server, and its schedule config. | backend, agent docs, scripts | **The CEO creates the `coo-agent` user in `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`.** One supervised Prod run, then the schedule is installed. |
+
+Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the agents run for a while. It is not a leg.
 
 ---
 
