@@ -127,7 +127,7 @@ export const POLLER_ENABLED: Record<Nyc311Environment, boolean> = {
  * 1-data-ingestion.md §5 — same address the pipeline's own failure
  * notifications already go to (pipeline/Nyc311PipelineStack.ts).
  */
-const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
+export const FAILURE_NOTIFICATION_EMAIL = "seththeeke@gmail.com";
 
 /**
  * The application's single stack shape (CLAUDE.md §5.3) — one Stack class,

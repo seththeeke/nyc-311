@@ -172,7 +172,7 @@ The Team Chat application is the persisted, pseudo-real-time chat behind `/team/
 
 | Piece | What it is |
 |---|---|
-| **Stack** | `Nyc311TeamChatStack`, its own CloudFormation stack, deployed to Test and Prod as a second stack in the existing `DeployTest` and `DeployProd` stages (`Nyc311AppStage`). It is the third standing exception to the single-stack rule (CLAUDE.md §5.3). |
+| **Stack** | `Nyc311TeamChatStack` (`Nyc311TeamChat-Test`, `Nyc311TeamChat-Prod`), its own CloudFormation stack, deployed to Test and Prod as a second stack in the existing `DeployTest` and `DeployProd` stages (`Nyc311AppStage`), after `Nyc311Stack`. It is the third standing exception to the single-stack rule (CLAUDE.md §5.3). |
 | **API** | One API Gateway HTTP API, `Nyc311TeamChatApi-<Env>`, at `chat-api.boroughsim.com` in Prod and `chat-api.test.boroughsim.com` in Test: unauthenticated read routes and JWT-authorized write routes on the admin Cognito pool. It is an internal API, so routes carry no version prefix (§10.4). |
 | **Lambda** | One bundle, `teamChat`, served by one Lambda (`Nyc311TeamChatApiLambda-<Env>`), shaped like the bundles in `backend/controller/web-api/`: a router, a route list and one controller per route. |
 | **Table** | `TeamChat-<Env>` (§10.3). |

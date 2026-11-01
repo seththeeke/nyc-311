@@ -33,7 +33,27 @@ vi.mock("../../stack/Nyc311Stack", async () => {
   return { Nyc311Stack: FakeNyc311Stack };
 });
 
+vi.mock("../../teamChat/Nyc311TeamChatStack", async () => {
+  const { Stack: RealStack, CfnOutput: RealCfnOutput } = await import("aws-cdk-lib");
+  class FakeTeamChatStack extends RealStack {
+    public readonly chatApiUrlOutput: InstanceType<typeof RealCfnOutput>;
+    constructor(scope: Construct, id: string, props: { stackName?: string }) {
+      super(scope, id, props);
+      this.chatApiUrlOutput = new RealCfnOutput(this, "FakeChatApiUrl", { value: "fake-chat-api-url" });
+    }
+  }
+  return { Nyc311TeamChatStack: FakeTeamChatStack };
+});
+
 describe("Nyc311AppStage", () => {
+  it("adds the Team Chat stack per environment, deployed after Nyc311Stack, and forwards its URL", () => {
+    const stage = new Nyc311AppStage(new App(), "DeployProd", { envName: "PROD" });
+    const chat = stage.node.findChild("Nyc311TeamChatStack") as Stack & { chatApiUrlOutput: CfnOutput };
+    expect(chat.stackName).toBe("Nyc311TeamChat-Prod");
+    expect(chat.dependencies.map((dep) => dep.node.id)).toEqual(["Nyc311Stack"]);
+    expect(stage.chatApiUrlOutput).toBe(chat.chatApiUrlOutput);
+  });
+
   it("names the wrapped stack Nyc311-Test for TEST", () => {
     const app = new App();
     const stage = new Nyc311AppStage(app, "DeployTest", { envName: "TEST" });
