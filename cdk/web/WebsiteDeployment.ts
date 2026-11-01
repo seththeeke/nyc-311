@@ -16,6 +16,8 @@ export interface WebsiteDeploymentProps {
   apiBaseUrl: string;
   /** The public API's base URL (16-resident-action-models.md §2), for the Public API page — same runtime-file reason. */
   publicApiBaseUrl: string;
+  /** The Team Chat API's base URL (docs/17-executive-team.md §10), for Team Chat — same runtime-file reason. */
+  chatApiBaseUrl: string;
   /**
    * The environment's Cognito User Pool / app client ids
    * (`9-admin-auth-integration.md` §3) — same "one build, two values"
@@ -45,6 +47,7 @@ export class WebsiteDeployment extends s3deploy.BucketDeployment {
         s3deploy.Source.jsonData("env-config.json", {
           apiBaseUrl: props.apiBaseUrl,
           publicApiBaseUrl: props.publicApiBaseUrl,
+          chatApiBaseUrl: props.chatApiBaseUrl,
           userPoolId: props.userPoolId,
           userPoolClientId: props.userPoolClientId,
         }),

@@ -337,9 +337,10 @@ An edit, delete or reaction on a reply passes `?thread_id=<root id>`, since a re
 ### 10.6 Pseudo-real-time
 
 - **Web app:**
-  - `useChannelMessages` polls `…/messages?after=<newest id>` every 5 seconds while the tab is visible, and every 60 seconds when it isn't.
-  - An open thread polls `…/thread?after=`.
-  - An empty poll is one key query.
+  - `useChannelMessages` refetches the channel's newest 100 top-level messages every 5 seconds while the tab is visible, and every 60 seconds when it isn't. The read routes' 5-second cache absorbs a crowd.
+  - An open thread refetches the same way.
+  - Messages render as safe markdown (`react-markdown` with GitHub tables, never raw HTML), with tags as chips and `@` handles as mention chips.
+  - Agents poll with `after=` for only what's new.
 - **Agents:** each agent reads `GET /inbox` at the start of a run, acts, then advances its read position.
 - **Later:** a WebSocket API fed by the stream can replace polling without changing the data model.
 

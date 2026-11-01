@@ -1,13 +1,15 @@
 import { Fragment, type ReactElement } from "react";
+import type { TeamChatChannel } from "../../../models/teamChatChannel";
+import type { TeamChatMessage } from "../../../models/teamChatMessage";
 import { PersonaAvatar } from "../../residents/PersonaAvatar";
 import { meetingDay } from "../teamFormat";
 import { memberById } from "../teamRoster";
-import type { ChatChannel, ChatMessage } from "./chatChannels";
 import { ChatMessageRow } from "./ChatMessageRow";
 
 interface ChannelViewProps {
-  channel: ChatChannel;
-  messages: readonly ChatMessage[];
+  channel: TeamChatChannel;
+  /* Oldest first. */
+  messages: readonly TeamChatMessage[];
   /* Shown in place of the messages: loading, or why they couldn't load. */
   notice?: ReactElement | null;
   onOpenThread: (messageId: string) => void;
@@ -16,18 +18,24 @@ interface ChannelViewProps {
 /* Same author within five minutes reads as one block. */
 const CONTINUE_MS = 5 * 60 * 1000;
 
-function continues(previous: ChatMessage | undefined, message: ChatMessage): boolean {
-  return !!previous && previous.author_id === message.author_id && !message.meeting && !previous.replies?.length && Date.parse(message.at) - Date.parse(previous.at) < CONTINUE_MS;
+function continues(previous: TeamChatMessage | undefined, message: TeamChatMessage): boolean {
+  return (
+    !!previous &&
+    previous.author_id === message.author_id &&
+    previous.reply_count === 0 &&
+    message.tags.length === 0 &&
+    Date.parse(message.created_at) - Date.parse(previous.created_at) < CONTINUE_MS
+  );
 }
 
-/** A channel: its header and members, the messages by day, and a composer that's read-only in this demo. */
+/** A channel: its header and members, the messages by day, and a read-only composer. */
 export function ChannelView({ channel, messages, notice = null, onOpenThread }: ChannelViewProps): ReactElement {
   const members = channel.member_ids.map((id) => memberById(id)).filter((member) => member !== null);
   return (
-    <section aria-label={`#${channel.channel_id}`} className="flex min-h-0 min-w-0 flex-col">
+    <section aria-label={`#${channel.name}`} className="flex min-h-0 min-w-0 flex-col">
       <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
         <div className="min-w-0">
-          <h2 className="font-semibold text-fg"># {channel.channel_id}</h2>
+          <h2 className="font-semibold text-fg"># {channel.name}</h2>
           <p className="truncate text-xs text-fg-muted">{channel.topic}</p>
         </div>
         <div aria-label={`${members.length} members`} className="flex shrink-0 items-center">
@@ -40,33 +48,36 @@ export function ChannelView({ channel, messages, notice = null, onOpenThread }: 
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto py-3">
-        {notice ?? (
-          <ol aria-label="Messages">
-            {messages.map((message, i) => {
-              const day = message.at.slice(0, 10);
-              const newDay = i === 0 || messages[i - 1].at.slice(0, 10) !== day;
-              return (
-                <Fragment key={message.message_id}>
-                  {newDay && (
-                    <li role="separator" className="my-3 flex items-center gap-3 px-5 text-[11px] font-medium text-fg-subtle">
-                      <span className="h-px flex-1 bg-line" />
-                      {meetingDay(day)}
-                      <span className="h-px flex-1 bg-line" />
-                    </li>
-                  )}
-                  <ChatMessageRow message={message} continued={!newDay && continues(messages[i - 1], message)} onOpenThread={onOpenThread} />
-                </Fragment>
-              );
-            })}
-          </ol>
-        )}
+        {notice ??
+          (messages.length === 0 ? (
+            <p className="px-5 text-sm text-fg-muted">No messages yet. The team posts here as it works.</p>
+          ) : (
+            <ol aria-label="Messages">
+              {messages.map((message, i) => {
+                const day = message.created_at.slice(0, 10);
+                const newDay = i === 0 || messages[i - 1].created_at.slice(0, 10) !== day;
+                return (
+                  <Fragment key={message.message_id}>
+                    {newDay && (
+                      <li role="separator" className="my-3 flex items-center gap-3 px-5 text-[11px] font-medium text-fg-subtle">
+                        <span className="h-px flex-1 bg-line" />
+                        {meetingDay(day)}
+                        <span className="h-px flex-1 bg-line" />
+                      </li>
+                    )}
+                    <ChatMessageRow message={message} continued={!newDay && continues(messages[i - 1], message)} onOpenThread={onOpenThread} />
+                  </Fragment>
+                );
+              })}
+            </ol>
+          ))}
       </div>
       <div className="border-t border-line p-3">
         <input
           type="text"
           disabled
-          aria-label={`Message #${channel.channel_id}`}
-          placeholder={`Message #${channel.channel_id} (demo, read-only)`}
+          aria-label={`Message #${channel.name}`}
+          placeholder={`Message #${channel.name} (read-only; the agents post here)`}
           className="w-full rounded-lg border border-line bg-panel-hover px-3 py-2 text-sm text-fg-muted placeholder:text-fg-subtle"
         />
       </div>

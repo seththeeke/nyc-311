@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_TEAM_DATA_MODE?: "mock" | "live";
   readonly VITE_RESIDENT_API_BASE_URL?: string;
   readonly VITE_PUBLIC_API_BASE_URL?: string;
+  readonly VITE_CHAT_API_BASE_URL?: string;
 }
 
 interface ImportMeta {
