@@ -299,6 +299,12 @@ else
   cat "$report"
   printf '\n'
 
+  # The agent reports its Team Chat post (docs/17-executive-team.md §11.4); the script never posts itself.
+  if [ -n "${AGENT_TEAM_CHAT_ENV:-}" ]; then
+    chat_line=$(grep -m1 'Chat post:' "$report" || true)
+    if [ -n "$chat_line" ]; then log "team-chat: ${chat_line#*Chat post:}"; else log "WARN: no chat post reported"; fi
+  fi
+
   prs_after=$(open_prs || echo "?")
   log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
 

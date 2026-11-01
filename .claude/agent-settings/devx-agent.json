@@ -89,7 +89,8 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:docs.aws.amazon.com)"
+      "WebFetch(domain:docs.aws.amazon.com)",
+      "mcp__team-chat"
     ],
     "deny": [
       "Bash(gh pr merge *)",
@@ -102,7 +103,24 @@
       "Bash(cdk deploy *)",
       "Bash(npx cdk deploy *)",
       "Bash(npm run deploy *)",
-      "Bash(npm run deploy)"
+      "Bash(npm run deploy)",
+      "Read(**/nyc311-team-chat-*/**)",
+      "Read(~/.aws/**)",
+      "Bash(security *)",
+      "Bash(aws cognito-idp *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/team-chat-guard.sh"
+          }
+        ]
+      }
     ]
   }
 }
