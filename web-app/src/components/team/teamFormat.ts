@@ -22,7 +22,7 @@ export function onTarget(entry: ScorecardEntry): boolean {
   return entry.better === "UP" ? entry.value >= entry.target : entry.value <= entry.target;
 }
 
-/** "12:04" in UTC, the Mac mini's meeting clock. */
+/** "12:04" in UTC, the meeting clock. */
 export function clockTime(iso: string): string {
   return iso.slice(11, 16);
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 /*
  * One daily Staff Meeting of the executive team (#146): the transcript,
  * the Chief of Staff's notes, the action items and the fixed scorecard
- * every meeting reviews. Meetings run on the Mac mini; this is the shape
+ * every meeting reviews. This is the shape
  * the page needs once their notes are published.
  */
 

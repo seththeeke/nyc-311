@@ -10,7 +10,7 @@ import { MapV2TakeoverRoute } from "./MapV2TakeoverRoute";
 import { MAP_V2_PATH } from "../components/mapv2/mapV2Routes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
-import { TEAM_PATH } from "../components/team/teamRoutes";
+import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
 
 /*
  * Every non-landing page is dynamic-imported so Vite/Rollup emits it as its
@@ -46,6 +46,7 @@ const ResidentIdeaPage = lazy(() =>
   import("../components/pages/ResidentIdeaPage").then((m) => ({ default: m.ResidentIdeaPage }))
 );
 const TeamPage = lazy(() => import("../components/pages/TeamPage").then((m) => ({ default: m.TeamPage })));
+const TeamChatPage = lazy(() => import("../components/pages/TeamChatPage").then((m) => ({ default: m.TeamChatPage })));
 const LoginPage = lazy(() => import("../components/pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const AdminPage = lazy(() => import("../components/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 const CapacityManagementPage = lazy(() =>
@@ -113,6 +114,14 @@ export function AppRoutes(): ReactElement {
           element={
             <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
               {withLoadingFallback(<TeamPage />)}
+            </FeatureFlagRoute>
+          }
+        />
+        <Route
+          path={TEAM_CHAT_PATH}
+          element={
+            <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
+              {withLoadingFallback(<TeamChatPage />)}
             </FeatureFlagRoute>
           }
         />

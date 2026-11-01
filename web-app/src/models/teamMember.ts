@@ -1,16 +1,23 @@
 import { z } from "zod";
-import { SCORECARD_METRICS } from "./staffMeeting";
 
 /*
  * A member of BoroughSim's executive team (#146). Not a stored entity:
- * the CEO is the human owner, and everyone else is a Claude Code agent
- * on the Mac mini. The roster is fixed content shipped with the page.
+ * the CEO is the human owner, and everyone else is an AI agent. The
+ * roster is fixed content shipped with the page.
  */
 export const TEAM_ROLES = ["CEO", "CHIEF_OF_STAFF", "COO", "CPO", "CFO", "CTO", "ENGINEER"] as const;
 export type TeamRole = (typeof TEAM_ROLES)[number];
 
 export const MEMBER_KINDS = ["HUMAN", "AGENT"] as const;
 export type MemberKind = (typeof MEMBER_KINDS)[number];
+
+/** A goal and the metric it's measured by, with the target to hit. */
+export const TeamGoalSchema = z.object({
+  goal: z.string().min(1),
+  metric: z.string().min(1),
+  target: z.string().min(1),
+});
+export type TeamGoal = z.infer<typeof TeamGoalSchema>;
 
 export const TeamMemberSchema = z.object({
   member_id: z.string().min(1),
@@ -25,13 +32,12 @@ export const TeamMemberSchema = z.object({
   reports_to: z.string().nullable(),
   /* Three.js model key; null shows the initial instead. */
   model_key: z.string().nullable(),
-  tagline: z.string().min(1),
-  bio: z.string().min(1),
-  mandate: z.array(z.string().min(1)),
-  /* Where this member's goal pulls against another's: the creative friction. */
-  pushes_back_on: z.string().min(1),
-  owns_metrics: z.array(z.enum(SCORECARD_METRICS)),
-  /* When the agent runs on the Mac mini. */
-  cadence: z.string().min(1),
+  /* The quick-nav label: CEO, CTO, Software Engineer. */
+  short_title: z.string().min(1),
+  /* A real photo (a path under public/); null shows the figure or initial. */
+  photo_url: z.string().nullable(),
+  /* Their one job, in a sentence. */
+  responsibility: z.string().min(1),
+  goals: z.array(TeamGoalSchema).min(1),
 });
 export type TeamMember = z.infer<typeof TeamMemberSchema>;
