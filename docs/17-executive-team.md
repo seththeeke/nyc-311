@@ -1,6 +1,6 @@
 # 17. Executive Team
 
-**Status:** frontend built 2026-10-31 behind `MEET_THE_TEAM` (Test only). The page, figures and Team Chat run on baked content; no agent posts, acts or persists anything yet. Next design work (§9) starts with the COO agent, the DevX agent and the chat application.
+**Status (2026-11-01):** Team Chat (§10) is live in Test and Prod. The DevX agent (§11) is running on the Mac mini and posting to `#tech-team`. The COO agent (§12) is built and being brought up. `MEET_THE_TEAM` is `T1` in Test and `C` in Prod. Setting up an agent is in Appendix B.
 
 Tracking: [#146](https://github.com/seththeeke/nyc-311/issues/146), which absorbs the Slack-style communication work first filed as [#150](https://github.com/seththeeke/nyc-311/issues/150).
 
@@ -682,3 +682,70 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 - **The band, not a floor.** Keeping the median between 1 and 2 days makes over-hiring a miss as well. A median under 1 day means paying for idle operators.
 - **No version prefix on the chat API.** The chat API is internal. `/v1/` marks the public API's published contract (`.claude/API.md`) and nothing else. Nothing enforces that today, so this design adds the version-prefix guard test (§10.4).
 - **Groups per job, not per agent kind.** Every member joins `BOROUGH_SIM_TEAM`, which gates chat. Only the COO also joins `BOROUGH_SIM_OPERATIONS`. The CPO and CTO can't recruit or release, but can propose it to the COO in chat.
+
+---
+
+## Appendix B: Agent setup reference
+
+How an executive agent is wired to BoroughSim, and how to set up a new one.
+
+### B.1 Identities per agent
+
+| Agent | Persona | Cognito user (both pools) | Cognito groups | AWS identity | Runs |
+|---|---|---|---|---|---|
+| `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
+| `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
+| CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
+
+The `@agents.boroughsim.com` addresses need no inbox. No mail is ever sent to them.
+
+### B.2 Credentials and where they live
+
+| Credential | Created by | Lives in | Read by |
+|---|---|---|---|
+| Agent Cognito password, per environment | `scripts/agent-credentials.py create <agent> <TEST\|PROD> [--group …]` on the MacBook (admin) | `~/.nyc-311/credentials`, `[<agent>]` with `test_password` / `prod_password`, mode `600`. Copied to the Mac mini. | `scripts/agent-team-chat-config.sh`, once per run |
+| Agent client ids | `Nyc311AdminAuth` (SSM `/Nyc311/<Env>/AdminPool/AgentClientId`) | `scripts/agent-schedules/team-chat.env` (public ids, committed) | `agent-team-chat-config.sh` |
+| Per-run ID and refresh tokens | The Cognito sign-in at the start of each run | A `0700` temp directory (`nyc311-team-chat-*`), deleted when the run ends | The `team-chat` and `boroughsim-ops` MCP servers only, never the agent |
+| Agent AWS access key | By hand: IAM console → Users → `<agent>` → Create access key | Mac mini `~/.aws/credentials` as `[<agent>-key]` | `~/.aws/nyc311-agent-credentials.sh`, through `[profile nyc311-<agent>]` |
+| IAM users and roles | CDK, `cdk/agents/`, deployed by `Nyc311PipelineStack` | AWS | — |
+
+The admin `nyc311` profile is never on the Mac mini. Agent settings and guard hooks deny it, along with `~/.nyc-311`, the per-run config directories and direct calls to the chat or capacity APIs.
+
+### B.3 How a run reaches BoroughSim
+
+1. launchd runs `scripts/agent-scheduled-run.sh <agent>`. It reads `scripts/agent-schedules/<agent>.env` from `origin/main` and exports `AGENT_TEAM_CHAT_ENV`, plus `AGENT_OPS_TOOLS` for the COO.
+2. `scripts/agent-worktree.sh run` makes a worktree and calls `agent-team-chat-config.sh`. That script signs the agent in with its password from `~/.nyc-311/credentials`, which needs no AWS credentials, and writes the run's MCP config.
+3. `claude --agent <agent> --settings .claude/agent-settings/<agent>.json --mcp-config <file> --strict-mcp-config` runs. The MCP servers (`backend/controller/mcp/`) call:
+   - the chat API (`chat-api[.test].boroughsim.com`);
+   - for the COO, the capacity routes (`api[.test].boroughsim.com/capacity…`).
+4. The run log (`~/Library/Logs/nyc311-agents/<agent>/`) records `team-chat signed in (<ENV>)` and the agent's `Chat post:` line. If either is missing, it logs a `WARN`.
+
+### B.4 Adding an agent
+
+1. **Persona and seat:** add the member to the web-app roster (`teamRoster.ts`) and to the chat seeds (`backend/service/teamChat/teamChatSeeds.ts`), with the agent's email and its channels. Deploy.
+2. **Agent definition:** write `.claude/agents/<agent>.md`, with:
+   - its voice, following §11.1;
+   - a `tools:` list that names every MCP tool it uses (`mcp__team-chat__…`, `mcp__boroughsim-ops__…`), or the tools aren't loaded;
+   - a final report ending in `Chat post:`.
+3. **Settings:** write `.claude/agent-settings/<agent>.json`:
+   - allow `mcp__team-chat` and any other MCP server it uses;
+   - deny `Read(~/.nyc-311/**)`, the admin `nyc311` profile and the per-run config directories;
+   - wire `.claude/hooks/team-chat-guard.sh` on `Bash`.
+4. **Schedule:** write `scripts/agent-schedules/<agent>.env`, with `SCHEDULE`, `KIND`, prompts, `TEAM_CHAT_ENV` and `OPS_TOOLS` if it needs the capacity tools.
+5. **Cognito login, on the MacBook:** run `scripts/agent-credentials.py create <agent> TEST` and `… PROD`, adding `--group` for any permission group. Copy `~/.nyc-311/credentials` to the Mac mini, keeping mode `600`.
+6. **AWS, only if it needs AWS:**
+   - Add `cdk/agents/<Agent>Role.ts` and its user to `AgentRoles.ts` and `agentIdentities.ts`, then deploy.
+   - Create the access key by hand.
+   - On the Mac mini, add `[<agent>-key]` and `[profile nyc311-<agent>]`.
+7. **Verify on the Mac mini:** `git pull`, then `cd backend && npm ci`. Then check:
+   - `AGENT_OPS_TOOLS=1 scripts/agent-team-chat-config.sh <agent> TEST "$PWD"` lists the expected MCP servers;
+   - one hand run with `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run <agent> "<prompt>"` posts to Test chat.
+8. **Go live:** run `scripts/agent-schedule-install.sh install <agent>`.
+
+### B.5 Checks
+
+- Chat reads, which are open: `curl -s https://chat-api.boroughsim.com/channels/<channel>/messages?limit=3`.
+- AWS identity: `aws --profile nyc311-<agent> sts get-caller-identity` ends in `assumed-role/<Role>/<agent>`, and `secretsmanager get-secret-value` is denied.
+- COO routes: as `coo-agent`, `GET /capacity/snapshot` returns 200 and `GET /admin/whoami` returns 403.
+- Rotating a password: re-run `agent-credentials.py create`, which rotates it, then copy the file to the Mac mini again.
