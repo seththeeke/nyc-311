@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { App, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
+import { IdeaActionsQueue } from "../../customer/IdeaActionsQueue";
 import { CustomerIdeaWorkerLambda } from "../../customer/CustomerIdeaWorkerLambda";
 import { CustomerResidentSchedules } from "../../customer/CustomerResidentSchedules";
 import { CustomerResidentSync } from "../../customer/CustomerResidentSync";
@@ -65,6 +66,7 @@ function synthesize(seedHash?: string): Template {
     ideasTable: new ResidentIdeasTable(stack, "ResidentIdeasTable"),
     ordersTable: new WebhookCustomerFacingOrdersTable(stack, "Orders"),
     modelIds: ["amazon.nova-micro-v1:0"],
+    ideaActionsQueue: new IdeaActionsQueue(stack, "IdeaActions").queue,
   });
   new CustomerResidentSchedules(stack, "Schedules", {
     ideaWorker,

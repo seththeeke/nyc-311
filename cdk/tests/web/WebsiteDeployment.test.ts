@@ -22,6 +22,7 @@ function synthesize(): Template {
   new WebsiteDeployment(stack, "WebsiteDeployment", {
     websiteHosting,
     apiBaseUrl: API_BASE_URL,
+    publicApiBaseUrl: "https://public-api.test.boroughsim.com",
     userPoolId: "us-east-1_abc123",
     userPoolClientId: "client-abc123",
   });

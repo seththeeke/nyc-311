@@ -142,4 +142,23 @@ export const WAREHOUSE_TABLE_SCHEMAS: WarehouseTableSchema[] = [
       ...INGEST_METADATA_COLUMNS,
     ],
   },
+  {
+    /* 16-resident-action-models.md §4 — one row per public API call, from the router's best-effort publish. */
+    tableName: "public_api_calls",
+    opaqueFields: [],
+    columns: [
+      { name: "call_id", type: "string" },
+      { name: "requester", type: "string" },
+      { name: "operation", type: "string" },
+      { name: "route_key", type: "string" },
+      { name: "status_code", type: "bigint" },
+      { name: "outcome", type: "string" },
+      { name: "latency_ms", type: "bigint" },
+      { name: "request_params", type: "string" },
+      { name: "result_count", type: "bigint" },
+      { name: "resource_id", type: "string" },
+      { name: "occurred_at", type: "string" },
+      ...INGEST_METADATA_COLUMNS,
+    ],
+  },
 ];

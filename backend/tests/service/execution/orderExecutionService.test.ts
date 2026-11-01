@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { arriveAtJob, dispatchOrder, failExecution, resolveOrder } from "../../../service/execution/orderExecutionService";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as OrderExecutionService from "../../../service/execution/orderExecutionService";
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { OperatorDao } from "../../../dao/operator/operatorDao";
 import type { RequestDao } from "../../../dao/request/requestDao";
@@ -105,6 +105,23 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.SIMULATION_TIME_SCALE;
+});
+
+
+/*
+ * The suite runs with isolate: false, and orderSchedulingService and
+ * capacityService import this service with the real DAOs. Reset the module
+ * cache and import it here, after the vi.mock calls above, so this file
+ * always gets the mocked DAOs whatever ran before it in the worker.
+ */
+let arriveAtJob: typeof OrderExecutionService.arriveAtJob;
+let dispatchOrder: typeof OrderExecutionService.dispatchOrder;
+let failExecution: typeof OrderExecutionService.failExecution;
+let resolveOrder: typeof OrderExecutionService.resolveOrder;
+
+beforeAll(async () => {
+  vi.resetModules();
+  ({ arriveAtJob, dispatchOrder, failExecution, resolveOrder } = await import("../../../service/execution/orderExecutionService.js"));
 });
 
 describe("dispatchOrder", () => {

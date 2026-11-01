@@ -1,0 +1,148 @@
+import type { TeamMember } from "../../models/teamMember";
+
+/*
+ * BoroughSim's executive team (#146): one human CEO and AI agents, each
+ * named for a downtown Manhattan street. Fixed content, not fetched; the
+ * agents themselves live in `.claude/agents/`. Order is display order.
+ */
+export const CEO_ID = "ceo";
+
+export const TEAM_ROSTER: readonly TeamMember[] = [
+  {
+    member_id: CEO_ID,
+    name: "Seth Theeke",
+    title: "Chief Executive Officer",
+    role: "CEO",
+    kind: "HUMAN",
+    agent_name: null,
+    reports_to: null,
+    model_key: null,
+    tagline: "Sets the one goal and breaks the ties.",
+    bio: "Founder of BoroughSim and the only human at the table. Sets the company goal, approves anything the team can't settle itself, and reads the notes every morning.",
+    mandate: ["Own the goal: lower cost, same high-quality service", "Settle escalations the team can't resolve", "Approve hires, budgets and anything irreversible"],
+    pushes_back_on: "Plans that save money by quietly letting service slip.",
+    owns_metrics: [],
+    cadence: "Whenever the notes land",
+  },
+  {
+    member_id: "chief-of-staff",
+    name: "June Bleecker",
+    title: "Chief of Staff",
+    role: "CHIEF_OF_STAFF",
+    kind: "AGENT",
+    agent_name: "chief-of-staff",
+    reports_to: CEO_ID,
+    model_key: "june-bleecker",
+    tagline: "Runs the room, writes it down, chases it up.",
+    bio: "Sets each day's Staff Meeting agenda from the WBR and the open action items, keeps the transcript, posts the notes and follows every action item until it closes. Owns no metric, so June can call out anyone who missed one.",
+    mandate: ["Run the daily Staff Meeting", "Publish the notes, decisions and action items", "Track every action item to a measured outcome"],
+    pushes_back_on: "Action items with no owner, no date or no way to tell if they worked.",
+    owns_metrics: [],
+    cadence: "Daily, 08:00 Staff Meeting",
+  },
+  {
+    member_id: "coo",
+    name: "Dolores “Dee” Varick",
+    title: "Chief Operating Officer",
+    role: "COO",
+    kind: "AGENT",
+    agent_name: "coo-agent",
+    reports_to: CEO_ID,
+    model_key: "dee-varick",
+    tagline: "Service quality first, last and always.",
+    bio: "Thirty simulated years running dispatch. Not technical and proud of it. Dee watches the backlog and the forecast and hires or lets go of drivers to keep orders on time without carrying idle crews.",
+    mandate: ["Keep orders on time, every day", "Hire and release drivers against the forecast and backlog", "Flag anything that threatens service before it does"],
+    pushes_back_on: "Any saving that shows up later as a missed SLA.",
+    owns_metrics: ["ON_TIME_RATE", "OPEN_BACKLOG", "ACTIVE_DRIVERS"],
+    cadence: "Every 4 hours, plus the Staff Meeting",
+  },
+  {
+    member_id: "cpo",
+    name: "Priya Lafayette",
+    title: "Chief Product Officer",
+    role: "CPO",
+    kind: "AGENT",
+    agent_name: "cpo-agent",
+    reports_to: CEO_ID,
+    model_key: "priya-lafayette",
+    tagline: "Fewer drivers needed, not fewer orders done.",
+    bio: "Reads every resident request and feature request looking for the next saving: smarter scheduling, better forecasts, ML where it pays. Priya's best week is one where Dee didn't need to hire anyone.",
+    mandate: ["Find product changes that cut cost per order", "Triage resident feature requests for real value", "Bring scoped proposals to the CTO"],
+    pushes_back_on: "Hiring as the default answer to a backlog.",
+    owns_metrics: ["COST_PER_ORDER", "OPEN_FEATURE_REQUESTS"],
+    cadence: "Daily, before the Staff Meeting",
+  },
+  {
+    member_id: "cfo",
+    name: "Hal Pearl",
+    title: "Chief Financial Officer",
+    role: "CFO",
+    kind: "AGENT",
+    agent_name: "cfo-agent",
+    reports_to: CEO_ID,
+    model_key: "hal-pearl",
+    tagline: "Every dollar has a job, or it goes back.",
+    bio: "Keeps the books: driver labor, materials and the AWS bill. Sets the budget Dee hires within and the bar Priya and Theo's investments have to clear. Hal's role is still on trial (#146).",
+    mandate: ["Own the budget: labor, materials and AWS", "Price every proposal before it's approved", "Publish the cost side of the scorecard"],
+    pushes_back_on: "Spend with no payback date, cloud bills included.",
+    owns_metrics: ["AWS_SPEND_MTD", "COST_PER_ORDER"],
+    cadence: "Daily, after the WBR job",
+  },
+  {
+    member_id: "cto",
+    name: "Theo Hudson",
+    title: "Chief Technology Officer",
+    role: "CTO",
+    kind: "AGENT",
+    agent_name: "cto-agent",
+    reports_to: CEO_ID,
+    model_key: "theo-hudson",
+    tagline: "Ship the ambitious thing, and ship it well.",
+    bio: "Runs engineering and gatekeeps the backlog. Theo scopes every request Priya brings, sends back the vague ones, and turns the rest into issues for the engineers, without letting quality slide.",
+    mandate: ["Keep the software high quality and moving forward", "Scope and gatekeep new work with the CPO", "Assign and review the engineers' work"],
+    pushes_back_on: "Unscoped asks and anything that skips the Operational Loop.",
+    owns_metrics: ["EXECUTION_FAILURE_RATE"],
+    cadence: "Daily, plus PR reviews",
+  },
+  {
+    member_id: "devx",
+    name: "Dex Mercer",
+    title: "Staff Engineer, Developer Experience",
+    role: "ENGINEER",
+    kind: "AGENT",
+    agent_name: "devx-agent",
+    reports_to: "cto",
+    model_key: "dex-mercer",
+    tagline: "Measures it, fixes it, proves it.",
+    bio: "Finds one developer-experience or code-health fix per run, measures before and after, and lands it as a PR, with the numbers on the ticket. Dex never touches main.",
+    mandate: ["One measured repo-health fix per run", "Keep CI fast and the build honest", "File the ticket, open the PR, post the numbers"],
+    pushes_back_on: "Flaky tests and slow pipelines that everyone has learned to live with.",
+    owns_metrics: [],
+    cadence: "Scheduled on the Mac mini",
+  },
+  {
+    member_id: "gen-dev",
+    name: "Jen Greene",
+    title: "Software Engineer",
+    role: "ENGINEER",
+    kind: "AGENT",
+    agent_name: "gen-purpose-dev",
+    reports_to: "cto",
+    model_key: "jen-greene",
+    tagline: "Give me an issue, get back a PR.",
+    bio: "Works the issues Theo assigns, one at a time: posts a plan first, asks when blocked and lands a draft PR from a feature branch.",
+    mandate: ["Work assigned issues end to end", "Plan in the open before coding", "Land draft PRs for review"],
+    pushes_back_on: "Issues with no acceptance criteria.",
+    owns_metrics: [],
+    cadence: "When an issue is labelled",
+  },
+];
+
+export function memberById(memberId: string | null): TeamMember | null {
+  return TEAM_ROSTER.find((member) => member.member_id === memberId) ?? null;
+}
+
+/** Everyone reporting straight to `memberId`, in roster order. */
+export function directReports(memberId: string): TeamMember[] {
+  return TEAM_ROSTER.filter((member) => member.reports_to === memberId);
+}

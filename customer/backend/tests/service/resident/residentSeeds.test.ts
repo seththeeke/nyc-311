@@ -11,7 +11,11 @@ describe("RESIDENT_SEEDS", () => {
     expect(seeds.map((seed) => `${seed.persona_id}.json`).sort()).toEqual(files.sort());
   });
 
-  it("grants no tool bucket yet: residents generate ideas but take no actions", () => {
-    for (const seed of parseSeeds(RESIDENT_SEEDS)) expect(seed.action_buckets).toEqual([]);
+  it("grants every resident the REQUESTS and FEATURE_REQUESTS buckets, with a preference for each tool and none for the website (docs/16 §5.1)", () => {
+    for (const seed of parseSeeds(RESIDENT_SEEDS)) {
+      expect(seed.action_buckets).toEqual(["REQUESTS", "FEATURE_REQUESTS"]);
+      expect(seed.action_weights.BROWSE_WEBSITE).toBe(0);
+      for (const tool of ["SEARCH_REQUESTS", "CREATE_FEATURE_REQUEST", "GET_FEATURE_REQUEST"] as const) expect(seed.action_weights[tool]).toBeGreaterThan(0);
+    }
   });
 });

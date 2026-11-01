@@ -1,4 +1,4 @@
-import type { ActionType, IdeaType } from "../../models/residentIdea";
+import type { IdeaResolution, IdeaType, ResolutionStatus } from "../../models/residentIdea";
 
 /* Shared display helpers for the Residents page. */
 
@@ -36,16 +36,43 @@ export const IDEA_TYPE_LABELS: Record<IdeaType, string> = {
   FEATURE_REQUEST: "Feature request",
 };
 
-/* What a resident did about an idea, as a short past-tense tag. */
-export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
-  REQUEST_FEATURE: "Requested a feature",
-  CHECK_STATUS_API: "Checked status via API",
+/* Each tool a resident can use, as a short past-tense chip (docs/16 §5.1). An unknown tool shows its own name. */
+export const TOOL_LABELS: Record<string, string> = {
+  SEARCH_REQUESTS: "Searched requests",
+  CREATE_FEATURE_REQUEST: "Filed a feature request",
+  GET_FEATURE_REQUEST: "Checked a feature request",
   BROWSE_WEBSITE: "Browsed the website",
+  finish_idea: "Finished",
 };
-export const NOT_ACTIONED_LABEL = "Not actioned yet";
 
-/** "1:05" for 65 seconds. */
-export function clockTime(totalSeconds: number): string {
-  const seconds = Math.floor(totalSeconds);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+export function toolLabel(tool: string): string {
+  return TOOL_LABELS[tool] ?? tool;
+}
+
+/* The badge on every idea (docs/16 §6.1). */
+export type ResolutionBadgeState = ResolutionStatus | "STALLED";
+export const RESOLUTION_LABELS: Record<ResolutionBadgeState, string> = {
+  NOT_ACTIONED: "Not actioned",
+  IN_PROGRESS: "Working on it…",
+  STALLED: "Stalled",
+  SATISFIED: "Satisfied",
+  UNSATISFIED: "Unsatisfied",
+  GAVE_UP: "Gave up",
+  MAX_DEPTH_REACHED: "Hit the limit",
+};
+
+/* An idea still being worked after this long has most likely stopped (a dead-lettered message). */
+export const STALLED_AFTER_MS = HOUR_MS;
+
+/** The badge state: an in-progress idea started over an hour ago reads as stalled. */
+export function resolutionState(resolution: IdeaResolution, now: Date = new Date()): ResolutionBadgeState {
+  if (resolution.status !== "IN_PROGRESS" || !resolution.started_at) return resolution.status;
+  return now.getTime() - Date.parse(resolution.started_at) > STALLED_AFTER_MS ? "STALLED" : "IN_PROGRESS";
+}
+
+/** "1.4s" / "320ms" between two timestamps; "—" when either is missing. */
+export function durationLabel(from: string | null, to: string | null): string {
+  if (!from || !to) return "—";
+  const ms = Math.max(0, Date.parse(to) - Date.parse(from));
+  return ms < 1000 ? `${ms}ms` : ms < MINUTE_MS ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms / MINUTE_MS)}m`;
 }

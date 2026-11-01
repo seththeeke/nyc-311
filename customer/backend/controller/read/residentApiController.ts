@@ -50,7 +50,12 @@ export const residentApiController = async (event: unknown): Promise<APIGatewayP
     logInfo("ResidentApiControllerCompleted", { routeKey: parsed.data.routeKey, statusCode: response.statusCode });
     return response;
   } catch (err) {
-    logError("ResidentApiControllerFailed", { routeKey: parsed.data.routeKey, error: err instanceof Error ? err.message : err });
+    logError("ResidentApiControllerFailed", {
+      routeKey: parsed.data.routeKey,
+      error: err instanceof Error ? err.message : err,
+      /* The zod issues, so a row that no longer parses can be found from the log alone. */
+      details: err instanceof ValidationError ? err.details : undefined,
+    });
     if (err instanceof ValidationError) return jsonResponse(400, { message: err.message }, CACHE_HEADER);
     if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message }, CACHE_HEADER);
     return jsonResponse(500, { message: "Failed to read residents" }, CACHE_HEADER);

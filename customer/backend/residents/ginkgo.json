@@ -13,6 +13,6 @@
   "follow_up_propensity": 80,
   "idea_type_weights": { "STATUS_CHECK": 15, "SERVICED_CHECK": 10, "ETA_REQUEST": 10, "PRIORITY_INQUIRY": 10, "ESCALATION": 20, "FEATURE_REQUEST": 35 },
   "interests": { "boroughs": ["MANHATTAN"], "descriptors": ["Pothole", "Rough, Pitted or Cracked Roads", "Failed Street Repair", "General Bad Condition"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 70, "CREATE_FEATURE_REQUEST": 50, "GET_FEATURE_REQUEST": 40, "BROWSE_WEBSITE": 0 }
 }

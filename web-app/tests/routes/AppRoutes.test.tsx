@@ -62,6 +62,11 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
   });
 
+  it("renders the Meet the Team page at /team while MEET_THE_TEAM is on", async () => {
+    renderAt("/team");
+    expect(await screen.findByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
+  });
+
   it("keeps the same MapV2Page on a /mapv2/job/:orderId deep link", async () => {
     renderAt("/mapv2/job/01MOCKORDER001");
     expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();

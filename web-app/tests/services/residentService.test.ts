@@ -103,8 +103,8 @@ describe("residentService — live", () => {
   });
 
   it("gets one idea from /residents/{id}/ideas/{ideaId}", async () => {
-    const service = await liveService(MOCK_RESIDENT_IDEAS[0]);
-    await expect(service.getIdea("hawthorn", "01K7IDEA0014")).resolves.toEqual(MOCK_RESIDENT_IDEAS[0]);
+    const service = await liveService({ ...MOCK_RESIDENT_IDEAS[0], steps: [] });
+    await expect(service.getIdea("hawthorn", "01K7IDEA0014")).resolves.toEqual({ ...MOCK_RESIDENT_IDEAS[0], steps: [] });
     expect(fetch).toHaveBeenLastCalledWith("https://api.example.com/residents/hawthorn/ideas/01K7IDEA0014");
   });
 

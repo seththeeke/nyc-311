@@ -160,10 +160,13 @@ go the other way):**
   in-memory one backed by `test-data/` — selected by reading
   `import.meta.env.VITE_DATA_MODE === "live"` directly in each service (not
   via `config.ts`), so a live build folds it to a constant and tree-shakes
-  the mock class and `test-data/` out. One service may also read its own
-  override, falling back to `VITE_DATA_MODE`: `residentService` reads
-  `VITE_RESIDENT_DATA_MODE`, so a live dev server can show resident mocks
-  while their API does not exist; the pipeline never sets it. Mock state lives on the Mock class
+  the mock class and `test-data/` out. A service whose API does not exist
+  yet may also read its own override, falling back to `VITE_DATA_MODE`:
+  `residentService` reads `VITE_RESIDENT_DATA_MODE` and
+  `staffMeetingService` reads `VITE_TEAM_DATA_MODE`, so a live dev server
+  can show their mocks. Set them in `.env.development.local` (dev server
+  only), never `.env.local`, which a live build also reads; the pipeline
+  never sets them. Mock state lives on the Mock class
   instance, never module scope. `vite.config.ts`'s `liveBundleGuard` fails
   any live build that still ships test-data or a mock credential. Keeping
   the swap inside the service layer (rather than intercepting at the

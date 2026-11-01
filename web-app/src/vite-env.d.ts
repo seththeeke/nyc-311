@@ -6,7 +6,10 @@ interface ImportMetaEnv {
   readonly VITE_DATA_MODE: "mock" | "live";
   /* Overrides VITE_DATA_MODE for the resident service only, so a live-mode dev server can still use the resident mocks. */
   readonly VITE_RESIDENT_DATA_MODE?: "mock" | "live";
+  /* The same override for the Staff Meeting service (#146). */
+  readonly VITE_TEAM_DATA_MODE?: "mock" | "live";
   readonly VITE_RESIDENT_API_BASE_URL?: string;
+  readonly VITE_PUBLIC_API_BASE_URL?: string;
 }
 
 interface ImportMeta {

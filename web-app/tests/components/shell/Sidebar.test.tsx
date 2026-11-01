@@ -104,14 +104,14 @@ describe("Sidebar menu", () => {
     expect(screen.getByRole("link", { name: "311 Request Metrics" })).toBeInTheDocument();
   });
 
-  it("collapses and re-expands the monitoring accordion, listing its six items", async () => {
+  it("collapses and re-expands the monitoring accordion, listing its seven items", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
     const user = userEvent.setup();
     const header = screen.getByRole("button", { name: "System Monitoring" });
 
     const group = screen.getByRole("group", { name: "System Monitoring" });
-    expect(within(group).getAllByRole("link")).toHaveLength(6);
+    expect(within(group).getAllByRole("link")).toHaveLength(7);
     expect(within(group).getByRole("link", { name: "311 Request Metrics" })).toHaveAttribute(
       "href",
       "/monitoring/ingestion",

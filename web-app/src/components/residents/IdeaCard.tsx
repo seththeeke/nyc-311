@@ -2,9 +2,9 @@ import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
 import type { ResidentIdea } from "../../models/residentIdea";
 import type { ResidentPersona } from "../../models/residentPersona";
-import { IdeaActionTag } from "./IdeaActionTag";
 import { PersonaAvatar } from "./PersonaAvatar";
-import { relativeTime, titleCase } from "./residentFormat";
+import { relativeTime, titleCase, toolLabel } from "./residentFormat";
+import { ResolutionBadge } from "./ResolutionBadge";
 import { ideaDetailPath } from "./residentRoutes";
 
 interface IdeaCardProps {
@@ -14,7 +14,7 @@ interface IdeaCardProps {
   onSelectOrder: () => void;
 }
 
-/** One idea in the feed: who had it, what they want, the order it is about, and what they did. Every part is a way further in. */
+/** One idea in the feed: who had it, what they want, the order it is about, and how it resolved. Every part is a way further in. */
 export function IdeaCard({ idea, persona, onSelectPersona, onSelectOrder }: IdeaCardProps): ReactElement {
   const name = persona?.name ?? idea.persona_id;
   const anchor = idea.anchor;
@@ -39,11 +39,12 @@ export function IdeaCard({ idea, persona, onSelectPersona, onSelectOrder }: Idea
         ) : (
           <span className="text-xs text-fg-subtle">About the service, not an order</span>
         )}
-        {idea.actions.length > 0 ? (
-          idea.actions.map((action, i) => <IdeaActionTag key={`${action.type}-${i}`} action={action} />)
-        ) : (
-          <IdeaActionTag action={null} />
-        )}
+        <ResolutionBadge resolution={idea.resolution} />
+        {idea.resolution.tools_used.map((tool) => (
+          <span key={tool} className="inline-flex shrink-0 items-center rounded-full bg-panel-strong px-2.5 py-1 text-xs text-fg-muted">
+            {toolLabel(tool)}
+          </span>
+        ))}
         <Link to={ideaDetailPath(idea.persona_id, idea.idea_id)} className="ml-auto text-xs font-medium text-fg-muted hover:text-fg">
           View details
         </Link>

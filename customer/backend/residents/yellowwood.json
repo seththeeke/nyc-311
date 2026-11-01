@@ -13,6 +13,6 @@
   "follow_up_propensity": 55,
   "idea_type_weights": { "STATUS_CHECK": 25, "SERVICED_CHECK": 10, "ETA_REQUEST": 25, "PRIORITY_INQUIRY": 25, "ESCALATION": 10, "FEATURE_REQUEST": 5 },
   "interests": { "boroughs": ["BRONX"], "descriptors": ["Pothole", "Blocked - Construction", "Guard Rail - Street", "Line/Marking - Faded"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 70, "CREATE_FEATURE_REQUEST": 20, "GET_FEATURE_REQUEST": 15, "BROWSE_WEBSITE": 0 }
 }

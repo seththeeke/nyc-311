@@ -7,6 +7,7 @@ import {
   IntegrationTestsIcon,
   LambdaHealthIcon,
   PipelineIcon,
+  PublicApiIcon,
 } from "../monitoring/MonitoringTileIcons";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
@@ -40,6 +41,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/lambda-health",
     accent: "amber",
     icon: <LambdaHealthIcon />,
+  },
+  {
+    title: "Public API",
+    description: "The public API's health over the last 24 hours, its operations, and its OpenAPI model.",
+    to: "/monitoring/public-api",
+    accent: "emerald",
+    icon: <PublicApiIcon />,
   },
   {
     title: "Test Coverage",

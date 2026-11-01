@@ -55,6 +55,13 @@ export const HERO = {
   LENS: "#f5f7fa",
 } as const;
 
+/* The executive team's office wear (#146): a crisp shirt, a tie and a blazer colour the residents don't wear. */
+export const OFFICE = {
+  SHIRT: "#eceae4",
+  BURGUNDY: "#6b2e3a",
+  PLUM: "#5a4566",
+} as const;
+
 /* Studio lighting for the avatar snapshot. */
 export const LIGHT = {
   SKY: "#ffffff",
@@ -63,4 +70,4 @@ export const LIGHT = {
 } as const;
 
 /** Every colour a model may put on a material, for the palette test. */
-export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL, HERO].flatMap((group) => Object.values(group));
+export const MODEL_COLOURS: readonly string[] = [SKIN, HAIR, CLOTH, DETAIL, HERO, OFFICE].flatMap((group) => Object.values(group));

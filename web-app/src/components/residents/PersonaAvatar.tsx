@@ -5,8 +5,10 @@ interface PersonaAvatarProps {
   name: string;
   /** The resident's model (`model_key`); without one, or without WebGL, the initial shows instead. */
   modelKey?: string | null;
-  size?: "SM" | "LG";
+  size?: "SM" | "LG" | "XL";
 }
+
+const SIZE_CLASSES = { SM: "h-8 w-8 text-sm", LG: "h-12 w-12 text-lg", XL: "h-16 w-16 text-2xl" } as const;
 
 /*
  * A resident's face: a head-and-shoulders snapshot of their Three.js model
@@ -16,7 +18,7 @@ interface PersonaAvatarProps {
  */
 export function PersonaAvatar({ name, modelKey = null, size = "SM" }: PersonaAvatarProps): ReactElement {
   const snapshot = useResidentAvatar(modelKey);
-  const sizeClasses = size === "LG" ? "h-12 w-12 text-lg" : "h-8 w-8 text-sm";
+  const sizeClasses = SIZE_CLASSES[size];
   return (
     <span
       aria-hidden="true"

@@ -1,5 +1,6 @@
 import { CfnOutput, Stack, type StackProps, Tags } from "aws-cdk-lib";
 import type { Construct } from "constructs";
+import { CustomerActionWorkerLambda } from "./CustomerActionWorkerLambda";
 import { CustomerApi } from "./CustomerApi";
 import { CustomerApiDomain } from "./CustomerApiDomain";
 import { CUSTOMER_WEBHOOK_PATH } from "./customerConfig";
@@ -9,6 +10,7 @@ import { CustomerResidentSchedules } from "./CustomerResidentSchedules";
 import { CustomerResidentSync } from "./CustomerResidentSync";
 import { CustomerResidentSyncLambda } from "./CustomerResidentSyncLambda";
 import { CustomerWebhookListenerLambda } from "./CustomerWebhookListenerLambda";
+import { IdeaActionsQueue } from "./IdeaActionsQueue";
 import { ResidentIdeasTable } from "./ResidentIdeasTable";
 import { loadResidentSeeds } from "./residentSeedFiles";
 import { ResidentsTable } from "./ResidentsTable";
@@ -20,8 +22,8 @@ import { WebhookCustomerFacingOrdersTable } from "./WebhookCustomerFacingOrdersT
  * only, and a real outsider: its own API, domain, table, Lambda and
  * roles, no reference to `Nyc311Stack` either way. The listener records
  * which orders are in play; residents, synced from seeds, think on their
- * own schedules and record ideas; a public read API serves both to
- * BoroughSim's web-app. No actions yet.
+ * own schedules and record ideas; the action worker acts on them through
+ * BoroughSim's public API (docs/16); a read API serves it all.
  */
 export class Nyc311CustomerStack extends Stack {
   /** The callback URL to register with BoroughSim. */
@@ -37,6 +39,8 @@ export class Nyc311CustomerStack extends Stack {
     const residentsTable = new ResidentsTable(this, "ResidentsTable");
     const ideasTable = new ResidentIdeasTable(this, "ResidentIdeasTable");
     const residents = loadResidentSeeds();
+    const modelIds = residents.map((resident) => resident.modelId);
+    const ideaActions = new IdeaActionsQueue(this, "IdeaActionsQueue");
 
     const webhookListenerLambda = new CustomerWebhookListenerLambda(this, "CustomerWebhookListenerLambda", { ordersTable });
     const syncLambda = new CustomerResidentSyncLambda(this, "CustomerResidentSyncLambda", { residentsTable });
@@ -45,8 +49,10 @@ export class Nyc311CustomerStack extends Stack {
       residentsTable,
       ideasTable,
       ordersTable,
-      modelIds: residents.map((resident) => resident.modelId),
+      modelIds,
+      ideaActionsQueue: ideaActions.queue,
     });
+    new CustomerActionWorkerLambda(this, "CustomerActionWorkerLambda", { residentsTable, ideasTable, ideaActionsQueue: ideaActions.queue, modelIds });
     new CustomerResidentSchedules(this, "CustomerResidentSchedules", { ideaWorker, residents });
     const readApiLambda = new CustomerReadApiLambda(this, "CustomerReadApiLambda", { residentsTable, ideasTable, ordersTable });
 

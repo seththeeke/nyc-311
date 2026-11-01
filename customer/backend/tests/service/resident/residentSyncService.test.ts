@@ -7,7 +7,7 @@ import { current, seed } from "../../residentFixtures";
 const NOW = new Date("2026-10-17T12:00:00.000Z");
 
 function daoWith(existing: typeof current | null) {
-  const dao = { getCurrent: vi.fn().mockResolvedValue(existing), createResident: vi.fn(), addVersion: vi.fn() };
+  const dao = { getCurrentVersion: vi.fn().mockResolvedValue(existing), createResident: vi.fn(), addVersion: vi.fn() };
   return { dao, deps: { residentDao: dao as unknown as ResidentDao, now: () => NOW } };
 }
 
@@ -20,9 +20,11 @@ afterEach(() => {
 });
 
 describe("buildResidentContent", () => {
-  it("adds the prompt and a hash that depends only on content", () => {
+  it("adds both prompts and a hash that depends only on content", () => {
     const content = buildResidentContent(seed);
-    expect(content.prompt_version).toBe("idea-generator@1");
+    expect(content.prompt_version).toBe("idea-generator@2");
+    expect(content.action_prompt_version).toBe("idea-actioner@1");
+    expect(content.action_prompt).toContain("finish_idea");
     expect(content.content_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
     const reordered = Object.fromEntries(Object.entries(seed).reverse()) as typeof seed;
     expect(buildResidentContent(reordered).content_hash).toBe(content.content_hash);

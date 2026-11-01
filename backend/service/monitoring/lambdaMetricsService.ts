@@ -29,6 +29,8 @@ const MONITORED_LAMBDAS: { logicalName: string; envVar: string }[] = [
   { logicalName: "FleetApi", envVar: "MONITORED_LAMBDA_FLEET_API" },
   { logicalName: "WebhookSubscriptionsApi", envVar: "MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API" },
   { logicalName: "PipelineStatus", envVar: "MONITORED_LAMBDA_PIPELINE_STATUS" },
+  /* The public API's one bundle (16-resident-action-models.md §2). */
+  { logicalName: "PublicV1Api", envVar: "MONITORED_LAMBDA_PUBLIC_V1_API" },
 ];
 
 /** 7 days, daily buckets — enough to see a multi-day pattern (like the fan-out incident) without a heavy CloudWatch query. */

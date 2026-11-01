@@ -4,10 +4,12 @@ import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
 import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
-import { logInfo, logWarn } from "../../logger";
+import { logError, logInfo, logWarn } from "../../logger";
+import type { IdeaActionMessage } from "../../models/ideaActionMessage";
 import type { IdeaWorkerEvent } from "../../models/ideaWorkerEvent";
-import { IDEA_FEED_PK, byOrderKey, ideaSortKey, type ResidentIdea } from "../../models/residentIdea";
+import { IDEA_FEED_PK, byOrderKey, ideaSortKey, notActionedResolution, type ResidentIdea } from "../../models/residentIdea";
 import { generateIdea, type GeneratorRequest, type GeneratorResult } from "./bedrockIdeaGenerator";
+import { enqueueIdeaAction } from "./ideaActionQueue";
 import { describeContext, gatherIdeaContext } from "./ideaContext";
 import { newUlid } from "./ulid";
 
@@ -22,14 +24,16 @@ export interface IdeaWorkerDeps {
   generate?: (request: GeneratorRequest) => Promise<GeneratorResult>;
   random?: () => number;
   now?: () => Date;
+  enqueueAction?: (message: IdeaActionMessage) => Promise<void>;
 }
 
 /**
  * One scheduled thought (§3 Flow B): roll the resident's activity level,
  * gather what is around them, let their model decide the idea or that
  * there is nothing to say, and record it with its thread row and the
- * resident's counters. No actions yet: no tool bucket is granted, so the
- * idea is written with `actions: []` and nothing is queued.
+ * resident's counters. A resident with tools then has the idea queued for
+ * the action worker (docs/16 §5.2). A failed hand-off is logged, not
+ * retried: the idea is kept, and stays not actioned.
  */
 export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps = {}): Promise<IdeaWorkerOutcome> {
   const random = deps.random ?? Math.random;
@@ -59,6 +63,7 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     systemPrompt: resident.idea_prompt,
     userMessage: describeContext(ideaContext, now),
     orderIds: offered.map((order) => order.order_id),
+    featureRequestIds: ideaContext.featureRequests.map((thread) => thread.feature_request_id),
   });
 
   if (result.kind === "NOTHING_TO_SAY") {
@@ -81,10 +86,11 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
     text: result.text,
     order_id: order?.order_id ?? null,
     external_unique_key: order?.external_unique_key ?? null,
+    feature_request_id: result.featureRequestId,
     ...(order ? { by_order_pk: byOrderKey(resident.persona_id, order.order_id) } : {}),
     feed_pk: IDEA_FEED_PK,
-    status: "OPEN",
-    actions: [],
+    resident_pk: resident.persona_id,
+    resolution: notActionedResolution(),
     model_id: resident.model_id,
     prompt_version: resident.prompt_version,
     input_tokens: result.inputTokens,
@@ -93,5 +99,14 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
   };
   await ideaDao.recordIdea(idea);
   logInfo("IdeaWorkerIdeaCreated", { ...context, ideaId, ideaType: idea.idea_type, orderId: idea.order_id });
+  if (resident.action_buckets.length > 0) {
+    try {
+      await (deps.enqueueAction ?? enqueueIdeaAction)({ persona_id: resident.persona_id, idea_id: ideaId });
+    } catch (err) {
+      logError("IdeaWorkerEnqueueFailed", { ...context, ideaId, error: err instanceof Error ? err.message : err });
+    }
+  } else {
+    logInfo("IdeaWorkerNoTools", { ...context, ideaId });
+  }
   return { outcome: "CREATED", ideaId };
 }

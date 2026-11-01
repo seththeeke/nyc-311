@@ -11,7 +11,7 @@ const MAX_TOKENS = 600;
 const TEMPERATURE = 0.9;
 
 export type GeneratorResult =
-  | { kind: "IDEA"; ideaType: IdeaType; orderId: string | null; text: string; inputTokens: number; outputTokens: number }
+  | { kind: "IDEA"; ideaType: IdeaType; orderId: string | null; featureRequestId: string | null; text: string; inputTokens: number; outputTokens: number }
   | { kind: "NOTHING_TO_SAY"; reason: string; inputTokens: number; outputTokens: number }
   | { kind: "UNUSABLE"; reason: string; inputTokens: number; outputTokens: number };
 
@@ -21,16 +21,19 @@ export interface GeneratorRequest {
   userMessage: string;
   /** Orders the resident may name; anything else is unusable. */
   orderIds: string[];
+  /** Feature requests the resident may follow up on (docs/16 §5.4); anything else is unusable. */
+  featureRequestIds: string[];
 }
 
 const RecordIdeaInputSchema = z.object({
   idea_type: z.enum(IDEA_TYPES),
   order_id: z.string().min(1),
+  feature_request_id: z.string().min(1).optional(),
   text: z.string(),
 });
 const NothingToSayInputSchema = z.object({ reason: z.string().optional() });
 
-function toolConfig(orderIds: string[]): ToolConfiguration {
+function toolConfig(orderIds: string[], featureRequestIds: string[]): ToolConfiguration {
   return {
     tools: [
       {
@@ -43,9 +46,14 @@ function toolConfig(orderIds: string[]): ToolConfiguration {
               properties: {
                 idea_type: { type: "string", enum: [...IDEA_TYPES], description: "The kind of idea." },
                 order_id: { type: "string", enum: [...orderIds, NO_ORDER], description: `The order it is about, or ${NO_ORDER}.` },
-                text: { type: "string", description: "What you want and why, in your own voice." },
+                feature_request_id: {
+                  type: "string",
+                  enum: [...featureRequestIds, NO_ORDER],
+                  description: `A feature request of yours it follows up on, or ${NO_ORDER}.`,
+                },
+                text: { type: "string", description: "What you want and why, as a private thought in your own voice." },
               },
-              required: ["idea_type", "order_id", "text"],
+              required: ["idea_type", "order_id", "feature_request_id", "text"],
             },
           },
         },
@@ -80,7 +88,7 @@ export async function generateIdea(request: GeneratorRequest, client: BedrockRun
       modelId: request.modelId,
       system: [{ text: request.systemPrompt }],
       messages: [{ role: "user", content: [{ text: request.userMessage }] }],
-      toolConfig: toolConfig(request.orderIds),
+      toolConfig: toolConfig(request.orderIds, request.featureRequestIds),
       inferenceConfig: { maxTokens: MAX_TOKENS, temperature: TEMPERATURE },
     })
   );
@@ -103,5 +111,10 @@ export async function generateIdea(request: GeneratorRequest, client: BedrockRun
   if (text.length === 0 || text.length > MAX_IDEA_LENGTH) return { kind: "UNUSABLE", reason: `Idea text length ${text.length}`, ...tokens };
   const orderId = parsed.data.order_id === NO_ORDER ? null : parsed.data.order_id;
   if (orderId !== null && !request.orderIds.includes(orderId)) return { kind: "UNUSABLE", reason: `Order ${orderId} was not offered`, ...tokens };
-  return { kind: "IDEA", ideaType: parsed.data.idea_type, orderId, text, ...tokens };
+  const rawFeatureRequestId = parsed.data.feature_request_id ?? NO_ORDER;
+  const featureRequestId = rawFeatureRequestId === NO_ORDER ? null : rawFeatureRequestId;
+  if (featureRequestId !== null && !request.featureRequestIds.includes(featureRequestId)) {
+    return { kind: "UNUSABLE", reason: `Feature request ${featureRequestId} was not offered`, ...tokens };
+  }
+  return { kind: "IDEA", ideaType: parsed.data.idea_type, orderId, featureRequestId, text, ...tokens };
 }

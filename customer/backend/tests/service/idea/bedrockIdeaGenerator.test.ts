@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_IDEA_LENGTH, NO_ORDER, generateIdea } from "../../../service/idea/bedrockIdeaGenerator";
 
 const bedrockMock = mockClient(BedrockRuntimeClient);
-const request = { modelId: "amazon.nova-micro-v1:0", systemPrompt: "You are Hawthorn.", userMessage: "Orders near you", orderIds: ["01ORDER"] };
+const request = { modelId: "amazon.nova-micro-v1:0", systemPrompt: "You are Hawthorn.", userMessage: "Orders near you", orderIds: ["01ORDER"], featureRequestIds: ["01FR"] };
 const usage = { inputTokens: 500, outputTokens: 40, totalTokens: 540 };
 
 function replyWith(name: string, input: unknown) {
@@ -29,6 +29,7 @@ describe("generateIdea", () => {
       kind: "IDEA",
       ideaType: "ETA_REQUEST",
       orderId: "01ORDER",
+      featureRequestId: null,
       text: "When?",
       inputTokens: 500,
       outputTokens: 40,
@@ -38,6 +39,16 @@ describe("generateIdea", () => {
     expect(input.system).toEqual([{ text: "You are Hawthorn." }]);
     expect(input.toolConfig?.toolChoice).toEqual({ any: {} });
     expect(JSON.stringify(input.toolConfig)).toContain(`"enum":["01ORDER","${NO_ORDER}"]`);
+    expect(JSON.stringify(input.toolConfig)).toContain(`"enum":["01FR","${NO_ORDER}"]`);
+  });
+
+  it("anchors an idea to an offered feature request, and calls any other unusable (docs/16 §5.4)", async () => {
+    replyWith("record_idea", { idea_type: "STATUS_CHECK", order_id: NO_ORDER, feature_request_id: "01FR", text: "Any news?" });
+    await expect(generateIdea(request)).resolves.toMatchObject({ kind: "IDEA", orderId: null, featureRequestId: "01FR" });
+    replyWith("record_idea", { idea_type: "STATUS_CHECK", order_id: NO_ORDER, feature_request_id: NO_ORDER, text: "Any news?" });
+    await expect(generateIdea(request)).resolves.toMatchObject({ featureRequestId: null });
+    replyWith("record_idea", { idea_type: "STATUS_CHECK", order_id: NO_ORDER, feature_request_id: "02OTHER", text: "Any news?" });
+    await expect(generateIdea(request)).resolves.toMatchObject({ kind: "UNUSABLE", reason: "Feature request 02OTHER was not offered" });
   });
 
   it("reads NONE as an idea about no order", async () => {

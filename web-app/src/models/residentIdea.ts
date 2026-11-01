@@ -17,8 +17,6 @@ export const IDEA_TYPES = [
 ] as const;
 export type IdeaType = (typeof IDEA_TYPES)[number];
 
-export const IDEA_STATUSES = ["OPEN"] as const;
-
 export const IdeaAnchorSchema = z.object({
   order_id: z.string().min(1),
   external_unique_key: z.string().min(1),
@@ -29,72 +27,69 @@ export const IdeaAnchorSchema = z.object({
 export type IdeaAnchor = z.infer<typeof IdeaAnchorSchema>;
 
 /*
- * What the resident did about the idea (13-customer-simulation.md
- * Appendix L, §3 Flow B decision 5) — tools the resident chose to call,
- * in order; one idea can have several. For now no tool is granted, so
- * every idea has `actions: []`; requesting a feature comes first, then
- * checking status through an API and browsing the website (RPA).
+ * How an idea was worked (docs/16-resident-action-models.md §5.3): the
+ * summary kept on the idea, and the step log returned with one idea. Ideas
+ * from before the action loop, and an API that predates it, read as not
+ * actioned with no steps.
  */
-export const ACTION_TYPES = ["REQUEST_FEATURE", "CHECK_STATUS_API", "BROWSE_WEBSITE"] as const;
-export type ActionType = (typeof ACTION_TYPES)[number];
+export const RESOLUTION_STATUSES = ["NOT_ACTIONED", "IN_PROGRESS", "SATISFIED", "UNSATISFIED", "GAVE_UP", "MAX_DEPTH_REACHED"] as const;
+export type ResolutionStatus = (typeof RESOLUTION_STATUSES)[number];
 
-export const ACTION_STATUSES = ["COMPLETED", "FAILED"] as const;
-
-const ActionBaseShape = {
-  status: z.enum(ACTION_STATUSES),
-  started_at: z.string().min(1),
-  completed_at: z.string().min(1),
-  /* What they did, in plain words. */
-  summary: z.string().min(1),
-  /* What they came away with; null when there was nothing to learn. */
-  outcome: z.string().min(1).nullable(),
-};
-
-export const RecordingStepSchema = z.object({
-  at_seconds: z.number().min(0),
-  description: z.string().min(1),
+export const IdeaResolutionSchema = z.object({
+  status: z.enum(RESOLUTION_STATUSES),
+  /* The resident's own closing words; null until finished. */
+  summary: z.string().nullable(),
+  follow_up: z.string().nullable(),
+  tools_used: z.array(z.string()),
+  step_count: z.number().int().min(0),
+  last_step_sequence: z.number().int().min(0),
+  started_at: z.string().nullable(),
+  finished_at: z.string().nullable(),
+  prompt_version: z.string().nullable(),
+  input_tokens: z.number().int().min(0),
+  output_tokens: z.number().int().min(0),
 });
-export type RecordingStep = z.infer<typeof RecordingStepSchema>;
+export type IdeaResolution = z.infer<typeof IdeaResolutionSchema>;
 
-export const BrowseWebsiteActionSchema = z.object({
-  type: z.literal("BROWSE_WEBSITE"),
-  ...ActionBaseShape,
-  /* The RPA session. `video_url` is null until recordings are captured; the steps log still describes the session. */
-  recording: z.object({
-    video_url: z.string().url().nullable(),
-    captions_url: z.string().url().nullable(),
-    duration_seconds: z.number().positive(),
-    steps: z.array(RecordingStepSchema).min(1),
-  }),
+export function notActionedResolution(): IdeaResolution {
+  return {
+    status: "NOT_ACTIONED",
+    summary: null,
+    follow_up: null,
+    tools_used: [],
+    step_count: 0,
+    last_step_sequence: 0,
+    started_at: null,
+    finished_at: null,
+    prompt_version: null,
+    input_tokens: 0,
+    output_tokens: 0,
+  };
+}
+
+export const STEP_KINDS = ["TOOL_CALL", "FINISH", "FORCED_FINISH"] as const;
+
+/* One model turn: what the resident chose, and what the tool did. */
+export const IdeaStepSchema = z.object({
+  sequence: z.number().int().min(1),
+  kind: z.enum(STEP_KINDS),
+  decision: z.object({ tool: z.string().min(1), input: z.record(z.string(), z.unknown()), model_text: z.string().nullable() }).nullable(),
+  execution: z
+    .object({
+      status: z.enum(["COMPLETED", "FAILED"]),
+      summary: z.string().min(1),
+      request: z.object({ method: z.string().min(1), path: z.string().min(1), body: z.unknown().optional() }).nullable(),
+      response: z.object({ status_code: z.number().int(), call_id: z.string().nullable(), body: z.unknown() }).nullable(),
+      error: z.string().nullable(),
+      started_at: z.string().min(1),
+      completed_at: z.string().min(1),
+    })
+    .nullable(),
+  input_tokens: z.number().int().min(0),
+  output_tokens: z.number().int().min(0),
+  created_at: z.string().min(1),
 });
-
-export const CheckStatusApiActionSchema = z.object({
-  type: z.literal("CHECK_STATUS_API"),
-  ...ActionBaseShape,
-  request: z.object({ method: z.string().min(1), url: z.string().min(1) }),
-  response: z.object({ status_code: z.number().int(), body: z.string() }),
-});
-
-export const RequestFeatureActionSchema = z.object({
-  type: z.literal("REQUEST_FEATURE"),
-  ...ActionBaseShape,
-  feature_request: z.object({
-    title: z.string().min(1),
-    description: z.string().min(1),
-    /* The intake system's id for the request, once it accepts one. */
-    reference_id: z.string().min(1).nullable(),
-  }),
-});
-
-export const IdeaActionSchema = z.discriminatedUnion("type", [
-  BrowseWebsiteActionSchema,
-  CheckStatusApiActionSchema,
-  RequestFeatureActionSchema,
-]);
-export type IdeaAction = z.infer<typeof IdeaActionSchema>;
-export type BrowseWebsiteAction = z.infer<typeof BrowseWebsiteActionSchema>;
-export type CheckStatusApiAction = z.infer<typeof CheckStatusApiActionSchema>;
-export type RequestFeatureAction = z.infer<typeof RequestFeatureActionSchema>;
+export type IdeaStep = z.infer<typeof IdeaStepSchema>;
 
 export const ResidentIdeaSchema = z.object({
   idea_id: z.string().min(1),
@@ -103,16 +98,22 @@ export const ResidentIdeaSchema = z.object({
   idea_type: z.enum(IDEA_TYPES),
   text: z.string().min(1),
   anchor: IdeaAnchorSchema.nullable(),
-  status: z.enum(IDEA_STATUSES),
+  /* The feature request this idea follows up on, if any. */
+  feature_request_id: z.string().min(1).nullable().default(null),
+  resolution: IdeaResolutionSchema.default(notActionedResolution),
   created_at: z.string().min(1),
   model_id: z.string().min(1),
   prompt_version: z.string().min(1),
   input_tokens: z.number().int().min(0),
   output_tokens: z.number().int().min(0),
-  /* In the order they were taken; empty = not actioned yet. */
-  actions: z.array(IdeaActionSchema),
 });
 export type ResidentIdea = z.infer<typeof ResidentIdeaSchema>;
+
+/* `GET /residents/{id}/ideas/{ideaId}`: the idea with its workstream, oldest step first. */
+export const ResidentIdeaDetailSchema = ResidentIdeaSchema.extend({
+  steps: z.array(IdeaStepSchema).default([]),
+});
+export type ResidentIdeaDetail = z.infer<typeof ResidentIdeaDetailSchema>;
 
 /* `GET /ideas` and `GET /residents/{id}/ideas` — newest first, paginated with an opaque cursor. */
 export const ResidentIdeaPageSchema = z.object({

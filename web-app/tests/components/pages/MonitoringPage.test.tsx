@@ -44,6 +44,16 @@ describe("MonitoringPage", () => {
     );
   });
 
+  it("renders a Public API tile linking to /monitoring/public-api", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /public api/i })).toHaveAttribute("href", "/monitoring/public-api");
+  });
+
   it("renders a Test Coverage tile linking out to the hosted coverage report in a new tab", () => {
     render(
       <MemoryRouter>

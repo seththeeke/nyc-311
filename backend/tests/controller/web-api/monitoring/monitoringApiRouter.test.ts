@@ -3,13 +3,16 @@ import { monitoringApiRouter } from "../../../../controller/web-api/monitoring/m
 import { MONITORING_API_ROUTES } from "../../../../controller/web-api/monitoring/monitoringApiRoutes";
 import { getLambdaMetricsController } from "../../../../controller/web-api/monitoring/getLambdaMetricsController";
 import { getPollerMetricsController } from "../../../../controller/web-api/monitoring/getPollerMetricsController";
+import { getPublicApiMetricsController } from "../../../../controller/web-api/monitoring/getPublicApiMetricsController";
 
 vi.mock("../../../../controller/web-api/monitoring/getLambdaMetricsController", () => ({ getLambdaMetricsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/monitoring/getPollerMetricsController", () => ({ getPollerMetricsController: vi.fn() }));
+vi.mock("../../../../controller/web-api/monitoring/getPublicApiMetricsController", () => ({ getPublicApiMetricsController: vi.fn() }));
 
 const EXPECTED_CONTROLLERS: Record<(typeof MONITORING_API_ROUTES)[number], unknown> = {
   "GET /ingestion/metrics": getPollerMetricsController,
   "GET /lambda-metrics": getLambdaMetricsController,
+  "GET /public-api/metrics": getPublicApiMetricsController,
 };
 
 beforeEach(() => {
@@ -23,7 +26,7 @@ afterEach(() => {
 });
 
 describe("monitoringApiRouter", () => {
-  it("covers exactly its 2 route(s)", () => {
+  it("covers exactly its 3 route(s)", () => {
     expect([...MONITORING_API_ROUTES].sort()).toEqual(Object.keys(EXPECTED_CONTROLLERS).sort());
   });
 

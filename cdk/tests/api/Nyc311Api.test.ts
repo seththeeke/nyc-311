@@ -54,6 +54,8 @@ const MONITORED = {
   dataApiFunctionName: "Nyc311DataApi-Test",
   fleetApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
   webhookSubscriptionsApiFunctionName: "Nyc311RegisterWebhookSubscriptionApi-Test",
+  publicV1ApiFunctionName: "Nyc311PublicV1Api-Test",
+  publicApiId: "pub123",
 };
 
 /* Each bundle's construct-ID prefix and route list, as Nyc311Stack wires them. */

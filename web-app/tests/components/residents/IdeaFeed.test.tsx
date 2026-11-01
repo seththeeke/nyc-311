@@ -41,9 +41,10 @@ describe("IdeaFeed — everyone", () => {
     const first = screen.getAllByRole("article")[0];
     expect(within(first).getByRole("button", { name: "Hawthorn" })).toBeInTheDocument();
     expect(first).not.toHaveTextContent("Escalation");
-    expect(within(first).getByText("Not actioned yet")).toBeInTheDocument();
-    expect(screen.getAllByText("Requested a feature")).toHaveLength(4);
-    expect(screen.getByText("Browsed the website")).toBeInTheDocument();
+    expect(within(first).getByText("Gave up")).toBeInTheDocument();
+    expect(within(first).getByText("Searched requests")).toBeInTheDocument();
+    expect(screen.getAllByText("Filed a feature request")).toHaveLength(3);
+    expect(screen.getAllByText("Not actioned")).toHaveLength(MOCK_RESIDENT_IDEAS.filter((idea) => idea.resolution.status === "NOT_ACTIONED").length);
     expect(within(first).getByRole("link", { name: "View details" })).toHaveAttribute("href", "/residents/hawthorn/ideas/01K7IDEA0014");
     expect(within(first).getByRole("button", { name: "Pothole · 412 ATLANTIC AVENUE, Brooklyn" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `All ${MOCK_RESIDENT_IDEAS.length}` })).toHaveAttribute("aria-pressed", "true");

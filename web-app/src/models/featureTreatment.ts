@@ -17,3 +17,7 @@ export type FeatureTreatment = z.infer<typeof FeatureTreatmentSchema>;
 export const MAP_V2_FLAG = "MAP_V2";
 export const MAP_V2_ON = "T1";
 export const MAP_V2_TAKEOVER = "T2";
+
+/* MEET_THE_TEAM gates the Meet the Team page (#146): C hides it, T1 shows it. */
+export const MEET_THE_TEAM_FLAG = "MEET_THE_TEAM";
+export const MEET_THE_TEAM_ON = "T1";

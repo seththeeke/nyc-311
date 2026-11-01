@@ -13,6 +13,6 @@
   "follow_up_propensity": 75,
   "idea_type_weights": { "STATUS_CHECK": 15, "SERVICED_CHECK": 10, "ETA_REQUEST": 5, "PRIORITY_INQUIRY": 5, "ESCALATION": 5, "FEATURE_REQUEST": 60 },
   "interests": { "boroughs": ["STATEN ISLAND"], "descriptors": ["Line/Marking - Faded", "Defective Hardware", "Wear & Tear"] },
-  "action_buckets": [],
-  "action_weights": { "REQUEST_FEATURE": 0, "CHECK_STATUS_API": 0, "BROWSE_WEBSITE": 0 }
+  "action_buckets": ["REQUESTS", "FEATURE_REQUESTS"],
+  "action_weights": { "SEARCH_REQUESTS": 25, "CREATE_FEATURE_REQUEST": 80, "GET_FEATURE_REQUEST": 45, "BROWSE_WEBSITE": 0 }
 }

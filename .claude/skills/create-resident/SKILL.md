@@ -99,8 +99,12 @@ prompt is creative content the user owns.
   else. A different model changes the idea worker's Bedrock IAM grant
   and a stack test pins one model, so only change it if the user asks.
 - `model_key`: the `persona_id`.
-- `action_buckets: []` and `action_weights` all `0` (a test requires
-  this until #111 lands).
+- `action_buckets: ["REQUESTS", "FEATURE_REQUESTS"]` and `action_weights`
+  for `SEARCH_REQUESTS`, `CREATE_FEATURE_REQUEST` and
+  `GET_FEATURE_REQUEST` (each above 0, set from the personality: 60+
+  reaches for it first, 30–59 uses it when it fits, below 30 rarely), with
+  `BROWSE_WEBSITE: 0`. A test requires every resident to be granted both
+  buckets (docs/16-resident-action-models.md §5.1).
 
 **Schedule**: every resident thinks every 3 hours, New York time:
 `cron(<minute> <offset>/3 * * ? *)`. Take the first free slot in this

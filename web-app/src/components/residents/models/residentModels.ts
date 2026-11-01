@@ -5,6 +5,7 @@ import { buildHawthorn } from "./hawthorn";
 import { buildHornbeam } from "./hornbeam";
 import { buildJuniper } from "./juniper";
 import { buildPineterParker } from "./pineterParker";
+import { TEAM_MODELS } from "../../team/models/teamModels";
 import type { ResidentRig } from "./residentFigure";
 import { buildSassafras } from "./sassafras";
 import { buildSycamore } from "./sycamore";
@@ -29,7 +30,8 @@ export const RESIDENT_MODELS: Readonly<Record<string, () => ResidentRig>> = {
   yellowwood: buildYellowwood,
 };
 
+/** Builds a resident's or an executive's (#146) model; the two share the body, the avatar and the stage. */
 export function buildResidentModel(modelKey: string | null): ResidentRig | null {
-  const build = modelKey ? RESIDENT_MODELS[modelKey] : undefined;
+  const build = modelKey ? (RESIDENT_MODELS[modelKey] ?? TEAM_MODELS[modelKey]) : undefined;
   return build ? build() : null;
 }

@@ -22,13 +22,14 @@ describe("resident tables", () => {
     });
   });
 
-  it("keys ResidentIdeas by persona and row, with the ByOrder and Feed indexes and no TTL", () => {
+  it("keys ResidentIdeas by persona and row, with the ByOrder, Feed and ByResident indexes and no TTL", () => {
     synthesize().hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       TableName: "ResidentIdeas-Prod",
       KeySchema: [key("persona_id", "HASH"), key("sk", "RANGE")],
       GlobalSecondaryIndexes: [
         { IndexName: "ByOrder", KeySchema: [key("by_order_pk", "HASH"), key("idea_id", "RANGE")], Projection: { ProjectionType: "ALL" } },
         { IndexName: "Feed", KeySchema: [key("feed_pk", "HASH"), key("idea_id", "RANGE")], Projection: { ProjectionType: "ALL" } },
+        { IndexName: "ByResident", KeySchema: [key("resident_pk", "HASH"), key("idea_id", "RANGE")], Projection: { ProjectionType: "ALL" } },
       ],
     });
   });

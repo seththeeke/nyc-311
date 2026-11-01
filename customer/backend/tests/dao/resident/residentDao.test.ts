@@ -19,6 +19,17 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("ResidentDao", () => {
+  it("reads only the version and hash for the sync, even from a row stored before the action loop (deploy regression, 2026-10-31)", async () => {
+    const preActionLoop: Record<string, unknown> = { ...current, action_weights: { REQUEST_FEATURE: 0, CHECK_STATUS_API: 0, BROWSE_WEBSITE: 0 }, action_buckets: [] };
+    delete preActionLoop.action_prompt;
+    delete preActionLoop.action_prompt_version;
+    ddbMock.on(GetCommand).resolvesOnce({ Item: { version: current.version, content_hash: current.content_hash } }).resolvesOnce({ Item: preActionLoop }).resolvesOnce({});
+    await expect(dao.getCurrentVersion("hawthorn")).resolves.toEqual({ version: current.version, content_hash: current.content_hash });
+    expect(ddbMock.commandCalls(GetCommand)[0].args[0].input).toMatchObject({ ProjectionExpression: "version, content_hash", ConsistentRead: true });
+    await expect(dao.getCurrentVersion("hawthorn")).resolves.toEqual({ version: current.version, content_hash: current.content_hash });
+    await expect(dao.getCurrentVersion("nobody")).resolves.toBeNull();
+  });
+
   it("gets a CURRENT row, or null", async () => {
     ddbMock.on(GetCommand).resolvesOnce({ Item: current }).resolvesOnce({});
     await expect(dao.getCurrent("hawthorn")).resolves.toEqual(current);
