@@ -11,15 +11,15 @@ import { authResult, ADMIN_USER } from "../testUtils/authFixtures";
 vi.mock("../../src/hooks/useFleetLocations", () => ({
   useFleetLocations: () => ({ locations: { operators: [] }, isLoading: false, error: null }),
 }));
-/* Every flag resolves to `treatment` (T1 unless a test says otherwise), so flag-gated routes render; Mapv2 shows its fallback here — its real map has its own tests. */
-let treatment = "T1";
+/* Every flag resolves to T1, so flag-gated routes render, except MARKETING_PAGE, off unless a test turns it on. */
+let marketing = "C";
 vi.mock("../../src/hooks/useFeatureTreatment", () => ({
-  useFeatureTreatment: () => ({ treatment, isLoading: false }),
+  useFeatureTreatment: (flagKey: string) => ({ treatment: flagKey === "MARKETING_PAGE" ? marketing : "T1", isLoading: false }),
   useFeatureEnabled: () => true,
 }));
 let webGl = false;
-/* The T2 takeover mounts the real city view; a fake map stands in for MapLibre, which needs WebGL2. */
-vi.mock("maplibre-gl", async () => ({ Map: (await import("../components/mapv2/fakeMapLibre")).FakeMap, setWorkerUrl: () => undefined }));
+/* Without WebGL the map shows its fallback; with it, the real city view mounts over a fake MapLibre, which needs WebGL2. */
+vi.mock("maplibre-gl", async () => ({ Map: (await import("../components/map/fakeMapLibre")).FakeMap, setWorkerUrl: () => undefined }));
 vi.mock("../../src/components/three/webgl", () => ({ isWebGlAvailable: () => webGl }));
 vi.mock("../../src/hooks/usePollerMetrics", () => ({
   usePollerMetrics: () => ({ data: { cursor: null, metrics: [] }, isPending: false, isError: false }),
@@ -46,19 +46,13 @@ function renderAt(path: string) {
 }
 
 describe("AppRoutes", () => {
-  it("renders HomePage (the fleet map) at /", async () => {
+  it("renders the map at / (its WebGL fallback here)", async () => {
     renderAt("/");
-    /* FLEET_MAP is lazy() (widgetRegistry.ts, keeps leaflet out of the main chunk); it resolves async. */
-    expect(await screen.findByText(/OpenStreetMap/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
   });
 
-  it("renders HomePage underneath at /about (the About drawer itself lives in the sidebar footer)", async () => {
+  it("renders the map underneath at /about (the About drawer itself lives in the sidebar footer)", async () => {
     renderAt("/about");
-    expect(await screen.findByText(/OpenStreetMap/)).toBeInTheDocument();
-  });
-
-  it("renders MapV2Page at /mapv2 while MAP_V2 is on", async () => {
-    renderAt("/mapv2");
     expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
   });
 
@@ -72,25 +66,42 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Team Chat" })).toBeInTheDocument();
   });
 
-  it("keeps the same MapV2Page on a /mapv2/job/:orderId deep link", async () => {
-    renderAt("/mapv2/job/01MOCKORDER001");
+  it("renders the map on a /job/:orderId deep link", async () => {
+    renderAt("/job/01MOCKORDER001");
     expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
   });
 
-  it("MAP_V2 = T2: sends / to the 3-D map and puts it under the About drawer", async () => {
-    treatment = "T2";
+  it("sends the old /mapv2 paths to the map at /", async () => {
+    renderAt("/mapv2/job/01MOCKORDER001");
+    expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("mounts the city view at / and /about when WebGL2 is available", async () => {
     webGl = true;
     try {
       const { unmount } = renderAt("/");
       expect(await screen.findByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("href", "/mapv2");
+      expect(screen.getByRole("link", { name: "Map" })).toHaveAttribute("href", "/");
       unmount();
       renderAt("/about");
       expect(await screen.findByRole("application", { name: /3-D map of the fleet/ })).toBeInTheDocument();
-      expect(screen.queryByText(/OpenStreetMap/)).not.toBeInTheDocument();
     } finally {
-      treatment = "T1";
       webGl = false;
+    }
+  });
+
+  it("shows the marketing page at / while MARKETING_PAGE is on, and Enter fleet lands on the map", async () => {
+    marketing = "T1";
+    window.sessionStorage.clear();
+    try {
+      renderAt("/");
+      expect(await screen.findByRole("heading", { level: 1, name: /BoroughSim fixes it/ })).toBeInTheDocument();
+      await userEvent.click(screen.getAllByRole("button", { name: /Enter fleet/ })[0]);
+      expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
+    } finally {
+      marketing = "C";
+      window.sessionStorage.clear();
     }
   });
 
@@ -179,6 +190,7 @@ describe("AppRoutes", () => {
   it("locked Admin flow: clicking an admin item while signed out lands on /login inside the shell", async () => {
     renderAt("/");
     const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Admin/ }));
     await user.click(await screen.findByRole("link", { name: /Capacity/ }));
     const primary = screen.getByRole("region", { name: "Primary workspace" });
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();

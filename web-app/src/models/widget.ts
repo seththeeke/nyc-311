@@ -7,7 +7,6 @@ import { z } from "zod";
  */
 
 export const WIDGET_IDS = [
-  "FLEET_MAP",
   "CAPACITY",
   "REQUESTS_ACCEPTED",
   "SERVICED",
@@ -20,8 +19,8 @@ export const WIDGET_IDS = [
 export type WidgetId = (typeof WIDGET_IDS)[number];
 export const WidgetIdSchema = z.enum(WIDGET_IDS);
 
-/* TILE = compact card (secondary workspace); FULL = fills the primary workspace; PANEL = in between, reserved for combined views. */
-export const WIDGET_SIZES = ["TILE", "PANEL", "FULL"] as const;
+/* TILE = compact card (secondary workspace); PANEL = larger, reserved for combined views. */
+export const WIDGET_SIZES = ["TILE", "PANEL"] as const;
 export type WidgetSize = (typeof WIDGET_SIZES)[number];
 export const WidgetSizeSchema = z.enum(WIDGET_SIZES);
 

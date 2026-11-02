@@ -12,7 +12,7 @@ describe("TeamPage", () => {
     Element.prototype.scrollIntoView = scroll;
     render(inRouter(<TeamPage />));
     expect(screen.getByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
-    expect(screen.getByText(/An agent-run business/)).toBeInTheDocument();
+    expect(screen.getByText(/A simulation created by a human, run by agents/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Chief Executive Officer" })).toBeInTheDocument();
     expect(screen.getAllByRole("article")).toHaveLength(7);
     expect(screen.queryByRole("button", { name: "CEO" })).not.toBeInTheDocument();

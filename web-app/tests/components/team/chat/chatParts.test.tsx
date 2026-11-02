@@ -31,6 +31,23 @@ describe("MessageText", () => {
   });
 });
 
+describe("MessageText line formatting", () => {
+  it("keeps one field per line and bolds a line's opening label", () => {
+    const { container } = render(<MessageText text={"Median time to resolve: 11.45 days\nFleet: 5 → 7\nnot a label: here\n```\nCode: kept\n```"} />);
+    expect(screen.getByText("Median time to resolve:").tagName).toBe("STRONG");
+    expect(screen.getByText("Fleet:").tagName).toBe("STRONG");
+    expect(container.querySelectorAll("br").length).toBeGreaterThan(0);
+    expect(screen.queryByText("not a label:")).toBeNull();
+    expect(container.querySelector("code")?.textContent).toContain("Code: kept");
+  });
+
+  it("renders headings and quotes plainly", () => {
+    render(<MessageText text={"## Heading\n\n> quoted"} />);
+    expect(screen.getByText("Heading").tagName).toBe("P");
+    expect(screen.getByText("quoted").closest("blockquote")).not.toBeNull();
+  });
+});
+
 describe("reactions and counts", () => {
   it("lists reactions as pills with who reacted, dropping empty ones, the CEO's own marked", () => {
     expect(reactionsOf({ ...chatMessage("T1"), reactions: { "🚀": ["cto"], "👀": [] } })).toEqual([{ emoji: "🚀", member_ids: ["cto"] }]);
@@ -45,6 +62,16 @@ describe("reactions and counts", () => {
 });
 
 describe("ChatMessageRow", () => {
+  it("opens the author's profile from the avatar or the name", async () => {
+    const onOpenProfile = vi.fn();
+    const user = userEvent.setup();
+    render(<ul><ChatMessageRow message={chatMessage("T1")} continued={false} onOpenProfile={onOpenProfile} /></ul>);
+    await user.click(screen.getByRole("button", { name: "Pip Sprocketwhistle's profile" }));
+    await user.click(screen.getByRole("button", { name: "Pip Sprocketwhistle" }));
+    expect(onOpenProfile).toHaveBeenCalledTimes(2);
+    expect(onOpenProfile).toHaveBeenCalledWith("devx");
+  });
+
   it("shows author, AGENT badge, tags, reactions and the thread summary, and opens the thread", async () => {
     const onOpen = vi.fn();
     render(<ul><ChatMessageRow message={chatMessage("T1")} continued={false} onOpenThread={onOpen} /></ul>);

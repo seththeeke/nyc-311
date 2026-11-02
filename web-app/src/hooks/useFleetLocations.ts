@@ -15,7 +15,7 @@ export interface UseFleetLocationsResult {
 
 /**
  * Components call hooks, never services, directly (CLAUDE.md §5.1). Backs
- * the home-page `FleetMap` (`10-capacity-modeling-and-integration.md`
+ * the 3-D map and the fleet widgets (`10-capacity-modeling-and-integration.md`
  * §6.1) — public, no auth, unlike `useCapacity`.
  */
 export function useFleetLocations(): UseFleetLocationsResult {

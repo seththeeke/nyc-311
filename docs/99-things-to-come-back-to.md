@@ -548,3 +548,9 @@ See [#149](https://github.com/seththeeke/nyc-311/issues/149).
 Folded into the customer stack monitoring work: see [#108](https://github.com/seththeeke/nyc-311/issues/108#issuecomment-6549766100).
 
 ---
+
+## Cover the default-DAO branch in orderService.getOrderRejectionReasonCode (90% -> 100% branch)
+
+See [#151](https://github.com/seththeeke/nyc-311/issues/151).
+
+---

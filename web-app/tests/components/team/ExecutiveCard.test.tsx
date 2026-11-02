@@ -36,6 +36,11 @@ describe("ExecutiveCard", () => {
     expect(open).toHaveBeenCalledWith("coo");
   });
 
+  it("leaves out the goals section for a member with no goals yet", () => {
+    render(<ExecutiveCard member={{ ...memberById("chief-of-staff")!, goals: [] }} flip={false} onViewContributions={vi.fn()} />);
+    expect(screen.queryByRole("heading", { name: /^Goals?$/ })).not.toBeInTheDocument();
+  });
+
   it("puts the figure on stage when WebGL is there, on the far side for flipped cards, and says Goals for several", async () => {
     webGl = true;
     render(<ExecutiveCard member={memberById("cfo")!} flip onViewContributions={vi.fn()} />);

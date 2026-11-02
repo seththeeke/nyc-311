@@ -15,17 +15,16 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly seven primary entries in order: Map (classic), Map (/mapv2), Residents, Meet the Team, Team Chat, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "Map", "Residents", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
+  it("has exactly six primary entries in order: Map, Residents, Meet the Team, Team Chat, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Residents", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
   });
 
-  it("flags the classic Map (hidden on MAP_V2 = T2), the 3-D Map (T1/T2) and Meet the Team and Team Chat (T1); Residents is unflagged", () => {
+  it("flags only Meet the Team and Team Chat (T1); Map and Residents are unflagged", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
-    expect(flagged.map((e) => e.id)).toEqual(["MAP", "MAP_V2", "TEAM", "TEAM_CHAT"]);
-    expect(flagged[2]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
-    expect(flagged[0]).toMatchObject({ to: "/", featureFlag: { key: "MAP_V2", hideOn: ["T2"] } });
-    expect(flagged[1]).toMatchObject({ to: "/mapv2", featureFlag: { key: "MAP_V2", showOn: ["T1", "T2"] } });
-    expect((MENU.find((e) => e.kind === "LINK" && e.id === "RESIDENTS") as MenuLinkEntry).featureFlag).toBeUndefined();
+    expect(flagged.map((e) => e.id)).toEqual(["TEAM", "TEAM_CHAT"]);
+    expect(flagged[0]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
+    expect(map).toMatchObject({ id: "MAP", to: "/" });
+    expect(map.featureFlag).toBeUndefined();
   });
 
   it("lists the seven monitoring items, with Test Coverage flagged external", () => {
@@ -81,9 +80,11 @@ describe("pathIsInAnySection", () => {
 });
 
 describe("linkIsActive", () => {
-  it("highlights Map on / and on /about, nowhere else", () => {
+  it("highlights Map on /, /about and a job dive-in, nowhere else", () => {
     expect(linkIsActive(map, "/")).toBe(true);
     expect(linkIsActive(map, "/about")).toBe(true);
+    expect(linkIsActive(map, "/job/01MOCKORDER001")).toBe(true);
+    expect(linkIsActive(map, "/jobs")).toBe(false);
     expect(linkIsActive(map, "/data")).toBe(false);
   });
 
@@ -112,35 +113,17 @@ describe("linkIsActive", () => {
 });
 
 describe("resolveFlaggedLink", () => {
-  const link = (id: string) => MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === id)!;
-  const classic = link("MAP");
-  const mapV2 = link("MAP_V2");
+  const team = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM")!;
 
   it("passes an unflagged link through untouched", () => {
-    const plain: MenuLinkEntry = { ...classic, featureFlag: undefined };
-    expect(resolveFlaggedLink(plain, "T2")).toBe(plain);
+    expect(resolveFlaggedLink(map, "T2")).toBe(map);
+    expect(resolveFlaggedLink(map, undefined)).toBe(map);
   });
 
   it("show-on links appear only on their treatments — loading, missing and other treatments hide them", () => {
-    expect(resolveFlaggedLink(mapV2, undefined)).toBeNull();
-    expect(resolveFlaggedLink(mapV2, null)).toBeNull();
-    expect(resolveFlaggedLink(mapV2, "C")).toBeNull();
-    expect(resolveFlaggedLink(mapV2, "T1")).toMatchObject({ label: "Map", to: "/mapv2", alsoActiveOn: [] });
-  });
-
-  it("relabels and widens the active paths per treatment", () => {
-    expect(resolveFlaggedLink(mapV2, "T2")).toMatchObject({ label: "Map", to: "/mapv2", alsoActiveOn: ["/about"], icon: classic.icon });
-    expect(resolveFlaggedLink(mapV2, "T1")?.icon).toBe(mapV2.icon);
-  });
-
-  it("hide-on links stay up while loading, missing or on other treatments, and go only on theirs", () => {
-    expect(resolveFlaggedLink(classic, undefined)).toBe(classic);
-    expect(resolveFlaggedLink(classic, null)).toBe(classic);
-    expect(resolveFlaggedLink(classic, "T1")).toMatchObject({ label: "Map", alsoActiveOn: ["/about"] });
-    expect(resolveFlaggedLink(classic, "T2")).toBeNull();
-  });
-
-  it("a rule with neither showOn nor hideOn never hides", () => {
-    expect(resolveFlaggedLink({ ...classic, featureFlag: { key: "X" } }, "ANY")).not.toBeNull();
+    expect(resolveFlaggedLink(team, undefined)).toBeNull();
+    expect(resolveFlaggedLink(team, null)).toBeNull();
+    expect(resolveFlaggedLink(team, "C")).toBeNull();
+    expect(resolveFlaggedLink(team, "T1")).toBe(team);
   });
 });

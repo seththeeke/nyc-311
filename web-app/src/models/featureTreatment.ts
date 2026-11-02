@@ -10,14 +10,10 @@ export const FeatureTreatmentSchema = z.object({
 });
 export type FeatureTreatment = z.infer<typeof FeatureTreatmentSchema>;
 
-/*
- * MAP_V2 gates Mapv2, the 3-D city map: T1 shows it alongside the classic
- * map, T2 makes it the map — the classic entry and `/` give way to it.
- */
-export const MAP_V2_FLAG = "MAP_V2";
-export const MAP_V2_ON = "T1";
-export const MAP_V2_TAKEOVER = "T2";
-
 /* MEET_THE_TEAM gates the Meet the Team page (#146): C hides it, T1 shows it. */
 export const MEET_THE_TEAM_FLAG = "MEET_THE_TEAM";
 export const MEET_THE_TEAM_ON = "T1";
+
+/* MARKETING_PAGE puts the marketing page at / ahead of the map: C keeps the map, T1 shows the page. */
+export const MARKETING_PAGE_FLAG = "MARKETING_PAGE";
+export const MARKETING_PAGE_ON = "T1";

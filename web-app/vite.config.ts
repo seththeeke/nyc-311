@@ -65,7 +65,7 @@ export function liveBundleGuard(): Plugin {
 }
 
 /*
- * Minified-byte budgets for known heavy, lazy-loaded chunks — Mapv2's own
+ * Minified-byte budgets for known heavy, lazy-loaded chunks — the map's own
  * page chunk and the three.js kit it shares with the Residents 3-D figures
  * (`14-maps-refactor.md` §4.9's "add a size check in CI" TODO). ~20%
  * headroom over the measured size on 2026-10-18 so routine churn doesn't
@@ -73,7 +73,7 @@ export function liveBundleGuard(): Plugin {
  * the build instead of only tripping Vite's easy-to-miss advisory warning.
  */
 export const CHUNK_SIZE_BUDGETS_BYTES: Record<string, number> = {
-  MapV2Page: 1_300_000,
+  MapPage: 1_300_000,
   threeKit: 650_000,
 };
 

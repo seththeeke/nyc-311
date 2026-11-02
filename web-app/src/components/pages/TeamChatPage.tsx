@@ -10,7 +10,7 @@ import { ChannelView } from "../team/chat/ChannelView";
  * open in the secondary workspace (ThreadPanel).
  */
 export function TeamChatPage(): ReactElement {
-  const { channelId, selectChannel, selectThread } = useTeamSelection();
+  const { channelId, selectChannel, selectThread, selectProfile } = useTeamSelection();
   const channels = useChatChannels();
   const list = channels.data ?? [];
   const channel = list.find((candidate) => candidate.channel_id === channelId) ?? list[0] ?? null;
@@ -25,7 +25,10 @@ export function TeamChatPage(): ReactElement {
       <h1 className="sr-only">Team Chat</h1>
       <div className="grid h-[calc(100vh-6rem)] min-h-[32rem] overflow-hidden rounded-2xl border border-line bg-panel md:grid-cols-[15rem_minmax(0,1fr)]">
         <nav aria-label="Channels" className="border-b border-line bg-panel-hover p-4 md:border-r md:border-b-0">
-          <p className="font-semibold text-fg">BoroughSim HQ</p>
+          <p className="flex items-center gap-2 font-semibold text-fg">
+            BoroughSim HQ
+            <span className="rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-hue-violet">Beta</span>
+          </p>
           <p className="mt-5 text-xs font-medium uppercase tracking-wide text-fg-subtle">Channels</p>
           {channels.isLoading && <p role="status" className="mt-2 text-xs text-fg-muted">Loading channels…</p>}
           {channels.error && <p role="alert" className="mt-2 text-xs text-danger">Couldn&apos;t load channels: {channels.error.message}</p>}
@@ -45,7 +48,7 @@ export function TeamChatPage(): ReactElement {
             ))}
           </ul>
         </nav>
-        {channel && <ChannelView channel={channel} messages={messages.data ?? []} notice={notice} onOpenThread={selectThread} />}
+        {channel && <ChannelView channel={channel} messages={messages.data ?? []} notice={notice} onOpenThread={selectThread} onOpenProfile={selectProfile} />}
       </div>
     </main>
   );

@@ -1,6 +1,6 @@
 import type { FeatureFlag } from "../models/featureFlag";
 
-/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Mapv2 and Meet the Team page gates, and a plain on/off one. */
+/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Meet the Team and marketing page gates, and a plain on/off one. */
 export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
   {
     flag_key: "COST_MODEL",
@@ -27,18 +27,6 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
     updated_by: "01MOCKADMIN",
   },
   {
-    flag_key: "MAP_V2",
-    description: "Mapv2, the 3-D city map. C = hidden, T1 = alongside the classic map, T2 = replaces it. T1 here so mock mode shows both.",
-    treatments: ["C", "T1", "T2"],
-    default_treatment: "T1",
-    overrides: [],
-    allocations: [],
-    version: 1,
-    created_at: "2026-10-15T12:00:00.000Z",
-    updated_at: "2026-10-15T12:00:00.000Z",
-    updated_by: "01MOCKADMIN",
-  },
-  {
     flag_key: "MEET_THE_TEAM",
     description: "The Meet the Team page (#146). C = hidden, T1 = shown. T1 here so mock mode shows it.",
     treatments: ["C", "T1"],
@@ -48,6 +36,18 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
     version: 1,
     created_at: "2026-10-31T12:00:00.000Z",
     updated_at: "2026-10-31T12:00:00.000Z",
+    updated_by: "01MOCKADMIN",
+  },
+  {
+    flag_key: "MARKETING_PAGE",
+    description: "The marketing page at /, ahead of the map. C = map, T1 = marketing page. T1 here so mock mode shows it.",
+    treatments: ["C", "T1"],
+    default_treatment: "T1",
+    overrides: [],
+    allocations: [],
+    version: 1,
+    created_at: "2026-11-01T12:00:00.000Z",
+    updated_at: "2026-11-01T12:00:00.000Z",
     updated_by: "01MOCKADMIN",
   },
 ];

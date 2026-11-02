@@ -81,11 +81,13 @@ describe("WorkspaceShell — secondary workspace follows the menu selection", ()
     const user = userEvent.setup();
     const secondary = () => screen.queryByRole("complementary", { name: "Secondary workspace" });
 
+    await user.click(screen.getByRole("button", { name: "System Monitoring" }));
     await user.click(screen.getByRole("link", { name: "Pipeline" }));
     expect(secondary()).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show secondary panel" }));
     expect(secondary()).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Admin/ }));
     await user.click(screen.getByRole("link", { name: /^Capacity/ }));
     expect(secondary()).not.toBeInTheDocument();
 
@@ -94,10 +96,10 @@ describe("WorkspaceShell — secondary workspace follows the menu selection", ()
   });
 });
 
-describe("WorkspaceShell — Mapv2", () => {
-  it("opens with the secondary workspace open, like the classic map", () => {
+describe("WorkspaceShell — map dive-in", () => {
+  it("keeps the secondary workspace open on a job dive-in, like the city view", () => {
     mockViewport(1400);
-    renderShell("/mapv2");
+    renderShell("/job/01MOCKORDER001");
     expect(screen.getByRole("complementary", { name: "Secondary workspace" })).toBeInTheDocument();
   });
 });

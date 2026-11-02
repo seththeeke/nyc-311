@@ -12,7 +12,6 @@ describe("widgetRegistry", () => {
   it("marks every widget LIVE", () => {
     const live = WIDGET_IDS.filter((id) => getWidget(id).status === "LIVE");
     expect(live).toEqual([
-      "FLEET_MAP",
       "CAPACITY",
       "REQUESTS_ACCEPTED",
       "SERVICED",
@@ -34,9 +33,8 @@ describe("widgetRegistry", () => {
   });
 
   it("reports which sizes a widget supports", () => {
-    expect(widgetSupportsSize(getWidget("FLEET_MAP"), "FULL")).toBe(true);
-    expect(widgetSupportsSize(getWidget("FLEET_MAP"), "TILE")).toBe(false);
     expect(widgetSupportsSize(getWidget("CAPACITY"), "TILE")).toBe(true);
+    expect(widgetSupportsSize(getWidget("CAPACITY"), "PANEL")).toBe(false);
   });
 
   it("defaults the secondary workspace to Capacity, the five mock tiles, then the two wide charts, all TILE", () => {

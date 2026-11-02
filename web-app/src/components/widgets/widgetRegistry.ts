@@ -1,4 +1,3 @@
-import { lazy } from "react";
 import type { WidgetId, WidgetSize } from "../../models/widget";
 import { CapacityWidget } from "./CapacityWidget";
 import { FleetUtilizationWidget } from "./FleetUtilizationWidget";
@@ -10,17 +9,8 @@ import { RequestsAcceptedWidget } from "./RequestsAcceptedWidget";
 import { TotalCostWidget } from "./TotalCostWidget";
 import type { WidgetDefinition } from "./widgetTypes";
 
-/*
- * Dynamic-imported, not eagerly imported above: FleetMapWidget pulls in
- * leaflet/react-leaflet, which pushed the main chunk past 500 kB even
- * though HomePage (its only FULL-size host) stays eager (`AppRoutes.tsx`).
- * Its own chunk loads behind WidgetSlot's Suspense boundary instead.
- */
-const FleetMapWidget = lazy(() => import("./FleetMapWidget").then((m) => ({ default: m.FleetMapWidget })));
-
 /** The single place a widget is registered. */
 const WIDGETS: Record<WidgetId, WidgetDefinition> = {
-  FLEET_MAP: { id: "FLEET_MAP", title: "Fleet Map", status: "LIVE", sizes: ["FULL"], component: FleetMapWidget },
   CAPACITY: { id: "CAPACITY", title: "Capacity", status: "LIVE", sizes: ["TILE"], component: CapacityWidget },
   REQUESTS_ACCEPTED: {
     id: "REQUESTS_ACCEPTED",

@@ -44,7 +44,6 @@
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #898781;
-  --map-tile-filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.7);
   --aurora-opacity: 1;
   --t-glass-highlight: rgb(255 255 255 / 0.1);
   --t-glass-shadow: rgb(0 0 0 / 0.3);
@@ -87,7 +86,6 @@
   --iv-status-warning: #fab219;
   --iv-status-critical: #d03b3b;
   --iv-sparkline-track: #c3c2b7;
-  --map-tile-filter: none;
   --aurora-opacity: 0.35;
   --t-glass-highlight: rgb(255 255 255 / 0.9);
   --t-glass-shadow: rgb(15 23 42 / 0.08);
@@ -163,10 +161,6 @@ body {
   opacity: var(--aurora-opacity);
 }
 
-.theme-map-tiles .leaflet-tile-pane {
-  filter: var(--map-tile-filter);
-}
-
 @keyframes aurora-drift-1 {
   0%,
   100% {
@@ -217,8 +211,8 @@ body {
   }
 }
 
-/* Mapv2's dive-in: the close-up resolves out of a blur, as if the camera punched through. */
-@keyframes mapv2-dive-in {
+/* The map's dive-in: the close-up resolves out of a blur, as if the camera punched through. */
+@keyframes map-dive-in {
   from {
     opacity: 0;
     transform: scale(1.08);
@@ -280,5 +274,118 @@ body {
   .animate-fade-in-up,
   .animate-text-shimmer {
     animation: none;
+  }
+}
+
+/*
+ * The marketing page (MARKETING_PAGE): its keyframes, the shimmering
+ * gradient headline, the spinning rim on Enter fleet, and the hero's
+ * vignette. Reduced motion stops every animation inside .mk-motion.
+ */
+@property --mk-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes mk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+    filter: blur(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes mk-shimmer {
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes mk-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes mk-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mk-orbit-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes mk-float {
+  50% {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes mk-spin-rim {
+  to {
+    --mk-angle: 360deg;
+  }
+}
+
+@keyframes mk-breathe {
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+@layer components {
+  .mk-gradient-text {
+    background-image: linear-gradient(90deg, var(--t-hue-cyan), var(--t-hue-violet), var(--t-hue-rose), var(--t-hue-amber), var(--t-hue-cyan));
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: mk-shimmer 6s linear infinite;
+  }
+
+  .mk-rim {
+    background: conic-gradient(from var(--mk-angle), var(--t-hue-cyan), var(--t-hue-violet), var(--t-hue-rose), var(--t-hue-amber), var(--t-hue-cyan));
+    box-shadow: 0 0 40px -8px var(--t-hue-cyan);
+    animation: mk-spin-rim 4s linear infinite;
+  }
+
+  .mk-beam {
+    background: linear-gradient(90deg, var(--t-hue-violet), var(--t-hue-cyan));
+    box-shadow: 0 0 16px var(--t-hue-cyan);
+  }
+
+  .mk-vignette {
+    background:
+      radial-gradient(ellipse at 30% 45%, color-mix(in srgb, var(--t-surface) 70%, transparent) 0%, transparent 45%),
+      linear-gradient(to bottom, transparent 75%, var(--t-surface));
+  }
+
+  .mk-aurora {
+    background:
+      radial-gradient(circle at 30% 50%, color-mix(in srgb, var(--t-hue-violet) 35%, transparent), transparent 55%),
+      radial-gradient(circle at 70% 50%, color-mix(in srgb, var(--t-hue-cyan) 30%, transparent), transparent 55%);
+    filter: blur(40px);
+    mask-image: linear-gradient(transparent, black 35%, black 65%, transparent);
+    animation: mk-breathe 9s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-motion *,
+  .mk-motion *::before,
+  .mk-motion *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

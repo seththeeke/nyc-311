@@ -1,4 +1,4 @@
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrderDao } from "../../../dao/order/orderDao";
@@ -85,5 +85,13 @@ describe("getOrderRejectionReasonCode", () => {
     await expect(getOrderRejectionReasonCode(order.order_id, { orderDao: none })).resolves.toBeNull();
     const unknown = { listOrderEvents: vi.fn().mockResolvedValue([rejected(1, "MYSTERY")]) } as unknown as OrderDao;
     await expect(getOrderRejectionReasonCode(order.order_id, { orderDao: unknown })).resolves.toBeNull();
+  });
+
+  /* Covers the `deps.orderDao ?? getOrderDao()` default branch, otherwise
+   * untested here even though getOrder's own equivalent test exists above. */
+  it("builds its own DAO from ORDERS_TABLE_NAME when none is given", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    await expect(getOrderRejectionReasonCode(order.order_id)).resolves.toBeNull();
+    expect(ddbMock.commandCalls(QueryCommand)[0].args[0].input.TableName).toBe("Orders");
   });
 });
