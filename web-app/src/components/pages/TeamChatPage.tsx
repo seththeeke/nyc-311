@@ -1,7 +1,6 @@
 import type { ReactElement } from "react";
 import { useChannelMessages, useChatChannels } from "../../hooks/useTeamChat";
 import { useTeamSelection } from "../../hooks/useTeamSelection";
-import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 import { ChannelView } from "../team/chat/ChannelView";
 
 /**
@@ -21,10 +20,10 @@ export function TeamChatPage(): ReactElement {
   if (messages.error) notice = <p role="alert" className="mx-5 rounded-lg bg-danger-soft p-2 text-sm text-danger">Couldn&apos;t load messages: {messages.error.message}</p>;
 
   return (
-    <main className={PAGE_CONTENT_CLASSES}>
+    <main className="h-full w-full">
       <h1 className="sr-only">Team Chat</h1>
-      <div className="grid h-[calc(100vh-6rem)] min-h-[32rem] overflow-hidden rounded-2xl border border-line bg-panel md:grid-cols-[15rem_minmax(0,1fr)]">
-        <nav aria-label="Channels" className="border-b border-line bg-panel-hover p-4 md:border-r md:border-b-0">
+      <div className="grid h-full min-h-[32rem] md:grid-cols-[15rem_minmax(0,1fr)]">
+        <nav aria-label="Channels" className="border-b border-line px-4 py-5 md:border-r md:border-b-0">
           <p className="flex items-center gap-2 font-semibold text-fg">
             BoroughSim HQ
             <span className="rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-hue-violet">Beta</span>
