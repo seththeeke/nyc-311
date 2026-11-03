@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { PAGE_CONTENT_CLASSES } from "../../src/components/pageLayout";
 
 const PAGES_DIR = join(__dirname, "../../src/components/pages");
-/* LoginPage (narrow centered form), MapPage (full-bleed map) and MarketingPage (full-screen takeover outside the shell) aren't padded content pages. */
-const EXEMPT = new Set(["LoginPage.tsx", "MapPage.tsx", "MarketingPage.tsx"]);
+/* LoginPage (narrow centered form), MapPage (full-bleed map), TeamChatPage (full-bleed chat) and MarketingPage (full-screen takeover outside the shell) aren't padded content pages. */
+const EXEMPT = new Set(["LoginPage.tsx", "MapPage.tsx", "MarketingPage.tsx", "TeamChatPage.tsx"]);
 const CONTENT_PAGES = readdirSync(PAGES_DIR).filter((file) => file.endsWith(".tsx") && !EXEMPT.has(file));
 
 describe("page content width", () => {

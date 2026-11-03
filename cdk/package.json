@@ -19,18 +19,18 @@
     "deploy:pipeline": "cdk deploy --profile nyc311 --app \"npx ts-node --prefer-ts-exts bin/pipeline.ts\""
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.274.0",
+    "aws-cdk-lib": "^2.275.0",
     "constructs": "^10.8.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.0.5",
-    "aws-cdk": "^2.1146.0",
+    "aws-cdk": "^2.1146.1",
     "esbuild": "^0.28.2",
     "eslint": "^9.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
   }
 }

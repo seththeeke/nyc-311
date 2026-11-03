@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement } from "react";
+import { Fragment, useLayoutEffect, useRef, type ReactElement, type RefObject } from "react";
 import type { TeamChatChannel } from "../../../models/teamChatChannel";
 import type { TeamChatMessage } from "../../../models/teamChatMessage";
 import { PersonaAvatar } from "../../residents/PersonaAvatar";
@@ -29,12 +29,31 @@ function continues(previous: TeamChatMessage | undefined, message: TeamChatMessa
   );
 }
 
+/**
+ * Opens a channel at today: today's first message at the top, or the newest
+ * message when nothing was posted today. Once per channel, so a poll never
+ * yanks the reader back while they scroll.
+ */
+function useOpenAtToday(channelId: string, messages: readonly TeamChatMessage[]): RefObject<HTMLDivElement | null> {
+  const scroller = useRef<HTMLDivElement>(null);
+  const openedChannel = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (!element || messages.length === 0 || openedChannel.current === channelId) return;
+    openedChannel.current = channelId;
+    const today = element.querySelector<HTMLElement>(`[data-day="${new Date().toISOString().slice(0, 10)}"]`);
+    element.scrollTop = today ? today.offsetTop : element.scrollHeight;
+  }, [channelId, messages]);
+  return scroller;
+}
+
 /** A channel: its header and members, the messages by day, and a read-only composer. */
 export function ChannelView({ channel, messages, notice = null, onOpenThread, onOpenProfile }: ChannelViewProps): ReactElement {
+  const scroller = useOpenAtToday(channel.channel_id, messages);
   const members = channel.member_ids.map((id) => memberById(id)).filter((member) => member !== null);
   return (
     <section aria-label={`#${channel.name}`} className="flex min-h-0 min-w-0 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
+      <header className="flex items-center justify-between gap-4 border-b border-line py-3 pr-16 pl-5">
         <div className="min-w-0">
           <h2 className="font-semibold text-fg"># {channel.name}</h2>
           <p className="truncate text-xs text-fg-muted">{channel.topic}</p>
@@ -48,7 +67,7 @@ export function ChannelView({ channel, messages, notice = null, onOpenThread, on
           <span className="ml-2 text-xs text-fg-muted">{members.length}</span>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto py-3">
+      <div ref={scroller} className="relative min-h-0 flex-1 overflow-y-auto py-3">
         {notice ??
           (messages.length === 0 ? (
             <p className="px-5 text-sm text-fg-muted">No messages yet. The team posts here as it works.</p>
@@ -60,7 +79,7 @@ export function ChannelView({ channel, messages, notice = null, onOpenThread, on
                 return (
                   <Fragment key={message.message_id}>
                     {newDay && (
-                      <li role="separator" className="my-3 flex items-center gap-3 px-5 text-[11px] font-medium text-fg-subtle">
+                      <li role="separator" data-day={day} className="my-3 flex items-center gap-3 px-5 text-[11px] font-medium text-fg-subtle">
                         <span className="h-px flex-1 bg-line" />
                         {meetingDay(day)}
                         <span className="h-px flex-1 bg-line" />
@@ -73,7 +92,7 @@ export function ChannelView({ channel, messages, notice = null, onOpenThread, on
             </ol>
           ))}
       </div>
-      <div className="border-t border-line p-3">
+      <div className="border-t border-line px-5 py-3">
         <input
           type="text"
           disabled

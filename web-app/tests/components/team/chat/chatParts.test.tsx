@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChannelView } from "../../../../src/components/team/chat/ChannelView";
@@ -120,5 +120,42 @@ describe("ChannelView", () => {
     unmount();
     render(<ChannelView channel={EXECUTIVE} messages={[]} notice={<p>Loading</p>} onOpenThread={vi.fn()} />);
     expect(screen.getByText("Loading")).toBeInTheDocument();
+  });
+
+  describe("opening at today", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    function scrollerOf(region: HTMLElement): HTMLElement {
+      return region.querySelector<HTMLElement>(".overflow-y-auto")!;
+    }
+
+    it("scrolls today's first message to the top, once per channel", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-02T12:00:00.000Z"));
+      vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (this: HTMLElement) {
+        return this.dataset.day === "2026-11-02" ? 240 : 0;
+      });
+      const today = { ...chatMessage("T2"), message_id: "T9", created_at: "2026-11-02T09:00:00.000Z" };
+      const { rerender } = render(<ChannelView channel={TECH} messages={[chatMessage("T1"), today]} onOpenThread={vi.fn()} />);
+      const scroller = scrollerOf(screen.getByRole("region", { name: "#tech-team" }));
+      expect(scroller.scrollTop).toBe(240);
+      scroller.scrollTop = 10;
+      rerender(<ChannelView channel={TECH} messages={[chatMessage("T1"), today, { ...today, message_id: "T10" }]} onOpenThread={vi.fn()} />);
+      expect(scroller.scrollTop).toBe(10);
+    });
+
+    it("falls back to the newest message when nothing was posted today, after messages arrive", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-25T12:00:00.000Z"));
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(900);
+      const { rerender } = render(<ChannelView channel={TECH} messages={[]} onOpenThread={vi.fn()} />);
+      const scroller = scrollerOf(screen.getByRole("region", { name: "#tech-team" }));
+      expect(scroller.scrollTop).toBe(0);
+      rerender(<ChannelView channel={TECH} messages={[chatMessage("T1")]} onOpenThread={vi.fn()} />);
+      expect(scroller.scrollTop).toBe(900);
+    });
   });
 });
