@@ -547,3 +547,9 @@ Folded into the customer stack monitoring work: see [#108](https://github.com/se
 See [#151](https://github.com/seththeeke/nyc-311/issues/151).
 
 ---
+
+## Pipeline red: map smoke tests land on the marketing page at / in Test
+
+See [#153](https://github.com/seththeeke/nyc-311/issues/153).
+
+---
