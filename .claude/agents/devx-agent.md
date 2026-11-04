@@ -463,7 +463,8 @@ with `main`.
 can't tell your comments from theirs. Every PR comment you post starts with
 the line `<!-- devx-agent -->`. A comment counts as **unaddressed** when it
 lacks that marker and was created after your newest marked comment on that PR
-(or at any time, if you've never posted one). Check all three sources:
+(or at any time, if you've never posted one). Rex's approval and escalation
+comments never count (*Rex's reviews* below). Check all three sources:
 
 ```
 gh pr view <n> --repo seththeeke/nyc-311 --json headRefName,comments,reviews,mergeable
@@ -474,6 +475,20 @@ gh api repos/seththeeke/nyc-311/pulls/<n>/comments --paginate   # inline review 
 If a PR has nothing unaddressed and isn't `CONFLICTING`, move to the next. In
 REVISE mode, a run where no PR needs tending is a successful no-op: say so and
 exit.
+
+**Rex's reviews.** Rex, the CTO (`cto-agent`), reviews your PRs with the same
+GitHub account, so his marks are signed too (docs/17-executive-team.md §16):
+
+- A review whose body starts `<!-- cto-agent:review -->`, with inline comments
+  starting `**Rex (CTO):**`, is **feedback**. Address every inline comment: they
+  are his blocking items. The "Suggestions (optional)" line is yours to take or
+  leave; say which in your reply.
+- A comment starting `<!-- cto-agent:approved -->` is an **approval**, not
+  feedback: nothing to address. Its optional suggestions don't need a reply.
+- A comment starting `<!-- cto-agent:escalated -->` hands the PR to Seth. Don't
+  push for Rex's items any more; address only what Seth comments next.
+- Never touch the `cto-approved` or `cto-escalated` labels or the `cto-review`
+  commit status. A new push is what asks Rex for another look.
 
 For each PR that needs tending:
 

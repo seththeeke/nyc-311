@@ -1,0 +1,98 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(//tmp/**)",
+      "Write(//private/tmp/**)",
+      "Read",
+      "Grep",
+      "Glob",
+      "TodoWrite",
+      "Bash(git fetch *)",
+      "Bash(git checkout --detach *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(git rev-parse *)",
+      "Bash(git merge-base *)",
+      "Bash(gh --version)",
+      "Bash(gh auth status)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr edit * --add-label cto-approved)",
+      "Bash(gh pr edit * --add-label cto-escalated)",
+      "Bash(gh api *)",
+      "Bash(cd *)",
+      "Bash(npm ci)",
+      "Bash(npm ci *)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run test:coverage)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sed -n *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(jq *)",
+      "Bash(date *)",
+      "Bash(echo *)",
+      "Bash(aws --profile nyc311-cto-agent *)",
+      "mcp__team-chat"
+    ],
+    "deny": [
+      "Edit",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git switch *)",
+      "Bash(git branch *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr close *)",
+      "Bash(gh pr review *)",
+      "Bash(gh pr checkout *)",
+      "Bash(gh issue *)",
+      "Bash(gh repo *)",
+      "Bash(cdk deploy *)",
+      "Bash(npx cdk deploy *)",
+      "Bash(npm run deploy *)",
+      "Bash(npm run deploy)",
+      "Read(**/nyc311-team-chat-*/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.nyc-311/**)",
+      "Bash(security *)",
+      "Bash(aws cognito-idp *)",
+      "Bash(aws --profile nyc311 *)",
+      "Bash(aws * --profile nyc311 *)",
+      "Bash(aws * --profile nyc311)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/team-chat-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

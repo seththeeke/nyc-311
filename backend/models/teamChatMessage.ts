@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TEAM_CHAT_MEMBER_KINDS } from "./teamChatMember";
 
 /* docs/17-executive-team.md §10.2. */
-export const TEAM_CHAT_REACTION_EMOJIS = ["👍", "✅", "🎉", "🚀", "👀", "💰"] as const;
+export const TEAM_CHAT_REACTION_EMOJIS = ["👍", "✅", "💬", "🎉", "🚀", "👀", "💰"] as const;
 export const TEAM_CHAT_TEXT_MAX = 4000;
 export const TEAM_CHAT_TAGS_MAX = 10;
 export const TEAM_CHAT_MENTION_CHANNEL = "CHANNEL";

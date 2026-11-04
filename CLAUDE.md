@@ -509,7 +509,7 @@ naming rule below.
  -> warehouse - the data-warehouse landing/catalog/query infrastructure (S3 bucket, Glue database + tables, Athena workgroup, Firehoses, the transform Lambda, the job runner) per `7-data-warehousing.md`; also holds `sql/` — `.sql` query assets (CTAS/INSERT INTO), the one non-TS/non-doc source in the repo
  -> auth - the single-admin Cognito User Pool + app client + HTTP API JWT authorizer, per `9-admin-auth-integration.md`
  -> teamChat - `Nyc311TeamChatStack` and its constructs, per the third standing exception above
- -> agents - every agent's AWS identity: per agent, its own IAM user (`AgentUser.ts`) and its own role (e.g. `DevxAgentRole.ts`), instantiated from `Nyc311PipelineStack` because it's account-level agent tooling, not per environment
+ -> agents - every agent's AWS identity: per agent, its own IAM user (`AgentUser.ts`) and its own role (e.g. `DevxAgentRole.ts`, `CtoAgentRole.ts`, both on `ReadOnlyAgentRole.ts`), instantiated from `Nyc311PipelineStack` because it's account-level agent tooling, not per environment
  -> customer - ALL customer infrastructure (`Nyc311CustomerStack` and its constructs) and nothing else, per the second standing exception above
  -> tests - the test directory will mirror the cdk directory entirely and unit test each construct in isolation
 
@@ -752,6 +752,10 @@ copied in.
   `chief-of-staff-agent` (§15) is another operating agent: once a day it
   reads all of Team Chat and posts the CEO's morning brief, and changes
   nothing.
+  `cto-agent` (§16) reviews open `devx/` PRs twice a day with signed
+  comments, labels and a `cto-review` status, and never changes code
+  (`.claude/hooks/cto-agent-guard.sh`); its rubric is
+  `.claude/review/cto-code-review.md`.
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

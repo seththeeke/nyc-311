@@ -113,7 +113,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Decides what gets built, reviews all changes, and keeps the platform reliable and leads the engineering agents.",
     goals: [{ goal: "Keep order execution reliable", metric: "Execution failure rate", target: "Under 2%" }],
-    live: false,
+    live: true,
     links: [],
   },
   {

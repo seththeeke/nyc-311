@@ -11,39 +11,47 @@ beforeAll(() => {
   template = Template.fromStack(stack);
 });
 
+const AGENTS = [
+  { name: "devx-agent", roleName: "Nyc311DevxAgentRole", userId: "DevxAgentUser", roleId: "DevxAgentRole" },
+  { name: "cto-agent", roleName: "Nyc311CtoAgentRole", userId: "CtoAgentUser", roleId: "CtoAgentRole" },
+];
+
 describe("AgentRoles", () => {
-  it("creates devx-agent's own user, with no access key", () => {
-    template.hasResourceProperties("AWS::IAM::User", { UserName: "devx-agent" });
-    template.resourceCountIs("AWS::IAM::User", 1);
+  it("creates each agent's own user, with no access key", () => {
+    for (const agent of AGENTS) template.hasResourceProperties("AWS::IAM::User", { UserName: agent.name });
+    template.resourceCountIs("AWS::IAM::User", AGENTS.length);
     template.resourceCountIs("AWS::IAM::AccessKey", 0);
   });
 
-  it("gives devx-agent AWS ReadOnlyAccess, an hour per session, assumable only by its own user as devx-agent", () => {
+  it.each(AGENTS)("gives $name AWS ReadOnlyAccess, an hour per session, assumable only by its own user as itself", (agent) => {
     template.hasResourceProperties("AWS::IAM::Role", {
-      RoleName: "Nyc311DevxAgentRole",
+      RoleName: agent.roleName,
       MaxSessionDuration: 3600,
       ManagedPolicyArns: [Match.objectLike({ "Fn::Join": Match.arrayWith([Match.arrayWith([":iam::aws:policy/ReadOnlyAccess"])]) })],
       AssumeRolePolicyDocument: {
         Statement: Match.arrayWith([
-          Match.objectLike({ Action: "sts:AssumeRole", Condition: { StringEquals: { "sts:SourceIdentity": "devx-agent" } } }),
-          Match.objectLike({ Action: "sts:SetSourceIdentity", Condition: { StringEquals: { "sts:SourceIdentity": "devx-agent" } } }),
+          Match.objectLike({ Action: "sts:AssumeRole", Condition: { StringEquals: { "sts:SourceIdentity": agent.name } } }),
+          Match.objectLike({ Action: "sts:SetSourceIdentity", Condition: { StringEquals: { "sts:SourceIdentity": agent.name } } }),
         ]),
       },
     });
   });
 
-  it("denies the role every secret read", () => {
+  it("denies every role every secret read", () => {
     const policies = Object.values(template.findResources("AWS::IAM::Policy"));
-    const deny = policies.flatMap((p) => p.Properties.PolicyDocument.Statement as { Sid?: string; Effect: string; Action: string[] }[]).find((s) => s.Sid === "NeverSecrets");
-    expect(deny?.Effect).toBe("Deny");
-    expect(deny?.Action).toEqual(expect.arrayContaining(["secretsmanager:GetSecretValue", "ssm:GetParameter", "kms:Decrypt"]));
+    const denies = policies.flatMap((p) => p.Properties.PolicyDocument.Statement as { Sid?: string; Effect: string; Action: string[] }[]).filter((s) => s.Sid === "NeverSecrets");
+    expect(denies).toHaveLength(AGENTS.length);
+    for (const deny of denies) {
+      expect(deny.Effect).toBe("Deny");
+      expect(deny.Action).toEqual(expect.arrayContaining(["secretsmanager:GetSecretValue", "ssm:GetParameter", "kms:Decrypt"]));
+    }
   });
 
-  it("lets devx-agent's user assume only its own role", () => {
+  it.each(AGENTS)("lets $name's user assume only its own role", (agent) => {
     const policies = Object.values(template.findResources("AWS::IAM::Policy"));
-    const hostStatements = policies.filter((p) => JSON.stringify(p.Properties.Users ?? []).includes("DevxAgentUser")).flatMap((p) => p.Properties.PolicyDocument.Statement as { Action: string[]; Resource: unknown }[]);
-    expect(hostStatements).toHaveLength(1);
-    expect(hostStatements[0].Action).toEqual(["sts:AssumeRole", "sts:SetSourceIdentity"]);
-    expect(JSON.stringify(hostStatements[0].Resource)).toContain("DevxAgentRole");
+    const statements = policies.filter((p) => JSON.stringify(p.Properties.Users ?? []).includes(agent.userId)).flatMap((p) => p.Properties.PolicyDocument.Statement as { Action: string[]; Resource: unknown }[]);
+    expect(statements).toHaveLength(1);
+    expect(statements[0].Action).toEqual(["sts:AssumeRole", "sts:SetSourceIdentity"]);
+    expect(JSON.stringify(statements[0].Resource)).toContain(agent.roleId);
   });
 });

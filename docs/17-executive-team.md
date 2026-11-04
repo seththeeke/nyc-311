@@ -1,13 +1,15 @@
 # 17. Executive Team
 
-**Status (2026-11-04):** the first iteration is done, and the Chief of Staff is built.
+**Status (2026-11-04):** the first iteration is done, and the Chief of Staff and CTO are built.
 
 - **Live in Test and Prod:** Team Chat (§10).
 - **Running on the Mac mini, against Prod:**
   - the DevX agent (§11), posting each run to `#tech-team`;
   - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
-- **Built, set up on the Mac mini next:** the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT.
-- **Not built yet:** the CPO, CFO, CTO and Software Engineer agents. They show a **Work in progress** tag.
+- **Built, set up on the Mac mini next:**
+  - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
+  - the CTO agent (§16), reviewing Pip's PRs twice a day and summarizing in `#executive-team`.
+- **Not built yet:** the CPO, CFO and Software Engineer agents. They show a **Work in progress** tag.
 - **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
 - **Setting up an agent:** Appendix B.
@@ -70,7 +72,7 @@ The other agents' goals stand until each agent is designed (§9):
 
 - **Header:** "Meet the Team" and the line "A simulation created by a human, run by agents, servicing virtual customers.", then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
 - **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past. The height it loses comes back as a bottom margin, tracked by a `ResizeObserver` through the animation, so the page below never shifts and the card can't flicker between sizes.
-- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, Chief of Staff, DevX and COO). Every other agent's card shows a Work in progress tag.
+- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, Chief of Staff, COO, CTO and DevX). Every other agent's card shows a Work in progress tag.
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
 - **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
@@ -642,7 +644,7 @@ A hold still posts, with why he held.
 
 ## 13. Future iterations
 
-- **The remaining executives:** the CPO, CFO, CTO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
+- **The remaining executives:** the CPO, CFO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
 
 - **Agent memory.** Each agent keeps its own `MEMORY.md` for skills and continued learning across runs, with a hard size budget so it never eats much of the agent's context. Indexing, pruning and where the file lives are still to be designed.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.
@@ -718,6 +720,73 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 - Cognito user `chief-of-staff-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only. No AWS identity.
 - Her Meet the Team card and chat profile show no Work in progress tag.
 
+### 15.4 Setup TODO
+
+- [x] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM`; passwords in `~/.nyc-311/credentials` on the MacBook (2026-11-04).
+- [ ] Deploy `7b53209`, which seeds `#executive-assistant` and her email.
+- [ ] Copy `~/.nyc-311/credentials` to the Mac mini, mode `600`.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`.
+- [ ] Mac mini: `scripts/agent-team-chat-config.sh chief-of-staff-agent TEST "$PWD"` lists only the `team-chat` server.
+- [ ] Mac mini: a hand run against Test, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run chief-of-staff-agent "Morning brief for today. Follow your 'Each run' section."`. The log shows `team-chat signed in (TEST)` and a `Chat post:` line, and the brief shows in `#executive-assistant` in Test.
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install chief-of-staff-agent` (09:00 local, 8:00 CT).
+
+---
+
+## 16. The CTO agent
+
+**Status:** built 2026-11-04, not set up yet (§16.6).
+
+`cto-agent` is Rex Rivet. He reviews the code the tech team ships; today that is the DevX agent's (`devx/`) PRs, with the Software Engineer's to follow. Pip works off the critical path, so **approval is the normal outcome**: Rex comments only on what would hurt.
+
+### 16.1 The run
+
+Twice a day at 08:00 and 20:00 Mac mini time, two hours after Pip's runs. `KIND=operations`, `TEAM_CHAT_ENV=PROD`. A comment-and-fix round takes about 12 hours.
+
+1. Read the rubric (§16.3) and the inbox.
+2. List the open `devx/` PRs. Skip any labelled `cto-approved` or `cto-escalated`, and any whose head SHA already has a `cto-review` status: **a revision is reviewed once, and every new revision is reviewed until the PR is approved or escalated**.
+3. For each remaining PR, in his own worktree (`agent-worktree.sh`, a separate directory from Pip's): fetch `pull/<n>/head` and check it out **detached**, never by branch name, since Pip's worktree may hold the branch. Read the PR's conversation, diff it against `main`, and run `build`, `lint` and `test:coverage` in every touched package.
+4. Decide: **approve** if nothing is blocking; **comment** if something is, on rounds 1 and 2; **escalate** to the CEO if something is still blocking at round 3.
+5. Mark the PR on GitHub (§16.2) and react to Pip's `#tech-team` post for that PR: `✅` approved, `💬` commented or escalated. No message in `#tech-team`.
+6. Post one summary to `#executive-team`, tagged `CTO_REVIEW`, **every run**: one line per open PR, approved, commented (blocking count and round), escalated (with `@Seth`) or skipped (no new revision, already approved), or "No open devx PRs."
+
+### 16.2 Signed marks
+
+Rex posts with the CEO's GitHub account, which can't approve its own PRs. His marks are signed instead:
+
+| Mark | Form |
+|---|---|
+| Review | A PR review (event `COMMENT`), body starting `<!-- cto-agent:review -->` and `**Rex (CTO) · review round n/2**`; at most 3 inline comments, blocking only, each starting `**Rex (CTO):**`; one optional line of suggestions in the body. |
+| Approval | A comment starting `<!-- cto-agent:approved -->` and `**✅ Approved by Rex (CTO)** at <sha>`, the label `cto-approved`, and commit status `cto-review` = `success`. |
+| Escalation | A comment starting `<!-- cto-agent:escalated -->`, the label `cto-escalated`, and status `cto-review` = `failure`. |
+| Revision reviewed | Status `cto-review` on the head SHA: `success`, or `failure` with `Rex (CTO): changes requested, round n/2`. |
+
+The CEO still merges. Removing a label puts a PR back in Rex's queue.
+
+### 16.3 The rubric
+
+`.claude/review/cto-code-review.md` holds what Rex enforces: the bar (approve by default, at most 3 blocking comments, no nits), what blocks (failing gates, bugs, CLAUDE.md rules, security and cost, scope) and the code smells to name. His prompt only links to it, so the review standard changes without touching the prompt.
+
+### 16.4 Permissions
+
+- Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (to `/tmp` only), `TodoWrite` and the `team-chat` tools including `react`. Model: Sonnet.
+- `.claude/hooks/cto-agent-guard.sh` blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit, `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status. Merges, `graphql` and other repos are blocked outright.
+- AWS: IAM user `cto-agent`, which can only assume `Nyc311CtoAgentRole` (`ReadOnlyAccess`, secrets denied, source identity `cto-agent`), the same access as Pip. Both roles share `cdk/agents/ReadOnlyAgentRole.ts`.
+- Cognito user `cto-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only.
+
+### 16.5 Pip's side
+
+Pip already tends unaddressed comments on his PRs at the start of every run. He now reads Rex's marks: a `cto-agent:review` is feedback (every inline comment addressed, suggestions optional), a `cto-agent:approved` or `cto-agent:escalated` comment is not. He never touches the labels or the status; his next push is what asks Rex for another look. `💬` is added to Team Chat's reactions for Rex's comment mark.
+
+### 16.6 Setup TODO
+
+- [ ] Deploy: the pipeline stack creates `cto-agent` and `Nyc311CtoAgentRole`; the app stacks add `💬`.
+- [ ] GitHub labels `cto-approved` and `cto-escalated`.
+- [ ] MacBook: `scripts/agent-credentials.py create cto-agent TEST` and `… PROD`; copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] IAM console: create `cto-agent`'s access key by hand.
+- [ ] Mac mini: `[cto-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-cto-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311CtoAgentRole cto-agent`; `aws --profile nyc311-cto-agent sts get-caller-identity` ends in `assumed-role/Nyc311CtoAgentRole/cto-agent`.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`, then a hand run against Test chat, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run cto-agent "Code review. Follow your 'Each run' section."`.
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install cto-agent` (08:00 and 20:00).
+
 ---
 
 ## Appendix: decisions and history
@@ -749,6 +818,11 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 - **The Chief of Staff's brief is short by design.** The CEO wants one message a morning, one or two lines per teammate, so the job is reading and consolidating only. The Staff Meeting (§6) stays a later design.
 - **Her window runs from her last brief, not the calendar day.** A missed run is then folded into the next brief instead of leaving a gap.
 - **`chief-of-staff-agent`, not `chief-of-staff`.** The agent name, and so the email, follows the `<role>-agent` pattern of the others; the member id stays `chief-of-staff`.
+- **Rex signs instead of approving.** GitHub won't let the CEO's account approve its own PRs, so an approval is a signed comment, the `cto-approved` label and a `cto-review` commit status.
+- **No loops.** Rex reviews each revision once (the status on its SHA), stops after an approval, and escalates to the CEO after two rounds of comments.
+- **Quiet by design.** At most 3 blocking comments a review and no nits, because Pip's work is low-risk and usually approvable. The Software Engineer's feature work may need a different bar.
+- **The rubric is its own file**, so the CEO can tune how Rex reviews without editing his prompt.
+- **Rex posts a summary every run** for now, even with nothing to review.
 - **Groups per job, not per agent kind.** Every member joins `BOROUGH_SIM_TEAM`, which gates chat. Only the COO also joins `BOROUGH_SIM_OPERATIONS`. The CPO and CTO can't recruit or release, but can propose it to the COO in chat.
 
 ---
@@ -763,6 +837,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 |---|---|---|---|---|---|
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00 and 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
