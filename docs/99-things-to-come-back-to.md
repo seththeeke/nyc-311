@@ -566,3 +566,9 @@ See [#153](https://github.com/seththeeke/nyc-311/issues/153).
 See [#155](https://github.com/seththeeke/nyc-311/issues/155).
 
 ---
+
+## cdk coverage gate omits agents/ and teamChat/ — 12 source files ungated
+
+See [#159](https://github.com/seththeeke/nyc-311/issues/159).
+
+---

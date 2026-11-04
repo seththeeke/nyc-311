@@ -47,7 +47,9 @@ export default defineConfig({
        * step-function/ and warehouse/ were added for 7-data-warehousing.md
        * but never appended here, so their 14 files (26% of cdk/'s
        * construct sources) sat outside the 90%-per-file gate entirely —
-       * a regression there would have passed silently.
+       * a regression there would have passed silently. agents/ and
+       * teamChat/ (12 files) repeated it (#159); tests/vitestConfig.test.ts
+       * now fails on any top-level source dir missing here.
        */
       include: [
         "bin/**/*.ts",
@@ -61,6 +63,8 @@ export default defineConfig({
         "warehouse/**/*.ts",
         "auth/**/*.ts",
         "customer/**/*.ts",
+        "agents/**/*.ts",
+        "teamChat/**/*.ts",
       ],
       exclude: [
         "**/*.d.ts",
