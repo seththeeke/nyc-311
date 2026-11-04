@@ -560,3 +560,9 @@ See [#151](https://github.com/seththeeke/nyc-311/issues/151).
 See [#153](https://github.com/seththeeke/nyc-311/issues/153).
 
 ---
+
+## web-app: AppRoutes.test.tsx idles ~5.4s on React 19's 300ms Suspense reveal throttle (suite long pole)
+
+See [#155](https://github.com/seththeeke/nyc-311/issues/155).
+
+---
