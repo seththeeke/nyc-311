@@ -566,3 +566,9 @@ See [#153](https://github.com/seththeeke/nyc-311/issues/153).
 See [#155](https://github.com/seththeeke/nyc-311/issues/155).
 
 ---
+
+## backend: bump @modelcontextprotocol/sdk 1.12.1 → 1.32.2 to clear its high-severity npm audit advisories
+
+See [#157](https://github.com/seththeeke/nyc-311/issues/157).
+
+---
