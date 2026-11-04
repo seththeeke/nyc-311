@@ -31,10 +31,10 @@ describe("findSecret", () => {
 });
 
 describe("teamChatSeeds", () => {
-  it("seeds the roster and both channels in Prod, every channel public and every member known", () => {
+  it("seeds the roster and its three channels in Prod, every channel public and every member known", () => {
     const { members, channels } = teamChatSeeds("PROD");
     expect(members.map((m) => m.member_id)).toEqual(["ceo", "chief-of-staff", "coo", "cpo", "cfo", "cto", "devx", "gen-dev"]);
-    expect(channels.map((c) => c.channel_id)).toEqual(["executive-team", "tech-team"]);
+    expect(channels.map((c) => c.channel_id)).toEqual(["executive-team", "tech-team", "executive-assistant"]);
     const ids = new Set(members.map((m) => m.member_id));
     for (const channel of channels) {
       expect(channel.visibility).toBe("PUBLIC");

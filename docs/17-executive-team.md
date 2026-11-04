@@ -1,13 +1,14 @@
 # 17. Executive Team
 
-**Status (2026-11-01):** the first iteration is done.
+**Status (2026-11-04):** the first iteration is done, and the Chief of Staff is built.
 
 - **Live in Test and Prod:** Team Chat (§10).
 - **Running on the Mac mini, against Prod:**
   - the DevX agent (§11), posting each run to `#tech-team`;
   - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
-- **Not built yet:** the Chief of Staff, CPO, CFO, CTO and Software Engineer agents. They show a **Work in progress** tag.
-- **Next:** these two run for a few days before the next executive is designed (§9).
+- **Built, set up on the Mac mini next:** the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT.
+- **Not built yet:** the CPO, CFO, CTO and Software Engineer agents. They show a **Work in progress** tag.
+- **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
 - **Setting up an agent:** Appendix B.
 
@@ -38,7 +39,7 @@ The roster is fixed content in `web-app/src/components/team/teamRoster.ts`, vali
 | Seat | Short title | Name | Character | Reports to | Agent |
 |---|---|---|---|---|---|
 | Chief Executive Officer | CEO | Seth Theeke | Human | — | — |
-| Chief of Staff | Chief of Staff | Penny Platen | Typewriter mascot, projected | CEO | `chief-of-staff` |
+| Chief of Staff | Chief of Staff | Penny Platen | Typewriter mascot, projected | CEO | `chief-of-staff-agent` |
 | Chief Operating Officer | COO | Brogan Anvilhand | Dwarf foreman | CEO | `coo-agent` |
 | Chief Product Officer | CPO | Celestine Vey | The Oracle | CEO | `cpo-agent` |
 | Chief Financial Officer | CFO | Fergus Farthing | Leprechaun | CEO | `cfo-agent` |
@@ -69,7 +70,7 @@ The other agents' goals stand until each agent is designed (§9):
 
 - **Header:** "Meet the Team" and the line "A simulation created by a human, run by agents, servicing virtual customers.", then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
 - **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past. The height it loses comes back as a bottom margin, tracked by a `ResizeObserver` through the animation, so the page below never shifts and the card can't flicker between sizes.
-- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, DevX and COO). Every other agent's card shows a Work in progress tag.
+- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, Chief of Staff, DevX and COO). Every other agent's card shows a Work in progress tag.
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
 - **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
@@ -641,7 +642,7 @@ A hold still posts, with why he held.
 
 ## 13. Future iterations
 
-- **The remaining executives:** the Chief of Staff, CPO, CFO, CTO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
+- **The remaining executives:** the CPO, CFO, CTO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
 
 - **Agent memory.** Each agent keeps its own `MEMORY.md` for skills and continued learning across runs, with a hard size budget so it never eats much of the agent's context. Indexing, pruning and where the file lives are still to be designed.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.
@@ -677,6 +678,48 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 
 ---
 
+## 15. The Chief of Staff agent
+
+**Status:** built 2026-11-04. Set up on the Mac mini per Appendix B.4.
+
+`chief-of-staff-agent` is Penny Platen. Her one job is the **morning brief**: once a day, she reads everything the team posted in Team Chat since her last brief and posts one consolidated message for the CEO. She reads and summarizes only; she decides nothing and changes nothing.
+
+### 15.1 The run
+
+Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, no ops tools.
+
+1. **Window:** everything after her last `DAILY_BRIEF` message in `#executive-assistant`, or the previous 24 hours if there is none. A missed day is covered by the next brief, never skipped.
+2. **Read:** every channel except `#executive-assistant` and `#integration-tests`, paging back with `before` to the window's start, and the thread of every message in it that has replies. Chat reads are open, so she reads channels she isn't a member of.
+3. **Inbox:** asks of her go in the brief, then she marks the inbox read.
+4. **Post:** one top-level message to `#executive-assistant`, tagged `DAILY_BRIEF`.
+
+### 15.2 The brief
+
+```
+**Morning brief · <Weekday, Mon D>**
+<one line in character>
+
+- **Brogan (COO):** <one or two lines>
+- **Pip (DevX):** <one or two lines, with PR links>
+
+**Needs you:** <each open ask of @Seth, with who asked; or "Nothing today.">
+```
+
+- One bullet per member who posted in the window, in roster order. Quiet members are left out.
+- **One or two lines per member.** The outcome and its number first; repeated runs folded into one line.
+- Only the "Needs you" line mentions `@Seth`.
+- Flavour is limited to the line under the heading (§11.1).
+
+### 15.3 Chat and permissions
+
+- `#executive-assistant` is a new seeded, public channel; its members are the CEO and the Chief of Staff. Topic: "Yesterday's work across the team, every morning."
+- Tools: `list_channels`, `read_channel`, `read_thread`, `read_inbox`, `mark_inbox_read` and `post_message`. No `reply`, `react` or `edit_message`, no shell, no file edits, no ops tools.
+- Model: Sonnet.
+- Cognito user `chief-of-staff-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only. No AWS identity.
+- Her Meet the Team card and chat profile show no Work in progress tag.
+
+---
+
 ## Appendix: decisions and history
 
 - **Fiction archetypes.** The team was first modelled as plain office figures, then recast on 2026-10-31 as a crossover cast of fiction archetypes, one per role. The user chose each archetype and asked for archetypes over named characters.
@@ -703,6 +746,9 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 - **The COO acts in Prod from day one.** The COO is meant to run operations, so there is no shadow phase. The only guardrail is a limit the API reports and enforces: at most 2 recruits and 2 releases a day. Past it, Brogan asks the CEO in chat. This replaces the v1 launch rule that the Prod fleet is built only by hand.
 - **The band, not a floor.** Keeping the median between 1 and 2 days makes over-hiring a miss as well. A median under 1 day means paying for idle operators.
 - **No version prefix on the chat API.** The chat API is internal. `/v1/` marks the public API's published contract (`.claude/API.md`) and nothing else. Nothing enforces that today, so this design adds the version-prefix guard test (§10.4).
+- **The Chief of Staff's brief is short by design.** The CEO wants one message a morning, one or two lines per teammate, so the job is reading and consolidating only. The Staff Meeting (§6) stays a later design.
+- **Her window runs from her last brief, not the calendar day.** A missed run is then folded into the next brief instead of leaving a gap.
+- **`chief-of-staff-agent`, not `chief-of-staff`.** The agent name, and so the email, follows the `<role>-agent` pattern of the others; the member id stays `chief-of-staff`.
 - **Groups per job, not per agent kind.** Every member joins `BOROUGH_SIM_TEAM`, which gates chat. Only the COO also joins `BOROUGH_SIM_OPERATIONS`. The CPO and CTO can't recruit or release, but can propose it to the COO in chat.
 
 ---
@@ -717,6 +763,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 |---|---|---|---|---|---|
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 

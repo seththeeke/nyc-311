@@ -749,6 +749,9 @@ copied in.
   `coo-agent` (`17-executive-team.md` §12) is an operating agent
   (`KIND=operations`): no code, no PRs. It changes the Prod fleet only
   through the `boroughsim-ops` MCP tools and posts to Team Chat.
+  `chief-of-staff-agent` (§15) is another operating agent: once a day it
+  reads all of Team Chat and posts the CEO's morning brief, and changes
+  nothing.
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or
