@@ -36,14 +36,14 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     character: "Typewriter mascot, projected",
     role: "CHIEF_OF_STAFF",
     kind: "AGENT",
-    agent_name: "chief-of-staff",
+    agent_name: "chief-of-staff-agent",
     reports_to: CEO_ID,
     model_key: "penny-platen",
     short_title: "Chief of Staff",
     photo_url: null,
     responsibility: "Tracks the work across the team, reports on major changes, and consolidates activity amongst the chaos.",
     goals: [],
-    live: false,
+    live: true,
     links: [],
   },
   {
@@ -79,7 +79,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     goals: [{ goal: "Reduce cost of execution", metric: "Cost per order", target: "<$25" },
       { goal: "Increase number of satisfied customer interactions", metric: "% of satisfied customer interactions", target: ">80%" }
     ],
-    live: false,
+    live: true,
     links: [],
   },
   {
@@ -113,7 +113,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Decides what gets built, reviews all changes, and keeps the platform reliable and leads the engineering agents.",
     goals: [{ goal: "Keep order execution reliable", metric: "Execution failure rate", target: "Under 2%" }],
-    live: false,
+    live: true,
     links: [],
   },
   {

@@ -24,7 +24,7 @@ const agent = (member_id: string, handle: string, agentName: string): TeamChatMe
 
 const MEMBERS: TeamChatMemberSeed[] = [
   { member_id: "ceo", handle: "Seth", kind: "HUMAN", email: null, status: "ACTIVE" },
-  agent("chief-of-staff", "Penny", "chief-of-staff"),
+  agent("chief-of-staff", "Penny", "chief-of-staff-agent"),
   agent("coo", "Brogan", "coo-agent"),
   agent("cpo", "Celestine", "cpo-agent"),
   agent("cfo", "Fergus", "cfo-agent"),
@@ -46,6 +46,13 @@ const CHANNELS: TeamChatChannelSeed[] = [
     name: "tech-team",
     topic: "What ships, what breaks and what it costs.",
     member_ids: ["ceo", "cto", "devx", "gen-dev"],
+    visibility: "PUBLIC",
+  },
+  {
+    channel_id: "executive-assistant",
+    name: "executive-assistant",
+    topic: "Yesterday's work across the team, every morning.",
+    member_ids: ["ceo", "chief-of-staff"],
     visibility: "PUBLIC",
   },
 ];

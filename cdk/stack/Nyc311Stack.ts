@@ -57,6 +57,7 @@ import { OperatorsTable } from "../data/OperatorsTable";
 import { Nyc311FleetApiLambda } from "../lambda/Nyc311FleetApiLambda";
 import { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
 import { Nyc311FeatureFlagsApiLambda } from "../lambda/Nyc311FeatureFlagsApiLambda";
+import { Nyc311ContactsApiLambda } from "../lambda/Nyc311ContactsApiLambda";
 import { Nyc311MonitoringApiLambda } from "../lambda/Nyc311MonitoringApiLambda";
 import { Nyc311WebhookSinkApiLambda } from "../lambda/Nyc311WebhookSinkApiLambda";
 import { Nyc311DataApiLambda } from "../warehouse/Nyc311DataApiLambda";
@@ -217,6 +218,7 @@ export class Nyc311Stack extends Stack {
     const featureFlagsTable = new FeatureFlagsTable(this, "FeatureFlagsTable", { envName: props.envName });
     /* 16-resident-action-models.md §3 — Contacts, reached only through the public API's feature requests. */
     const contactsTable = new ContactsTable(this, "ContactsTable", { envName: props.envName });
+    const contactsApiLambda = new Nyc311ContactsApiLambda(this, "Nyc311ContactsApiLambda", { envName: props.envName, contactsTable });
     /* 15-resource-consolidation.md §3.3 — the featureFlags Service API bundle. */
     const featureFlagsApiLambda = new Nyc311FeatureFlagsApiLambda(this, "Nyc311FeatureFlagsApiLambda", { envName: props.envName, featureFlagsTable });
     /* 10-capacity-modeling-and-integration.md §6.1 — the public home-page map's data source. */
@@ -625,6 +627,7 @@ export class Nyc311Stack extends Stack {
       featureFlagsTable,
       liveWorkspaceMetricsTable,
       jobRunsTable: warehouseJobRunsTable,
+      contactsTable,
       warehouseBucket,
       warehouseCatalog,
       adHocQueryWorkgroup,
@@ -697,6 +700,7 @@ export class Nyc311Stack extends Stack {
       envName: props.envName,
       adminApiLambda,
       featureFlagsApiLambda,
+      contactsApiLambda,
       dataApiLambda,
       monitoringApiLambda,
       fleetApiLambda: getFleetLocationsApiLambda,

@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { IdeaFeed } from "../residents/IdeaFeed";
+import { ResidentsTabs } from "../residents/ResidentsTabs";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
 /**
@@ -17,6 +18,7 @@ export function ResidentsPage(): ReactElement {
           Simulated residents, backed by LLMs requesting support ideas to the system for the simulation to address.
         </p>
       </header>
+      <ResidentsTabs />
       <IdeaFeed />
     </main>
   );

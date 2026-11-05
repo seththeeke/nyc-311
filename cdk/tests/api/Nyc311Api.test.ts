@@ -20,6 +20,9 @@ import { OperatorsTable } from "../../data/OperatorsTable";
 import { Nyc311AdminApiLambda } from "../../lambda/Nyc311AdminApiLambda";
 import { Nyc311FleetApiLambda } from "../../lambda/Nyc311FleetApiLambda";
 import { Nyc311FeatureFlagsApiLambda } from "../../lambda/Nyc311FeatureFlagsApiLambda";
+import { Nyc311ContactsApiLambda } from "../../lambda/Nyc311ContactsApiLambda";
+import { ContactsTable } from "../../data/ContactsTable";
+import { CONTACTS_API_ROUTES } from "../../../backend/controller/web-api/contacts/contactsApiRoutes";
 import { Nyc311MonitoringApiLambda } from "../../lambda/Nyc311MonitoringApiLambda";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
 import { LiveWorkspaceMetricsTable } from "../../data/LiveWorkspaceMetricsTable";
@@ -62,6 +65,7 @@ const MONITORED = {
 const BUNDLES: { lambdaId: string; routes: readonly string[]; testOnly?: boolean }[] = [
   { lambdaId: "Nyc311AdminApiLambda", routes: ADMIN_API_ROUTES },
   { lambdaId: "Nyc311FeatureFlagsApiLambda", routes: FEATURE_FLAGS_API_ROUTES },
+  { lambdaId: "Nyc311ContactsApiLambda", routes: CONTACTS_API_ROUTES },
   { lambdaId: "Nyc311DataApiLambda", routes: DATA_API_ROUTES },
   { lambdaId: "Nyc311MonitoringApiLambda", routes: MONITORING_API_ROUTES },
   { lambdaId: "Nyc311GetFleetLocationsApiLambda", routes: FLEET_API_ROUTES },
@@ -119,8 +123,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     failureNotificationEmail: "ops@example.com",
   });
   const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName });
+  const contactsTable = new ContactsTable(stack, "ContactsTable", { envName });
   const adminApiLambda = new Nyc311AdminApiLambda(stack, "Nyc311AdminApiLambda", {
     envName,
+    contactsTable,
     usersTable,
     operatorsTable,
     ordersTable,
@@ -145,6 +151,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     adminApiLambda,
     featureFlagsApiLambda: new Nyc311FeatureFlagsApiLambda(stack, "Nyc311FeatureFlagsApiLambda", { envName, featureFlagsTable }),
+    contactsApiLambda: new Nyc311ContactsApiLambda(stack, "Nyc311ContactsApiLambda", { envName, contactsTable }),
     dataApiLambda: new Nyc311DataApiLambda(stack, "Nyc311DataApiLambda", {
       envName,
       warehouseCatalog,

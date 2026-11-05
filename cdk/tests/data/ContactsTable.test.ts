@@ -11,14 +11,23 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("ContactsTable", () => {
-  it("is keyed by contact_id alone, with no GSIs and no stream", () => {
+  it("is keyed by contact_id, with the ByTypeCreatedAt index and no stream", () => {
     const template = synthesize("TEST");
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       TableName: "Contacts-Test",
       KeySchema: [{ AttributeName: "contact_id", KeyType: "HASH" }],
     });
     const table = Object.values(template.findResources("AWS::DynamoDB::GlobalTable"))[0];
-    expect(table.Properties.GlobalSecondaryIndexes).toBeUndefined();
+    expect(table.Properties.GlobalSecondaryIndexes).toEqual([
+      {
+        IndexName: "ByTypeCreatedAt",
+        KeySchema: [
+          { AttributeName: "contact_type", KeyType: "HASH" },
+          { AttributeName: "created_at", KeyType: "RANGE" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ]);
     expect(table.Properties.StreamSpecification).toBeUndefined();
   });
 

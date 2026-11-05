@@ -19,9 +19,9 @@ vi.mock("three", async (importOriginal) => {
   return { ...actual, WebGLRenderer: FakeRenderer };
 });
 
-vi.mock("../../../../src/components/team/models/teamPortrait", () => ({ photographTeamMember: () => "data:image/png;base64,TEAM" }));
+vi.mock("../../../../src/components/team/models/teamPortrait", () => ({ renderTeamMember: () => undefined }));
 
-import { renderResidentAvatar } from "../../../../src/components/residents/models/avatarSnapshot";
+import { createAvatarRenderer, drawAvatar, renderResidentAvatar } from "../../../../src/components/residents/models/avatarSnapshot";
 
 afterEach(() => {
   rendered.calls = 0;
@@ -36,12 +36,19 @@ describe("renderResidentAvatar", () => {
   });
 
   it("hands an executive's key to the team studio", () => {
-    expect(renderResidentAvatar("penny-platen")).toBe("data:image/png;base64,TEAM");
+    expect(renderResidentAvatar("penny-platen")).toBe("data:image/png;base64,AVATAR");
     expect(rendered.calls).toBe(0);
   });
 
   it("returns null for a key with no model, without rendering", () => {
     expect(renderResidentAvatar("oak")).toBeNull();
     expect(rendered.calls).toBe(0);
+  });
+
+  it("draws into any renderer, including one on an offscreen canvas", () => {
+    const renderer = createAvatarRenderer({} as OffscreenCanvas);
+    expect(drawAvatar(renderer, "hawthorn")).toBe(true);
+    expect(drawAvatar(renderer, "oak")).toBe(false);
+    expect(rendered.calls).toBe(1);
   });
 });

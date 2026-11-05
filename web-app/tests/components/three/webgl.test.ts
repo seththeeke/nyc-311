@@ -9,6 +9,20 @@ describe("isWebGlAvailable", () => {
     expect(isWebGlAvailable()).toBe(true);
   });
 
+  it("releases the probe context so checks never use up the browser's context limit", () => {
+    const loseContext = vi.fn();
+    const getExtension = vi.fn(() => ({ loseContext }));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ getExtension } as unknown as RenderingContext);
+    expect(isWebGlAvailable()).toBe(true);
+    expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
+    expect(loseContext).toHaveBeenCalled();
+  });
+
+  it("is still true when the release extension is missing", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ getExtension: () => null } as unknown as RenderingContext);
+    expect(isWebGlAvailable()).toBe(true);
+  });
+
   it("is false when the browser returns no context", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     expect(isWebGlAvailable()).toBe(false);

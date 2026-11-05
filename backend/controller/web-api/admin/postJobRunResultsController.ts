@@ -4,6 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { JobRunResultsRequestSchema } from "../../../models/warehouseJobRunResultsRequest";
 import { ValidationError } from "../../../models/errors";
 import { getJobRunResults } from "../../../service/analytics/jobResultService";
+import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
 
@@ -40,7 +41,7 @@ export const postJobRunResultsController = async (event: unknown): Promise<APIGa
   }
 
   try {
-    await requireAdminUser(parsedEvent.data);
+    if (!isAgentCaller(parsedEvent.data)) await requireAdminUser(parsedEvent.data);
     const results = await getJobRunResults(parsedBody.data.job_run_ids);
     logInfo("PostJobRunResultsControllerCompleted", { count: results.length });
     return jsonResponse(200, { results });

@@ -11,6 +11,7 @@ export const ADMIN_API_ROUTES = [
   "POST /capacity",
   "DELETE /capacity/{operator_id}",
   "POST /scheduling/run",
+  "PATCH /admin/contacts/{contact_id}",
   "POST /admin/feature-flags",
   "PUT /admin/feature-flags/{flag_key}",
   "DELETE /admin/feature-flags/{flag_key}",

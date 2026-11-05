@@ -81,4 +81,12 @@ describe("listWarehouseJobRunsController", () => {
 
     expect((await listWarehouseJobRunsController(validEvent)).statusCode).toBe(500);
   });
+
+  it("doesn't resolve an agent caller to a User", async () => {
+    mockedListWarehouseJobRuns.mockResolvedValue({ jobRuns: [] } as never);
+    const agentEvent = JSON.parse(JSON.stringify(validEvent)) as { requestContext: { authorizer: { jwt: { claims: Record<string, string> } } } };
+    agentEvent.requestContext.authorizer.jwt.claims["cognito:groups"] = "[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]";
+    expect((await listWarehouseJobRunsController(agentEvent)).statusCode).toBe(200);
+    expect(mockedRequireAdminUser).not.toHaveBeenCalled();
+  });
 });

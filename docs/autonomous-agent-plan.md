@@ -162,9 +162,7 @@ in the same second each got their correct, distinct agent prefix
   autonomous run gets its own worktree via `scripts/agent-worktree.sh new`;
   launch with `claude --agent devx-agent -p "…"` from inside it; tear down with
   `scripts/agent-worktree.sh rm <name>` once the PR is open (branch + PR survive
-  teardown). Note that parallel runs each appending to
-  `docs/99-things-to-come-back-to.md` on separate branches can conflict at merge
-  time — a human-merge concern, acceptable.
+  teardown).
 
 ### 5. `CLAUDE.md` — the canonical pointer (edit)
 
@@ -181,7 +179,6 @@ note that a must-not-touch-`main` agent wires its own guard hook
 - No fleet runner / concurrency cap. `run` is a single-shot convenience
   wrapper (one worktree, one `claude`, one teardown) — parallelism is still the
   user backgrounding several `run` calls.
-- No `docs/99-things-to-come-back-to.md` conflict handling beyond the note above.
 - No shared-`node_modules` optimisation beyond CoW; no pnpm-store migration.
 - `scripts/` is an established repo-root directory (`rollup-coverage.js`,
   `publish-coverage.js`) and is **not** one of CLAUDE.md §1.1's locked dirs, so

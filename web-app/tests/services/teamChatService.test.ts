@@ -34,7 +34,7 @@ describe("teamChatService — live", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const chat = await service("live");
-    expect(await chat.listChannels()).toHaveLength(2);
+    expect(await chat.listChannels()).toHaveLength(3);
     expect((await chat.listMessages("tech team")).items).toHaveLength(1);
     expect((await chat.getThread("tech-team", "E1")).root.message_id).toBe("E1");
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([

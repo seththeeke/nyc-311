@@ -15,6 +15,7 @@ import { postJobRunResultsController } from "../../../../controller/web-api/admi
 import { removeCapacityController } from "../../../../controller/web-api/admin/removeCapacityController";
 import { runAdHocQueryController } from "../../../../controller/web-api/admin/runAdHocQueryController";
 import { runSchedulingController } from "../../../../controller/web-api/admin/runSchedulingController";
+import { updateContactController } from "../../../../controller/web-api/admin/updateContactController";
 import { updateFeatureFlagController } from "../../../../controller/web-api/admin/updateFeatureFlagController";
 import { updateWarehouseJobController } from "../../../../controller/web-api/admin/updateWarehouseJobController";
 import { whoamiController } from "../../../../controller/web-api/admin/whoamiController";
@@ -33,6 +34,7 @@ vi.mock("../../../../controller/web-api/admin/postJobRunResultsController", () =
 vi.mock("../../../../controller/web-api/admin/removeCapacityController", () => ({ removeCapacityController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/runAdHocQueryController", () => ({ runAdHocQueryController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/runSchedulingController", () => ({ runSchedulingController: vi.fn() }));
+vi.mock("../../../../controller/web-api/admin/updateContactController", () => ({ updateContactController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/updateFeatureFlagController", () => ({ updateFeatureFlagController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/updateWarehouseJobController", () => ({ updateWarehouseJobController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/whoamiController", () => ({ whoamiController: vi.fn() }));
@@ -44,6 +46,7 @@ const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "POST /capacity": addCapacityController,
   "DELETE /capacity/{operator_id}": removeCapacityController,
   "POST /scheduling/run": runSchedulingController,
+  "PATCH /admin/contacts/{contact_id}": updateContactController,
   "POST /admin/feature-flags": createFeatureFlagController,
   "PUT /admin/feature-flags/{flag_key}": updateFeatureFlagController,
   "DELETE /admin/feature-flags/{flag_key}": deleteFeatureFlagController,
@@ -81,9 +84,9 @@ afterEach(() => {
 });
 
 describe("adminApiRouter", () => {
-  it("covers exactly the 17 admin routes", () => {
-    expect(ADMIN_API_ROUTES).toHaveLength(17);
-    expect(new Set(ADMIN_API_ROUTES).size).toBe(17);
+  it("covers exactly the 18 admin routes", () => {
+    expect(ADMIN_API_ROUTES).toHaveLength(18);
+    expect(new Set(ADMIN_API_ROUTES).size).toBe(18);
   });
 
   it.each(ADMIN_API_ROUTES)("dispatches %s to its controller with the raw event", async (routeKey) => {
@@ -112,6 +115,17 @@ describe("adminApiRouter", () => {
     const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com", "cognito:groups": "[BOROUGH_SIM_TEAM]" }));
     expect(response.statusCode).toBe(403);
     expect(whoamiController).not.toHaveBeenCalled();
+  });
+
+  it("lets the product group update a contact, and nothing else", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(updateContactController).mockResolvedValue({ statusCode: 200, body: "{}" });
+    const product = { sub: "s", email: "cpo-agent@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]" };
+    expect((await adminApiRouter(eventFor("PATCH /admin/contacts/{contact_id}", product))).statusCode).toBe(200);
+    expect((await adminApiRouter(eventFor("POST /capacity", product))).statusCode).toBe(403);
+    expect((await adminApiRouter(eventFor("GET /capacity/snapshot", product))).statusCode).toBe(403);
+    const operations = { sub: "s", email: "coo-agent@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_OPERATIONS]" };
+    expect((await adminApiRouter(eventFor("PATCH /admin/contacts/{contact_id}", operations))).statusCode).toBe(403);
   });
 
   it("returns 403 when the caller holds no groups at all", async () => {

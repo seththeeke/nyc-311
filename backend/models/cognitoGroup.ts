@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 /*
- * The admin pool's Cognito groups (docs/17-executive-team.md §12.2). A user
+ * The admin pool's Cognito groups (docs/17-executive-team.md §12.2, §17.2). A user
  * may hold several; the JWT's `cognito:groups` claim lists them all.
  */
-export const COGNITO_GROUPS = ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS"] as const;
+export const COGNITO_GROUPS = ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS", "BOROUGH_SIM_PRODUCT"] as const;
 export const CognitoGroupSchema = z.enum(COGNITO_GROUPS);
 export type CognitoGroup = z.infer<typeof CognitoGroupSchema>;
 
