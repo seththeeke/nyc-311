@@ -863,7 +863,7 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 - Each agent with memory keeps `.claude/agent-memory/<agent>/MEMORY.md` in the repo. It is public, like everything committed: a record of past runs' conclusions, never secrets.
 - The agent reads it at the start of a run and rewrites it only when it learned something worth keeping. Most runs change nothing.
 - Hard cap: 8 KB. The agent prunes to stay under it.
-- `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-scheduled-run.sh` commits the file only if it changed and is under the cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. Anything else logs a `WARN` and commits nothing.
+- `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the file only if it changed and is under the cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. Anything else logs a `WARN` and commits nothing; an oversized or deleted file is restored.
 - The agent's guard allows `Write` only to its own memory file.
 
 ### 17.7 Rex on her tickets
@@ -890,7 +890,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 | **C3** | Contacts write: the `BOROUGH_SIM_PRODUCT` group, the contact update fields and `PATCH /admin/contacts/{contact_id}`. |
 | **C4** | Web app: `CONTACTS_PAGE`, the Residents tab bar and `ContactsPage`. |
 | **C5** | The `boroughsim-product` MCP server, `PRODUCT_TOOLS` in the per-run config, and `BOROUGH_SIM_PRODUCT` on the two job-run read routes. |
-| **C6** | Agent memory: the memory file and the commit step in `agent-scheduled-run.sh`. |
+| **C6** | Agent memory: `scripts/agent-memory-commit.sh`, called from `agent-worktree.sh run` when `MEMORY=1`. |
 | **C7** | The CPO agent: prompt, settings, guard, schedule, roster `live`, Appendix B. |
 | **C8** | Rex on her tickets (§17.7) and Rex's four-a-day schedule. |
 | **C9** | Deploy, the `CONTACTS_PAGE` flag rows, and Celestine's Cognito logins. Then the Mac mini setup for Penny, Rex and Celestine together. |
