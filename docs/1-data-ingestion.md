@@ -415,7 +415,7 @@ call out explicitly when it happens, not an incidental renaming.
   needs cleanup before re-enabling, then re-enable the schedule and
   confirm a clean Prod poll.
 - **No on-demand/parameterized poll trigger.** Also logged in
-  `docs/99-things-to-come-back-to.md`. Every manual verification this
+  the GitHub backlog. Every manual verification this
   session required hand-editing the DynamoDB cursor item directly. A real
   trigger-payload override (e.g. a validated `sinceOverride`) would make
   both future debugging and `test-scripts/1-ingestion-test.py` itself
@@ -446,7 +446,7 @@ call out explicitly when it happens, not an incidental renaming.
       re-enable `Nyc311PollerSchedule-Prod` and confirm a clean Prod poll.
 - [ ] Design and build an on-demand/parameterized poll trigger (e.g. a
       validated `sinceOverride` payload) — see also
-      `docs/99-things-to-come-back-to.md`'s "Manual/forced polling
+      the GitHub backlog's "Manual/forced polling
       controls" entry.
 - [ ] Fix §8's example log field name (`event` → `message`) to match
       `logger.ts`/`nyc311PollerService.ts`.

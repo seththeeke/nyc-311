@@ -31,7 +31,7 @@ covered by the pipeline's own integration-test gate (`5-pipeline-
 integration-tests.md`, shipped 2026-08-24). Remaining design items below
 (§7 alarms/metrics, the atomicity gap, `order_id` denormalization, real
 geocoding, real Cases) are accepted gaps, not blockers — logged in
-`99-things-to-come-back-to.md` rather than reopening this doc.
+the GitHub backlog rather than reopening this doc.
 `5-order-evaluation.md` is the active doc going forward.
 
 ---
@@ -45,8 +45,8 @@ geocoding, real Cases) are accepted gaps, not blockers — logged in
 | [3. Filter-function contract & module design](#3-filter-function-contract--module-design) | **Agreed, built (2026-08-20)** |
 | [4. `duplicate`/`rejected` status semantics](#4-duplicaterejected-status-semantics) | **Agreed — confirmed still dead code today** |
 | [5. Order creation on pass](#5-order-creation-on-pass) | **Agreed, built (2026-08-20)** |
-| [6. Existing-backlog backfill](#6-existing-backlog-backfill) | **Agreed — gap accepted, logged in `99-things-to-come-back-to.md`** |
-| [7. Observability & custom metrics](#7-observability--custom-metrics) | **Deferred** — structured logs shipped; alarms/`MetricFilter`s/UI surfacing accepted as a known gap, logged in `99-things-to-come-back-to.md` |
+| [6. Existing-backlog backfill](#6-existing-backlog-backfill) | **Agreed — gap accepted, logged in the GitHub backlog** |
+| [7. Observability & custom metrics](#7-observability--custom-metrics) | **Deferred** — structured logs shipped; alarms/`MetricFilter`s/UI surfacing accepted as a known gap, logged in the GitHub backlog |
 | [8. Testing](#8-testing) | **Agreed, built alongside §3/§5** |
 
 ---
@@ -568,7 +568,7 @@ via the stream, no matter its starting position. Two real options:
   meaning something once fresh data arrives.
 
 **Agreed (2026-08-18): accept the gap.** Logged in
-`99-things-to-come-back-to.md` rather than repeated here — the backlog
+the GitHub backlog rather than repeated here — the backlog
 stays stuck in `draft` until a deliberate later backfill, revisited once
 the filters (§1) are real rather than stubs, so that backfill run doubles
 as a real test of them against actual data.
@@ -587,9 +587,9 @@ testing — not yet elaborated.)*
 this point reflects the state as of 2026-08-20 plus the one update noted
 in "Build" (the real-deploy verification that was still outstanding then).
 The Design items are accepted, logged gaps now, not open questions blocking
-this doc — see `99-things-to-come-back-to.md`.
+this doc — see the GitHub backlog.
 
-### Design — accepted gaps (not blockers), logged in `99-things-to-come-back-to.md`
+### Design — accepted gaps (not blockers), logged in the GitHub backlog
 
 - [ ] **§7 — Observability & custom metrics.** Structured-log fields +
       `MetricFilter`s for this pipeline, mindful of the project-wide
@@ -601,7 +601,7 @@ this doc — see `99-things-to-come-back-to.md`.
 - [ ] **UI surfacing of filter results — deliberately descoped 2026-08-20,
       wants more thought.** A live-count tile (`Select: COUNT` via
       `gsi2-status`) was ruled out: `Requests-Test`'s `DRAFT` bucket is
-      already 42,000+ and growing (`99-things-to-come-back-to.md`), so a
+      already 42,000+ and growing (the GitHub backlog), so a
       frequently-polled live scan would have real, unbounded RCU cost and
       latency that gets *worse* as the thing it's monitoring gets worse.
       An atomic-counter sentinel item (DynamoDB `UpdateItem` `ADD`,

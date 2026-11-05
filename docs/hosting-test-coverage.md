@@ -11,7 +11,7 @@ note covers the one course correction along the way (an initial
 three-separate-reports-behind-a-landing-page version was replaced with
 the single merged report actually requested, before it reached Prod).
 
-Follow-up to `99-things-to-come-back-to.md`'s "Publishing code coverage"
+Follow-up to the GitHub backlog's "Publishing code coverage"
 entry (discussed 2026-08-16). Resolves it by implementing the doc's
 favored option — hosting the reports on the app's own CloudFront, no
 third-party service — plus a Monitoring page entry point, per today's
@@ -260,7 +260,7 @@ unified report... no per-package landing page, no separate silos.")
    - Click the new Monitoring page tile in a real browser (both
      environments) and confirm it lands on a real, per-file-drillable
      coverage report.
-5. Mark `99-things-to-come-back-to.md`'s "Publishing code coverage" entry
+5. Mark the GitHub backlog's "Publishing code coverage" entry
    resolved, pointing at this doc, instead of deleting the entry outright.
 
 **Done — 2026-08-23.** Two pushes: the first shipped the pipeline wiring

@@ -149,10 +149,6 @@ in that file — note it in your final report so it can be added.
 CoW `node_modules`; `devx-agent-guard.sh` + the committer stamp work unchanged.
 Run it several times in parallel (backgrounded shells) for concurrency.
 
-Note: parallel runs each appending to `docs/99-things-to-come-back-to.md` on
-separate branches can conflict at merge time — a human-merge concern,
-acceptable.
-
 ## Workflow
 
 Track these as a TodoWrite list so progress is visible.
@@ -338,8 +334,7 @@ Write the baseline into your notes verbatim — you will diff against it in step
 ### 3. Plan → file a backlog ticket
 
 Invoke the **`log-backlog-item`** skill to create the GitHub issue (repo
-`seththeeke/nyc-311`, `backlog` label, and mirror into
-`docs/99-things-to-come-back-to.md` per that skill). The issue body must contain:
+`seththeeke/nyc-311`, `backlog` label). The issue body must contain:
 
 - **Problem** — the one-sentence statement from step 1.
 - **Evidence** — the baseline metric and the command that produced it (step 2).
@@ -443,8 +438,6 @@ don't open a PR. Instead:
    The comment starts with `<!-- devx-agent -->` and says why it wasn't
    worthwhile: baseline vs. measured result (with the command), what the real
    cause turned out to be, and any existing issue a broader fix belongs under.
-3. Since nothing ships, the ticket's `docs/99-things-to-come-back-to.md` entry
-   is discarded with the rest — that's expected.
 
 A disproved idea closed with clear findings is a successful run. Report it in
 the final report.
@@ -508,8 +501,7 @@ For each PR that needs tending:
    ```
    Resolve each conflicted file by keeping *both* sides' intent — `main`'s
    changes are already reviewed and merged, so your PR's change adapts to
-   them, never the reverse. `docs/99-things-to-come-back-to.md` append
-   conflicts: keep every entry from both sides. Then `git add` the files and
+   them, never the reverse. Then `git add` the files and
    `git commit --no-edit` to conclude the merge. If a conflict can't be
    resolved without guessing at intent (both sides rewrote the same logic
    differently), `git merge --abort`, leave the PR as-is, and explain the
