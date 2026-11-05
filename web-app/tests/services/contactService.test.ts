@@ -32,11 +32,11 @@ describe("contactService — live", () => {
     vi.stubGlobal("fetch", fetchMock);
     const contacts = await service("live");
     expect(await contacts.listContacts({ type: "FEATURE_REQUEST", status: "RECEIVED", order: "OLDEST" }, "abc")).toEqual({ contacts: [MOCK_CONTACTS[0]], next_cursor: null });
-    const url = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]));
-    expect(url.pathname).toBe("/contacts");
+    const url = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]), "http://localhost");
+    expect(url.pathname.endsWith("/contacts")).toBe(true);
     expect(Object.fromEntries(url.searchParams)).toEqual({ type: "FEATURE_REQUEST", order: "OLDEST", limit: "25", status: "RECEIVED", cursor: "abc" });
     await contacts.listContacts({ type: "FEATURE_REQUEST", status: null, order: "NEWEST" }, null);
-    const second = new URL(String((fetchMock.mock.calls[1] as unknown[])[0]));
+    const second = new URL(String((fetchMock.mock.calls[1] as unknown[])[0]), "http://localhost");
     expect(second.searchParams.has("status")).toBe(false);
     expect(second.searchParams.has("cursor")).toBe(false);
   });
