@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { ResidentsPage } from "../../../src/components/pages/ResidentsPage";
 
 vi.mock("../../../src/components/residents/IdeaFeed", () => ({ IdeaFeed: () => <p>idea feed</p> }));
+vi.mock("../../../src/components/residents/ResidentsTabs", () => ({ ResidentsTabs: () => <nav>tabs</nav> }));
 
 describe("ResidentsPage", () => {
   it("titles the page Residents with the one-line description, no preview badge, and the idea feed", () => {
@@ -11,5 +12,6 @@ describe("ResidentsPage", () => {
     expect(screen.getByText("Simulated residents, backed by LLMs requesting support ideas to the system for the simulation to address.")).toBeInTheDocument();
     expect(screen.queryByText(/preview/i)).not.toBeInTheDocument();
     expect(screen.getByText("idea feed")).toBeInTheDocument();
+    expect(screen.getByText("tabs")).toBeInTheDocument();
   });
 });

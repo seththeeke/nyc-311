@@ -2,6 +2,8 @@
 
 export const RESIDENTS_PATH = "/residents";
 export const IDEA_DETAIL_PATTERN = "/residents/:personaId/ideas/:ideaId";
+/* The Contacts tab (docs/17-executive-team.md §17.3), behind CONTACTS_PAGE. */
+export const CONTACTS_PATH = "/residents/contacts";
 
 /** The Idea Detail view for one idea, addressed by its resident. */
 export function ideaDetailPath(personaId: string, ideaId: string): string {
