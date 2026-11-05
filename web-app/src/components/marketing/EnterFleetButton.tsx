@@ -12,8 +12,8 @@ const MAGNET_PULL = 0.3;
 
 /**
  * The page's call to action: a spinning conic rim, a pulsing halo, a light
- * sweep and a magnetic lean toward the pointer. While selected it glows and
- * offers "press Enter". Clicking it enters the fleet map.
+ * sweep and a magnetic lean toward the pointer. While selected it glows, so
+ * Enter works straight away. Clicking it enters the fleet map.
  */
 export function EnterFleetButton({ onEnter, size = "MD", autoSelectDelayMs }: EnterFleetButtonProps): ReactElement {
   const ref = useRef<HTMLButtonElement>(null);
@@ -61,11 +61,6 @@ export function EnterFleetButton({ onEnter, size = "MD", autoSelectDelayMs }: En
           </span>
         </span>
       </button>
-      {selected && (
-        <span aria-hidden="true" className="absolute left-1/2 top-full mt-5 -translate-x-1/2 animate-[mk-rise_0.5s_ease-out_both] whitespace-nowrap text-sm text-fg-subtle">
-          or press <kbd className="rounded-md border border-line-strong bg-panel px-2 py-0.5 font-mono text-xs text-fg">Enter ↵</kbd>
-        </span>
-      )}
     </span>
   );
 }

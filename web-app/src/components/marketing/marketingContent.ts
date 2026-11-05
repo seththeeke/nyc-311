@@ -11,12 +11,12 @@ export const SUBHEAD =
 export const AGENT_SECTION = {
   eyebrow: "Run by agents",
   title: "One human. A whole executive team of AI.",
-  body: "Operations, product, finance and technology each belong to an agent with one job and one metric. They meet, argue in Team Chat and run the company every day.",
+  body: "Operations, product, finance and technology, all auditing, deciding how to meet KPIs and debating how to run the company every day.",
 };
 
 export const FINAL_CTA = {
   title: "The city is moving right now.",
-  body: "Trucks are on the road, calls are coming in, and the clock is running. Step inside.",
+  body: "Calls are coming in, the clock is running and Patch is already on the road. Step inside.",
 };
 
 export const RESIDENTS_SECTION = {
@@ -25,11 +25,14 @@ export const RESIDENTS_SECTION = {
   body: "BoroughSim's customers are simulated residents, each an AI with a life, a neighborhood and a temper. They follow real repairs near them, chase crews that are late and push for features. Their needs decide what BoroughSim builds next.",
 };
 
-/* The resident flywheel, clockwise from 12 o'clock. */
+/* The residents the section features, in order; the rest are on the Residents page. */
+export const FEATURED_RESIDENT_IDS: readonly string[] = ["hawthorn", "juniper", "sycamore", "ginkgo", "yellowwood"];
+
+/* The business flywheel, clockwise from 12 o'clock. */
 export const FLYWHEEL_STEPS: readonly { title: string; body: string }[] = [
-  { title: "A need", body: "A pothole on the delivery route, a job that's gone quiet, an idea for a text when the crew is close." },
-  { title: "They reach out", body: "Residents use BoroughSim's public API to look up their request or file a feature request." },
-  { title: "A Contact is logged", body: "Every ask is tracked from first touch to answer." },
-  { title: "The CPO files the work", body: "Celestine turns the strongest needs into tickets aimed at satisfaction and cost per order." },
-  { title: "The agents ship it", body: "Better service, happier residents, and new needs to meet. The wheel turns again." },
+  { title: "Promise", body: "BoroughSim promises to resolve a resident's job." },
+  { title: "Ideas", body: "Residents come up with ideas about the service or their job." },
+  { title: "Tools", body: "BoroughSim gives residents tools to act on their ideas." },
+  { title: "Insight", body: "Those tool requests show BoroughSim what customers need." },
+  { title: "Build", body: "BoroughSim builds new features and tools to improve service." },
 ];

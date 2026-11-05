@@ -6,7 +6,7 @@ vi.mock("../../../../src/components/team/models/teamStudio", async (importOrigin
   return { ...actual, teamStudio: () => new Scene() };
 });
 
-import { photographTeamMember } from "../../../../src/components/team/models/teamPortrait";
+import { photographTeamMember, renderTeamMember } from "../../../../src/components/team/models/teamPortrait";
 
 describe("photographTeamMember", () => {
   it("renders the executive in the team studio with filmic tone, then puts the renderer back", () => {
@@ -15,5 +15,12 @@ describe("photographTeamMember", () => {
     expect(photographTeamMember(renderer, "kid-kestrel")).toBe("data:image/png;base64,TEAM");
     expect(render).toHaveBeenCalledTimes(1);
     expect(renderer.toneMapping).toBe(0);
+  });
+
+  it("draws without encoding, for the avatar worker's offscreen canvas", () => {
+    const render = vi.fn();
+    const renderer = { render, toneMapping: 0, toneMappingExposure: 1, domElement: {} } as unknown as WebGLRenderer;
+    renderTeamMember(renderer, "kid-kestrel");
+    expect(render).toHaveBeenCalledTimes(1);
   });
 });

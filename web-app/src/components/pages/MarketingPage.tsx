@@ -3,10 +3,10 @@ import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useTheme } from "../../hooks/useTheme";
 import { AgentOrbit } from "../marketing/AgentOrbit";
 import { FinalCta } from "../marketing/FinalCta";
-import { LiveStats } from "../marketing/LiveStats";
 import { MarketingHero } from "../marketing/MarketingHero";
 import { HowItWorks } from "../marketing/HowItWorks";
 import { ResidentsSection } from "../marketing/ResidentsSection";
+import { WeeklyStory } from "../marketing/weekly/WeeklyStory";
 
 interface MarketingPageProps {
   /** Leaves the marketing page for the fleet map. */
@@ -33,8 +33,8 @@ export function MarketingPage({ onEnter }: MarketingPageProps): ReactElement {
         <AgentOrbit />
         <HowItWorks reducedMotion={reducedMotion} />
         <ResidentsSection reducedMotion={reducedMotion} />
-        <LiveStats reducedMotion={reducedMotion} />
-        <FinalCta onEnter={onEnter} />
+        <WeeklyStory reducedMotion={reducedMotion} />
+        <FinalCta onEnter={onEnter} reducedMotion={reducedMotion} />
       </main>
       <footer className="border-t border-line px-4 py-10 text-center text-sm text-fg-subtle sm:px-8">
         BoroughSim runs on public NYC 311 data. The fleet, the company and its executives are simulated.

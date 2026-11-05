@@ -27,7 +27,7 @@ export const JOURNEY_STEPS: readonly JourneyStep[] = [
     actor: "BOROUGHSIM",
     kicker: "Serviceability check",
     title: "Can we fix it?",
-    body: "BoroughSim services street repairs: potholes, cave-ins, plates, rough roads. Everything else is not serviceable and is turned away with a reason.",
+    body: "BoroughSim services street repairs: potholes, cave-ins, plates, rough roads. Everything else is turned away with a reason.",
   },
   {
     id: "ESTIMATE",

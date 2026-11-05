@@ -1,53 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { HowItWorks } from "../../../src/components/marketing/HowItWorks";
 import { JOURNEY_STEPS } from "../../../src/components/marketing/journeySteps";
-import { useJourney } from "../../../src/components/marketing/useJourney";
+import { stepAt, stickyProgress, useStickyProgress } from "../../../src/components/marketing/useStickyProgress";
+import { cardTransform } from "../../../src/components/marketing/JourneyCard";
 import { useTicker } from "../../../src/components/marketing/useTicker";
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
-});
-
-describe("useJourney", () => {
-  it("advances on its timer and wraps round", () => {
-    vi.useFakeTimers();
-    const { result } = renderHook(() => useJourney(3, 100, true));
-    expect(result.current.active).toBe(0);
-    act(() => vi.advanceTimersByTime(100));
-    expect(result.current.active).toBe(1);
-    act(() => vi.advanceTimersByTime(100));
-    act(() => vi.advanceTimersByTime(100));
-    expect(result.current.active).toBe(0);
-  });
-
-  it("holds while paused or not playing, and a pick restarts the timer", () => {
-    vi.useFakeTimers();
-    const { result, rerender } = renderHook(({ playing }) => useJourney(3, 100, playing), { initialProps: { playing: false } });
-    act(() => vi.advanceTimersByTime(500));
-    expect(result.current.active).toBe(0);
-    rerender({ playing: true });
-    act(() => result.current.setPaused(true));
-    expect(result.current.paused).toBe(true);
-    act(() => vi.advanceTimersByTime(500));
-    expect(result.current.active).toBe(0);
-    act(() => {
-      result.current.setPaused(false);
-      result.current.select(2);
-    });
-    expect(result.current.active).toBe(2);
-    act(() => vi.advanceTimersByTime(100));
-    expect(result.current.active).toBe(0);
-  });
-
-  it("never advances a single step", () => {
-    vi.useFakeTimers();
-    const { result } = renderHook(() => useJourney(1, 100, true));
-    act(() => vi.advanceTimersByTime(500));
-    expect(result.current.active).toBe(0);
-  });
 });
 
 describe("useTicker", () => {
@@ -62,53 +23,96 @@ describe("useTicker", () => {
   });
 });
 
+describe("stickyProgress and stepAt", () => {
+  it("runs 0 to 1 while the section scrolls past its pinned stage, clamped", () => {
+    expect(stickyProgress({ top: 200, height: 3000 }, 1000)).toBe(0);
+    expect(stickyProgress({ top: -1000, height: 3000 }, 1000)).toBe(0.5);
+    expect(stickyProgress({ top: -5000, height: 3000 }, 1000)).toBe(1);
+  });
+
+  it("treats a section no taller than the viewport as done once its top passes", () => {
+    expect(stickyProgress({ top: 10, height: 800 }, 1000)).toBe(0);
+    expect(stickyProgress({ top: 0, height: 800 }, 1000)).toBe(1);
+  });
+
+  it("slices progress into equal steps", () => {
+    expect(stepAt(0, 5)).toBe(0);
+    expect(stepAt(0.39, 5)).toBe(1);
+    expect(stepAt(0.4, 5)).toBe(2);
+    expect(stepAt(1, 5)).toBe(4);
+    expect(stepAt(-1, 5)).toBe(0);
+  });
+});
+
+describe("useStickyProgress", () => {
+  it("stays at 0 without an element, even as the page scrolls", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    const { result, unmount } = renderHook(() => useStickyProgress({ current: null }));
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+      vi.advanceTimersByTime(20);
+    });
+    expect(result.current).toBe(0);
+    unmount();
+  });
+});
+
+describe("cardTransform", () => {
+  it("sits the current card square, tips passed ones back and holds upcoming ones below", () => {
+    expect(cardTransform(0).opacity).toBe(1);
+    expect(cardTransform(-1).transform).toContain("rotateX(14deg)");
+    expect(cardTransform(2).transform).toContain("translateY(26%)");
+    expect(cardTransform(1).opacity).toBe(0);
+  });
+});
+
 describe("HowItWorks", () => {
-  it("lists every step as a tab, marks the real-data step, and plays each scene when picked", async () => {
-    vi.stubGlobal("IntersectionObserver", undefined);
-    render(<HowItWorks reducedMotion={false} />);
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(JOURNEY_STEPS.length);
-    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("data-actor", "REAL_CITY");
-    expect(screen.getByText("Real data", { selector: "span.rounded-full" })).toBeInTheDocument();
-    expect(screen.getByText(/"Street Condition"/)).toBeInTheDocument();
+  let top = 0;
+  const scrollTo = (value: number): void => {
+    top = value;
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+      vi.advanceTimersByTime(20);
+    });
+  };
 
-    await userEvent.click(tabs[1]);
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("data-actor", "BOROUGHSIM");
-    expect(screen.getAllByText("✓ Serviceable")).toHaveLength(3);
-    expect(screen.getByText("BoroughSim doesn't")).toBeInTheDocument();
-
-    await userEvent.click(tabs[2]);
-    expect(screen.getByText("Estimated cost")).toBeInTheDocument();
-
-    await userEvent.click(tabs[3]);
-    expect(screen.getByTestId("new-order")).toBeInTheDocument();
-
-    await userEvent.click(tabs[4]);
-    expect(screen.getByText("Resolved")).toBeInTheDocument();
-  });
-
-  it("pauses its progress bar under the pointer and auto-advances otherwise", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", undefined);
+  it("brings each step card forward as the section scrolls, filling the rail and playing that step's scene", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return (this.id === "how-it-works" ? { top, height: 1000 * 3.75 } : { top: 0, height: 0, left: 0, width: 0 }) as DOMRect;
+    });
+    vi.stubGlobal("innerHeight", 1000);
+    top = 0;
     const { container } = render(<HowItWorks reducedMotion={false} />);
-    const bar = (): Element | null => container.querySelector("[role=tab][aria-selected=true] span[style*='animation-duration']");
-    expect(bar()).not.toBeNull();
-    const grid = screen.getByRole("tablist").parentElement as HTMLElement;
-    fireEvent.pointerEnter(grid);
-    expect(bar()).toBeNull();
-    act(() => vi.advanceTimersByTime(9000));
-    expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
-    fireEvent.pointerLeave(grid);
-    act(() => vi.advanceTimersByTime(6000));
-    expect(screen.getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
+    const current = (): Element | null => container.querySelector("article[data-current=true]");
+    expect(container.querySelectorAll("article")).toHaveLength(JOURNEY_STEPS.length);
+    expect(current()).toHaveAttribute("data-actor", "REAL_CITY");
+    expect(screen.getByText(/"Street Condition"/)).toBeInTheDocument();
+    expect(screen.getByTestId("rail-REAL_DATA").style.transform).toBe("scaleX(0)");
+
+    scrollTo(-700);
+    expect(current()?.textContent).toContain("Can we fix it?");
+    expect(screen.getAllByText("✓ Serviceable")).toHaveLength(3);
+    expect(screen.getByTestId("rail-REAL_DATA").style.transform).toBe("scaleX(1)");
+
+    scrollTo(-1200);
+    expect(screen.getByText("Estimated cost")).toBeInTheDocument();
+    scrollTo(-1800);
+    expect(screen.getByTestId("new-order")).toBeInTheDocument();
+    scrollTo(-2750);
+    expect(screen.getByText("Resolved")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")[4]).toHaveAttribute("aria-current", "step");
+    vi.restoreAllMocks();
   });
 
-  it("holds still with reduced motion: no progress bar, and the estimate shows its total at once", async () => {
-    vi.stubGlobal("IntersectionObserver", undefined);
-    const { container } = render(<HowItWorks reducedMotion={true} />);
-    expect(container.querySelector("span[style*='animation-duration']")).toBeNull();
-    await userEvent.click(screen.getAllByRole("tab")[2]);
+  it("shows the estimate's total at once under reduced motion", () => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return (this.id === "how-it-works" ? { top: -1200, height: 3750 } : { top: 0, height: 0 }) as DOMRect;
+    });
+    vi.stubGlobal("innerHeight", 1000);
+    render(<HowItWorks reducedMotion={true} />);
     expect(screen.getByText("$1,840")).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 });

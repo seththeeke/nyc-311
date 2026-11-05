@@ -26,7 +26,7 @@ const ideas: ResidentIdea[] = [...MOCK_RESIDENT_IDEAS];
 describe("ResidentCrowd", () => {
   it("shows every resident and cycles their latest ideas, ringing whoever is speaking", () => {
     vi.useFakeTimers();
-    const { container } = render(<ResidentCrowd personas={personas} ideas={ideas} playing={true} />);
+    const { container } = render(<ResidentCrowd personas={personas} ideas={ideas} playing={true} drawAvatars={true} />);
     for (const persona of personas) expect(screen.getAllByText(persona.name).length).toBeGreaterThan(0);
     const first = container.querySelector("blockquote")?.textContent;
     expect(first).toContain(ideas[0].text);
@@ -38,9 +38,9 @@ describe("ResidentCrowd", () => {
 
   it("credits an unknown speaker as a resident, and shows no bubble without ideas", () => {
     const stranger = { ...ideas[0], persona_id: "nobody" };
-    const { rerender } = render(<ResidentCrowd personas={personas} ideas={[stranger]} playing={false} />);
+    const { rerender } = render(<ResidentCrowd personas={personas} ideas={[stranger]} playing={false} drawAvatars={false} />);
     expect(screen.getByText("A resident")).toBeInTheDocument();
-    rerender(<ResidentCrowd personas={personas} ideas={[]} playing={false} />);
+    rerender(<ResidentCrowd personas={personas} ideas={[]} playing={false} drawAvatars={false} />);
     expect(screen.queryByRole("figure")).not.toBeInTheDocument();
   });
 });
@@ -60,6 +60,21 @@ describe("ResidentFlywheel", () => {
 });
 
 describe("ResidentsSection", () => {
+  it("features five residents, leaving the rest (Pine-ter Parker among them) for the Residents page", () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
+    vi.mocked(useResidentPersonas).mockReturnValue({ data: personas } as ReturnType<typeof useResidentPersonas>);
+    const parkerIdea = { ...ideas[0], idea_id: "parker", persona_id: "pineter-parker", text: "Spidey sense says pothole" };
+    vi.mocked(useResidentIdeas).mockReturnValue({ data: [parkerIdea] } as ReturnType<typeof useResidentIdeas>);
+    render(
+      <MemoryRouter>
+        <ResidentsSection reducedMotion={true} />
+      </MemoryRouter>,
+    );
+    for (const name of ["Hawthorn", "Juniper", "Sycamore", "Ginkgo", "Yellowwood"]) expect(screen.getByText(name)).toBeInTheDocument();
+    expect(screen.queryByText("Pine-ter Parker")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Spidey sense/)).not.toBeInTheDocument();
+  });
+
   it("joins the live residents and ideas to the flywheel, with a way to meet them", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     vi.mocked(useResidentPersonas).mockReturnValue({ data: personas } as ReturnType<typeof useResidentPersonas>);

@@ -6,11 +6,11 @@ import type { ReactElement } from "react";
 import { KineticHeadline } from "../../../src/components/marketing/KineticHeadline";
 import { EnterFleetButton } from "../../../src/components/marketing/EnterFleetButton";
 import { AgentOrbit, EXECUTIVES, orbitAngle } from "../../../src/components/marketing/AgentOrbit";
-import { FinalCta } from "../../../src/components/marketing/FinalCta";
 import { Reveal } from "../../../src/components/marketing/Reveal";
 import { MarketingHero } from "../../../src/components/marketing/MarketingHero";
 import { TEAM_ROSTER } from "../../../src/components/team/teamRoster";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import * as PersonaAvatarModule from "../../../src/components/residents/PersonaAvatar";
 import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
 
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => true) }));
@@ -45,7 +45,7 @@ describe("EnterFleetButton", () => {
 });
 
 describe("EnterFleetButton auto-select", () => {
-  it("selects itself after the delay, offers Enter, and lets go on blur", () => {
+  it("selects itself after the delay and lets go on blur", () => {
     vi.useFakeTimers();
     render(<EnterFleetButton onEnter={vi.fn()} autoSelectDelayMs={500} />);
     const button = screen.getByRole("button", { name: /Enter fleet/ });
@@ -53,7 +53,6 @@ describe("EnterFleetButton auto-select", () => {
     act(() => vi.advanceTimersByTime(500));
     expect(button).toHaveFocus();
     expect(button).toHaveAttribute("data-selected", "true");
-    expect(screen.getByText("Enter ↵")).toBeInTheDocument();
     act(() => button.blur());
     expect(button).toHaveAttribute("data-selected", "false");
     vi.useRealTimers();
@@ -90,8 +89,7 @@ describe("AgentOrbit", () => {
     expect(EXECUTIVES.some((m) => m.role === "ENGINEER")).toBe(false);
     for (const member of EXECUTIVES) expect(screen.getByText(member.name)).toBeInTheDocument();
     for (const engineer of TEAM_ROSTER.filter((m) => m.role === "ENGINEER")) expect(screen.queryByText(engineer.name)).not.toBeInTheDocument();
-    const agents = EXECUTIVES.filter((m) => m.kind === "AGENT").length;
-    expect(screen.getByText(`1 + ${agents}`)).toBeInTheDocument();
+    expect(screen.getByText(/Human/)).toHaveTextContent("Human+ Agents");
     const photos = EXECUTIVES.filter((m) => m.photo_url).length;
     expect(document.querySelectorAll("li img")).toHaveLength(photos);
   });
@@ -109,6 +107,26 @@ describe("AgentOrbit", () => {
     expect(screen.getByText("Team page")).toBeInTheDocument();
   });
 
+  it("draws the agents' faces only once the section is near the screen", () => {
+    const avatar = vi.spyOn(PersonaAvatarModule, "PersonaAvatar");
+    render(
+      <MemoryRouter>
+        <AgentOrbit />
+      </MemoryRouter>,
+    );
+    expect(avatar.mock.calls.every(([props]) => props.modelKey === null)).toBe(true);
+    avatar.mockClear();
+    vi.stubGlobal("IntersectionObserver", undefined);
+    render(
+      <MemoryRouter>
+        <AgentOrbit />
+      </MemoryRouter>,
+    );
+    expect(avatar.mock.calls.some(([props]) => props.modelKey !== null)).toBe(true);
+    vi.unstubAllGlobals();
+    avatar.mockRestore();
+  });
+
   it("hides the link while Meet the Team is off", () => {
     vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
     render(
@@ -121,13 +139,6 @@ describe("AgentOrbit", () => {
 });
 
 describe("FinalCta and Reveal", () => {
-  it("closes on a large Enter fleet", async () => {
-    const onEnter = vi.fn();
-    render(<FinalCta onEnter={onEnter} />);
-    await userEvent.click(screen.getByRole("button", { name: /Enter fleet/ }));
-    expect(onEnter).toHaveBeenCalled();
-  });
-
   it("starts hidden until it scrolls into view", () => {
     vi.stubGlobal(
       "IntersectionObserver",

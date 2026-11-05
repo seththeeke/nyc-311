@@ -48,7 +48,7 @@ export function ResidentFlywheel({ playing }: { playing: boolean }): ReactElemen
                   style={{ transitionDelay: lit ? `${HOP_MS - 150}ms` : "0ms" }}
                   className={`flex -translate-x-1/2 -translate-y-1/2 items-center justify-center whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition-all duration-500 ${lit ? "scale-110 border-hue-rose bg-hue-rose text-surface shadow-[0_0_30px_var(--t-hue-rose)]" : "border-line-strong bg-surface text-fg-muted"}`}
                 >
-                  {s.title}
+                  {i + 1} · {s.title}
                 </span>
               </li>
             );

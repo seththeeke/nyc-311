@@ -11,6 +11,8 @@ interface ResidentCrowdProps {
   personas: readonly ResidentPersona[];
   ideas: readonly ResidentIdea[];
   playing: boolean;
+  /* Whether to draw the 3-D faces yet; until then each shows its initial. */
+  drawAvatars: boolean;
 }
 
 /*
@@ -18,7 +20,7 @@ interface ResidentCrowdProps {
  * step, and a speech bubble cycling through their latest real ideas, with the
  * speaker's avatar lifted and ringed.
  */
-export function ResidentCrowd({ personas, ideas, playing }: ResidentCrowdProps): ReactElement {
+export function ResidentCrowd({ personas, ideas, playing, drawAvatars }: ResidentCrowdProps): ReactElement {
   const tick = useTicker(IDEA_MS, playing);
   const recent = ideas.slice(0, MAX_IDEAS);
   const idea = recent.length > 0 ? recent[tick % recent.length] : null;
@@ -36,7 +38,7 @@ export function ResidentCrowd({ personas, ideas, playing }: ResidentCrowdProps):
               style={{ animationDelay: `${-i * 0.7}s` }}
             >
               <span className={`rounded-full p-1 transition-all duration-500 ${speaking ? "scale-110 bg-hue-rose shadow-[0_0_30px_var(--t-hue-rose)]" : "bg-transparent"}`}>
-                <PersonaAvatar name={persona.name} modelKey={persona.model_key} size="XL" />
+                <PersonaAvatar name={persona.name} modelKey={drawAvatars ? persona.model_key : null} size="XL" />
               </span>
               <span className={`text-sm font-bold ${speaking ? "text-hue-rose" : "text-fg"}`}>{persona.name}</span>
             </li>

@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import { useFeatureEnabled } from "../../hooks/useFeatureTreatment";
 import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
@@ -8,6 +8,10 @@ import { TEAM_ROSTER } from "../team/teamRoster";
 import { TEAM_PATH } from "../team/teamRoutes";
 import { AGENT_SECTION } from "./marketingContent";
 import { Reveal } from "./Reveal";
+import { useInView } from "./useInView";
+
+/* How far ahead of the viewport the faces start drawing: each is a 3-D render, so none happen at page load. */
+export const AVATAR_LEAD = "600px";
 
 /* The executive team only: the engineers stay off the ring. */
 export const EXECUTIVES: readonly TeamMember[] = TEAM_ROSTER.filter((member) => member.role !== "ENGINEER");
@@ -18,21 +22,23 @@ export function orbitAngle(index: number, count: number): number {
 }
 
 /* A member's face on the ring: the CEO's photo, or the agent's figure (its initial without WebGL). */
-function OrbitAvatar({ member }: { member: TeamMember }): ReactElement {
-  if (member.photo_url) return <img src={member.photo_url} alt="" className="h-12 w-12 rounded-full object-cover" />;
-  return <PersonaAvatar name={member.name} modelKey={member.model_key} size="LG" />;
+function OrbitAvatar({ member, draw }: { member: TeamMember; draw: boolean }): ReactElement {
+  if (member.photo_url) return <img src={member.photo_url} alt="" loading="lazy" className="h-12 w-12 rounded-full object-cover" />;
+  return <PersonaAvatar name={member.name} modelKey={draw ? member.model_key : null} size="LG" />;
 }
 
 /*
- * The executive team as a slow orbit around the company: every member rides
+ * The executive team as a slow orbit around "Human + Agents": every member rides
  * the ring while counter-rotating, so faces and names stay upright. Hovering
- * the ring pauses it. Meet the Team shows while its page's flag is on.
+ * the ring pauses it. Faces draw only as the section nears the screen. Meet
+ * the Team shows while its page's flag is on.
  */
 export function AgentOrbit(): ReactElement {
-  const agents = EXECUTIVES.filter((member) => member.kind === "AGENT").length;
   const teamPageOn = useFeatureEnabled(MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON);
+  const ref = useRef<HTMLElement>(null);
+  const near = useInView(ref, 0, AVATAR_LEAD);
   return (
-    <section aria-labelledby="agents-title" className="relative overflow-hidden py-32">
+    <section ref={ref} aria-labelledby="agents-title" className="mk-lazy-section relative overflow-hidden py-32">
       <div className="mx-auto grid max-w-6xl items-center gap-16 px-4 sm:px-8 lg:grid-cols-2">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-hue-violet">{AGENT_SECTION.eyebrow}</p>
@@ -43,7 +49,7 @@ export function AgentOrbit(): ReactElement {
           {teamPageOn && (
             <Link
               to={TEAM_PATH}
-              className="mt-10 inline-flex items-center gap-3 rounded-full border border-line-strong bg-panel px-6 py-3 font-semibold text-fg backdrop-blur transition-colors hover:border-hue-violet hover:text-hue-violet"
+              className="mk-pop-button mt-10 inline-flex items-center gap-3 rounded-full px-7 py-3.5 font-bold text-surface transition-transform duration-300 hover:-translate-y-0.5 hover:scale-105"
             >
               Meet the Team
               <span aria-hidden="true">→</span>
@@ -54,8 +60,10 @@ export function AgentOrbit(): ReactElement {
           <div aria-hidden="true" className="absolute inset-[8%] rounded-full border border-dashed border-line-strong" />
           <div aria-hidden="true" className="absolute inset-[30%] rounded-full border border-line" />
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <p className="mk-gradient-text text-6xl font-black">1 + {agents}</p>
-            <p className="mt-1 text-sm uppercase tracking-widest text-fg-subtle">human + agents</p>
+            <p className="mk-gradient-text text-3xl font-black leading-tight sm:text-4xl">
+              Human
+              <br />+ Agents
+            </p>
           </div>
           <ul className="absolute inset-0 animate-[mk-orbit_60s_linear_infinite] group-hover:[animation-play-state:paused]">
             {EXECUTIVES.map((member, i) => (
@@ -66,7 +74,7 @@ export function AgentOrbit(): ReactElement {
               >
                 <div className="-translate-x-1/2 -translate-y-1/2 animate-[mk-orbit-reverse_60s_linear_infinite] group-hover:[animation-play-state:paused]">
                   <div className="glass flex flex-col items-center gap-1.5 whitespace-nowrap rounded-2xl px-3 py-2.5 text-center transition-transform duration-300 hover:scale-110">
-                    <OrbitAvatar member={member} />
+                    <OrbitAvatar member={member} draw={near} />
                     <p className="text-sm font-bold text-fg">{member.name}</p>
                     <p className={`text-xs ${member.kind === "HUMAN" ? "text-hue-amber" : "text-hue-cyan"}`}>{member.short_title}</p>
                   </div>
