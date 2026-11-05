@@ -27,7 +27,7 @@ afterEach(() => {
 describe("useTeamChat", () => {
   it("loads channels, a channel's messages oldest first, and a thread from the mock", async () => {
     const channels = renderHook(() => useChatChannels(), { wrapper });
-    await waitFor(() => expect(channels.result.current.data).toHaveLength(2));
+    await waitFor(() => expect(channels.result.current.data).toHaveLength(3));
     const messages = renderHook(() => useChannelMessages("tech-team"), { wrapper });
     await waitFor(() => expect(messages.result.current.data?.map((m) => m.message_id)).toEqual(["T1", "T2", "T3"]));
     const thread = renderHook(() => useChatThread("tech-team", "T1"), { wrapper });

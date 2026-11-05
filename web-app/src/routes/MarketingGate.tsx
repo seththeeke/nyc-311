@@ -4,7 +4,8 @@ import { useFeatureTreatment } from "../hooks/useFeatureTreatment";
 import { MARKETING_PAGE_FLAG, MARKETING_PAGE_ON } from "../models/featureTreatment";
 import { MAP_PATH } from "../components/map/mapRoutes";
 
-const MarketingPage = lazy(() => import("../components/pages/MarketingPage").then((m) => ({ default: m.MarketingPage })));
+const loadMarketingPage = () => import("../components/pages/MarketingPage");
+const MarketingPage = lazy(() => loadMarketingPage().then((m) => ({ default: m.MarketingPage })));
 
 /* Once a visitor enters the fleet, / is the map for the rest of the tab's session, so the map's own links home keep working. */
 export const MARKETING_ENTERED_KEY = "nyc311.marketing.entered";
@@ -36,7 +37,11 @@ export function MarketingGate(): ReactElement | null {
   const { treatment, isLoading } = useFeatureTreatment(MARKETING_PAGE_FLAG);
   const [entered, setEntered] = useState(readEntered);
   if (pathname !== MAP_PATH || entered) return <Outlet />;
-  if (isLoading) return null;
+  /* Fetch the page's code alongside the flag lookup, not after it: on T1 that's one round trip off first paint. */
+  if (isLoading) {
+    void loadMarketingPage();
+    return null;
+  }
   if (treatment !== MARKETING_PAGE_ON) return <Outlet />;
   const enter = (): void => {
     writeEntered();

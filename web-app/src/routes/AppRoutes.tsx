@@ -5,9 +5,9 @@ import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { MarketingGate } from "./MarketingGate";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
+import { CONTACTS_PAGE_FLAG, CONTACTS_PAGE_ON, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
 import { MAP_JOB_PATTERN, MAP_PATH } from "../components/map/mapRoutes";
-import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
+import { CONTACTS_PATH, IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { SpinnerIcon } from "../components/icons";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
 
@@ -40,6 +40,7 @@ const MapPage = lazy(() => import("../components/pages/MapPage").then((m) => ({ 
 const ResidentsPage = lazy(() =>
   import("../components/pages/ResidentsPage").then((m) => ({ default: m.ResidentsPage }))
 );
+const ContactsPage = lazy(() => import("../components/pages/ContactsPage").then((m) => ({ default: m.ContactsPage })));
 const ResidentIdeaPage = lazy(() =>
   import("../components/pages/ResidentIdeaPage").then((m) => ({ default: m.ResidentIdeaPage }))
 );
@@ -93,6 +94,14 @@ export function AppRoutes(): ReactElement {
           {/* The map's old path, kept so bookmarks still land on it. */}
           <Route path="/mapv2/*" element={<Navigate to={MAP_PATH} replace />} />
           <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
+          <Route
+            path={CONTACTS_PATH}
+            element={
+              <FeatureFlagRoute flagKey={CONTACTS_PAGE_FLAG} onTreatments={[CONTACTS_PAGE_ON]}>
+                {withLoadingFallback(<ContactsPage />)}
+              </FeatureFlagRoute>
+            }
+          />
           <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
           <Route
             path={TEAM_PATH}

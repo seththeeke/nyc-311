@@ -6,7 +6,7 @@
 > (that doc's Leg 6). What remains open (Leg 4's cleanup script, §3.4
 > failure injection, the atomic-claim revisit trigger in §1.5) is
 > deliberately deferred future work, tracked in
-> `99-things-to-come-back-to.md`, not gaps in a working system.
+> the GitHub backlog, not gaps in a working system.
 >
 > Legs 1-6 of the capacity-management effort (Leg 0, admin auth, is
 > `9-admin-auth-integration.md` — shipped and verified live 2026-09-10).
@@ -304,7 +304,7 @@ now.
 **Agreed, deferred.** This leg ships the happy-path simulation only. What
 a failed execution does to the assigned vehicle/Order (stuck busy? Case
 created? vehicle force-returned to the pool?) is real design work on its
-own — logged as a named follow-up in `99-things-to-come-back-to.md` once
+own — logged as a named follow-up in the GitHub backlog once
 this leg ships, not silently skipped.
 
 ### 3.5 Dropping capacity pools from scheduling
@@ -386,7 +386,7 @@ now" read with no extra query.
 **Explicitly out of scope for this leg** (per your own framing): pings
 "every interval, based on actual movement" during the `Wait` states —
 that needs the mock execution model to actually simulate interpolated
-motion, which doesn't exist yet. Logged in `99-things-to-come-back-to.md`
+motion, which doesn't exist yet. Logged in the GitHub backlog
 once this leg ships.
 
 ### 3.8 Pre-scheduling hook — leading `Wait`

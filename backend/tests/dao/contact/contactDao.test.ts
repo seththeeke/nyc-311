@@ -1,10 +1,10 @@
-import { DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContactDao } from "../../../dao/contact/contactDao";
+import { CONTACTS_BY_TYPE_INDEX, ContactDao } from "../../../dao/contact/contactDao";
 import type { Contact } from "../../../models/contact";
-import { TerminalError, ValidationError } from "../../../models/errors";
+import { ConflictError, TerminalError, ValidationError } from "../../../models/errors";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const TABLE = "Contacts-Test";
@@ -119,5 +119,55 @@ describe("ContactDao.createContact", () => {
   it("rejects an invalid Contact before writing", async () => {
     await expect(dao().createContact({ ...contact, title: "" })).rejects.toThrow(ValidationError);
     expect(ddbMock.commandCalls(TransactWriteCommand)).toHaveLength(0);
+  });
+});
+
+describe("ContactDao.listContacts", () => {
+  const lastKey = { contact_id: contact.contact_id, contact_type: "FEATURE_REQUEST", created_at: contact.created_at };
+
+  it("queries the type index newest first and returns a cursor for the next page", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [contact], LastEvaluatedKey: lastKey });
+    const page = await dao().listContacts({ contactType: "FEATURE_REQUEST", order: "NEWEST", limit: 25 });
+    expect(page.contacts).toEqual([contact]);
+    expect(JSON.parse(Buffer.from(page.nextCursor!, "base64url").toString("utf8"))).toEqual(lastKey);
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({ TableName: TABLE, IndexName: CONTACTS_BY_TYPE_INDEX, ScanIndexForward: false, Limit: 25 });
+    expect(input.FilterExpression).toBeUndefined();
+  });
+
+  it("filters by status, reads oldest first and resumes from a cursor", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+    const cursor = Buffer.from(JSON.stringify(lastKey), "utf8").toString("base64url");
+    const page = await dao().listContacts({ contactType: "FEATURE_REQUEST", status: "CLOSED", order: "OLDEST", limit: 5, cursor });
+    expect(page).toEqual({ contacts: [], nextCursor: null });
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({ ScanIndexForward: true, FilterExpression: "#status = :status", ExclusiveStartKey: lastKey });
+    expect(input.ExpressionAttributeValues).toEqual({ ":type": "FEATURE_REQUEST", ":status": "CLOSED" });
+  });
+
+  it("rejects a malformed cursor", async () => {
+    await expect(dao().listContacts({ contactType: "FEATURE_REQUEST", order: "NEWEST", limit: 5, cursor: "not-json" })).rejects.toThrow(ValidationError);
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(0);
+  });
+});
+
+describe("ContactDao.replaceContact", () => {
+  const updated: Contact = { ...contact, status: "IN_PROGRESS", ticket_number: 170, closure_reason_description: "Tracked as ticket #170.", updated_at: "2026-11-05T14:00:00.000Z" };
+
+  it("puts the row only if it still exists at the updated_at it was read with", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    expect(await dao().replaceContact(updated, contact.updated_at)).toEqual(updated);
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input).toMatchObject({
+      TableName: TABLE,
+      Item: updated,
+      ConditionExpression: "attribute_exists(contact_id) AND updated_at = :expected",
+      ExpressionAttributeValues: { ":expected": contact.updated_at },
+    });
+  });
+
+  it("throws ConflictError when the condition fails and rethrows anything else", async () => {
+    ddbMock.on(PutCommand).rejectsOnce(new ConditionalCheckFailedException({ message: "no", $metadata: {} })).rejectsOnce(new Error("throttled"));
+    await expect(dao().replaceContact(updated, contact.updated_at)).rejects.toThrow(ConflictError);
+    await expect(dao().replaceContact(updated, contact.updated_at)).rejects.toThrow("throttled");
   });
 });

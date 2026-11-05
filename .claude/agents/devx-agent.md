@@ -149,10 +149,6 @@ in that file — note it in your final report so it can be added.
 CoW `node_modules`; `devx-agent-guard.sh` + the committer stamp work unchanged.
 Run it several times in parallel (backgrounded shells) for concurrency.
 
-Note: parallel runs each appending to `docs/99-things-to-come-back-to.md` on
-separate branches can conflict at merge time — a human-merge concern,
-acceptable.
-
 ## Workflow
 
 Track these as a TodoWrite list so progress is visible.
@@ -338,8 +334,7 @@ Write the baseline into your notes verbatim — you will diff against it in step
 ### 3. Plan → file a backlog ticket
 
 Invoke the **`log-backlog-item`** skill to create the GitHub issue (repo
-`seththeeke/nyc-311`, `backlog` label, and mirror into
-`docs/99-things-to-come-back-to.md` per that skill). The issue body must contain:
+`seththeeke/nyc-311`, `backlog` label). The issue body must contain:
 
 - **Problem** — the one-sentence statement from step 1.
 - **Evidence** — the baseline metric and the command that produced it (step 2).
@@ -443,8 +438,6 @@ don't open a PR. Instead:
    The comment starts with `<!-- devx-agent -->` and says why it wasn't
    worthwhile: baseline vs. measured result (with the command), what the real
    cause turned out to be, and any existing issue a broader fix belongs under.
-3. Since nothing ships, the ticket's `docs/99-things-to-come-back-to.md` entry
-   is discarded with the rest — that's expected.
 
 A disproved idea closed with clear findings is a successful run. Report it in
 the final report.
@@ -463,7 +456,8 @@ with `main`.
 can't tell your comments from theirs. Every PR comment you post starts with
 the line `<!-- devx-agent -->`. A comment counts as **unaddressed** when it
 lacks that marker and was created after your newest marked comment on that PR
-(or at any time, if you've never posted one). Check all three sources:
+(or at any time, if you've never posted one). Rex's approval and escalation
+comments never count (*Rex's reviews* below). Check all three sources:
 
 ```
 gh pr view <n> --repo seththeeke/nyc-311 --json headRefName,comments,reviews,mergeable
@@ -474,6 +468,20 @@ gh api repos/seththeeke/nyc-311/pulls/<n>/comments --paginate   # inline review 
 If a PR has nothing unaddressed and isn't `CONFLICTING`, move to the next. In
 REVISE mode, a run where no PR needs tending is a successful no-op: say so and
 exit.
+
+**Rex's reviews.** Rex, the CTO (`cto-agent`), reviews your PRs with the same
+GitHub account, so his marks are signed too (docs/17-executive-team.md §16):
+
+- A review whose body starts `<!-- cto-agent:review -->`, with inline comments
+  starting `**Rex (CTO):**`, is **feedback**. Address every inline comment: they
+  are his blocking items. The "Suggestions (optional)" line is yours to take or
+  leave; say which in your reply.
+- A comment starting `<!-- cto-agent:approved -->` is an **approval**, not
+  feedback: nothing to address. Its optional suggestions don't need a reply.
+- A comment starting `<!-- cto-agent:escalated -->` hands the PR to Seth. Don't
+  push for Rex's items any more; address only what Seth comments next.
+- Never touch the `cto-approved` or `cto-escalated` labels or the `cto-review`
+  commit status. A new push is what asks Rex for another look.
 
 For each PR that needs tending:
 
@@ -493,8 +501,7 @@ For each PR that needs tending:
    ```
    Resolve each conflicted file by keeping *both* sides' intent — `main`'s
    changes are already reviewed and merged, so your PR's change adapts to
-   them, never the reverse. `docs/99-things-to-come-back-to.md` append
-   conflicts: keep every entry from both sides. Then `git add` the files and
+   them, never the reverse. Then `git add` the files and
    `git commit --no-edit` to conclude the merge. If a conflict can't be
    resolved without guessing at intent (both sides rewrote the same logic
    differently), `git merge --abort`, leave the PR as-is, and explain the

@@ -626,4 +626,4 @@ its shape changes.
   exact median, and whole-week vs week-to-date.
 - **Rollout.** Buckets only exist from deploy onward, so flip to `T1` after the
   first Monday boundary following the deploy, or the week in progress reads short.
-  Flag and `wbr` read-path cleanup is tracked in `99-things-to-come-back-to.md`.
+  Flag and `wbr` read-path cleanup is tracked in the GitHub backlog.

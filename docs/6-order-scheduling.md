@@ -190,7 +190,7 @@ Case** for that Order, indefinitely, until either its `Request`/`Location`
 data is fixed or real Case persistence exists to de-duplicate against an
 already-open Case. Today `createCase` only logs, so the actual cost is
 repeated log lines, not paging noise — acceptable for now, logged in
-`99-things-to-come-back-to.md`. The natural fix (skip if `case_id` is
+the GitHub backlog. The natural fix (skip if `case_id` is
 already set) falls out for free once Case persistence is real.
 
 This path is **not** the same as ordinary capacity exhaustion (§7) — a
@@ -522,7 +522,7 @@ Code built and locally verified 2026-08-28; live `Nyc311-Test` deploy/verificati
 - [x] Unit tests + CDK assertion tests, 90%+ per-file (100% achieved on
       every touched file), `backend` and `cdk` both green (§10).
 - [x] Log the repeated-Case-on-unroutable gap (§3) in
-      `99-things-to-come-back-to.md` —
+      the GitHub backlog —
       [#11](https://github.com/seththeeke/nyc-311/issues/11).
 - [ ] Deployed to `Nyc311-Test` via the pipeline (`DeployTest` succeeded)
       and verified live: manually invoke the Lambda, confirm at least one

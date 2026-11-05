@@ -2,7 +2,7 @@ import type { TeamChatChannel } from "../models/teamChatChannel";
 import type { TeamChatMessage } from "../models/teamChatMessage";
 
 /*
- * Baked Team Chat for mock mode (VITE_TEAM_DATA_MODE): the two channels and
+ * Baked Team Chat for mock mode (VITE_TEAM_DATA_MODE): the channels and
  * a little in-character traffic, so the page can be built without the chat
  * API. A live build never ships this (vite.config.ts's liveBundleGuard).
  */
@@ -24,6 +24,15 @@ export const MOCK_TEAM_CHAT_CHANNELS: readonly TeamChatChannel[] = [
     visibility: "PUBLIC",
     last_message_id: "T3",
     last_message_at: "2026-11-01T06:20:00.000Z",
+  },
+  {
+    channel_id: "executive-assistant",
+    name: "executive-assistant",
+    topic: "Yesterday's work across the team, every morning.",
+    member_ids: ["ceo", "chief-of-staff"],
+    visibility: "PUBLIC",
+    last_message_id: null,
+    last_message_at: null,
   },
 ];
 

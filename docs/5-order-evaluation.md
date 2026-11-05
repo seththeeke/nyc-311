@@ -390,7 +390,7 @@ exhausted retries to transition to Case creation automatically; the old
 Step-Functions design got that for free via `Catch`). Named explicitly
 rather than silently dropped, same pattern as this project's other
 accepted gaps (e.g. `3-order-ingestion.md` §6's backfill gap) — logged in
-`99-things-to-come-back-to.md`, plus a CloudWatch alarm on the DLQ's
+the GitHub backlog, plus a CloudWatch alarm on the DLQ's
 `ApproximateNumberOfMessagesVisible` for ops visibility in the meantime. A
 DLQ-consumer Lambda that creates a Case for a permanently-failed
 evaluation is the natural fix, revisit once real Case persistence (§5)
@@ -531,7 +531,7 @@ build (fan-out leg, then evaluation leg) — not one slice.
       to run.
 - [x] Both Lambdas added to the Lambda Health monitoring tile.
 - [x] Log the DLQ-Case gap (§6) and the Case-mapping deferral (§5) — **already
-      logged** in `99-things-to-come-back-to.md`.
+      logged** in the GitHub backlog.
 
 ### Addendum — `GET /order-events` (built alongside Leg 2, 2026-08-26)
 

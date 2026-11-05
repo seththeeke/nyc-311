@@ -3,7 +3,6 @@ import { act, render, renderHook, screen } from "@testing-library/react";
 import { useRef, type ReactElement } from "react";
 import { useInView } from "../../../src/components/marketing/useInView";
 import { easeOutExpo, useCountUp } from "../../../src/components/marketing/useCountUp";
-import { scrollProgress, useScrollProgress } from "../../../src/components/marketing/useScrollProgress";
 
 type ObserverCallback = (entries: { isIntersecting: boolean }[]) => void;
 
@@ -82,42 +81,5 @@ describe("useCountUp", () => {
     expect(result.current).toBe(42);
     rerender({ target: null });
     expect(result.current).toBeNull();
-  });
-});
-
-describe("scrollProgress", () => {
-  it("runs from 0 at the bottom edge to 1 at the centre, clamped", () => {
-    expect(scrollProgress({ top: 1000, height: 200 }, 800)).toBe(0);
-    expect(scrollProgress({ top: 800, height: 200 }, 800)).toBe(0);
-    expect(scrollProgress({ top: 300, height: 200 }, 800)).toBe(1);
-    expect(scrollProgress({ top: -500, height: 200 }, 800)).toBe(1);
-    expect(scrollProgress({ top: 550, height: 200 }, 800)).toBeCloseTo(0.5);
-  });
-
-  it("treats a degenerate span as complete", () => {
-    expect(scrollProgress({ top: 0, height: -800 }, 800)).toBe(1);
-  });
-});
-
-describe("useScrollProgress", () => {
-  it("measures on mount and again after a scroll anywhere on the page", () => {
-    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
-    const element = document.createElement("div");
-    let top = 1000;
-    element.getBoundingClientRect = () => ({ top, height: 200 }) as DOMRect;
-    const { result, unmount } = renderHook(() => useScrollProgress({ current: element }));
-    expect(result.current).toBe(0);
-    top = -100;
-    act(() => {
-      window.dispatchEvent(new Event("scroll"));
-      vi.advanceTimersByTime(20);
-    });
-    expect(result.current).toBe(1);
-    unmount();
-  });
-
-  it("does nothing without an element", () => {
-    const { result } = renderHook(() => useScrollProgress({ current: null }));
-    expect(result.current).toBe(0);
   });
 });

@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
-import { DEVX_AGENT } from "./agentIdentities";
+import { CTO_AGENT, DEVX_AGENT } from "./agentIdentities";
 import { AgentUser } from "./AgentUser";
+import { CtoAgentRole } from "./CtoAgentRole";
 import { DevxAgentRole } from "./DevxAgentRole";
 
 /**
@@ -11,11 +12,16 @@ import { DevxAgentRole } from "./DevxAgentRole";
 export class AgentRoles extends Construct {
   public readonly devxAgentUser: AgentUser;
   public readonly devxAgentRole: DevxAgentRole;
+  public readonly ctoAgentUser: AgentUser;
+  public readonly ctoAgentRole: CtoAgentRole;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
     this.devxAgentUser = new AgentUser(this, "DevxAgentUser", DEVX_AGENT);
     this.devxAgentRole = new DevxAgentRole(this, "DevxAgentRole", { agentUser: this.devxAgentUser });
     this.devxAgentUser.allowAssume(this.devxAgentRole);
+    this.ctoAgentUser = new AgentUser(this, "CtoAgentUser", CTO_AGENT);
+    this.ctoAgentRole = new CtoAgentRole(this, "CtoAgentRole", { agentUser: this.ctoAgentUser });
+    this.ctoAgentUser.allowAssume(this.ctoAgentRole);
   }
 }

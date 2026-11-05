@@ -10,7 +10,7 @@ import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
  * `backend/models/cognitoGroup.ts`'s COGNITO_GROUPS, which the routes check;
  * declared here because cdk/ imports nothing from backend/ but route lists.
  */
-export const COGNITO_GROUP_NAMES = ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS"] as const;
+export const COGNITO_GROUP_NAMES = ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS", "BOROUGH_SIM_PRODUCT"] as const;
 
 /*
  * Where the pool's ids are published for Nyc311TeamChatStack, which reads

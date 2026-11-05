@@ -54,10 +54,10 @@ describe("Nyc311AdminAuth", () => {
     template.resourceCountIs("AWS::Cognito::UserPoolClient", 2);
   });
 
-  it("creates the ADMIN, BOROUGH_SIM_TEAM and BOROUGH_SIM_OPERATIONS groups", () => {
+  it("creates the ADMIN, BOROUGH_SIM_TEAM, BOROUGH_SIM_OPERATIONS and BOROUGH_SIM_PRODUCT groups", () => {
     const template = synthesize("TEST");
-    template.resourceCountIs("AWS::Cognito::UserPoolGroup", 3);
-    for (const GroupName of ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS"]) {
+    template.resourceCountIs("AWS::Cognito::UserPoolGroup", 4);
+    for (const GroupName of ["ADMIN", "BOROUGH_SIM_TEAM", "BOROUGH_SIM_OPERATIONS", "BOROUGH_SIM_PRODUCT"]) {
       template.hasResourceProperties("AWS::Cognito::UserPoolGroup", { GroupName });
     }
   });

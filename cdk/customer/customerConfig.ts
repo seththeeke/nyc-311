@@ -18,7 +18,7 @@ export const CUSTOMER_API_DOMAIN = "customer-api.boroughsim.com";
 /* Where BoroughSim delivers lifecycle events — the callback URL the customer registers. */
 /*
  * Registered on BoroughSim's live Prod subscription, so it keeps its
- * original name; renaming it means a new subscription (docs/99-things-to-come-back-to.md).
+ * original name; renaming it means a new subscription (#109).
  */
 export const CUSTOMER_WEBHOOK_PATH = "/webhooks/bureau";
 

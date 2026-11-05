@@ -7,6 +7,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { IStateMachine } from "aws-cdk-lib/aws-stepfunctions";
 import type { Construct } from "constructs";
+import type { ContactsTable } from "../data/ContactsTable";
 import type { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import type { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import type { LocationsTable } from "../data/LocationsTable";
@@ -33,6 +34,8 @@ export interface Nyc311AdminApiLambdaProps {
   /** Read by GET /capacity/snapshot (docs/17-executive-team.md §12.3). */
   liveWorkspaceMetricsTable: LiveWorkspaceMetricsTable;
   jobRunsTable: WarehouseJobRunsTable;
+  /* The CPO's contact updates (17-executive-team.md §17.3). */
+  contactsTable: ContactsTable;
   warehouseBucket: Nyc311WarehouseBucket;
   warehouseCatalog: Nyc311WarehouseCatalog;
   adHocQueryWorkgroup: Nyc311AdHocQueryWorkgroup;
@@ -89,6 +92,7 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
         AD_HOC_ATHENA_WORKGROUP: props.adHocQueryWorkgroup.workgroupName,
         WAREHOUSE_DATABASE_NAME: props.warehouseCatalog.databaseName,
         WAREHOUSE_JOB_RUNS_TABLE_NAME: props.jobRunsTable.tableName,
+        CONTACTS_TABLE_NAME: props.contactsTable.tableName,
         JOB_RESULTS_BUCKET: props.warehouseBucket.bucketName,
         SCHEDULER_GROUP_NAME: props.jobScheduleGroup.scheduleGroupName,
         SCHEDULER_ROLE_ARN: props.jobScheduleGroup.invocationRole.roleArn,
@@ -107,6 +111,7 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
     props.locationsTable.grant(this, "dynamodb:GetItem");
     props.featureFlagsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem");
     props.jobRunsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Query");
+    props.contactsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem");
     props.orderExecutionStateMachine.grantStartExecution(this);
 
     const stack = Stack.of(this);

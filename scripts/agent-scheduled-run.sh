@@ -118,6 +118,12 @@ esac
 # The boroughsim-ops MCP server rides along with team-chat for agents that act on operations.
 AGENT_OPS_TOOLS=${OPS_TOOLS:-}
 export AGENT_OPS_TOOLS
+# The boroughsim-product MCP server (contacts, WBR) for the CPO (docs/17 §17.2).
+AGENT_PRODUCT_TOOLS=${PRODUCT_TOOLS:-}
+export AGENT_PRODUCT_TOOLS
+# Agent memory (docs/17 §17.6): commit the agent's MEMORY.md to main after the run when it changed.
+AGENT_MEMORY=${MEMORY:-}
+export AGENT_MEMORY
 
 # ---- lock: one run per agent at a time ---------------------------------------
 

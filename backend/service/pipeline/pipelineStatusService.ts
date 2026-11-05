@@ -113,7 +113,7 @@ const BUILD_ACTION_NAME = "Synth";
 /**
  * Duration of the Build stage's Synth action for one execution — tracks
  * whether a CodeBuild compute-type change actually improves build time
- * (`99-things-to-come-back-to.md`'s build-time-optimization item).
+ * (the backlog's build-time-optimization item).
  * `ListActionExecutions` gives per-action `startTime`/`lastUpdateTime`, so
  * no new CodeBuild API/IAM grant is needed. Degrades to `null` on any
  * failure — same precedent as `fetchCommitInfo`.

@@ -1,3 +1,4 @@
+import { ContactsTable } from "../../data/ContactsTable";
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
@@ -44,6 +45,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     featureFlagsTable: new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName }),
     liveWorkspaceMetricsTable: new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName }),
     jobRunsTable,
+    contactsTable: new ContactsTable(stack, "ContactsTable", { envName }),
     warehouseBucket,
     warehouseCatalog,
     adHocQueryWorkgroup: new Nyc311AdHocQueryWorkgroup(stack, "Nyc311AdHocQueryWorkgroup", { envName, warehouseBucket }),
@@ -104,6 +106,7 @@ describe("Nyc311AdminApiLambda", () => {
     expect(Object.keys(variables).sort()).toEqual(
       [
         "AD_HOC_ATHENA_WORKGROUP",
+        "CONTACTS_TABLE_NAME",
         "FEATURE_FLAGS_TABLE_NAME",
         "LIVE_WORKSPACE_METRICS_TABLE_NAME",
         "JOB_RESULTS_BUCKET",

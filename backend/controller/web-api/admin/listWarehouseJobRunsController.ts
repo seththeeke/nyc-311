@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { listWarehouseJobRuns } from "../../../service/analytics/warehouseJobRunsService";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ValidationError } from "../../../models/errors";
+import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
 
@@ -21,7 +22,7 @@ export const listWarehouseJobRunsController = async (event: unknown): Promise<AP
   }
 
   try {
-    await requireAdminUser(parsedEvent.data);
+    if (!isAgentCaller(parsedEvent.data)) await requireAdminUser(parsedEvent.data);
     const response = await listWarehouseJobRuns();
     logInfo("ListWarehouseJobRunsControllerCompleted", { count: response.jobRuns.length });
     return jsonResponse(200, response);

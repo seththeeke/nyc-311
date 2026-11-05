@@ -9,6 +9,7 @@
 # run ends. Each run gets its own directory, so parallel runs never share or
 # overwrite credentials.
 #
+# With AGENT_PRODUCT_TOOLS set, it carries the boroughsim-product server too.
 # With AGENT_OPS_TOOLS set, the config also carries the boroughsim-ops MCP
 # server (§12.4) on the same sign-in, for the COO's capacity tools.
 #
@@ -35,6 +36,7 @@ region=us-east-1
 email="$agent@agents.boroughsim.com"
 server="$worktree/backend/controller/mcp/teamChatMcpServer.ts"
 ops_server="$worktree/backend/controller/mcp/boroughSimOpsMcpServer.ts"
+product_server="$worktree/backend/controller/mcp/boroughSimProductMcpServer.ts"
 tsx="$worktree/backend/node_modules/.bin/tsx"
 [ -f "$server" ] || die "no MCP server at $server"
 [ -x "$tsx" ] || die "no tsx at $tsx (run npm ci in backend/)"
@@ -71,7 +73,7 @@ auth=$(aws cognito-idp initiate-auth --no-sign-request --region "$region" --cli-
   || { rm -rf "$dir"; die "sign-in failed for $email"; }
 rm -f "$dir/auth.json"
 
-AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
+AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
 import json, os
 result = json.loads(os.environ["AUTH_RESULT"]).get("AuthenticationResult") or {}
 if not result.get("IdToken") or not result.get("RefreshToken"):
@@ -84,6 +86,12 @@ servers = {"team-chat": {
 if os.environ.get("OPS_TOOLS"):
     servers["boroughsim-ops"] = {
         "command": os.environ["TSX"], "args": [os.environ["OPS_SERVER"]],
+        "env": {"BOROUGH_SIM_API_URL": os.environ["OPS_API_URL"], "AGENT_ID_TOKEN": result["IdToken"],
+                "AGENT_REFRESH_TOKEN": result["RefreshToken"], "AGENT_CLIENT_ID": os.environ["CLIENT_ID"],
+                "AGENT_REGION": os.environ["REGION"]}}
+if os.environ.get("PRODUCT_TOOLS"):
+    servers["boroughsim-product"] = {
+        "command": os.environ["TSX"], "args": [os.environ["PRODUCT_SERVER"]],
         "env": {"BOROUGH_SIM_API_URL": os.environ["OPS_API_URL"], "AGENT_ID_TOKEN": result["IdToken"],
                 "AGENT_REFRESH_TOKEN": result["RefreshToken"], "AGENT_CLIENT_ID": os.environ["CLIENT_ID"],
                 "AGENT_REGION": os.environ["REGION"]}}

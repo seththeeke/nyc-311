@@ -90,7 +90,7 @@ export const MOCK_PIPELINE_STATUS: PipelineStatusResponse = {
       startTime: "2026-08-16T18:40:00.000Z",
       lastUpdateTime: "2026-08-16T18:55:00.000Z",
       commitId: "c01cced891fe8e47672737e5085f0a58b9b8baa2",
-      commitMessage: "[feat] - Claude Commit: Log two deferred items in 99-things-to-come-back-to.md",
+      commitMessage: "[feat] - Claude Commit: Log two deferred items as backlog issues",
       buildDurationSeconds: 318,
     },
     {

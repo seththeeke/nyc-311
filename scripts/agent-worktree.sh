@@ -158,6 +158,11 @@ cmd_run() {
   set -e
   cleanup_chat
 
+  # Agent memory (docs/17-executive-team.md §17.6): only the agent's own file, only if it changed.
+  if [ -n "${AGENT_MEMORY:-}" ]; then
+    "$PRIMARY/scripts/agent-memory-commit.sh" "$agent" "$dest" || true
+  fi
+
   dirty=$(git -C "$dest" status --porcelain 2>/dev/null | grep -c . || true)
   if [ "$status" -eq 0 ] && [ "$dirty" -eq 0 ]; then
     cmd_rm "$dest"

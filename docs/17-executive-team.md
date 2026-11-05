@@ -1,13 +1,17 @@
 # 17. Executive Team
 
-**Status (2026-11-01):** the first iteration is done.
+**Status (2026-11-04):** the first iteration is done; the Chief of Staff and CTO are built, and the CPO is being built (§17).
 
 - **Live in Test and Prod:** Team Chat (§10).
 - **Running on the Mac mini, against Prod:**
   - the DevX agent (§11), posting each run to `#tech-team`;
   - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
-- **Not built yet:** the Chief of Staff, CPO, CFO, CTO and Software Engineer agents. They show a **Work in progress** tag.
-- **Next:** these two run for a few days before the next executive is designed (§9).
+- **Built, set up on the Mac mini next:**
+  - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
+  - the CTO agent (§16), reviewing Pip's PRs four times a day and summarizing in `#executive-team`.
+- **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
+- **Not built yet:** the CFO and Software Engineer agents. They show a **Work in progress** tag.
+- **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
 - **Setting up an agent:** Appendix B.
 
@@ -38,7 +42,7 @@ The roster is fixed content in `web-app/src/components/team/teamRoster.ts`, vali
 | Seat | Short title | Name | Character | Reports to | Agent |
 |---|---|---|---|---|---|
 | Chief Executive Officer | CEO | Seth Theeke | Human | — | — |
-| Chief of Staff | Chief of Staff | Penny Platen | Typewriter mascot, projected | CEO | `chief-of-staff` |
+| Chief of Staff | Chief of Staff | Penny Platen | Typewriter mascot, projected | CEO | `chief-of-staff-agent` |
 | Chief Operating Officer | COO | Brogan Anvilhand | Dwarf foreman | CEO | `coo-agent` |
 | Chief Product Officer | CPO | Celestine Vey | The Oracle | CEO | `cpo-agent` |
 | Chief Financial Officer | CFO | Fergus Farthing | Leprechaun | CEO | `cfo-agent` |
@@ -69,7 +73,7 @@ The other agents' goals stand until each agent is designed (§9):
 
 - **Header:** "Meet the Team" and the line "A simulation created by a human, run by agents, servicing virtual customers.", then a quick nav of the agents' short titles. Each chip scrolls to that card and sets `?member=`.
 - **CEO card** (`CeoCard.tsx`): a thinner card for the human CEO, with a photo, title, name, the tagline "Creator, builder, learning as much as possible" and links to GitHub and LinkedIn. It has no goals, no character and no contributions. It sticks to the top of the page and shrinks to a compact bar once scrolled past. The height it loses comes back as a bottom margin, tracked by a `ResizeObserver` through the animation, so the page below never shifts and the card can't flicker between sizes.
-- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, DevX and COO). Every other agent's card shows a Work in progress tag.
+- **Work in progress:** a member's `live` flag is true once their agent runs (the CEO, Chief of Staff, COO, CPO, CTO and DevX). Every other agent's card shows a Work in progress tag.
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
 - **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
@@ -641,9 +645,9 @@ A hold still posts, with why he held.
 
 ## 13. Future iterations
 
-- **The remaining executives:** the Chief of Staff, CPO, CFO, CTO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
+- **The remaining executives:** the CFO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
 
-- **Agent memory.** Each agent keeps its own `MEMORY.md` for skills and continued learning across runs, with a hard size budget so it never eats much of the agent's context. Indexing, pruning and where the file lives are still to be designed.
+- **Agent memory for every agent.** The CPO is the first agent with memory (§17.6); the others adopt the same mechanism as they need it.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.
 - **Forecasting.** The COO plans capacity ahead of demand, not only against today's median.
 
@@ -677,6 +681,235 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 
 ---
 
+## 15. The Chief of Staff agent
+
+**Status:** built 2026-11-04. Set up on the Mac mini per Appendix B.4.
+
+`chief-of-staff-agent` is Penny Platen. Her one job is the **morning brief**: once a day, she reads everything the team posted in Team Chat since her last brief and posts one consolidated message for the CEO. She reads and summarizes only; she decides nothing and changes nothing.
+
+### 15.1 The run
+
+Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, no ops tools.
+
+1. **Window:** everything after her last `DAILY_BRIEF` message in `#executive-assistant`, or the previous 24 hours if there is none. A missed day is covered by the next brief, never skipped.
+2. **Read:** every channel except `#executive-assistant` and `#integration-tests`, paging back with `before` to the window's start, and the thread of every message in it that has replies. Chat reads are open, so she reads channels she isn't a member of.
+3. **Inbox:** asks of her go in the brief, then she marks the inbox read.
+4. **Post:** one top-level message to `#executive-assistant`, tagged `DAILY_BRIEF`.
+
+### 15.2 The brief
+
+```
+**Morning brief · <Weekday, Mon D>**
+<one line in character>
+
+- **Brogan (COO):** <one or two lines>
+- **Pip (DevX):** <one or two lines, with PR links>
+
+**Needs you:** <each open ask of @Seth, with who asked; or "Nothing today.">
+```
+
+- One bullet per member who posted in the window, in roster order. Quiet members are left out.
+- **One or two lines per member.** The outcome and its number first; repeated runs folded into one line.
+- Only the "Needs you" line mentions `@Seth`.
+- Flavour is limited to the line under the heading (§11.1).
+
+### 15.3 Chat and permissions
+
+- `#executive-assistant` is a new seeded, public channel; its members are the CEO and the Chief of Staff. Topic: "Yesterday's work across the team, every morning."
+- Tools: `list_channels`, `read_channel`, `read_thread`, `read_inbox`, `mark_inbox_read` and `post_message`. No `reply`, `react` or `edit_message`, no shell, no file edits, no ops tools.
+- Model: Sonnet.
+- Cognito user `chief-of-staff-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only. No AWS identity.
+- Her Meet the Team card and chat profile show no Work in progress tag.
+
+### 15.4 Setup TODO
+
+- [x] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM`; passwords in `~/.nyc-311/credentials` on the MacBook (2026-11-04).
+- [ ] Deploy `7b53209`, which seeds `#executive-assistant` and her email.
+- [ ] Copy `~/.nyc-311/credentials` to the Mac mini, mode `600`.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`.
+- [ ] Mac mini: `scripts/agent-team-chat-config.sh chief-of-staff-agent TEST "$PWD"` lists only the `team-chat` server.
+- [ ] Mac mini: a hand run against Test, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run chief-of-staff-agent "Morning brief for today. Follow your 'Each run' section."`. The log shows `team-chat signed in (TEST)` and a `Chat post:` line, and the brief shows in `#executive-assistant` in Test.
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install chief-of-staff-agent` (09:00 local, 8:00 CT).
+
+---
+
+## 16. The CTO agent
+
+**Status:** built 2026-11-04, not set up yet (§16.6).
+
+`cto-agent` is Rex Rivet. He reviews the code the tech team ships; today that is the DevX agent's (`devx/`) PRs, with the Software Engineer's to follow. Pip works off the critical path, so **approval is the normal outcome**: Rex comments only on what would hurt.
+
+### 16.1 The run
+
+Four times a day, at 08:00, 11:00, 14:00 and 17:00 Mac mini time, across working hours. `KIND=operations`, `TEAM_CHAT_ENV=PROD`. Pip's 06:00 PRs are reviewed at 08:00 and his 18:00 PRs the next morning.
+
+1. Read the rubric (§16.3) and the inbox.
+2. List the open `devx/` PRs. Skip any labelled `cto-approved` or `cto-escalated`, and any whose head SHA already has a `cto-review` status: **a revision is reviewed once, and every new revision is reviewed until the PR is approved or escalated**.
+3. For each remaining PR, in his own worktree (`agent-worktree.sh`, a separate directory from Pip's): fetch `pull/<n>/head` and check it out **detached**, never by branch name, since Pip's worktree may hold the branch. Read the PR's conversation, diff it against `main`, and run `build`, `lint` and `test:coverage` in every touched package.
+4. Decide: **approve** if nothing is blocking; **comment** if something is, on rounds 1 and 2; **escalate** to the CEO if something is still blocking at round 3.
+5. Mark the PR on GitHub (§16.2) and react to Pip's `#tech-team` post for that PR: `✅` approved, `💬` commented or escalated. No message in `#tech-team`.
+6. Post one summary to `#executive-team`, tagged `CTO_REVIEW`, **every run**: one line per open PR, approved, commented (blocking count and round), escalated (with `@Seth`) or skipped (no new revision, already approved), or "No open devx PRs."
+
+### 16.2 Signed marks
+
+Rex posts with the CEO's GitHub account, which can't approve its own PRs. His marks are signed instead:
+
+| Mark | Form |
+|---|---|
+| Review | A PR review (event `COMMENT`), body starting `<!-- cto-agent:review -->` and `**Rex (CTO) · review round n/2**`; at most 3 inline comments, blocking only, each starting `**Rex (CTO):**`; one optional line of suggestions in the body. |
+| Approval | A comment starting `<!-- cto-agent:approved -->` and `**✅ Approved by Rex (CTO)** at <sha>`, the label `cto-approved`, and commit status `cto-review` = `success`. |
+| Escalation | A comment starting `<!-- cto-agent:escalated -->`, the label `cto-escalated`, and status `cto-review` = `failure`. |
+| Revision reviewed | Status `cto-review` on the head SHA: `success`, or `failure` with `Rex (CTO): changes requested, round n/2`. |
+
+The CEO still merges. Removing a label puts a PR back in Rex's queue.
+
+### 16.3 The rubric
+
+`.claude/review/cto-code-review.md` holds what Rex enforces: the bar (approve by default, at most 3 blocking comments, no nits), what blocks (failing gates, bugs, CLAUDE.md rules, security and cost, scope) and the code smells to name. His prompt only links to it, so the review standard changes without touching the prompt.
+
+### 16.4 Permissions
+
+- Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (to `/tmp` only), `TodoWrite` and the `team-chat` tools including `react`. Model: Sonnet.
+- `.claude/hooks/cto-agent-guard.sh` allows `gh issue` list, view and comment, and `edit` only to add `cto-escalated` (§17.7). It blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit, `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status. Merges, `graphql` and other repos are blocked outright.
+- AWS: IAM user `cto-agent`, which can only assume `Nyc311CtoAgentRole` (`ReadOnlyAccess`, secrets denied, source identity `cto-agent`), the same access as Pip. Both roles share `cdk/agents/ReadOnlyAgentRole.ts`.
+- Cognito user `cto-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only.
+
+### 16.5 Pip's side
+
+Pip already tends unaddressed comments on his PRs at the start of every run. He now reads Rex's marks: a `cto-agent:review` is feedback (every inline comment addressed, suggestions optional), a `cto-agent:approved` or `cto-agent:escalated` comment is not. He never touches the labels or the status; his next push is what asks Rex for another look. `💬` is added to Team Chat's reactions for Rex's comment mark.
+
+### 16.6 Setup TODO
+
+- [ ] Deploy: the pipeline stack creates `cto-agent` and `Nyc311CtoAgentRole`; the app stacks add `💬`.
+- [x] GitHub labels `cto-approved` and `cto-escalated` (2026-11-05).
+- [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] IAM console: create `cto-agent`'s access key by hand.
+- [ ] Mac mini: `[cto-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-cto-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311CtoAgentRole cto-agent`; `aws --profile nyc311-cto-agent sts get-caller-identity` ends in `assumed-role/Nyc311CtoAgentRole/cto-agent`.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`, then a hand run against Test chat, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run cto-agent "Code review. Follow your 'Each run' section."`.
+- [x] Cognito logins in Test and Prod (2026-11-04).
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install cto-agent` (08:00, 11:00, 14:00, 17:00).
+
+---
+
+## 17. The CPO agent
+
+**Status:** built 2026-11-05 (C0–C8); C9's deploy and setup remain (§17.10).
+
+`cpo-agent` is Celestine Vey. She owns the product: what BoroughSim should build next to cut cost per order (under $25) and keep residents satisfied (over 80% of interactions). She works from evidence. She triages residents' contacts, reads the WBR and the team's chat, studies the codebase, and files a small number of well-researched tickets. She never changes code.
+
+### 17.1 The run
+
+Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`. Model: Sonnet.
+
+1. **Memory:** read `.claude/agent-memory/cpo-agent/MEMORY.md`.
+2. **Inbox:** reply to Rex's feedback in her ticket threads (§17.7).
+3. **Contacts:** `list_contacts` for `RECEIVED` contacts. For each, decide: a new ticket, an existing ticket (dedupe) or a decline, and update it with `track_contact` or `close_contact` (§17.3).
+4. **WBR:** `get_wbr` for the latest weeks: cost per order and its parts, time to resolve, fleet size and burn. Read Brogan's `#executive-team` posts for what changed the fleet and why.
+5. **Investigate:** read the codebase to see how the system produces those numbers and what would move them.
+6. **File:** a ticket only when the evidence clears the bar (§17.4), deduped against her own open and closed issues and her memory.
+7. **Post:** one message per new ticket, then the daily report (§17.5).
+8. **Memory:** update her memory only if she learned something worth keeping.
+
+### 17.2 What she can reach
+
+| Data | How | Not |
+|---|---|---|
+| Contacts | `boroughsim-product` MCP: `list_contacts`, `track_contact` (in progress, with a ticket), `close_contact` (duplicate, declined, shipped) | — |
+| WBR | `boroughsim-product` MCP: `get_wbr`, the newest successful runs of the `wbr` warehouse job and their result rows, read through `GET /admin/warehouse/job-runs` and `POST /admin/warehouse/job-runs/results` | Other warehouse jobs' results, ad-hoc queries |
+| Brogan's fleet actions | Team Chat, `#executive-team` | The `boroughsim-ops` tools and the capacity routes; she is not in `BOROUGH_SIM_OPERATIONS` |
+| How the system works | `Read`, `Grep`, `Glob` over her worktree | Any edit, commit, push or PR |
+| Her tickets | `gh issue` on `cpo-agent` issues only | Anyone else's issues |
+| Resident ideas | — | Owned by the residents (the customer); never read |
+
+Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and the new `BOROUGH_SIM_PRODUCT` group, which gates the contact write route and the two job-run read routes. An agent caller on those routes is not resolved to a User row. Its MCP server is separate from Brogan's, so the capacity tools are never loaded in her runs.
+
+### 17.3 Contacts
+
+**Read:** `GET /contacts` on `api.boroughsim.com`, a new public `contacts` Service API bundle.
+
+- Query: `type` (`FEATURE_REQUEST`), `status` (`RECEIVED`, `IN_PROGRESS`, `CLOSED`), `order` (`NEWEST`, `OLDEST`), `limit` (max 100) and `cursor`.
+- Served by a new `ByTypeCreatedAt` index on `Contacts-{Test,Prod}` (partition `contact_type`, sort `created_at`), with the status filter applied on the page.
+- Response rows leave out `submitter.email` and `client_request_id`.
+
+**Write:** `PATCH /admin/contacts/{contact_id}` in the admin bundle, allowed for `BOROUGH_SIM_PRODUCT` (and `ADMIN`).
+
+- Body: `status` (`IN_PROGRESS` or `CLOSED`), `status_reason_code`, `status_reason_description`, `ticket_number`.
+- `IN_PROGRESS`: tracked by a ticket. `ticket_number` is required; the description reads like "We're tracking this as ticket #123."
+- `CLOSED`: `status_reason_code` is `DUPLICATE`, `DECLINED` or `SHIPPED`, with a description written for the resident.
+- Conditioned on the row's `updated_at`, so two writers can't overwrite each other.
+- Residents see `status` and `status_reason_description` through the existing `GET /v1/feature-requests/{id}`, unchanged. They see the ticket number in the description, never a GitHub link.
+
+**Page:** `/residents/contacts`, public, behind `CONTACTS_PAGE` (`T1` in Test, `C` in Prod).
+
+- The Residents page gains a tab bar, **Residents | Contacts**, shown when the flag is on.
+- Filters: type and status; sort newest or oldest; paged.
+- Each row: title, description, submitter name (never an email), status, reason and `#<ticket>` as plain text.
+
+### 17.4 The bar for a ticket
+
+- **Researched and data driven, like Pip's work.** Each ticket shows why it matters with evidence: WBR trends, Brogan's fleet actions, code she has read, or the number of residents asking. Many residents asking for the same thing is evidence in itself.
+- **Tied to a goal:** the expected effect on cost per order or on satisfied interactions, and how it would be measured.
+- **Few and deduped.** A request that matches an existing `cpo-agent` issue becomes a comment on it, listing the new contact ids, never a second issue.
+- Tickets are GitHub issues filed with the `log-backlog-item` skill, labelled `backlog`, `cpo-agent` and `feature-request` or `bug`. The body starts with `<!-- cpo-agent -->` and **Filed by Celestine (CPO Agent)**.
+- A WBR finding about cost, such as the fleet growing faster than demand, is a ticket like any other: the idea, how it would improve the metric and the data behind it.
+
+### 17.5 Posts
+
+- **One message per new ticket** in `#executive-team`, tagged `CPO_TICKET`: the ticket number and title, a line on why, and `@Rex` only when she needs guidance on the spec or feasibility. Its thread is where she and Rex discuss that ticket.
+- **One daily report** in `#executive-team`, tagged `CPO_DAILY`, after the ticket posts: contacts triaged, each contact she updated (id, new status, ticket or reason), tickets filed and requests merged into existing ones, and her WBR read in two or three lines.
+
+### 17.6 Agent memory
+
+- Each agent with memory keeps `.claude/agent-memory/<agent>/MEMORY.md` in the repo. It is public, like everything committed: a record of past runs' conclusions, never secrets.
+- The agent reads it at the start of a run and rewrites it only when it learned something worth keeping. Most runs change nothing.
+- Hard cap: 8 KB. The agent prunes to stay under it.
+- `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the file only if it changed and is under the cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. Anything else logs a `WARN` and commits nothing; an oversized or deleted file is restored.
+- The agent's guard allows `Write` only to its own memory file (and `/tmp`).
+
+**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
+
+### 17.7 Rex on her tickets
+
+- Rex reads his inbox each run. For each of Celestine's `CPO_TICKET` posts that tags him, he reads the issue and the code it touches.
+- **On the issue:** a formal comment, starting `<!-- cto-agent:spec -->` and **Rex (CTO):**, on feasibility, open questions and the parts of the system affected.
+- **In the thread:** a short, casual reply, such as "Left some feedback on the ticket, take a look when you get a chance." He doesn't repeat the comment.
+- **Caps:** Rex leaves at most 2 spec comments per issue, and Celestine at most 2 replies to him per issue. If Rex needs a third, he labels the issue `cto-escalated` and names it for `@Seth` in his summary.
+- His summary lists the tickets he commented on, alongside the PRs.
+
+### 17.8 Removing `99-things-to-come-back-to.md`
+
+The backlog lives only in GitHub issues. The file is deleted, the `log-backlog-item` skill files an issue and nothing else, and every reference to the file is removed. Git history keeps its past entries.
+
+### 17.9 Build plan
+
+Each leg is at least one commit, so any leg can be rolled back alone.
+
+| Leg | What |
+|---|---|
+| **C0** | This section. |
+| **C1** | Remove `99-things-to-come-back-to.md` and every reference; the skill becomes issues-only. |
+| **C2** | Contacts read: the `ByTypeCreatedAt` index, DAO query, `listContacts`, the public `contacts` bundle and `GET /contacts`, its CDK route and a Test-stage integration test. |
+| **C3** | Contacts write: the `BOROUGH_SIM_PRODUCT` group, the contact update fields and `PATCH /admin/contacts/{contact_id}`. |
+| **C4** | Web app: `CONTACTS_PAGE`, the Residents tab bar and `ContactsPage`. |
+| **C5** | The `boroughsim-product` MCP server, `PRODUCT_TOOLS` in the per-run config, and `BOROUGH_SIM_PRODUCT` on the two job-run read routes. |
+| **C6** | Agent memory: `scripts/agent-memory-commit.sh`, called from `agent-worktree.sh run` when `MEMORY=1`. |
+| **C7** | The CPO agent: prompt, settings, guard, schedule, roster `live`, Appendix B. |
+| **C8** | Rex on her tickets (§17.7) and Rex's four-a-day schedule. |
+| **C9** | Deploy, the `CONTACTS_PAGE` flag rows, and Celestine's Cognito logins. Then the Mac mini setup for Penny, Rex and Celestine together. |
+
+### 17.10 Setup TODO
+
+- [x] Deploy C2–C5 (2026-11-05).
+- [x] `CONTACTS_PAGE` in `FeatureFlags-Test` (`T1`) and `FeatureFlags-Prod` (`C`) (2026-11-05).
+- [x] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM` (2026-11-05).
+- [x] `cpo-agent` in `BOROUGH_SIM_PRODUCT` in both pools (2026-11-05).
+- [x] GitHub labels `cpo-agent` and `feature-request` (2026-11-05).
+- [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
+- [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (09:00).
+
+---
+
 ## Appendix: decisions and history
 
 - **Fiction archetypes.** The team was first modelled as plain office figures, then recast on 2026-10-31 as a crossover cast of fiction archetypes, one per role. The user chose each archetype and asked for archetypes over named characters.
@@ -703,6 +936,19 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 - **The COO acts in Prod from day one.** The COO is meant to run operations, so there is no shadow phase. The only guardrail is a limit the API reports and enforces: at most 2 recruits and 2 releases a day. Past it, Brogan asks the CEO in chat. This replaces the v1 launch rule that the Prod fleet is built only by hand.
 - **The band, not a floor.** Keeping the median between 1 and 2 days makes over-hiring a miss as well. A median under 1 day means paying for idle operators.
 - **No version prefix on the chat API.** The chat API is internal. `/v1/` marks the public API's published contract (`.claude/API.md`) and nothing else. Nothing enforces that today, so this design adds the version-prefix guard test (§10.4).
+- **The Chief of Staff's brief is short by design.** The CEO wants one message a morning, one or two lines per teammate, so the job is reading and consolidating only. The Staff Meeting (§6) stays a later design.
+- **Her window runs from her last brief, not the calendar day.** A missed run is then folded into the next brief instead of leaving a gap.
+- **`chief-of-staff-agent`, not `chief-of-staff`.** The agent name, and so the email, follows the `<role>-agent` pattern of the others; the member id stays `chief-of-staff`.
+- **Rex signs instead of approving.** GitHub won't let the CEO's account approve its own PRs, so an approval is a signed comment, the `cto-approved` label and a `cto-review` commit status.
+- **No loops.** Rex reviews each revision once (the status on its SHA), stops after an approval, and escalates to the CEO after two rounds of comments.
+- **Quiet by design.** At most 3 blocking comments a review and no nits, because Pip's work is low-risk and usually approvable. The Software Engineer's feature work may need a different bar.
+- **The rubric is its own file**, so the CEO can tune how Rex reviews without editing his prompt.
+- **Rex posts a summary every run** for now, even with nothing to review.
+- **Celestine sees the fleet only through its results.** She learns Brogan's actions from his chat posts and the WBR, and has no capacity access, which keeps her scope to the product.
+- **Residents get a ticket number, not a link.** The contact's description names the ticket number; GitHub stays internal.
+- **A contacts bundle of its own.** Contacts will hold more types than feature requests, so the public read route gets its own bundle rather than joining an unrelated one.
+- **Memory is committed straight to `main` by the run script**, only the agent's own file and only when it changed. The commit carries the agent prefix like any agent commit.
+- **The backlog file is gone.** GitHub issues were already the source of truth and the file caused merge conflicts between agents.
 - **Groups per job, not per agent kind.** Every member joins `BOROUGH_SIM_TEAM`, which gates chat. Only the COO also joins `BOROUGH_SIM_OPERATIONS`. The CPO and CTO can't recruit or release, but can propose it to the COO in chat.
 
 ---
@@ -717,6 +963,9 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 |---|---|---|---|---|---|
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00, 11:00, 14:00, 17:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
+| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
+| `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 

@@ -19,7 +19,7 @@ describe("MarketingPage", () => {
       </ThemeProvider>,
     );
     expect(screen.getByRole("heading", { level: 1 })).toHaveAccessibleName("New York reports it. BoroughSim fixes it.");
-    for (const name of ["From call to curb.", "This week, in the five boroughs.", "One human. A whole executive team of AI.", "The city is moving right now."]) {
+    for (const name of ["One human. A whole executive team of AI.", "From call to curb.", "New Yorkers who always need something.", "This week, in the five boroughs.", "The city is moving right now."]) {
       expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
     }
     for (const button of screen.getAllByRole("button", { name: /Enter fleet/ })) await userEvent.click(button);
