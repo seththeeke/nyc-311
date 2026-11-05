@@ -123,8 +123,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     failureNotificationEmail: "ops@example.com",
   });
   const liveWorkspaceMetricsTable = new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName });
+  const contactsTable = new ContactsTable(stack, "ContactsTable", { envName });
   const adminApiLambda = new Nyc311AdminApiLambda(stack, "Nyc311AdminApiLambda", {
     envName,
+    contactsTable,
     usersTable,
     operatorsTable,
     ordersTable,
@@ -149,7 +151,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     envName,
     adminApiLambda,
     featureFlagsApiLambda: new Nyc311FeatureFlagsApiLambda(stack, "Nyc311FeatureFlagsApiLambda", { envName, featureFlagsTable }),
-    contactsApiLambda: new Nyc311ContactsApiLambda(stack, "Nyc311ContactsApiLambda", { envName, contactsTable: new ContactsTable(stack, "ContactsTable", { envName }) }),
+    contactsApiLambda: new Nyc311ContactsApiLambda(stack, "Nyc311ContactsApiLambda", { envName, contactsTable }),
     dataApiLambda: new Nyc311DataApiLambda(stack, "Nyc311DataApiLambda", {
       envName,
       warehouseCatalog,

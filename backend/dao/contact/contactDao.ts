@@ -1,13 +1,13 @@
-import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { ConditionalCheckFailedException, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { z } from "zod";
 import { Dao } from "../dao";
 import { logInfo } from "../../logger";
 import type { Contact, ContactStatus, ContactType } from "../../models/contact";
 import type { ContactListOrder } from "../../models/contactList";
 import { ContactSchema } from "../../models/contact";
-import { TerminalError, ValidationError } from "../../models/errors";
+import { ConflictError, TerminalError, ValidationError } from "../../models/errors";
 
 /* Key prefix of the idempotency pointer rows (16-resident-action-models.md §3.1); never a valid contact_id. */
 const POINTER_PREFIX = "CRID#";
@@ -144,6 +144,31 @@ export class ContactDao extends Dao<Contact> {
     );
     const contacts = (result.Items ?? []).map((item) => this.validate(item));
     return { contacts, nextCursor: result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null };
+  }
+
+  /**
+   * Replaces a Contact, conditioned on its `updated_at` still being
+   * `expectedUpdatedAt`, so a concurrent writer can't be overwritten.
+   *
+   * @throws {@link ConflictError} if the row changed (or vanished) since it was read.
+   */
+  async replaceContact(contact: Contact, expectedUpdatedAt: string): Promise<Contact> {
+    const validated = this.validate(contact);
+    logInfo("ContactDao.replaceContact", { table: this.tableName, contactId: validated.contact_id, status: validated.status, expectedUpdatedAt });
+    try {
+      await this.client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: validated,
+          ConditionExpression: "attribute_exists(contact_id) AND updated_at = :expected",
+          ExpressionAttributeValues: { ":expected": expectedUpdatedAt },
+        })
+      );
+      return validated;
+    } catch (err) {
+      if (err instanceof ConditionalCheckFailedException) throw new ConflictError(`Contact ${validated.contact_id} changed since it was read`);
+      throw err;
+    }
   }
 
   private async getContactByPointer(pointerKey: string): Promise<Contact | null> {

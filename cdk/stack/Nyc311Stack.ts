@@ -627,6 +627,7 @@ export class Nyc311Stack extends Stack {
       featureFlagsTable,
       liveWorkspaceMetricsTable,
       jobRunsTable: warehouseJobRunsTable,
+      contactsTable,
       warehouseBucket,
       warehouseCatalog,
       adHocQueryWorkgroup,

@@ -3,8 +3,8 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContactDao } from "../../../dao/contact/contactDao";
 import type { Contact, CreateContactInput } from "../../../models/contact";
-import { NotFoundError } from "../../../models/errors";
-import { createContact, getContact, listContacts } from "../../../service/contact/contactService";
+import { NotFoundError, ValidationError } from "../../../models/errors";
+import { createContact, getContact, listContacts, updateContact } from "../../../service/contact/contactService";
 
 const input: CreateContactInput = {
   contact_type: "FEATURE_REQUEST",
@@ -92,5 +92,33 @@ describe("listContacts", () => {
     });
     expect(page.contacts[1].ticket_number).toBeNull();
     expect(JSON.stringify(page)).not.toContain("h@example.com");
+  });
+});
+
+describe("updateContact", () => {
+  const later = () => new Date("2026-11-05T14:00:00.000Z");
+  function daoWith(current: Contact | null) {
+    const replaceContact = vi.fn(async (c: Contact) => c);
+    return { replaceContact, contactDao: { getContact: vi.fn().mockResolvedValue(current), replaceContact } as unknown as ContactDao };
+  }
+
+  it("moves a RECEIVED contact to IN_PROGRESS with its ticket, conditioned on the version read", async () => {
+    const { replaceContact, contactDao } = daoWith(expected);
+    const stored = await updateContact(ID, { status: "IN_PROGRESS", ticket_number: 170, status_reason_description: "Tracked as ticket #170." }, "cpo", { contactDao, now: later });
+    expect(stored).toMatchObject({ status: "IN_PROGRESS", ticket_number: 170, closure_reason_code: null, closure_reason_description: "Tracked as ticket #170.", updated_at: later().toISOString() });
+    expect(replaceContact).toHaveBeenCalledWith(stored, expected.updated_at);
+  });
+
+  it("closes a contact with a reason, keeping its ticket when none is given", async () => {
+    const { contactDao } = daoWith({ ...expected, status: "IN_PROGRESS", ticket_number: 170 });
+    const stored = await updateContact(ID, { status: "CLOSED", closure_reason_code: "SHIPPED", status_reason_description: "Shipped.", ticket_number: null }, "cpo", { contactDao, now: later });
+    expect(stored).toMatchObject({ status: "CLOSED", closure_reason_code: "SHIPPED", ticket_number: 170 });
+    const fresh = daoWith(expected);
+    expect((await updateContact(ID, { status: "CLOSED", closure_reason_code: "DECLINED", status_reason_description: "No.", ticket_number: null }, "cpo", { contactDao: fresh.contactDao })).ticket_number).toBeNull();
+  });
+
+  it("refuses a closed or missing contact", async () => {
+    await expect(updateContact(ID, { status: "IN_PROGRESS", ticket_number: 1, status_reason_description: "x" }, "cpo", { contactDao: daoWith({ ...expected, status: "CLOSED" }).contactDao })).rejects.toThrow(ValidationError);
+    await expect(updateContact(ID, { status: "IN_PROGRESS", ticket_number: 1, status_reason_description: "x" }, "cpo", { contactDao: daoWith(null).contactDao })).rejects.toThrow(NotFoundError);
   });
 });

@@ -1,10 +1,10 @@
-import { DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CONTACTS_BY_TYPE_INDEX, ContactDao } from "../../../dao/contact/contactDao";
 import type { Contact } from "../../../models/contact";
-import { TerminalError, ValidationError } from "../../../models/errors";
+import { ConflictError, TerminalError, ValidationError } from "../../../models/errors";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const TABLE = "Contacts-Test";
@@ -148,5 +148,26 @@ describe("ContactDao.listContacts", () => {
   it("rejects a malformed cursor", async () => {
     await expect(dao().listContacts({ contactType: "FEATURE_REQUEST", order: "NEWEST", limit: 5, cursor: "not-json" })).rejects.toThrow(ValidationError);
     expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(0);
+  });
+});
+
+describe("ContactDao.replaceContact", () => {
+  const updated: Contact = { ...contact, status: "IN_PROGRESS", ticket_number: 170, closure_reason_description: "Tracked as ticket #170.", updated_at: "2026-11-05T14:00:00.000Z" };
+
+  it("puts the row only if it still exists at the updated_at it was read with", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    expect(await dao().replaceContact(updated, contact.updated_at)).toEqual(updated);
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input).toMatchObject({
+      TableName: TABLE,
+      Item: updated,
+      ConditionExpression: "attribute_exists(contact_id) AND updated_at = :expected",
+      ExpressionAttributeValues: { ":expected": contact.updated_at },
+    });
+  });
+
+  it("throws ConflictError when the condition fails and rethrows anything else", async () => {
+    ddbMock.on(PutCommand).rejectsOnce(new ConditionalCheckFailedException({ message: "no", $metadata: {} })).rejectsOnce(new Error("throttled"));
+    await expect(dao().replaceContact(updated, contact.updated_at)).rejects.toThrow(ConflictError);
+    await expect(dao().replaceContact(updated, contact.updated_at)).rejects.toThrow("throttled");
   });
 });

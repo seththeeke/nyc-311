@@ -5,7 +5,8 @@ import { createDocumentClient } from "../../dynamoClient";
 import { ContactDao } from "../../dao/contact/contactDao";
 import type { Contact, CreateContactInput } from "../../models/contact";
 import type { ContactListItem, ContactListPage, ListContactsQuery } from "../../models/contactList";
-import { NotFoundError } from "../../models/errors";
+import type { UpdateContactInput } from "../../models/contactUpdate";
+import { NotFoundError, ValidationError } from "../../models/errors";
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getContactDao(): ContactDao {
@@ -84,4 +85,33 @@ export async function listContacts(query: ListContactsQuery, deps: ContactServic
   const page = await contactDao.listContacts({ contactType: query.type, status: query.status, order: query.order, limit: query.limit, cursor: query.cursor });
   logInfo("ContactsListed", { type: query.type, status: query.status ?? null, order: query.order, count: page.contacts.length, hasMore: page.nextCursor !== null });
   return { contacts: page.contacts.map(toContactListItem), next_cursor: page.nextCursor };
+}
+
+/**
+ * Moves a Contact to IN_PROGRESS (tracked by a ticket) or CLOSED
+ * (17-executive-team.md §17.3). CLOSED is final. `by` is the caller's email,
+ * logged for the audit trail.
+ *
+ * @throws {@link NotFoundError} if no Contact has that id.
+ * @throws {@link ValidationError} if the Contact is already CLOSED.
+ * @throws {@link ConflictError} if it changed while being updated.
+ */
+export async function updateContact(contactId: string, input: UpdateContactInput, by: string, deps: ContactServiceDeps = {}): Promise<Contact> {
+  const contactDao = deps.contactDao ?? getContactDao();
+  const current = await getContact(contactId, { contactDao });
+  if (current.status === "CLOSED") {
+    logInfo("ContactUpdateRejectedClosed", { contactId, by });
+    throw new ValidationError(`Contact ${contactId} is already closed`);
+  }
+  const updated: Contact = {
+    ...current,
+    status: input.status,
+    closure_reason_code: input.status === "CLOSED" ? input.closure_reason_code : null,
+    closure_reason_description: input.status_reason_description,
+    ticket_number: input.ticket_number ?? current.ticket_number ?? null,
+    updated_at: (deps.now ?? (() => new Date()))().toISOString(),
+  };
+  const stored = await contactDao.replaceContact(updated, current.updated_at);
+  logInfo("ContactUpdated", { contactId, by, from: current.status, to: stored.status, closureReasonCode: stored.closure_reason_code, ticketNumber: stored.ticket_number ?? null });
+  return stored;
 }
