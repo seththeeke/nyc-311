@@ -864,7 +864,9 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 - The agent reads it at the start of a run and rewrites it only when it learned something worth keeping. Most runs change nothing.
 - Hard cap: 8 KB. The agent prunes to stay under it.
 - `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the file only if it changed and is under the cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. Anything else logs a `WARN` and commits nothing; an oversized or deleted file is restored.
-- The agent's guard allows `Write` only to its own memory file.
+- The agent's guard allows `Write` only to its own memory file (and `/tmp`).
+
+**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
 
 ### 17.7 Rex on her tickets
 
@@ -959,6 +961,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
 | `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00, 11:00, 14:00, 17:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
+| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |

@@ -1,0 +1,85 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "TodoWrite",
+      "Skill(log-backlog-item)",
+      "Write(.claude/agent-memory/cpo-agent/MEMORY.md)",
+      "Edit(.claude/agent-memory/cpo-agent/MEMORY.md)",
+      "Write(//tmp/**)",
+      "Write(//private/tmp/**)",
+      "Bash(gh --version)",
+      "Bash(gh auth status)",
+      "Bash(gh label list *)",
+      "Bash(gh label create *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue close *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git diff *)",
+      "Bash(git grep *)",
+      "Bash(git ls-files *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sed -n *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(jq *)",
+      "Bash(date *)",
+      "Bash(echo *)",
+      "Bash(mktemp *)",
+      "mcp__team-chat",
+      "mcp__boroughsim-product"
+    ],
+    "deny": [
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "mcp__boroughsim-ops",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git branch *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(gh repo *)",
+      "Bash(gh release *)",
+      "Bash(aws *)",
+      "Bash(cdk *)",
+      "Bash(npx *)",
+      "Bash(npm *)",
+      "Bash(curl *)",
+      "Bash(security *)",
+      "Read(**/nyc311-team-chat-*/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.nyc-311/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/team-chat-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

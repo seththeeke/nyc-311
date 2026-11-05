@@ -79,7 +79,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     goals: [{ goal: "Reduce cost of execution", metric: "Cost per order", target: "<$25" },
       { goal: "Increase number of satisfied customer interactions", metric: "% of satisfied customer interactions", target: ">80%" }
     ],
-    live: false,
+    live: true,
     links: [],
   },
   {
