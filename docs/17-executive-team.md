@@ -781,7 +781,7 @@ Pip already tends unaddressed comments on his PRs at the start of every run. He 
 ### 16.6 Setup TODO
 
 - [ ] Deploy: the pipeline stack creates `cto-agent` and `Nyc311CtoAgentRole`; the app stacks add `💬`.
-- [ ] GitHub labels `cto-approved` and `cto-escalated`.
+- [x] GitHub labels `cto-approved` and `cto-escalated` (2026-11-05).
 - [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
 - [ ] IAM console: create `cto-agent`'s access key by hand.
 - [ ] Mac mini: `[cto-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-cto-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311CtoAgentRole cto-agent`; `aws --profile nyc311-cto-agent sts get-caller-identity` ends in `assumed-role/Nyc311CtoAgentRole/cto-agent`.
@@ -901,7 +901,10 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 
 - [ ] Deploy C2–C5.
 - [x] `CONTACTS_PAGE` in `FeatureFlags-Test` (`T1`) and `FeatureFlags-Prod` (`C`) (2026-11-05).
-- [ ] MacBook: `scripts/agent-credentials.py create cpo-agent TEST --group BOROUGH_SIM_PRODUCT` and `… PROD …`; copy `~/.nyc-311/credentials` to the Mac mini.
+- [x] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM` (2026-11-05).
+- [ ] After the deploy creates it: add `cpo-agent` to `BOROUGH_SIM_PRODUCT` in both pools.
+- [x] GitHub labels `cpo-agent` and `feature-request` (2026-11-05).
+- [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
 - [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (09:00).
 
