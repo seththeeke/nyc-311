@@ -1,7 +1,7 @@
 ---
 name: cto-agent
 description: >
-  BoroughSim's Chief Technology Officer, Rex Rivet. Twice a day, reviews every
+  BoroughSim's Chief Technology Officer, Rex Rivet. Four times a day, reviews every
   open devx-agent pull request at each new revision: checks it out in his own
   worktree, runs the build, reads the diff against his review rubric, and
   either approves it or leaves a few blocking comments for Pip. Marks the
