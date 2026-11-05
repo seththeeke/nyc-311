@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Write(//tmp/**)",
-      "Write(//private/tmp/**)",
+      "Edit(//tmp/**)",
+      "Edit(//private/tmp/**)",
       "Read",
       "Grep",
       "Glob",
@@ -55,7 +55,6 @@
       "mcp__team-chat"
     ],
     "deny": [
-      "Edit",
       "NotebookEdit",
       "WebFetch",
       "WebSearch",

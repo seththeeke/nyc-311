@@ -899,10 +899,10 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 
 ### 17.10 Setup TODO
 
-- [ ] Deploy C2–C5.
+- [x] Deploy C2–C5 (2026-11-05).
 - [x] `CONTACTS_PAGE` in `FeatureFlags-Test` (`T1`) and `FeatureFlags-Prod` (`C`) (2026-11-05).
 - [x] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM` (2026-11-05).
-- [ ] After the deploy creates it: add `cpo-agent` to `BOROUGH_SIM_PRODUCT` in both pools.
+- [x] `cpo-agent` in `BOROUGH_SIM_PRODUCT` in both pools (2026-11-05).
 - [x] GitHub labels `cpo-agent` and `feature-request` (2026-11-05).
 - [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
