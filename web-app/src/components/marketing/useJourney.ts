@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export interface Journey {
   active: number;
+  paused: boolean;
   select: (index: number) => void;
   setPaused: (paused: boolean) => void;
 }
@@ -26,5 +27,5 @@ export function useJourney(count: number, stepMs: number, playing: boolean): Jou
     setActive(index);
     setEpoch((e) => e + 1);
   };
-  return { active, select, setPaused };
+  return { active, paused, select, setPaused };
 }

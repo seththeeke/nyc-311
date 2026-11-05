@@ -1,17 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { KineticHeadline } from "../../../src/components/marketing/KineticHeadline";
 import { EnterFleetButton } from "../../../src/components/marketing/EnterFleetButton";
-import { ComplaintMarquee } from "../../../src/components/marketing/ComplaintMarquee";
-import { PipelineStory, stageLit } from "../../../src/components/marketing/PipelineStory";
 import { AgentOrbit, EXECUTIVES, orbitAngle } from "../../../src/components/marketing/AgentOrbit";
 import { FinalCta } from "../../../src/components/marketing/FinalCta";
 import { Reveal } from "../../../src/components/marketing/Reveal";
 import { MarketingHero } from "../../../src/components/marketing/MarketingHero";
-import { COMPLAINT_TICKER, PIPELINE_STAGES } from "../../../src/components/marketing/marketingContent";
 import { TEAM_ROSTER } from "../../../src/components/team/teamRoster";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
@@ -39,36 +36,41 @@ describe("EnterFleetButton", () => {
     const button = screen.getByRole("button", { name: /Enter fleet/ });
     button.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 40 }) as DOMRect;
     fireEvent.pointerMove(button, { clientX: 100, clientY: 40 });
-    expect(button.style.transform).toBe("translate(15px, 6px)");
+    expect(button.style.transform).toBe("translate(15px, 6px) scale(1)");
     fireEvent.pointerLeave(button);
-    expect(button.style.transform).toBe("translate(0px, 0px)");
+    expect(button.style.transform).toBe("translate(0px, 0px) scale(1)");
     await userEvent.click(button);
     expect(onEnter).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("ComplaintMarquee", () => {
-  it("loops the list twice, hiding the copy from assistive tech", () => {
-    render(<ComplaintMarquee />);
-    const items = screen.getAllByRole("listitem", { hidden: true });
-    expect(items).toHaveLength(COMPLAINT_TICKER.length * 2);
-    expect(items[COMPLAINT_TICKER.length]).toHaveAttribute("aria-hidden", "true");
-    expect(items[0]).toHaveAttribute("aria-hidden", "false");
-  });
-});
-
-describe("PipelineStory", () => {
-  it("lights stages as the line reaches their column", () => {
-    expect(stageLit(0, 5, 0)).toBe(true);
-    expect(stageLit(1, 5, 0.19)).toBe(false);
-    expect(stageLit(1, 5, 0.2)).toBe(true);
-    expect(stageLit(0, 0, 0)).toBe(true);
+describe("EnterFleetButton auto-select", () => {
+  it("selects itself after the delay, offers Enter, and lets go on blur", () => {
+    vi.useFakeTimers();
+    render(<EnterFleetButton onEnter={vi.fn()} autoSelectDelayMs={500} />);
+    const button = screen.getByRole("button", { name: /Enter fleet/ });
+    expect(button).not.toHaveFocus();
+    act(() => vi.advanceTimersByTime(500));
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute("data-selected", "true");
+    expect(screen.getByText("Enter ↵")).toBeInTheDocument();
+    act(() => button.blur());
+    expect(button).toHaveAttribute("data-selected", "false");
+    vi.useRealTimers();
   });
 
-  it("lists every stage under its heading", () => {
-    render(<PipelineStory />);
-    expect(screen.getByRole("heading", { level: 2, name: "From call to curb." })).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(PIPELINE_STAGES.length);
+  it("leaves focus alone if the visitor has already focused something", () => {
+    vi.useFakeTimers();
+    render(
+      <>
+        <input aria-label="elsewhere" />
+        <EnterFleetButton onEnter={vi.fn()} autoSelectDelayMs={100} />
+      </>,
+    );
+    act(() => screen.getByLabelText("elsewhere").focus());
+    act(() => vi.advanceTimersByTime(100));
+    expect(screen.getByLabelText("elsewhere")).toHaveFocus();
+    vi.useRealTimers();
   });
 });
 

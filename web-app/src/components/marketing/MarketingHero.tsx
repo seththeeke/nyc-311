@@ -5,6 +5,9 @@ import { SUBHEAD } from "./marketingContent";
 import { useCityPulse } from "./useCityPulse";
 import type { ThemeName } from "../../models/theme";
 
+/* Once the headline and subhead have landed. */
+const AUTO_SELECT_MS = 1700;
+
 interface MarketingHeroProps {
   onEnter: () => void;
   reducedMotion: boolean;
@@ -31,8 +34,8 @@ export function MarketingHero({ onEnter, reducedMotion, theme }: MarketingHeroPr
         >
           {SUBHEAD}
         </p>
-        <div className="mt-12 flex animate-[mk-rise_0.9s_ease-out_both] flex-wrap items-center gap-6" style={{ animationDelay: "1100ms" }}>
-          <EnterFleetButton onEnter={onEnter} />
+        <div className="mt-12 flex animate-[mk-rise_0.9s_ease-out_both] flex-wrap items-center gap-x-14 gap-y-10" style={{ animationDelay: "1100ms" }}>
+          <EnterFleetButton onEnter={onEnter} autoSelectDelayMs={reducedMotion ? 0 : AUTO_SELECT_MS} />
           <a href="#how-it-works" className="text-base font-medium text-fg-muted underline-offset-8 hover:text-fg hover:underline">
             See how it works
           </a>

@@ -2,11 +2,11 @@ import type { ReactElement } from "react";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useTheme } from "../../hooks/useTheme";
 import { AgentOrbit } from "../marketing/AgentOrbit";
-import { ComplaintMarquee } from "../marketing/ComplaintMarquee";
 import { FinalCta } from "../marketing/FinalCta";
 import { LiveStats } from "../marketing/LiveStats";
 import { MarketingHero } from "../marketing/MarketingHero";
-import { PipelineStory } from "../marketing/PipelineStory";
+import { HowItWorks } from "../marketing/HowItWorks";
+import { ResidentsSection } from "../marketing/ResidentsSection";
 
 interface MarketingPageProps {
   /** Leaves the marketing page for the fleet map. */
@@ -16,7 +16,7 @@ interface MarketingPageProps {
 /*
  * The marketing page at / (MARKETING_PAGE = T1): a full-screen takeover
  * outside the app shell, scrolling through the hero, the executive team,
- * the complaint ticker, the call-to-curb story and live numbers, ending on Enter fleet.
+ * how a call becomes a repair, the residents and their flywheel, and the weekly snapshot, ending on Enter fleet.
  */
 export function MarketingPage({ onEnter }: MarketingPageProps): ReactElement {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -31,8 +31,8 @@ export function MarketingPage({ onEnter }: MarketingPageProps): ReactElement {
       <main>
         <MarketingHero onEnter={onEnter} reducedMotion={reducedMotion} theme={theme} />
         <AgentOrbit />
-        <ComplaintMarquee />
-        <PipelineStory />
+        <HowItWorks reducedMotion={reducedMotion} />
+        <ResidentsSection reducedMotion={reducedMotion} />
         <LiveStats reducedMotion={reducedMotion} />
         <FinalCta onEnter={onEnter} />
       </main>

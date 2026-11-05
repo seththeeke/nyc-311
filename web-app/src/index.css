@@ -307,9 +307,123 @@ body {
   }
 }
 
-@keyframes mk-marquee {
+@keyframes mk-halo {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
   to {
-    transform: translateX(-50%);
+    opacity: 0;
+    transform: scale(1.35, 1.7);
+  }
+}
+
+@keyframes mk-shine {
+  0%,
+  55% {
+    transform: translateX(0) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(400%) skewX(-20deg);
+  }
+}
+
+@keyframes mk-scan {
+  from {
+    top: 0%;
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  to {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes mk-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes mk-pass {
+  from {
+    opacity: 0;
+    transform: translateX(-30%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mk-reject {
+  0% {
+    opacity: 0;
+    transform: translateX(-30%);
+  }
+  45% {
+    opacity: 1;
+    transform: none;
+  }
+  65% {
+    transform: translateX(-2%);
+  }
+  80% {
+    transform: translateX(2%);
+  }
+  100% {
+    opacity: 0.4;
+    transform: none;
+    text-decoration: line-through;
+  }
+}
+
+@keyframes mk-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes mk-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-160%) scale(1.2);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mk-spark {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(110px) scale(0.3);
+  }
+}
+
+@keyframes mk-stroke {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mk-bob {
+  50% {
+    transform: translateY(-10px);
   }
 }
 
@@ -363,6 +477,26 @@ body {
   .mk-beam {
     background: linear-gradient(90deg, var(--t-hue-violet), var(--t-hue-cyan));
     box-shadow: 0 0 16px var(--t-hue-cyan);
+  }
+
+  .mk-shine {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+    animation: mk-shine 3.2s ease-in-out infinite;
+  }
+
+  .mk-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: mk-stroke 0.8s ease-out forwards;
+  }
+
+  .mk-terminal {
+    background-color: color-mix(in srgb, var(--t-surface) 85%, black);
+  }
+
+  .mk-stage {
+    background-color: var(--t-panel);
+    backdrop-filter: blur(12px);
   }
 
   .mk-vignette {
