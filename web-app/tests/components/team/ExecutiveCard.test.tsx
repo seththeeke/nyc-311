@@ -36,6 +36,11 @@ describe("ExecutiveCard", () => {
     expect(open).toHaveBeenCalledWith("coo");
   });
 
+  it("has no View Contributions button without a handler", () => {
+    render(<ExecutiveCard member={memberById("coo")!} flip={false} onViewContributions={null} />);
+    expect(screen.queryByRole("button", { name: "View Contributions" })).not.toBeInTheDocument();
+  });
+
   it("leaves out the goals section for a member with no goals yet", () => {
     render(<ExecutiveCard member={{ ...memberById("chief-of-staff")!, goals: [] }} flip={false} onViewContributions={vi.fn()} />);
     expect(screen.queryByRole("heading", { name: /^Goals?$/ })).not.toBeInTheDocument();

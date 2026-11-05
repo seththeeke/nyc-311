@@ -11,7 +11,8 @@ interface ExecutiveCardProps {
   member: TeamMember;
   /* Alternate cards put the figure on the right. */
   flip: boolean;
-  onViewContributions: (memberId: string) => void;
+  /* Null while AGENT_CONTRIBUTIONS is off: the card shows no View Contributions button. */
+  onViewContributions: ((memberId: string) => void) | null;
 }
 
 const LABEL = "text-xs font-medium uppercase tracking-wide text-fg-subtle";
@@ -93,13 +94,15 @@ export function ExecutiveCard({ member, flip, onViewContributions }: ExecutiveCa
               </div>
             )}
           </dl>
-          <button
-            type="button"
-            onClick={() => onViewContributions(member.member_id)}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-fg hover:bg-panel-hover"
-          >
-            View Contributions
-          </button>
+          {onViewContributions && (
+            <button
+              type="button"
+              onClick={() => onViewContributions(member.member_id)}
+              className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-fg hover:bg-panel-hover"
+            >
+              View Contributions
+            </button>
+          )}
         </div>
       </div>
     </article>

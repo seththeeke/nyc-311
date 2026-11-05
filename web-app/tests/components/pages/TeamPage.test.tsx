@@ -3,6 +3,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeamPage } from "../../../src/components/pages/TeamPage";
 import { inRouter } from "../team/teamFixtures";
+import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
+
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => true) }));
 
 
 describe("TeamPage", () => {
@@ -23,5 +26,12 @@ describe("TeamPage", () => {
     await user.click(screen.getAllByRole("button", { name: "View Contributions" })[1]);
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("contributions=coo");
     expect(scroll).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
+  it("hides View Contributions while AGENT_CONTRIBUTIONS is off", () => {
+    vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
+    render(inRouter(<TeamPage />));
+    expect(screen.getAllByRole("article")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: "View Contributions" })).not.toBeInTheDocument();
   });
 });

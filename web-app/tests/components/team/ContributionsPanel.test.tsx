@@ -1,10 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ContributionsPanel } from "../../../src/components/team/ContributionsPanel";
 import { CONTRIBUTION_KINDS, CONTRIBUTION_LABEL, contributionsFor, TEAM_CONTRIBUTIONS } from "../../../src/components/team/teamContributions";
 import { TEAM_ROSTER } from "../../../src/components/team/teamRoster";
 import { inRouter } from "./teamFixtures";
+import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
+
+vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => true) }));
 
 describe("team contributions", () => {
   it("covers everyone on the roster, newest first, with a label for every kind", () => {
@@ -26,6 +29,13 @@ describe("ContributionsPanel", () => {
     expect(screen.getAllByText("Capacity")).toHaveLength(2);
     await userEvent.setup().click(screen.getByRole("button", { name: "Close contributions" }));
     expect(screen.getByText(/Pick View Contributions/)).toBeInTheDocument();
+  });
+
+  it("shows nothing of a member's log while AGENT_CONTRIBUTIONS is off", () => {
+    vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
+    render(inRouter(<ContributionsPanel />, "/team?contributions=coo"));
+    expect(screen.getByText("Contributions are coming soon.")).toBeInTheDocument();
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
   it("links out when a contribution has somewhere to go", () => {

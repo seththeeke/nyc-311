@@ -1,13 +1,17 @@
 import type { ReactElement } from "react";
+import { useFeatureEnabled } from "../../hooks/useFeatureTreatment";
 import { useTeamSelection } from "../../hooks/useTeamSelection";
+import { AGENT_CONTRIBUTIONS_FLAG, AGENT_CONTRIBUTIONS_ON } from "../../models/featureTreatment";
 import { CONTRIBUTION_LABEL, contributionsFor } from "./teamContributions";
 import { clockTime, meetingDay } from "./teamFormat";
 import { memberById } from "./teamRoster";
 
-/** A team member's recent contributions (#146), in the secondary workspace: what they did, why, and where to see it. */
+/** A team member's recent contributions (#146), in the secondary workspace: what they did, why, and where to see it. Behind AGENT_CONTRIBUTIONS, so a `?contributions=` link shows nothing while it's off. */
 export function ContributionsPanel(): ReactElement {
   const { contributionsId, selectContributions } = useTeamSelection();
+  const enabled = useFeatureEnabled(AGENT_CONTRIBUTIONS_FLAG, AGENT_CONTRIBUTIONS_ON);
   const member = memberById(contributionsId);
+  if (!enabled) return <p className="px-4 text-sm text-fg-muted">Contributions are coming soon.</p>;
   if (!member) return <p className="px-4 text-sm text-fg-muted">Pick View Contributions on anyone to see what they&apos;ve been doing.</p>;
   const items = contributionsFor(member.member_id);
   return (

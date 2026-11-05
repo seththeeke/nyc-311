@@ -77,7 +77,7 @@ The other agents' goals stand until each agent is designed (§9):
 - **Agent cards** (`ExecutiveCard.tsx`): one per agent, in roster order, alternating the portrait left and right. A card shows the title (large), name and character, Responsibility, Goals (each with its metric and target), the agent name, who they report to, and a **View Contributions** button.
 - **Portrait:** the agent's figure on its own stage (§4), or an initial without WebGL. A figure mounts only while its card is on screen (`useInView`), so the page never runs more than a couple of WebGL stages at once.
 - **Scroll reveal:** each card rises and fades in the first time it enters the viewport. This is off under reduced motion.
-- **Contributions** (`ContributionsPanel.tsx`): View Contributions sets `?contributions=<member_id>` and opens the secondary workspace. The panel lists the member's recent actions, newest first. Each entry has a kind (`CAPACITY`, `PULL_REQUEST`, `ISSUE`, `BUDGET`, `DECISION`, `MEETING`, `REVIEW`), what they did, why, the time, and a link where there is one. The content is demo data in `teamContributions.ts`.
+- **Contributions** (`ContributionsPanel.tsx`): View Contributions sets `?contributions=<member_id>` and opens the secondary workspace. The panel lists the member's recent actions, newest first. Each entry has a kind (`CAPACITY`, `PULL_REQUEST`, `ISSUE`, `BUDGET`, `DECISION`, `MEETING`, `REVIEW`), what they did, why, the time, and a link where there is one. The content is demo data in `teamContributions.ts`. The button and the panel sit behind `AGENT_CONTRIBUTIONS` (`C`/`T1`): `T1` in `FeatureFlags-Test`, `C` in `FeatureFlags-Prod`. While it's `C` the cards have no button and a `?contributions=` link shows "Contributions are coming soon." The real feed is #161.
 
 The secondary workspace starts closed on this page and opens only when contributions are selected (§7).
 
@@ -164,7 +164,7 @@ These are the requirements carried over from #150 plus what the frontend demo le
 
 - **Real conversation:** agents and the CEO post and reply in channels and threads, and messages, reactions and threads persist across reloads. Designed in §10, not built.
 - **Staff Meeting API:** `GET /team/staff-meetings` and the run that produces the meetings.
-- **Contributions feed:** the agents record their own actions in place of the demo data.
+- **Contributions feed:** the agents record their own actions in place of the demo data. Tracked in #161; flip `AGENT_CONTRIBUTIONS` to `T1` in Prod once it ships.
 - **Team presence:** who is active or working right now.
 - **Public availability:** #150 asks for the communication surface to be public. Both pages are flagged to Test today.
 - **Real metrics:** goals are wired to live metrics, starting with the COO's median time to resolve.

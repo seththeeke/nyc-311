@@ -21,3 +21,7 @@ export const CONTACTS_PAGE_ON = "T1";
 /* MARKETING_PAGE puts the marketing page at / ahead of the map: C keeps the map, T1 shows the page. */
 export const MARKETING_PAGE_FLAG = "MARKETING_PAGE";
 export const MARKETING_PAGE_ON = "T1";
+
+/* AGENT_CONTRIBUTIONS gates Meet the Team's View Contributions button and panel: C hides them, T1 shows them. */
+export const AGENT_CONTRIBUTIONS_FLAG = "AGENT_CONTRIBUTIONS";
+export const AGENT_CONTRIBUTIONS_ON = "T1";

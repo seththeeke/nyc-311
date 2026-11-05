@@ -1,5 +1,7 @@
 import { type ReactElement, useEffect } from "react";
+import { useFeatureEnabled } from "../../hooks/useFeatureTreatment";
 import { useTeamSelection } from "../../hooks/useTeamSelection";
+import { AGENT_CONTRIBUTIONS_FLAG, AGENT_CONTRIBUTIONS_ON } from "../../models/featureTreatment";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 import { CeoCard } from "../team/CeoCard";
 import { ExecutiveCard } from "../team/ExecutiveCard";
@@ -11,10 +13,12 @@ const AGENTS = TEAM_ROSTER.filter((member) => member.kind === "AGENT");
 /**
  * Meet the Team (#146), behind MEET_THE_TEAM: BoroughSim's one human CEO
  * and its AI agents, one large card each. `?member=` scrolls to a card;
- * View Contributions opens that member's log in the secondary workspace.
+ * View Contributions (behind AGENT_CONTRIBUTIONS) opens that member's log in
+ * the secondary workspace.
  */
 export function TeamPage(): ReactElement {
   const { memberId, selectMember, selectContributions } = useTeamSelection();
+  const contributionsOn = useFeatureEnabled(AGENT_CONTRIBUTIONS_FLAG, AGENT_CONTRIBUTIONS_ON);
   useEffect(() => {
     if (memberId) document.getElementById(`member-${memberId}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [memberId]);
@@ -40,7 +44,7 @@ export function TeamPage(): ReactElement {
       <CeoCard member={CEO} />
       <div className="mt-8 space-y-8">
         {AGENTS.map((member, index) => (
-          <ExecutiveCard key={member.member_id} member={member} flip={index % 2 === 1} onViewContributions={selectContributions} />
+          <ExecutiveCard key={member.member_id} member={member} flip={index % 2 === 1} onViewContributions={contributionsOn ? selectContributions : null} />
         ))}
       </div>
     </main>
