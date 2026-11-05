@@ -1,6 +1,6 @@
 # 18 — Marketing page
 
-**Status:** mockup, frontend only. **Flag:** `MARKETING_PAGE` (`C`/`T1`) is `T1` in `FeatureFlags-Test` and `C` in `FeatureFlags-Prod`.
+**Status:** done (2026-11-04), frontend only; built, tested and pushed in `4140504`. Turning it on in Prod is the CEO's step (`MARKETING_PAGE` to `T1`). **Flag:** `MARKETING_PAGE` (`C`/`T1`) is `T1` in `FeatureFlags-Test` and `C` in `FeatureFlags-Prod`.
 
 A full-screen marketing page at `/` that sells BoroughSim and ends on **Enter fleet**, which opens the 3-D map.
 
