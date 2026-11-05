@@ -1,8 +1,8 @@
 import { DynamoDBClient, TransactionCanceledException } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContactDao } from "../../../dao/contact/contactDao";
+import { CONTACTS_BY_TYPE_INDEX, ContactDao } from "../../../dao/contact/contactDao";
 import type { Contact } from "../../../models/contact";
 import { TerminalError, ValidationError } from "../../../models/errors";
 
@@ -119,5 +119,34 @@ describe("ContactDao.createContact", () => {
   it("rejects an invalid Contact before writing", async () => {
     await expect(dao().createContact({ ...contact, title: "" })).rejects.toThrow(ValidationError);
     expect(ddbMock.commandCalls(TransactWriteCommand)).toHaveLength(0);
+  });
+});
+
+describe("ContactDao.listContacts", () => {
+  const lastKey = { contact_id: contact.contact_id, contact_type: "FEATURE_REQUEST", created_at: contact.created_at };
+
+  it("queries the type index newest first and returns a cursor for the next page", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [contact], LastEvaluatedKey: lastKey });
+    const page = await dao().listContacts({ contactType: "FEATURE_REQUEST", order: "NEWEST", limit: 25 });
+    expect(page.contacts).toEqual([contact]);
+    expect(JSON.parse(Buffer.from(page.nextCursor!, "base64url").toString("utf8"))).toEqual(lastKey);
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({ TableName: TABLE, IndexName: CONTACTS_BY_TYPE_INDEX, ScanIndexForward: false, Limit: 25 });
+    expect(input.FilterExpression).toBeUndefined();
+  });
+
+  it("filters by status, reads oldest first and resumes from a cursor", async () => {
+    ddbMock.on(QueryCommand).resolves({});
+    const cursor = Buffer.from(JSON.stringify(lastKey), "utf8").toString("base64url");
+    const page = await dao().listContacts({ contactType: "FEATURE_REQUEST", status: "CLOSED", order: "OLDEST", limit: 5, cursor });
+    expect(page).toEqual({ contacts: [], nextCursor: null });
+    const input = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(input).toMatchObject({ ScanIndexForward: true, FilterExpression: "#status = :status", ExclusiveStartKey: lastKey });
+    expect(input.ExpressionAttributeValues).toEqual({ ":type": "FEATURE_REQUEST", ":status": "CLOSED" });
+  });
+
+  it("rejects a malformed cursor", async () => {
+    await expect(dao().listContacts({ contactType: "FEATURE_REQUEST", order: "NEWEST", limit: 5, cursor: "not-json" })).rejects.toThrow(ValidationError);
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(0);
   });
 });

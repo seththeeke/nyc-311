@@ -26,6 +26,8 @@ export const ContactSchema = z.object({
   submitter: ContactSubmitterSchema,
   closure_reason_code: z.string().min(1).nullable(),
   closure_reason_description: z.string().min(1).nullable(),
+  /* The backlog ticket tracking it (17-executive-team.md §17.3); absent on rows written before tickets existed. */
+  ticket_number: z.number().int().positive().nullable().optional(),
   client_request_id: z.string().min(1).nullable(),
   created_at: z.string().min(1),
   updated_at: z.string().min(1),

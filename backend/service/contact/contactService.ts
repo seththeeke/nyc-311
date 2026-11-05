@@ -4,6 +4,7 @@ import { requireEnv } from "../../env";
 import { createDocumentClient } from "../../dynamoClient";
 import { ContactDao } from "../../dao/contact/contactDao";
 import type { Contact, CreateContactInput } from "../../models/contact";
+import type { ContactListItem, ContactListPage, ListContactsQuery } from "../../models/contactList";
 import { NotFoundError } from "../../models/errors";
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
@@ -58,4 +59,29 @@ export async function getContact(contactId: string, deps: ContactServiceDeps = {
   }
   logInfo("ContactFetched", { contactId, status: contact.status });
   return contact;
+}
+
+/** The public view of a Contact: the submitter's name only, never an email or idempotency key. */
+export function toContactListItem(contact: Contact): ContactListItem {
+  return {
+    contact_id: contact.contact_id,
+    contact_type: contact.contact_type,
+    status: contact.status,
+    title: contact.title,
+    description: contact.description,
+    submitter_name: contact.submitter.name,
+    closure_reason_code: contact.closure_reason_code,
+    closure_reason_description: contact.closure_reason_description,
+    ticket_number: contact.ticket_number ?? null,
+    created_at: contact.created_at,
+    updated_at: contact.updated_at,
+  };
+}
+
+/** One page of Contacts for the public list (17-executive-team.md §17.3). */
+export async function listContacts(query: ListContactsQuery, deps: ContactServiceDeps = {}): Promise<ContactListPage> {
+  const contactDao = deps.contactDao ?? getContactDao();
+  const page = await contactDao.listContacts({ contactType: query.type, status: query.status, order: query.order, limit: query.limit, cursor: query.cursor });
+  logInfo("ContactsListed", { type: query.type, status: query.status ?? null, order: query.order, count: page.contacts.length, hasMore: page.nextCursor !== null });
+  return { contacts: page.contacts.map(toContactListItem), next_cursor: page.nextCursor };
 }

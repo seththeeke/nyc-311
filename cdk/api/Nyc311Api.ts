@@ -7,6 +7,7 @@ import type { Construct } from "constructs";
 import { ADMIN_API_ROUTES } from "../../backend/controller/web-api/admin/adminApiRoutes";
 import { DATA_API_ROUTES } from "../../backend/controller/web-api/data/dataApiRoutes";
 import { FEATURE_FLAGS_API_ROUTES } from "../../backend/controller/web-api/featureFlags/featureFlagsApiRoutes";
+import { CONTACTS_API_ROUTES } from "../../backend/controller/web-api/contacts/contactsApiRoutes";
 import { FLEET_API_ROUTES } from "../../backend/controller/web-api/fleet/fleetApiRoutes";
 import { MONITORING_API_ROUTES } from "../../backend/controller/web-api/monitoring/monitoringApiRoutes";
 import { WEBHOOK_SINK_API_ROUTES } from "../../backend/controller/web-api/webhookSink/webhookSinkApiRoutes";
@@ -14,6 +15,7 @@ import { WEBHOOK_SUBSCRIPTIONS_API_ROUTES } from "../../backend/controller/web-a
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 import type { Nyc311AdminApiLambda } from "../lambda/Nyc311AdminApiLambda";
 import type { Nyc311FeatureFlagsApiLambda } from "../lambda/Nyc311FeatureFlagsApiLambda";
+import type { Nyc311ContactsApiLambda } from "../lambda/Nyc311ContactsApiLambda";
 import type { Nyc311FleetApiLambda } from "../lambda/Nyc311FleetApiLambda";
 import type { Nyc311MonitoringApiLambda } from "../lambda/Nyc311MonitoringApiLambda";
 import type { Nyc311WebhookSinkApiLambda } from "../lambda/Nyc311WebhookSinkApiLambda";
@@ -26,6 +28,7 @@ export interface Nyc311ApiProps {
   /** §3.2 — every JWT-authorized route. */
   adminApiLambda: Nyc311AdminApiLambda;
   featureFlagsApiLambda: Nyc311FeatureFlagsApiLambda;
+  contactsApiLambda: Nyc311ContactsApiLambda;
   dataApiLambda: Nyc311DataApiLambda;
   monitoringApiLambda: Nyc311MonitoringApiLambda;
   /** The public home-page map's data source (`10-capacity-modeling-and-integration.md` §6.1). */
@@ -99,6 +102,7 @@ export class Nyc311Api extends HttpApi {
     [
       ...this.addBundleRoutes("AdminApi", props.adminApiLambda, ADMIN_API_ROUTES, props.adminAuthorizer),
       ...this.addBundleRoutes("FeatureFlagsApi", props.featureFlagsApiLambda, FEATURE_FLAGS_API_ROUTES),
+      ...this.addBundleRoutes("ContactsApi", props.contactsApiLambda, CONTACTS_API_ROUTES),
       ...this.addBundleRoutes("DataApi", props.dataApiLambda, DATA_API_ROUTES),
       ...this.addBundleRoutes("MonitoringApi", props.monitoringApiLambda, MONITORING_API_ROUTES),
       ...this.addBundleRoutes("FleetApi", props.fleetApiLambda, FLEET_API_ROUTES),
