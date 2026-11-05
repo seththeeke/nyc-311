@@ -24,7 +24,7 @@ export function FinalCta({ onEnter, reducedMotion }: FinalCtaProps): ReactElemen
       <div aria-hidden="true" className="mk-stars pointer-events-none absolute inset-0" />
       <Reveal className="relative mx-auto max-w-4xl px-4 sm:px-8">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-hue-cyan">Your move</p>
-        <h2 id="final-cta-title" className="mk-gradient-text mt-4 text-5xl font-black tracking-tight sm:text-8xl">
+        <h2 id="final-cta-title" className="mk-gradient-text mt-4 pb-[0.15em] text-5xl font-black leading-[1.05] tracking-tight sm:text-8xl">
           {FINAL_CTA.title}
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-lg text-fg-muted sm:text-xl">{FINAL_CTA.body}</p>

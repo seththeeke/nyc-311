@@ -58,11 +58,23 @@ describe("weeklyStats and share", () => {
 });
 
 describe("the visuals", () => {
-  it("fills the tank to its level only once active", () => {
-    const { rerender } = render(<CapacityTank level={0.5} active={false} />);
-    expect(screen.getByTestId("tank-level").style.transform).toBe("translateY(92px)");
+  it("piles trucks to its level, dropping them in only once active", () => {
+    const { rerender } = render(<CapacityTank level={1} active={false} />);
+    const full = screen.getAllByTestId("pile-truck").length;
+    expect(full).toBeGreaterThan(20);
+    expect(screen.getAllByTestId("pile-truck")[1].style.transform).toBe("translateY(-110px)");
     rerender(<CapacityTank level={0.5} active={true} />);
-    expect(screen.getByTestId("tank-level").style.transform).toBe("translateY(48px)");
+    const trucks = screen.getAllByTestId("pile-truck");
+    expect(trucks).toHaveLength(Math.round(full / 2));
+    expect(trucks[1].style.transform).toBe("translateY(0)");
+    expect(trucks[1].style.transitionDelay).toBe("35ms");
+  });
+
+  it("clamps the pile to an empty or full bowl", () => {
+    const { rerender } = render(<CapacityTank level={-1} active={true} />);
+    expect(screen.queryAllByTestId("pile-truck")).toHaveLength(0);
+    rerender(<CapacityTank level={2} active={true} />);
+    expect(screen.getByTestId("truck-pile").dataset.count).toBe(String(screen.getAllByTestId("pile-truck").length));
   });
 
   it("rains dollars only while active", () => {

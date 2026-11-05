@@ -17,7 +17,7 @@ const whole = (v: number): string => formatCount(Math.round(v));
 /*
  * "This week" as a scroll story over the fleet map's own weekly snapshot:
  * the section pins and each slice of scroll brings the next number forward
- * with its own visual: capacity as liquid, cost as a rain of dollars,
+ * with its own visual: capacity as a pile of trucks, cost as a rain of dollars,
  * requests as a dot field, mean time to resolve as a stopwatch.
  */
 export function WeeklyStory({ reducedMotion }: { reducedMotion: boolean }): ReactElement {

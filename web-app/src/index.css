@@ -342,23 +342,6 @@ body {
   }
 }
 
-@keyframes mk-wave {
-  to {
-    transform: translateX(-100px);
-  }
-}
-
-@keyframes mk-bubble {
-  from {
-    transform: translateY(0);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateY(-100px);
-    opacity: 0;
-  }
-}
-
 @keyframes mk-fall {
   from {
     top: -12%;

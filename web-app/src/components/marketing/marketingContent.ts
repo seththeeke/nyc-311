@@ -16,7 +16,7 @@ export const AGENT_SECTION = {
 
 export const FINAL_CTA = {
   title: "The city is moving right now.",
-  body: "Calls are coming in, the clock is running and Patch is already on the road. Step inside.",
+  body: "Calls are coming in, the clock is running and we're already on the road. Come take a look.",
 };
 
 export const RESIDENTS_SECTION = {
