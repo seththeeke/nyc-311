@@ -9,7 +9,7 @@
 - **Built, set up on the Mac mini next:**
   - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
   - the CTO agent (§16), reviewing Pip's PRs four times a day and summarizing in `#executive-team`.
-- **Being built:** the CPO agent (§17), with the Contacts page and agent memory.
+- **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
 - **Not built yet:** the CFO and Software Engineer agents. They show a **Work in progress** tag.
 - **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
@@ -793,7 +793,7 @@ Pip already tends unaddressed comments on his PRs at the start of every run. He 
 
 ## 17. The CPO agent
 
-**Status:** being built, legs C0–C9 (§17.9).
+**Status:** built 2026-11-05 (C0–C8); C9's deploy and setup remain (§17.10).
 
 `cpo-agent` is Celestine Vey. She owns the product: what BoroughSim should build next to cut cost per order (under $25) and keep residents satisfied (over 80% of interactions). She works from evidence. She triages residents' contacts, reads the WBR and the team's chat, studies the codebase, and files a small number of well-researched tickets. She never changes code.
 
@@ -900,7 +900,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 ### 17.10 Setup TODO
 
 - [ ] Deploy C2–C5.
-- [ ] `CONTACTS_PAGE` in `FeatureFlags-Test` (`T1`) and `FeatureFlags-Prod` (`C`).
+- [x] `CONTACTS_PAGE` in `FeatureFlags-Test` (`T1`) and `FeatureFlags-Prod` (`C`) (2026-11-05).
 - [ ] MacBook: `scripts/agent-credentials.py create cpo-agent TEST --group BOROUGH_SIM_PRODUCT` and `… PROD …`; copy `~/.nyc-311/credentials` to the Mac mini.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
 - [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (09:00).
