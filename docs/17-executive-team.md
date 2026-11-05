@@ -770,7 +770,7 @@ The CEO still merges. Removing a label puts a PR back in Rex's queue.
 ### 16.4 Permissions
 
 - Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (to `/tmp` only), `TodoWrite` and the `team-chat` tools including `react`. Model: Sonnet.
-- `.claude/hooks/cto-agent-guard.sh` blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit, `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status. Merges, `graphql` and other repos are blocked outright.
+- `.claude/hooks/cto-agent-guard.sh` allows `gh issue` list, view and comment, and `edit` only to add `cto-escalated` (§17.7). It blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit, `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status. Merges, `graphql` and other repos are blocked outright.
 - AWS: IAM user `cto-agent`, which can only assume `Nyc311CtoAgentRole` (`ReadOnlyAccess`, secrets denied, source identity `cto-agent`), the same access as Pip. Both roles share `cdk/agents/ReadOnlyAgentRole.ts`.
 - Cognito user `cto-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only.
 

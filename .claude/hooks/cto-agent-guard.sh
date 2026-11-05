@@ -44,6 +44,17 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
             deny("check out a PR only as git checkout --detach FETCH_HEAD.")
     if tool == "gh" and args:
         sub = args[0]
+        if sub == "issue" and len(args) > 1:
+            action = args[1]
+            if action in {"list", "view", "comment"}:
+                continue
+            if action == "edit":
+                rest = args[2:]
+                labels = [rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--add-label"]
+                flags = [a for a in rest if a.startswith("-")]
+                if labels == ["cto-escalated"] and all(f in {"--add-label", "--repo", "-R"} for f in flags):
+                    continue
+            deny(f"gh issue {action} is blocked; Rex only reads, comments on and escalates issues.")
         if sub in {"issue", "repo", "release", "label", "workflow", "run", "secret", "variable", "auth"} and args[:2] != ["auth", "status"]:
             deny(f"gh {sub} is blocked.")
         if sub == "pr" and len(args) > 1:
