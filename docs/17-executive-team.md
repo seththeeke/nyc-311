@@ -803,7 +803,7 @@ Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=op
 
 1. **Memory:** read `.claude/agent-memory/cpo-agent/MEMORY.md`.
 2. **Inbox:** reply to Rex's feedback in her ticket threads (§17.7).
-3. **Contacts:** `list_contacts` for `RECEIVED` contacts. For each, decide: a new ticket, an existing ticket (dedupe) or a decline, and update the contact (§17.3).
+3. **Contacts:** `list_contacts` for `RECEIVED` contacts. For each, decide: a new ticket, an existing ticket (dedupe) or a decline, and update it with `track_contact` or `close_contact` (§17.3).
 4. **WBR:** `get_wbr` for the latest weeks: cost per order and its parts, time to resolve, fleet size and burn. Read Brogan's `#executive-team` posts for what changed the fleet and why.
 5. **Investigate:** read the codebase to see how the system produces those numbers and what would move them.
 6. **File:** a ticket only when the evidence clears the bar (§17.4), deduped against her own open and closed issues and her memory.
@@ -814,14 +814,14 @@ Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=op
 
 | Data | How | Not |
 |---|---|---|
-| Contacts | `boroughsim-product` MCP: `list_contacts`, `get_contact`, `update_contact` | — |
-| WBR | `boroughsim-product` MCP: `get_wbr`, the `wbr` job's rollups | — |
+| Contacts | `boroughsim-product` MCP: `list_contacts`, `track_contact` (in progress, with a ticket), `close_contact` (duplicate, declined, shipped) | — |
+| WBR | `boroughsim-product` MCP: `get_wbr`, the newest successful runs of the `wbr` warehouse job and their result rows, read through `GET /admin/warehouse/job-runs` and `POST /admin/warehouse/job-runs/results` | Other warehouse jobs' results, ad-hoc queries |
 | Brogan's fleet actions | Team Chat, `#executive-team` | The `boroughsim-ops` tools and the capacity routes; she is not in `BOROUGH_SIM_OPERATIONS` |
 | How the system works | `Read`, `Grep`, `Glob` over her worktree | Any edit, commit, push or PR |
 | Her tickets | `gh issue` on `cpo-agent` issues only | Anyone else's issues |
 | Resident ideas | — | Owned by the residents (the customer); never read |
 
-Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and the new `BOROUGH_SIM_PRODUCT` group, which gates the contact write route. Its MCP server is separate from Brogan's, so the capacity tools are never loaded in her runs.
+Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and the new `BOROUGH_SIM_PRODUCT` group, which gates the contact write route and the two job-run read routes. An agent caller on those routes is not resolved to a User row. Its MCP server is separate from Brogan's, so the capacity tools are never loaded in her runs.
 
 ### 17.3 Contacts
 
@@ -889,7 +889,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 | **C2** | Contacts read: the `ByTypeCreatedAt` index, DAO query, `listContacts`, the public `contacts` bundle and `GET /contacts`, its CDK route and a Test-stage integration test. |
 | **C3** | Contacts write: the `BOROUGH_SIM_PRODUCT` group, the contact update fields and `PATCH /admin/contacts/{contact_id}`. |
 | **C4** | Web app: `CONTACTS_PAGE`, the Residents tab bar and `ContactsPage`. |
-| **C5** | The `boroughsim-product` MCP server and `PRODUCT_TOOLS` in the per-run config. |
+| **C5** | The `boroughsim-product` MCP server, `PRODUCT_TOOLS` in the per-run config, and `BOROUGH_SIM_PRODUCT` on the two job-run read routes. |
 | **C6** | Agent memory: the memory file and the commit step in `agent-scheduled-run.sh`. |
 | **C7** | The CPO agent: prompt, settings, guard, schedule, roster `live`, Appendix B. |
 | **C8** | Rex on her tickets (§17.7) and Rex's four-a-day schedule. |
