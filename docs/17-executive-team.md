@@ -8,7 +8,7 @@
   - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
 - **Built, set up on the Mac mini next:**
   - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
-  - the CTO agent (§16), reviewing Pip's PRs four times a day and summarizing in `#executive-team`.
+  - the CTO agent (§16), reviewing and merging Pip's PRs four times a day and summarizing in `#executive-team`.
 - **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
 - **Not built yet:** the CFO and Software Engineer agents. They show a **Work in progress** tag.
 - **Next:** these three run for a few days before the next executive is designed (§9).
@@ -458,7 +458,7 @@ Every scheduled run posts exactly one top-level message to `#tech-team`, tagged 
 | Tended | Each open `devx/` PR tended this run, with what changed and a link. |
 | Checks | The Operational Loop result per affected package. |
 | Punted | Any follow-up ticket, linked. |
-| Ask | A mention of whoever must act: @Seth for a PR ready to merge, until a CTO agent reviews PRs. |
+| Ask | A mention of whoever must act: @Seth for a PR Rex escalated. Rex merges the PRs he approves (§16.2). |
 
 A run that finds nothing worth shipping still posts. It says so and gives the reason.
 
@@ -735,20 +735,21 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 
 ## 16. The CTO agent
 
-**Status:** built 2026-11-04, not set up yet (§16.6).
+**Status:** built 2026-11-04, not set up yet (§16.6). Merging added 2026-11-06 (§16.2).
 
-`cto-agent` is Rex Rivet. He reviews the code the tech team ships; today that is the DevX agent's (`devx/`) PRs, with the Software Engineer's to follow. Pip works off the critical path, so **approval is the normal outcome**: Rex comments only on what would hurt.
+`cto-agent` is Rex Rivet. He reviews the code the tech team ships; today that is the DevX agent's (`devx/`) PRs, with the Software Engineer's to follow. Pip works off the critical path, so **approval is the normal outcome**: Rex comments only on what would hurt. **Rex merges Pip's PRs that he approves** when they have no merge conflicts; a conflicting PR goes back to Pip to resolve, and Rex merges the resolved revision.
 
 ### 16.1 The run
 
 Four times a day, at 08:00, 11:00, 14:00 and 17:00 Mac mini time, across working hours. `KIND=operations`, `TEAM_CHAT_ENV=PROD`. Pip's 06:00 PRs are reviewed at 08:00 and his 18:00 PRs the next morning.
 
 1. Read the rubric (§16.3) and the inbox.
-2. List the open `devx/` PRs. Skip any labelled `cto-approved` or `cto-escalated`, and any whose head SHA already has a `cto-review` status: **a revision is reviewed once, and every new revision is reviewed until the PR is approved or escalated**.
+2. List the open `devx/` PRs. Skip any labelled `cto-escalated`. The head SHA's `cto-review` status decides the rest: none means review it; `failure` means skip it, waiting on Pip; `success` means approved but not merged, so go straight to the merge (§16.2). **A revision is reviewed once, and every new revision is reviewed until the PR is merged or escalated**, including a new revision of an approved PR (usually Pip's conflict resolution).
 3. For each remaining PR, in his own worktree (`agent-worktree.sh`, a separate directory from Pip's): fetch `pull/<n>/head` and check it out **detached**, never by branch name, since Pip's worktree may hold the branch. Read the PR's conversation, diff it against `main`, and run `build`, `lint` and `test:coverage` in every touched package.
 4. Decide: **approve** if nothing is blocking; **comment** if something is, on rounds 1 and 2; **escalate** to the CEO if something is still blocking at round 3.
-5. Mark the PR on GitHub (§16.2) and react to Pip's `#tech-team` post for that PR: `✅` approved, `💬` commented or escalated. No message in `#tech-team`.
-6. Post one summary to `#executive-team`, tagged `CTO_REVIEW`, **every run**: one line per open PR, approved, commented (blocking count and round), escalated (with `@Seth`) or skipped (no new revision, already approved), or "No open devx PRs."
+5. Mark the PR on GitHub (§16.2). After an approval, **merge** it if GitHub reports it mergeable, or leave the conflict comment if it conflicts with `main` (§16.2).
+6. React to Pip's `#tech-team` post for that PR: `✅` approved (merged or not), `💬` commented or escalated. No message in `#tech-team`.
+7. Post one summary to `#executive-team`, tagged `CTO_REVIEW`, **every run**: one line per open PR, **approved and merged** or **approved, not merged** (with why: merge conflicts, draft, mergeability unknown, or GitHub refused), commented (blocking count and round), escalated (with `@Seth`) or skipped (no new revision, waiting on Pip's conflict fix), or "No open devx PRs."
 
 ### 16.2 Signed marks
 
@@ -760,8 +761,20 @@ Rex posts with the CEO's GitHub account, which can't approve its own PRs. His ma
 | Approval | A comment starting `<!-- cto-agent:approved -->` and `**✅ Approved by Rex (CTO)** at <sha>`, the label `cto-approved`, and commit status `cto-review` = `success`. |
 | Escalation | A comment starting `<!-- cto-agent:escalated -->`, the label `cto-escalated`, and status `cto-review` = `failure`. |
 | Revision reviewed | Status `cto-review` on the head SHA: `success`, or `failure` with `Rex (CTO): changes requested, round n/2`. |
+| Merge conflict | A comment starting `<!-- cto-agent:conflict -->` and `**Rex (CTO): approved at <sha>, but it conflicts with main.**`, asking Pip to merge `main` in and push. At most once per SHA. |
+| Merged | A comment starting `<!-- cto-agent:merged -->` and `**🔀 Merged by Rex (CTO)** at <sha>`. |
 
-The CEO still merges. Removing a label puts a PR back in Rex's queue.
+**The merge.** Rex merges a PR only when all of these hold:
+
+- its branch is `devx/` (Pip's), it is open and not a draft;
+- it is labelled `cto-approved`, not `cto-escalated`, and its head SHA has `cto-review` = `success`;
+- GitHub reports it `MERGEABLE`. `UNKNOWN` is re-queried once, then left for the next run.
+
+He squash-merges with `gh api -X PUT repos/seththeeke/nyc-311/pulls/<n>/merge -f merge_method=squash -f sha=<head sha>`. The `sha` pins the merge to the revision he approved: if Pip pushed since, GitHub refuses it. The branch is not deleted.
+
+If the PR is `CONFLICTING`, Rex does not resolve the conflict. He leaves the conflict comment, and Pip merges `main` in on his next run (§16.5). The resolution is a new revision, so Rex's next run reviews it, checking that only the conflict resolution changed, and merges it.
+
+A merge to `main` is a release: the pipeline deploys it to Test and then Prod. The Software Engineer's PRs, and every other PR, are still merged by the CEO. Removing `cto-escalated` puts a PR back in Rex's queue.
 
 ### 16.3 The rubric
 
@@ -770,13 +783,13 @@ The CEO still merges. Removing a label puts a PR back in Rex's queue.
 ### 16.4 Permissions
 
 - Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (to `/tmp` only), `TodoWrite` and the `team-chat` tools including `react`. Model: Sonnet.
-- `.claude/hooks/cto-agent-guard.sh` allows `gh issue` list, view and comment, and `edit` only to add `cto-escalated` (§17.7). It blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit, `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status. Merges, `graphql` and other repos are blocked outright.
+- `.claude/hooks/cto-agent-guard.sh` allows `gh issue` list, view and comment, and `edit` only to add `cto-escalated` (§17.7). It blocks every git write (commit, push, merge, rebase, reset, branch, switch, stash, worktree), any checkout but `--detach`, `gh pr` beyond list/view/diff/checks/comment/edit (so `gh pr merge` too), `gh pr edit` beyond adding the two `cto-*` labels, and every `gh api` write except `POST` to a PR's reviews, comments, labels or a commit status, and the one merge call. For the merge, the hook looks the PR up and allows `PUT pulls/<n>/merge` only with exactly `merge_method=squash` and `sha` equal to the head SHA, on an open, non-draft `devx/` PR labelled `cto-approved` and not `cto-escalated`; it fails closed if the lookup fails. Every other merge, `graphql` and other repos are blocked outright.
 - AWS: IAM user `cto-agent`, which can only assume `Nyc311CtoAgentRole` (`ReadOnlyAccess`, secrets denied, source identity `cto-agent`), the same access as Pip. Both roles share `cdk/agents/ReadOnlyAgentRole.ts`.
 - Cognito user `cto-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only.
 
 ### 16.5 Pip's side
 
-Pip already tends unaddressed comments on his PRs at the start of every run. He now reads Rex's marks: a `cto-agent:review` is feedback (every inline comment addressed, suggestions optional), a `cto-agent:approved` or `cto-agent:escalated` comment is not. He never touches the labels or the status; his next push is what asks Rex for another look. `💬` is added to Team Chat's reactions for Rex's comment mark.
+Pip already tends unaddressed comments on his PRs at the start of every run. He now reads Rex's marks: a `cto-agent:review` is feedback (every inline comment addressed, suggestions optional), a `cto-agent:approved`, `cto-agent:merged` or `cto-agent:escalated` comment is not. A `cto-agent:conflict` comment is addressed by resolving the conflicts, which he already does for any `CONFLICTING` PR: merge `main` in, never rebase. He never merges, and never touches the labels or the status; his next push is what asks Rex for another look. His `#tech-team` post tags @Seth only for a PR Rex escalated. `💬` is added to Team Chat's reactions for Rex's comment mark.
 
 ### 16.6 Setup TODO
 
@@ -940,7 +953,9 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 - **Her window runs from her last brief, not the calendar day.** A missed run is then folded into the next brief instead of leaving a gap.
 - **`chief-of-staff-agent`, not `chief-of-staff`.** The agent name, and so the email, follows the `<role>-agent` pattern of the others; the member id stays `chief-of-staff`.
 - **Rex signs instead of approving.** GitHub won't let the CEO's account approve its own PRs, so an approval is a signed comment, the `cto-approved` label and a `cto-review` commit status.
-- **No loops.** Rex reviews each revision once (the status on its SHA), stops after an approval, and escalates to the CEO after two rounds of comments.
+- **No loops.** Rex reviews each revision once (the status on its SHA), stops after a merge, and escalates to the CEO after two rounds of comments.
+- **Rex merges what he approves, on Pip's PRs only.** Pip's work is low-risk and Rex already runs every gate, so waiting on the CEO only delayed it. The merge is pinned to the approved SHA, and the guard hook, not just the prompt, limits it to `devx/` PRs.
+- **Rex never resolves conflicts.** A conflict resolution is a code change, and Rex never changes code. It goes back to the author, and Rex reviews the result like any revision before merging it.
 - **Quiet by design.** At most 3 blocking comments a review and no nits, because Pip's work is low-risk and usually approvable. The Software Engineer's feature work may need a different bar.
 - **The rubric is its own file**, so the CEO can tune how Rex reviews without editing his prompt.
 - **Rex posts a summary every run** for now, even with nothing to review.

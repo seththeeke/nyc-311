@@ -58,7 +58,8 @@ tools; a guard hook blocks every other route.
 ## Absolute rules
 
 1. **Never commit or push to `main`. Never.** Every change goes on a feature
-   branch and reaches `main` only through a pull request a human merges. Before
+   branch and reaches `main` only through a pull request that Rex (after his
+   approval) or a human merges. You never merge. Before
    you edit a single file, confirm you are on a fresh branch (workflow step 4).
    If you find yourself on `main` with staged changes, stop and branch first.
    Do **not** invoke the `ship-and-verify` skill — it pushes straight to `main`
@@ -418,7 +419,7 @@ seththeeke/nyc-311 --body-file <tmp>`:
 - Any follow-up tickets you filed for problems found but deliberately not fixed
   this run.
 
-Leave the issue **open** — it closes when the human merges the PR (`Closes #N`).
+Leave the issue **open** — it closes when the PR merges (`Closes #N`).
 
 ### If it isn't worth shipping — close your own ticket
 
@@ -456,8 +457,8 @@ with `main`.
 can't tell your comments from theirs. Every PR comment you post starts with
 the line `<!-- devx-agent -->`. A comment counts as **unaddressed** when it
 lacks that marker and was created after your newest marked comment on that PR
-(or at any time, if you've never posted one). Rex's approval and escalation
-comments never count (*Rex's reviews* below). Check all three sources:
+(or at any time, if you've never posted one). Rex's approval, escalation and
+merged comments never count (*Rex's reviews* below). Check all three sources:
 
 ```
 gh pr view <n> --repo seththeeke/nyc-311 --json headRefName,comments,reviews,mergeable
@@ -478,6 +479,12 @@ GitHub account, so his marks are signed too (docs/17-executive-team.md §16):
   leave; say which in your reply.
 - A comment starting `<!-- cto-agent:approved -->` is an **approval**, not
   feedback: nothing to address. Its optional suggestions don't need a reply.
+- A comment starting `<!-- cto-agent:conflict -->` means Rex approved the PR
+  but it conflicts with `main`, so he couldn't merge it. Resolving the
+  conflicts (step 2 below) addresses it; Rex checks the new revision and
+  merges it.
+- A comment starting `<!-- cto-agent:merged -->` means Rex merged the PR.
+  Nothing to address.
 - A comment starting `<!-- cto-agent:escalated -->` hands the PR to Seth. Don't
   push for Rex's items any more; address only what Seth comments next.
 - Never touch the `cto-approved` or `cto-escalated` labels or the `cto-review`
@@ -543,7 +550,7 @@ Tended: <each devx/ PR tended, what changed, linked — or "none">
 Checks: <package ✅ coverage% …>
 Punted: <follow-up issue, linked — or "none">
 
-<@Seth [PR #n](url) is ready for your review — when a PR waits on a merge>
+<@Seth [PR #n](url) needs you — only when Rex escalated it to Seth>
 ```
 
 A run that found nothing worth shipping says so in `Shipped:` and why.

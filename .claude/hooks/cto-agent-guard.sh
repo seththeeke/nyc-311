@@ -3,11 +3,13 @@
 # PreToolUse guard for cto-agent (docs/17-executive-team.md §16.4), wired in
 # through the agent's frontmatter. Rex reviews and never changes code: no git
 # writes, no branch checkouts (Pip may have the branch), and GitHub writes only
-# to a PR's reviews, comments, labels and commit statuses. Exit 2 blocks.
+# to a PR's reviews, comments, labels and commit statuses, plus one merge: a
+# squash merge, pinned to the head SHA, of an open, cto-approved devx/ PR
+# (§16.2). Exit 2 blocks.
 
 input=$(cat)
 printf '%s' "$input" | python3 -c '
-import json, re, shlex, sys
+import json, re, shlex, subprocess, sys
 
 try:
     cmd = json.load(sys.stdin).get("tool_input", {}).get("command", "")
@@ -17,7 +19,7 @@ if not cmd:
     sys.exit(0)
 
 def deny(why):
-    print(f"cto-agent guard: {why} Rex reviews only: leave the change to Pip.", file=sys.stderr)
+    print(f"cto-agent guard: {why} Rex reviews and merges only: leave the change to Pip.", file=sys.stderr)
     sys.exit(2)
 
 if re.search(r"--profile[= ]nyc311([\s\"\x27]|$)", cmd):
@@ -25,6 +27,30 @@ if re.search(r"--profile[= ]nyc311([\s\"\x27]|$)", cmd):
 
 REPO = r"repos/seththeeke/nyc-311/"
 WRITABLE = re.compile(r"^/?" + REPO + r"(pulls/\d+/reviews|issues/\d+/(comments|labels)|statuses/[0-9a-f]{7,40})$")
+MERGE = re.compile(r"^/?" + REPO + r"pulls/(\d+)/merge$")
+
+def check_merge(number, fields, used_input):
+    if used_input or set(fields) != {"merge_method", "sha"}:
+        deny("a merge takes exactly -f merge_method=squash -f sha=<head sha>.")
+    if fields["merge_method"] != "squash":
+        deny("Rex merges only with merge_method=squash.")
+    try:
+        out = subprocess.run(
+            ["gh", "pr", "view", number, "--repo", "seththeeke/nyc-311", "--json", "headRefName,headRefOid,labels,state,isDraft"],
+            capture_output=True, text=True, timeout=30, check=True,
+        ).stdout
+        pr = json.loads(out)
+    except Exception:
+        deny(f"could not look up PR #{number} to check the merge.")
+    labels = {l.get("name") for l in pr.get("labels", [])}
+    if not str(pr.get("headRefName", "")).startswith("devx/"):
+        deny("Rex merges only Pip\x27s devx/ PRs.")
+    if pr.get("state") != "OPEN" or pr.get("isDraft"):
+        deny("Rex merges only open, non-draft PRs.")
+    if "cto-approved" not in labels or "cto-escalated" in labels:
+        deny("Rex merges only PRs labelled cto-approved and not cto-escalated.")
+    if fields["sha"] != pr.get("headRefOid"):
+        deny("the merge sha must be the PR\x27s current head SHA, the one Rex approved.")
 
 for segment in re.split(r"\|\||&&|;|\||\n", cmd):
     try:
@@ -72,6 +98,8 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
             method = None
             path = None
             writes = False
+            used_input = False
+            fields = {}
             i = 0
             while i < len(rest):
                 a = rest[i]
@@ -80,17 +108,29 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
                 if a.startswith("--method="):
                     method = a.split("=", 1)[1].upper()
                 elif a in {"-f", "-F", "--field", "--raw-field", "--input"}:
-                    writes = True; i += 2; continue
+                    writes = True
+                    if a == "--input":
+                        used_input = True
+                    elif i + 1 < len(rest):
+                        key, _, value = rest[i + 1].partition("=")
+                        fields[key] = value
+                    i += 2; continue
                 elif a in {"-H", "--header", "-q", "--jq", "-t", "--template", "--hostname", "--cache", "-p", "--preview"}:
                     i += 2; continue
                 elif not a.startswith("-") and path is None:
                     path = a
                 i += 1
-            if path is None or path == "graphql" or "/merge" in path:
+            if path is None or path == "graphql":
                 deny("that gh api call is blocked.")
             if not path.lstrip("/").startswith(REPO):
                 deny("gh api is limited to repos/seththeeke/nyc-311.")
             method = method or ("POST" if writes else "GET")
+            merge = MERGE.match(path.split("?")[0])
+            if merge and method == "PUT" and "?" not in path:
+                check_merge(merge.group(1), fields, used_input)
+                continue
+            if "/merge" in path:
+                deny("the only merge allowed is gh api -X PUT repos/seththeeke/nyc-311/pulls/<n>/merge.")
             if method != "GET":
                 if method != "POST" or not WRITABLE.match(path.split("?")[0]):
                     deny(f"{method} {path} is blocked; Rex writes only reviews, comments, labels and statuses.")
