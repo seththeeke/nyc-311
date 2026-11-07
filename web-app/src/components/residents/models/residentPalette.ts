@@ -57,7 +57,8 @@ export const HERO = {
 
 /*
  * The executive team's fiction cast (#146): a typewriter mascot, a dwarf,
- * an oracle, a leprechaun, a mech pilot, a gnome and a sidekick. Each
+ * an oracle, a leprechaun, a mech pilot, a gnome, a sidekick, a bridge
+ * troll and a private investigator. Each
  * character only reads in its own colours, so these are brighter than
  * the residents' (like HERO).
  */
@@ -80,6 +81,12 @@ export const FICTION = {
   SIDEKICK: "#2b8fb3",
   EMBER: "#e0782d",
   BEARD: "#e6e2d8",
+  /* Grimble Tollbridge's mossy hide and the moss growing on it. */
+  TROLL: "#7d8c5c",
+  TROLL_LIGHT: "#a3ae80",
+  MOSS: "#4e6b34",
+  /* Sable Marsh's corkboard. */
+  CORK: "#b8875a",
 } as const;
 
 /* Faces at the executives' higher detail: irises, lips, blush and the catchlight in each eye. */

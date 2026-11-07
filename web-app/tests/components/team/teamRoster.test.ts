@@ -29,7 +29,7 @@ describe("memberById / directReports", () => {
   });
 
   it("lists direct reports in roster order", () => {
-    expect(directReports("cto").map((member) => member.member_id)).toEqual(["devx", "gen-dev"]);
+    expect(directReports("cto").map((member) => member.member_id)).toEqual(["devx", "gen-dev", "aws-cost", "software-analyzer"]);
     expect(directReports(CEO_ID).map((member) => member.role)).toEqual(["CHIEF_OF_STAFF", "COO", "CPO", "CFO", "CTO"]);
     expect(directReports("devx")).toEqual([]);
   });

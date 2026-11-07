@@ -49,6 +49,8 @@ The roster is fixed content in `web-app/src/components/team/teamRoster.ts`, vali
 | Chief Technology Officer | CTO | Rex Rivet | Mech pilot | CEO | `cto-agent` |
 | Staff Engineer, Developer Experience | DevX Engineer | Pip Sprocketwhistle | Gnome tinkerer | CTO | `devx-agent` |
 | Software Engineer | Software Engineer | Kid Kestrel | Superhero sidekick | CTO | `gen-purpose-dev` |
+| AWS Cost Efficiency Engineer | Cost Engineer | Grimble Tollbridge | Reformed bridge troll | CTO | `aws-cost-agent` |
+| Software Analyzer | Software Analyzer | Sable Marsh | Noir private investigator | CTO | `software-analyzer-agent` |
 
 Characters are fiction archetypes, not specific characters from any franchise.
 
@@ -65,7 +67,14 @@ The goals in force are the running agents':
 - **DevX:** keep the pipeline moving (commit to Prod deploy in under 30 minutes) and hold unit and integration test coverage above 90%.
 
 The other agents' goals stand until each agent is designed (§9):
-- **CPO:** cost per order under $25, and over 80% of customer interactions satisfied.
+- **CPO:** cost per accepted order under $25, and over 80% of customer interactions satisfied.
+
+### 2.1 Joining the team: Grimble and Sable
+
+Both join as Work in progress (`live: false`), with figures and roster cards; their agents are designed next. Neither has goals yet.
+
+- **Grimble Tollbridge, AWS Cost Efficiency Engineer** (`aws-cost-agent`), reporting to the CTO. A reformed bridge troll who once charged every toll there is, so knows what each crossing really costs. The job: read BoroughSim's AWS billing history and projected costs, find creative ways to cut them, keep a memory of the AWS reports, and land each saving as a PR the way Pip does. Rex reviews the PRs as he reviews Pip's, but **only the CEO merges them**.
+- **Sable Marsh, Software Analyzer** (`software-analyzer-agent`), reporting to the CTO. A noir private investigator: an outside hire with no stake in the answer. The job is software quality, not product quality: assess the codebase as an impartial third party who knows nothing of what BoroughSim sells, give it a complexity score, and file findings (code smells, poor patterns, dead code, overly complex code) as tickets for Rex to weigh, as Celestine's are. Sable never changes code.
 
 ---
 
@@ -105,6 +114,8 @@ Each figure loops a signature performance (`<name>Motion.ts`), written as timed 
 | Rex | Lifts his helmet from under his arm and seats it, powers up the visor, takes a power stance. |
 | Pip | Pulls his goggles down, cranks a stuck gear free with his wrench, clicks his stopwatch, hops. |
 | Kid Kestrel | Backflips into a superhero landing, rises into a hero pose. |
+| Grimble | Unrolls the toll scroll to the floor, squints through wire spectacles, tears the bottom half off and tosses it, stomps once as the extra coins pop off the toll sign, pats a satisfied belly. |
+| Sable | Studies a clue card through a magnifying glass as the lens glints, pins it to the case board, draws red string to the centre card, tips his fedora. |
 
 Under reduced motion each stage holds one key frame. A drag turns the figure.
 

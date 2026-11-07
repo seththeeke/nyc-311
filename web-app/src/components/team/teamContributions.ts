@@ -55,6 +55,10 @@ export const TEAM_CONTRIBUTIONS: readonly Contribution[] = [
   did("C15", "devx", "2026-10-29T11:00", "ISSUE", "Filed: flaky map smoke test", "Failed 3 of the last 20 runs on a tile timeout.", `${REPO}/issues`),
   did("C16", "gen-dev", "2026-10-30T13:45", "PULL_REQUEST", "Fixed the resident ideas feed 400", "Blank follow-ups now store as null and the feed parses again.", `${REPO}/pulls`),
   did("C17", "gen-dev", "2026-10-31T09:00", "PULL_REQUEST", "Team Chat channel list and message view", "Frontend demo for #150: two channels, read-only.", `${REPO}/issues/150`),
+  did("C18", "aws-cost", "2026-11-05T10:15", "ISSUE", "Filed: log groups with no retention", "They keep every line forever; 30 days covers every incident review so far.", `${REPO}/issues`),
+  did("C19", "aws-cost", "2026-11-04T14:00", "PULL_REQUEST", "Shrank the Athena results bucket", "A 7-day lifecycle rule on query results nobody reads twice.", `${REPO}/pulls`),
+  did("C20", "software-analyzer", "2026-11-05T11:30", "ISSUE", "Filed: three near-identical poll loops", "The job runner, ad-hoc query and smoke tests each poll Athena their own way.", `${REPO}/issues`),
+  did("C21", "software-analyzer", "2026-11-04T09:45", "REVIEW", "Complexity assessment: first pass", "Scored each package and listed the five most complex files.", `${REPO}/issues`),
 ];
 
 /** A member's contributions, newest first. */
