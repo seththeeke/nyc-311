@@ -403,7 +403,9 @@ this project's scale.
   — §7/§9's second `Deny` statement.
 - **CodeBuild's default Node (18, via `STANDARD_7_0`) too old for Vite
   7/Vitest** — pinned to Node 20 via `codeBuildDefaults.partialBuildSpec`
-  (`runtime-versions`).
+  (`runtime-versions`); raised to Node 22 on 2026-11-06 (#167) after Node
+  20 went EOL. 22 matches the Lambdas' `NODEJS_22_X` and Vitest 5's
+  `^22.12.0` engine.
 - **Vitest's default 5s test timeout too tight for CodeBuild's `SMALL`
   compute synthesizing the full pipeline stack** — raised to 20s in
   `vitest.config.ts`, CI-only headroom.

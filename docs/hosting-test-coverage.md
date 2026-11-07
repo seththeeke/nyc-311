@@ -92,7 +92,7 @@ bucket name / distribution ID / a step id (`"PublishCoverageTest"` /
     files at the bucket root.
   - `cloudfront:CreateInvalidation` scoped to that one distribution's ARN.
 - No `partialBuildSpec` override needed — `codeBuildDefaults` on the
-  `CodePipeline` construct (Node 20 runtime, `STANDARD_7_0` image) already
+  `CodePipeline` construct (Node 22 runtime since #167, `STANDARD_7_0` image) already
   applies to every CodeBuild-backed action in the pipeline, this one
   included.
 
