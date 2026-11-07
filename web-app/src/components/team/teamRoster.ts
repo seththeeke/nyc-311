@@ -76,7 +76,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     short_title: "CPO",
     photo_url: null,
     responsibility: "Make every driver as efficient as possible, keep residents informed and satisfied",
-    goals: [{ goal: "Reduce cost of execution", metric: "Cost per order", target: "<$25" },
+    goals: [{ goal: "Reduce cost of execution", metric: "Cost per accepted order", target: "<$25" },
       { goal: "Increase number of satisfied customer interactions", metric: "% of satisfied customer interactions", target: ">80%" }
     ],
     live: true,

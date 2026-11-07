@@ -4,7 +4,7 @@ import type { AdminApiRouteKey } from "./adminApiRoutes";
 const ADMIN_ONLY: readonly CognitoGroup[] = ["ADMIN"];
 /* The COO's capacity routes (§12.3). */
 const ADMIN_OR_OPERATIONS: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_OPERATIONS"];
-/* The CPO's contact updates and WBR reads (§17.2, §17.3). */
+/* The CPO's contact updates, WBR reads and ad-hoc queries (§17.2, §17.3, §17.11). */
 const ADMIN_OR_PRODUCT: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_PRODUCT"];
 
 /*
@@ -12,8 +12,8 @@ const ADMIN_OR_PRODUCT: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_PRODUCT
  * Typed on the route-key union, so a new route can't ship without
  * declaring its groups. Everything is ADMIN-only except the capacity
  * routes, which BOROUGH_SIM_OPERATIONS (the COO) can call too (§12.3),
- * and the contact update and job-run reads, which BOROUGH_SIM_PRODUCT (the
- * CPO) can (§17.2, §17.3).
+ * and the contact update, job-run reads and ad-hoc query, which
+ * BOROUGH_SIM_PRODUCT (the CPO) can (§17.2, §17.3, §17.11).
  */
 export const ADMIN_ROUTE_GROUPS: Record<AdminApiRouteKey, readonly CognitoGroup[]> = {
   "GET /admin/whoami": ADMIN_ONLY,
@@ -26,7 +26,7 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminApiRouteKey, readonly CognitoGroup[
   "POST /admin/feature-flags": ADMIN_ONLY,
   "PUT /admin/feature-flags/{flag_key}": ADMIN_ONLY,
   "DELETE /admin/feature-flags/{flag_key}": ADMIN_ONLY,
-  "POST /admin/warehouse/query": ADMIN_ONLY,
+  "POST /admin/warehouse/query": ADMIN_OR_PRODUCT,
   "GET /admin/warehouse/jobs": ADMIN_ONLY,
   "POST /admin/warehouse/jobs": ADMIN_ONLY,
   "PUT /admin/warehouse/jobs/{name}": ADMIN_ONLY,

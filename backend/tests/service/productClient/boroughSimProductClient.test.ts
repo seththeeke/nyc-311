@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BoroughSimProductClient } from "../../../service/productClient/boroughSimProductClient";
+import { BoroughSimProductClient, MAX_QUERIES_PER_RUN } from "../../../service/productClient/boroughSimProductClient";
 
 const NOW = new Date("2026-11-05T10:00:00.000Z");
 const FRESH = `h.${Buffer.from(JSON.stringify({ exp: NOW.getTime() / 1000 + 3600 })).toString("base64url")}.s`;
@@ -52,6 +52,25 @@ describe("BoroughSimProductClient", () => {
     expect(await client().getWbr(4)).toEqual({ status: 200, body: { runs: [], results: [] } });
     fetchMock.mockResolvedValueOnce(json({ jobRuns: [{ job_run_id: "R1", job_name: "wbr", status: "SUCCEEDED", started_at: "x" }] })).mockResolvedValueOnce(json({ message: "boom" }, 500));
     expect((await client().getWbr(4)).status).toBe(500);
+  });
+
+  it("runs a query, reporting the budget left, and sends nothing past the budget", async () => {
+    const c = client();
+    fetchMock.mockResolvedValueOnce(json({ rows: [{ n: "1" }] }));
+    expect(await c.runQuery("SELECT 1")).toEqual({ status: 200, body: { rows: [{ n: "1" }], queries_remaining: MAX_QUERIES_PER_RUN - 1 } });
+    expect(calls()).toEqual(["POST https://api.example.com/admin/warehouse/query"]);
+    expect(JSON.parse(String((fetchMock.mock.calls as [string, RequestInit][])[0][1].body))).toEqual({ sql: "SELECT 1" });
+    fetchMock.mockResolvedValueOnce(json({ message: "bad sql" }, 400));
+    expect(await c.runQuery("SELEC 1")).toEqual({ status: 400, body: { message: "bad sql", queries_remaining: MAX_QUERIES_PER_RUN - 2 } });
+    fetchMock.mockResolvedValueOnce(json(null, 204));
+    expect(await c.runQuery("SELECT 2")).toEqual({ status: 204, body: { result: null, queries_remaining: MAX_QUERIES_PER_RUN - 3 } });
+    for (let i = 3; i < MAX_QUERIES_PER_RUN; i += 1) await c.runQuery("SELECT 3");
+    expect(fetchMock).toHaveBeenCalledTimes(MAX_QUERIES_PER_RUN);
+    const over = await c.runQuery("SELECT 4");
+    expect(over.status).toBe(429);
+    expect(over.body).toMatchObject({ queries_remaining: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(MAX_QUERIES_PER_RUN);
+    expect((await client().runQuery("SELECT 1")).status).toBe(200);
   });
 
   it("uses the real fetch by default", () => {

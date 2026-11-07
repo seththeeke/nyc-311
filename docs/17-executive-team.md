@@ -806,35 +806,37 @@ Pip already tends unaddressed comments on his PRs at the start of every run. He 
 
 ## 17. The CPO agent
 
-**Status:** built 2026-11-05 (C0–C8); C9's deploy and setup remain (§17.10).
+**Status:** built 2026-11-05 (C0–C8); C9's deploy and setup remain (§17.10). Her lever, warehouse queries, saved queries and Opus added 2026-11-06 (§17.11).
 
-`cpo-agent` is Celestine Vey. She owns the product: what BoroughSim should build next to cut cost per order (under $25) and keep residents satisfied (over 80% of interactions). She works from evidence. She triages residents' contacts, reads the WBR and the team's chat, studies the codebase, and files a small number of well-researched tickets. She never changes code.
+`cpo-agent` is Celestine Vey. She owns the product: what BoroughSim should build next to cut cost per accepted order (under $25) and keep residents satisfied (over 80% of interactions). She works from evidence, and finds it herself. She triages residents' contacts, reads the WBR and the team's chat, queries the data warehouse, studies the codebase, and files a small number of well-researched tickets. She never changes code.
 
 ### 17.1 The run
 
-Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`. Model: Sonnet.
+Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`. Model: Opus.
 
 1. **Memory:** read `.claude/agent-memory/cpo-agent/MEMORY.md`.
 2. **Inbox:** reply to Rex's feedback in her ticket threads (§17.7).
 3. **Contacts:** `list_contacts` for `RECEIVED` contacts. For each, decide: a new ticket, an existing ticket (dedupe) or a decline, and update it with `track_contact` or `close_contact` (§17.3).
-4. **WBR:** `get_wbr` for the latest weeks: cost per order and its parts, time to resolve, fleet size and burn. Read Brogan's `#executive-team` posts for what changed the fleet and why.
-5. **Investigate:** read the codebase to see how the system produces those numbers and what would move them.
-6. **File:** a ticket only when the evidence clears the bar (§17.4), deduped against her own open and closed issues and her memory.
-7. **Post:** one message per new ticket, then the daily report (§17.5).
-8. **Memory:** update her memory only if she learned something worth keeping.
+4. **WBR:** `get_wbr` for the latest weeks: cost per accepted order and its parts, time to resolve, fleet size and burn. Read Brogan's `#executive-team` posts for what changed the fleet and why.
+5. **Reports:** rerun her saved reports that are due (§17.11).
+6. **Research:** move her research agenda forward with warehouse queries, at most 10 a run, and read the code that produces the numbers (§17.11).
+7. **File:** a ticket only when the evidence clears the bar (§17.4), deduped against her own open and closed issues and her memory.
+8. **Post:** one message per new ticket, then the daily report (§17.5).
+9. **Memory:** update her memory, research agenda and saved queries with what she learned.
 
 ### 17.2 What she can reach
 
 | Data | How | Not |
 |---|---|---|
 | Contacts | `boroughsim-product` MCP: `list_contacts`, `track_contact` (in progress, with a ticket), `close_contact` (duplicate, declined, shipped) | — |
-| WBR | `boroughsim-product` MCP: `get_wbr`, the newest successful runs of the `wbr` warehouse job and their result rows, read through `GET /admin/warehouse/job-runs` and `POST /admin/warehouse/job-runs/results` | Other warehouse jobs' results, ad-hoc queries |
+| WBR | `boroughsim-product` MCP: `get_wbr`, the newest successful runs of the `wbr` warehouse job and their result rows, read through `GET /admin/warehouse/job-runs` and `POST /admin/warehouse/job-runs/results` | Other warehouse jobs' results |
+| The warehouse | `boroughsim-product` MCP: `run_query`, read-only SQL through `POST /admin/warehouse/query`, at most 10 per run, written with the `query-builder` skill (§17.11) | Creating, changing or scheduling warehouse jobs |
 | Brogan's fleet actions | Team Chat, `#executive-team` | The `boroughsim-ops` tools and the capacity routes; she is not in `BOROUGH_SIM_OPERATIONS` |
 | How the system works | `Read`, `Grep`, `Glob` over her worktree | Any edit, commit, push or PR |
 | Her tickets | `gh issue` on `cpo-agent` issues only | Anyone else's issues |
 | Resident ideas | — | Owned by the residents (the customer); never read |
 
-Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and the new `BOROUGH_SIM_PRODUCT` group, which gates the contact write route and the two job-run read routes. An agent caller on those routes is not resolved to a User row. Its MCP server is separate from Brogan's, so the capacity tools are never loaded in her runs.
+Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and the new `BOROUGH_SIM_PRODUCT` group, which gates the contact write route, the two job-run read routes and the ad-hoc query route. An agent caller on those routes is not resolved to a User row. Its MCP server is separate from Brogan's, so the capacity tools are never loaded in her runs.
 
 ### 17.3 Contacts
 
@@ -861,7 +863,8 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 ### 17.4 The bar for a ticket
 
 - **Researched and data driven, like Pip's work.** Each ticket shows why it matters with evidence: WBR trends, Brogan's fleet actions, code she has read, or the number of residents asking. Many residents asking for the same thing is evidence in itself.
-- **Tied to a goal:** the expected effect on cost per order or on satisfied interactions, and how it would be measured.
+- **Tied to a goal:** the expected effect on cost per accepted order or on satisfied interactions, and how it would be measured.
+- **Two kinds.** A **change** (a feature or fix that moves a goal) needs the evidence above. A **measurement** ticket asks to record data an idea needs but the warehouse doesn't hold: the idea, why it could matter, exactly what to record and what it would decide.
 - **Few and deduped.** A request that matches an existing `cpo-agent` issue becomes a comment on it, listing the new contact ids, never a second issue.
 - Tickets are GitHub issues filed with the `log-backlog-item` skill, labelled `backlog`, `cpo-agent` and `feature-request` or `bug`. The body starts with `<!-- cpo-agent -->` and **Filed by Celestine (CPO Agent)**.
 - A WBR finding about cost, such as the fleet growing faster than demand, is a ticket like any other: the idea, how it would improve the metric and the data behind it.
@@ -869,17 +872,18 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 ### 17.5 Posts
 
 - **One message per new ticket** in `#executive-team`, tagged `CPO_TICKET`: the ticket number and title, a line on why, and `@Rex` only when she needs guidance on the spec or feasibility. Its thread is where she and Rex discuss that ticket.
-- **One daily report** in `#executive-team`, tagged `CPO_DAILY`, after the ticket posts: contacts triaged, each contact she updated (id, new status, ticket or reason), tickets filed and requests merged into existing ones, and her WBR read in two or three lines.
+- **One daily report** in `#executive-team`, tagged `CPO_DAILY`, after the ticket posts: contacts triaged, each contact she updated (id, new status, ticket or reason), tickets filed and requests merged into existing ones, her WBR read in two or three lines, the research idea she moved forward, the reports that moved, and how many of her 10 queries she used.
 
 ### 17.6 Agent memory
 
 - Each agent with memory keeps `.claude/agent-memory/<agent>/MEMORY.md` in the repo. It is public, like everything committed: a record of past runs' conclusions, never secrets.
-- The agent reads it at the start of a run and rewrites it only when it learned something worth keeping. Most runs change nothing.
+- The agent reads it at the start of a run and rewrites it only when it learned something worth keeping.
 - Hard cap: 8 KB. The agent prunes to stay under it.
-- `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the file only if it changed and is under the cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. Anything else logs a `WARN` and commits nothing; an oversized or deleted file is restored.
-- The agent's guard allows `Write` only to its own memory file (and `/tmp`).
+- The folder may also hold saved queries, `queries/<name>.sql` (lowercase, hyphens), at most 25 files of 8 KB each (§17.11).
+- `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the agent's memory folder only if it changed and every file is within its cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. A deleted saved query is committed as a deletion. Anything else (an oversized file, a deleted `MEMORY.md`, any other file in the folder, too many queries) logs a `WARN`, restores the folder and commits nothing.
+- The agent's guard allows `Write` only to its own memory file, its saved queries and `/tmp`.
 
-**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
+**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file, `queries/<name>.sql` in her memory folder, or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
 
 ### 17.7 Rex on her tickets
 
@@ -921,6 +925,24 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
 - [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (09:00).
 
+### 17.11 Her lever and her own data
+
+**Her lever.** Brogan decides how many operators there are. Celestine decides how well the system uses them: how orders are scheduled, routed, batched and accepted, how operators spend their paid hours, and what residents see while they wait. A bad number is never "Brogan's" to her; she asks what in the product makes the fleet cost more or achieve less than it should.
+
+**Her goal metric.** Cost per accepted order: the WBR's `total_cost` over `orders_accepted` for the week. Orders rejected as not supported cost nothing to run and no longer dilute it.
+
+**Her starting model, not a list of metrics.** Her prompt gives her how the money is spent, not what to measure: cost per accepted order is paid operator hours times rate plus materials, over accepted orders, and paid hours split into working, driving to a job, idle and anything else. Every slice of paid time that isn't work, and every step an order waits through, is a candidate for her to measure. Her prompt points her at the docs and code that explain the system (`business-insights.md`, the capacity and scheduling docs, `v1-wbr.sql`).
+
+**Warehouse queries.**
+
+- `run_query` on the `boroughsim-product` MCP server sends one read-only SQL query to `POST /admin/warehouse/query`, the admin SQL console's route, now open to `BOROUGH_SIM_PRODUCT`. It runs on the `Nyc311AdHocQueries` workgroup: `SELECT`, `WITH`, `SHOW`, `DESCRIBE` or `EXPLAIN` only, 500 rows, 1 GB scanned, 20 seconds. The Lambda's role grants no warehouse writes beyond Athena's result files.
+- **At most 10 queries per run**, failed ones included. The MCP server's client holds the count, since one server process serves one run; past 10 it returns `429` without calling the API. Each result carries `queries_remaining`. Her guard blocks `curl` and `gh api`, so the tool is her only way to the route.
+- She writes each query with the **`query-builder` skill** (`.claude/skills/query-builder/`): the warehouse's tables, persisted enum values, how the WBR defines its numbers, and the idioms and traps. It replaces the `biz-intel-agent`, and the CEO can use it in any session to draft SQL for the console.
+
+**Research agenda.** Her memory holds a short list of ideas about where BoroughSim loses time or money, each one an idea, being measured, proven (with its ticket) or disproved (with its numbers). She moves at least one forward each run. An idea the warehouse can't answer becomes a measurement ticket.
+
+**Saved queries and reports.** A query worth rerunning goes in `.claude/agent-memory/cpo-agent/queries/<name>.sql`, with a header: the question, `kind` (`report` or `research`), `cadence` (`daily`, `weekly` or `once`), created and last-run dates, the last result in one line, and notes. She reuses a saved query before writing a new one, so numbers stay comparable between runs. Reports are the saved queries she reruns on their cadence: her own business review beyond the WBR, summarized in her daily report. The files are committed with her memory (§17.6) and are public; she shares aggregates, never raw rows, addresses or a single resident's request.
+
 ---
 
 ## Appendix: decisions and history
@@ -959,7 +981,11 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 - **Quiet by design.** At most 3 blocking comments a review and no nits, because Pip's work is low-risk and usually approvable. The Software Engineer's feature work may need a different bar.
 - **The rubric is its own file**, so the CEO can tune how Rex reviews without editing his prompt.
 - **Rex posts a summary every run** for now, even with nothing to review.
-- **Celestine sees the fleet only through its results.** She learns Brogan's actions from his chat posts and the WBR, and has no capacity access, which keeps her scope to the product.
+- **Celestine sees the fleet only through its results.** She learns Brogan's actions from his chat posts and the WBR, and has no capacity access. Her scope was first read as "the fleet is Brogan's", and her first run said so; the CEO wanted her inventing efficiencies without being handed metrics. So her lever became how the system uses the fleet (§17.11), with the capacity tools still Brogan's alone.
+- **Cost per accepted order, not per order created.** About 97% of created orders are rejected as not supported and cost nothing, so dividing by orders created made cost look about 30 times lower than it is.
+- **Celestine queries the warehouse herself, capped at 10 a run.** The WBR alone left her no way to test an idea it doesn't already track, and every new metric waited on the CEO. The cap keeps a run's cost and Athena scans bounded; saved queries keep her numbers consistent across runs.
+- **The `biz-intel-agent` became the `query-builder` skill.** A skill can be loaded by any agent or session that needs SQL, Celestine first. Its clipboard Stop hook was dropped with the agent.
+- **Celestine runs on Opus.** Open-ended research across code, data and docs is where the larger model earns its cost, and she runs once a day.
 - **Residents get a ticket number, not a link.** The contact's description names the ticket number; GitHub stays internal.
 - **A contacts bundle of its own.** Contacts will hold more types than feature requests, so the public read route gets its own bundle rather than joining an unrelated one.
 - **Memory is committed straight to `main` by the run script**, only the agent's own file and only when it changed. The commit carries the agent prefix like any agent commit.
@@ -979,7 +1005,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
 | `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00, 11:00, 14:00, 17:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
-| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
+| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |

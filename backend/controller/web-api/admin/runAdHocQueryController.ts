@@ -4,6 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { AdHocQueryRequestSchema } from "../../../models/adHocQueryRequest";
 import { ValidationError } from "../../../models/errors";
 import { runAdHocQuery } from "../../../service/analytics/adHocQueryService";
+import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
 
@@ -12,7 +13,9 @@ import { jsonResponse } from "../shared/jsonResponse";
  * admin-authorized ad-hoc SQL console. Rejects a non-read-only statement
  * (`ValidationError`, mapped to `400`) before ever calling Athena; a
  * timeout or Athena-side failure maps to `500` with the underlying
- * message surfaced so the admin can see what went wrong.
+ * message surfaced so the admin can see what went wrong. The CPO agent
+ * may call it too (docs/17-executive-team.md §17.11); an agent isn't
+ * resolved to a User row.
  */
 export const runAdHocQueryController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("RunAdHocQueryControllerInvoked", { event });
@@ -39,7 +42,7 @@ export const runAdHocQueryController = async (event: unknown): Promise<APIGatewa
   }
 
   try {
-    await requireAdminUser(parsedEvent.data);
+    if (!isAgentCaller(parsedEvent.data)) await requireAdminUser(parsedEvent.data);
     const result = await runAdHocQuery(parsedBody.data.sql);
     logInfo("RunAdHocQueryControllerCompleted", { rowCount: result.row_count, truncated: result.truncated });
     return jsonResponse(200, result);

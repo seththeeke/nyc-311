@@ -14,6 +14,9 @@ export interface ListContactsArgs {
   cursor?: string;
 }
 
+/** The most warehouse queries one CPO run may send (docs/17-executive-team.md §17.11). */
+export const MAX_QUERIES_PER_RUN = 10;
+
 export interface UpdateContactArgs {
   contact_id: string;
   status: "IN_PROGRESS" | "CLOSED";
@@ -24,12 +27,14 @@ export interface UpdateContactArgs {
 
 /**
  * The CPO's client for BoroughSim (docs/17-executive-team.md §17.2): the
- * Contacts list, the contact update and the WBR, called as the signed-in
- * agent. Nothing here reaches the capacity routes.
+ * Contacts list, the contact update, the WBR and ad-hoc warehouse queries,
+ * called as the signed-in agent. Nothing here reaches the capacity routes.
+ * One instance serves one run, so it holds that run's query budget.
  */
 export class BoroughSimProductClient {
   private readonly tokens: IdTokenProvider;
   private readonly fetchFn: typeof fetch;
+  private queriesSent = 0;
 
   constructor(
     private readonly config: OpsClientConfig,
@@ -62,6 +67,23 @@ export class BoroughSimProductClient {
   updateContact(args: UpdateContactArgs): Promise<ProductCallResult> {
     const { contact_id, ...body } = args;
     return this.call("PATCH", `/admin/contacts/${encodeURIComponent(contact_id)}`, body);
+  }
+
+  /**
+   * Runs one read-only SQL query against the warehouse. Every call counts
+   * against the run's budget, failed ones too; past it, nothing is sent.
+   */
+  async runQuery(sql: string): Promise<ProductCallResult> {
+    if (this.queriesSent >= MAX_QUERIES_PER_RUN) {
+      logInfo("BoroughSimProductClient.queryBudgetUsed", { max: MAX_QUERIES_PER_RUN });
+      return { status: 429, body: { message: `Query budget used: ${MAX_QUERIES_PER_RUN} of ${MAX_QUERIES_PER_RUN} this run.`, queries_remaining: 0 } };
+    }
+    this.queriesSent += 1;
+    const queriesRemaining = MAX_QUERIES_PER_RUN - this.queriesSent;
+    logInfo("BoroughSimProductClient.runQuery", { queriesSent: this.queriesSent, queriesRemaining });
+    const result = await this.call("POST", "/admin/warehouse/query", { sql });
+    const body = result.body !== null && typeof result.body === "object" ? result.body : { result: result.body };
+    return { status: result.status, body: { ...body, queries_remaining: queriesRemaining } };
   }
 
   /** The newest `weeks` successful runs of the wbr job, with their result rows. */

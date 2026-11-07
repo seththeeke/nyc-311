@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BoroughSimProductClient } from "../../service/productClient/boroughSimProductClient";
+import { MAX_QUERIES_PER_RUN, type BoroughSimProductClient } from "../../service/productClient/boroughSimProductClient";
 import { defineTool, type McpTool } from "./mcpTool";
 
 export type BoroughSimProductTool = McpTool<BoroughSimProductClient>;
@@ -7,7 +7,7 @@ export type BoroughSimProductTool = McpTool<BoroughSimProductClient>;
 const tool = defineTool<BoroughSimProductClient>();
 const description = z.string().trim().min(1).max(500).describe("Written for the resident, who sees it on their request. Name the ticket number, never a link.");
 
-/* The CPO's tools (docs/17-executive-team.md §17.2): contacts and the WBR. No capacity tools. */
+/* The CPO's tools (docs/17-executive-team.md §17.2): contacts, the WBR and warehouse queries. No capacity tools. */
 export const BOROUGH_SIM_PRODUCT_TOOLS: readonly BoroughSimProductTool[] = [
   tool({
     name: "list_contacts",
@@ -42,5 +42,11 @@ export const BOROUGH_SIM_PRODUCT_TOOLS: readonly BoroughSimProductTool[] = [
     description: "Read the latest weekly business reviews (the wbr warehouse job's results), newest first: cost, orders, time to resolve, rejections and failures per week.",
     inputSchema: { weeks: z.number().int().min(1).max(12).default(4) },
     run: (client, args) => client.getWbr(args.weeks),
+  }),
+  tool({
+    name: "run_query",
+    description: `Run one read-only Athena SQL query (SELECT/WITH/SHOW/DESCRIBE/EXPLAIN) against the warehouse. At most ${MAX_QUERIES_PER_RUN} per run, failures included; each result says how many remain. Up to 500 rows, 1 GB scanned, 20 s.`,
+    inputSchema: { sql: z.string().trim().min(1).max(20_000) },
+    run: (client, args) => client.runQuery(args.sql),
   }),
 ];

@@ -139,4 +139,13 @@ describe("runAdHocQueryController", () => {
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body as string).message).toBe("Failed to run query");
   });
+
+  it("doesn't resolve an agent caller to a User", async () => {
+    mockedRunAdHocQuery.mockResolvedValue(result);
+    const agentEvent = eventWithBody({ sql: "SELECT 1" }) as { requestContext: { authorizer: { jwt: { claims: Record<string, string> } } } };
+    agentEvent.requestContext.authorizer.jwt.claims["cognito:groups"] = "[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]";
+
+    expect((await runAdHocQueryController(agentEvent)).statusCode).toBe(200);
+    expect(mockedRequireAdminUser).not.toHaveBeenCalled();
+  });
 });

@@ -117,11 +117,14 @@ describe("adminApiRouter", () => {
     expect(whoamiController).not.toHaveBeenCalled();
   });
 
-  it("lets the product group update a contact, and nothing else", async () => {
+  it("lets the product group update a contact and query the warehouse, and nothing else", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.mocked(updateContactController).mockResolvedValue({ statusCode: 200, body: "{}" });
+    vi.mocked(runAdHocQueryController).mockResolvedValue({ statusCode: 200, body: "{}" });
     const product = { sub: "s", email: "cpo-agent@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]" };
     expect((await adminApiRouter(eventFor("PATCH /admin/contacts/{contact_id}", product))).statusCode).toBe(200);
+    expect((await adminApiRouter(eventFor("POST /admin/warehouse/query", product))).statusCode).toBe(200);
+    expect((await adminApiRouter(eventFor("POST /admin/warehouse/jobs", product))).statusCode).toBe(403);
     expect((await adminApiRouter(eventFor("POST /capacity", product))).statusCode).toBe(403);
     expect((await adminApiRouter(eventFor("GET /capacity/snapshot", product))).statusCode).toBe(403);
     const operations = { sub: "s", email: "coo-agent@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_OPERATIONS]" };

@@ -76,16 +76,18 @@ describe("boroughsim-ops tools", () => {
 
 describe("boroughsim-product tools", () => {
   it("map each tool's arguments onto the client, with no capacity tool", async () => {
-    const client = fake(["listContacts", "updateContact", "getWbr"]);
+    const client = fake(["listContacts", "updateContact", "getWbr", "runQuery"]);
     const c = client as unknown as BoroughSimProductClient;
     await byName(BOROUGH_SIM_PRODUCT_TOOLS, "list_contacts").run(c, { status: "RECEIVED" });
     await byName(BOROUGH_SIM_PRODUCT_TOOLS, "track_contact").run(c, { contact_id: "C1", ticket_number: 170, status_reason_description: "Ticket #170." });
     await byName(BOROUGH_SIM_PRODUCT_TOOLS, "close_contact").run(c, { contact_id: "C2", closure_reason_code: "DUPLICATE", status_reason_description: "Same as #170." });
     await byName(BOROUGH_SIM_PRODUCT_TOOLS, "get_wbr").run(c, { weeks: 4 });
+    await byName(BOROUGH_SIM_PRODUCT_TOOLS, "run_query").run(c, { sql: "SELECT 1" });
     expect(client.listContacts).toHaveBeenCalledWith({ status: "RECEIVED" });
     expect(client.updateContact).toHaveBeenCalledWith({ contact_id: "C1", ticket_number: 170, status_reason_description: "Ticket #170.", status: "IN_PROGRESS" });
     expect(client.updateContact).toHaveBeenCalledWith({ contact_id: "C2", closure_reason_code: "DUPLICATE", status_reason_description: "Same as #170.", status: "CLOSED" });
     expect(client.getWbr).toHaveBeenCalledWith(4);
+    expect(client.runQuery).toHaveBeenCalledWith("SELECT 1");
     expect(BOROUGH_SIM_PRODUCT_TOOLS.map((t) => t.name).some((name) => /capacity|recruit|release/.test(name))).toBe(false);
   });
 });
@@ -111,7 +113,7 @@ describe("runTool", () => {
 describe.each([
   ["team-chat", chatServer, CHAT_ENV, "teamChatMcpServer.ts", 9, () => chatServer.createTeamChatMcpServer(fake(["listChannels"]) as unknown as TeamChatClient)],
   ["boroughsim-ops", opsServer, OPS_ENV, "boroughSimOpsMcpServer.ts", 3, () => opsServer.createBoroughSimOpsMcpServer(fake(["getCapacitySnapshot"]) as unknown as BoroughSimOpsClient)],
-  ["boroughsim-product", productServer, OPS_ENV, "boroughSimProductMcpServer.ts", 4, () => productServer.createBoroughSimProductMcpServer(fake(["listContacts"]) as unknown as BoroughSimProductClient)],
+  ["boroughsim-product", productServer, OPS_ENV, "boroughSimProductMcpServer.ts", 5, () => productServer.createBoroughSimProductMcpServer(fake(["listContacts"]) as unknown as BoroughSimProductClient)],
 ] as const)("the %s server", (_name, server, env, file, toolCount, create) => {
   it("registers every tool, each running its tool", async () => {
     const created = create() as unknown as { registerTool: ReturnType<typeof vi.fn> };

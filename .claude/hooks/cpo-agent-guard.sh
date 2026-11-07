@@ -2,8 +2,9 @@
 #
 # PreToolUse guard for cpo-agent (docs/17-executive-team.md §17.2), wired in
 # through the agent's frontmatter. Celestine never changes code: Write and
-# Edit only her memory file or /tmp, no git writes, no PRs, no AWS, and gh
-# writes only on her own cpo-agent issues. Exit 2 blocks.
+# Edit only her memory file, her saved queries (queries/<name>.sql, §17.11)
+# or /tmp, no git writes, no PRs, no AWS, and gh writes only on her own
+# cpo-agent issues. Exit 2 blocks.
 
 input=$(cat)
 printf '%s' "$input" | CPO_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}" python3 -c '
@@ -23,10 +24,13 @@ def deny(why):
 if tool in ("Write", "Edit"):
     project = os.path.realpath(os.environ["CPO_PROJECT_DIR"])
     path = os.path.realpath(os.path.join(project, args.get("file_path", "")))
-    memory = os.path.join(project, ".claude", "agent-memory", "cpo-agent", "MEMORY.md")
-    if path == memory or path.startswith("/tmp/") or path.startswith("/private/tmp/"):
+    memory_dir = os.path.join(project, ".claude", "agent-memory", "cpo-agent")
+    queries_dir = os.path.join(memory_dir, "queries")
+    if path == os.path.join(memory_dir, "MEMORY.md") or path.startswith("/tmp/") or path.startswith("/private/tmp/"):
         sys.exit(0)
-    deny("writing " + str(args.get("file_path")) + " is blocked; only her memory file and /tmp.")
+    if os.path.dirname(path) == queries_dir and re.fullmatch(r"[a-z0-9][a-z0-9-]*\.sql", os.path.basename(path)):
+        sys.exit(0)
+    deny("writing " + str(args.get("file_path")) + " is blocked; only her memory file, queries/<name>.sql and /tmp.")
 
 if tool != "Bash":
     sys.exit(0)
