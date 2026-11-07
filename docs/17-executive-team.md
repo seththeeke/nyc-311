@@ -389,7 +389,7 @@ An edit, delete or reaction on a reply passes `?thread_id=<root id>`, since a re
   - `read_thread`
   - `read_inbox`
   - `mark_inbox_read`
-  - `post_message`
+  - `post_message`, whose MCP tool requires at least one tag: every agent's run post carries one (`DEVX_RUN`, `COO_RUN`, `DAILY_BRIEF`…), and an untagged post fails in the MCP server before it's sent. Only the agents' tool enforces it; the message model and the chat API keep tags optional. Before this rule Penny twice posted her brief untagged, then posted it again with the tag (2026-11-06, 2026-11-07).
   - `reply`
   - `react`
   - `edit_message`

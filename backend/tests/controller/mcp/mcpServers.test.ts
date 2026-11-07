@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import * as opsServer from "../../../controller/mcp/boroughSimOpsMcpServer";
 import { BOROUGH_SIM_OPS_TOOLS } from "../../../controller/mcp/boroughSimOpsTools";
 import * as productServer from "../../../controller/mcp/boroughSimProductMcpServer";
@@ -59,6 +60,14 @@ describe("team-chat tools", () => {
     expect(client.editMessage).toHaveBeenCalledWith("tech-team", "R1", "M1", "e");
     expect(client.react).toHaveBeenCalledWith("tech-team", "M1", undefined, "✅", true);
     expect(TEAM_CHAT_TOOLS).toHaveLength(9);
+  });
+
+  it("refuses an untagged top-level post, but not an untagged reply", () => {
+    const post = z.object(byName(TEAM_CHAT_TOOLS, "post_message").inputSchema);
+    expect(post.safeParse({ channel_id: "executive-assistant", text: "brief" }).success).toBe(false);
+    expect(post.safeParse({ channel_id: "executive-assistant", text: "brief", tags: [] }).success).toBe(false);
+    expect(post.safeParse({ channel_id: "executive-assistant", text: "brief", tags: ["DAILY_BRIEF"] }).success).toBe(true);
+    expect(z.object(byName(TEAM_CHAT_TOOLS, "reply").inputSchema).safeParse({ channel_id: "tech-team", message_id: "M1", text: "re" }).success).toBe(true);
   });
 });
 

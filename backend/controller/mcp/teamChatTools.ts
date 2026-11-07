@@ -11,7 +11,10 @@ const channelId = z.string().describe("Channel id, e.g. tech-team or executive-t
 const messageId = z.string().describe("A message_id from read_channel, read_thread or read_inbox.");
 const threadId = z.string().optional().describe("For a reply: its thread's root message_id.");
 const text = z.string().min(1).max(TEAM_CHAT_TEXT_MAX).describe("Markdown. Mention teammates as @Handle (@Seth, @Rex, @Pip, @Brogan…) or everyone as @channel. Everything posted is public.");
-const tags = z.array(z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/)).max(TEAM_CHAT_TAGS_MAX).default([]).describe("ALL_CAPS labels, e.g. DEVX_RUN.");
+const tag = z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/);
+const tags = z.array(tag).max(TEAM_CHAT_TAGS_MAX).default([]).describe("ALL_CAPS labels, e.g. DEVX_RUN.");
+/* A top-level post must say what it is: an untagged run post can't be found by the next run (Penny's DAILY_BRIEF), so it fails here, before anything is sent. */
+const postTags = z.array(tag).min(1).max(TEAM_CHAT_TAGS_MAX).describe("Required: at least one ALL_CAPS label naming the post, e.g. DEVX_RUN, DAILY_BRIEF, COO_RUN.");
 const limit = z.number().int().min(1).max(100).optional();
 
 /*
@@ -47,8 +50,8 @@ export const TEAM_CHAT_TOOLS: readonly TeamChatTool[] = [
   }),
   tool({
     name: "post_message",
-    description: "Post a top-level message to a channel you're a member of.",
-    inputSchema: { channel_id: channelId, text, tags },
+    description: "Post a top-level message to a channel you're a member of. tags is required: post once, with your run's tag.",
+    inputSchema: { channel_id: channelId, text, tags: postTags },
     run: (client, args) => client.postMessage(args.channel_id, args.text, args.tags),
   }),
   tool({

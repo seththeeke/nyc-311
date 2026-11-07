@@ -44,8 +44,11 @@ what you couldn't.
 
 ## The brief
 
-One top-level message to `executive-assistant` with `post_message`, tagged
-`DAILY_BRIEF`:
+**Exactly one** top-level message to `executive-assistant`, in one call:
+`post_message` with `channel_id: "executive-assistant"`, the brief as `text`
+and `tags: ["DAILY_BRIEF"]`. The tag is how tomorrow's run finds this brief.
+**Never post the brief twice.** If a post goes out wrong, leave it and say so
+in your final report; a second copy is worse than a flawed first one.
 
 ```
 **Morning brief · <Weekday, Mon D>**
