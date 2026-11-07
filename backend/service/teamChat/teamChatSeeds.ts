@@ -27,7 +27,6 @@ const MEMBERS: TeamChatMemberSeed[] = [
   agent("chief-of-staff", "Penny", "chief-of-staff-agent"),
   agent("coo", "Brogan", "coo-agent"),
   agent("cpo", "Celestine", "cpo-agent"),
-  agent("cfo", "Fergus", "cfo-agent"),
   agent("cto", "Rex", "cto-agent"),
   agent("devx", "Pip", "devx-agent"),
   agent("gen-dev", "Kestrel", "gen-purpose-dev"),
@@ -38,7 +37,7 @@ const CHANNELS: TeamChatChannelSeed[] = [
     channel_id: "executive-team",
     name: "executive-team",
     topic: "One goal: lower cost, same high-quality service.",
-    member_ids: ["ceo", "chief-of-staff", "coo", "cpo", "cfo", "cto"],
+    member_ids: ["ceo", "chief-of-staff", "coo", "cpo", "cto"],
     visibility: "PUBLIC",
   },
   {

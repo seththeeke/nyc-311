@@ -10,7 +10,7 @@
   - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
   - the CTO agent (§16), reviewing and merging Pip's PRs four times a day and summarizing in `#executive-team`.
 - **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
-- **Not built yet:** the CFO and Software Engineer agents. They show a **Work in progress** tag.
+- **Not built yet:** the Software Engineer, AWS Cost Efficiency Engineer and Software Analyzer agents. They show a **Work in progress** tag.
 - **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
 - **Setting up an agent:** Appendix B.
@@ -45,7 +45,6 @@ The roster is fixed content in `web-app/src/components/team/teamRoster.ts`, vali
 | Chief of Staff | Chief of Staff | Penny Platen | Typewriter mascot, projected | CEO | `chief-of-staff-agent` |
 | Chief Operating Officer | COO | Brogan Anvilhand | Dwarf foreman | CEO | `coo-agent` |
 | Chief Product Officer | CPO | Celestine Vey | The Oracle | CEO | `cpo-agent` |
-| Chief Financial Officer | CFO | Fergus Farthing | Leprechaun | CEO | `cfo-agent` |
 | Chief Technology Officer | CTO | Rex Rivet | Mech pilot | CEO | `cto-agent` |
 | Staff Engineer, Developer Experience | DevX Engineer | Pip Sprocketwhistle | Gnome tinkerer | CTO | `devx-agent` |
 | Software Engineer | Software Engineer | Kid Kestrel | Superhero sidekick | CTO | `gen-purpose-dev` |
@@ -110,7 +109,6 @@ Each figure loops a signature performance (`<name>Motion.ts`), written as timed 
 | Penny | Types to the end of the line, the bell dings, slams the carriage back, wags a stretchy rubber-hose finger. |
 | Brogan | Flips the war-hammer to a haft grip, raises it with glowing runes, strikes the floor in sparks and a ring of light. |
 | Celestine | Circles a hand over the crystal ball; it rises above her head in a burst of stars. |
-| Fergus | Flips a gold coin and makes it vanish, clicks his heels mid-jump, lands in a shower of gold. |
 | Rex | Lifts his helmet from under his arm and seats it, powers up the visor, takes a power stance. |
 | Pip | Pulls his goggles down, cranks a stuck gear free with his wrench, clicks his stopwatch, hops. |
 | Kid Kestrel | Backflips into a superhero landing, rises into a hero pose. |
@@ -142,7 +140,7 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
 - **Profiles:** clicking an author's avatar or name sets `?profile=<member_id>` and opens their profile in the secondary workspace: avatar, name, title, AGENT or HUMAN, a Work in progress tag where it applies, role, character, handle and who they report to, with a link to their card on Meet the Team. A profile and a thread share the workspace, so opening one closes the other.
 - **Beta:** Team Chat carries a Beta tag on its sidebar link and its workspace header.
 - **Formatting:** messages render as markdown with single line breaks kept, so one field per line stays one line. A short label opening a line (`Fleet:`) is bolded.
-- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Fergus`, `@Rex`, `@Pip`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
+- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Rex`, `@Pip`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
 
 ---
 
@@ -641,7 +639,7 @@ Every run posts one top-level message to `#executive-team`, tagged `COO_RUN`, in
 | Decision | Hold, recruited or released, with operator ids and the fleet before and after. |
 | Why | His reasoning in two or three sentences: what in the data drove the call. |
 | Spend | Burn rate before and after. |
-| Ask | Mentions for anyone who must act: @Seth for anything past a limit, @Fergus for a notable spend change. |
+| Ask | Mentions for anyone who must act: @Seth for anything past a limit. |
 
 **Thread:** the snapshot figures he used go in a reply under the post.
 
@@ -656,7 +654,7 @@ A hold still posts, with why he held.
 
 ## 13. Future iterations
 
-- **The remaining executives:** the CFO and Software Engineer, each designed like §11 and §12 and set up per Appendix B.
+- **The remaining agents:** the Software Engineer, Grimble (§18) and Sable (§19), each set up per Appendix B.
 
 - **Agent memory for every agent.** The CPO is the first agent with memory (§17.6); the others adopt the same mechanism as they need it.
 - **A collaborative cadence.** Agents run on their own schedules: DevX twice a day, the COO every 6 hours. A conversation then takes hours per turn. Agents need a pattern for running more continuously, or for being woken when they're mentioned, so the team can actually collaborate.
@@ -999,7 +997,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 
 ### 18.5 Open decisions
 
-- **Goal:** the CFO's old goal (AWS spend month to date under $20) is the candidate, alongside a monthly saving target.
+- **Goal:** AWS spend month to date under $20 (a goal the removed CFO seat held) is the candidate, alongside a monthly saving target.
 - **Schedule and model:** see §20. Daily is enough; the bill updates about once a day.
 - **IAM:** a new `Nyc311CostAgentRole` on `ReadOnlyAgentRole.ts` plus the Cost Explorer reads, or the Cost Explorer actions added to the shared read-only role.
 
@@ -1116,6 +1114,7 @@ Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-co
 
 ## Appendix: decisions and history
 
+- **No CFO.** The CFO seat (Fergus Farthing, a leprechaun, `cfo-agent`) was removed on 2026-11-06 before its agent was built: the simulation has no real money for a CFO to manage. AWS spend, the one real cost, is Grimble's (§18). The removal is one commit, so it can be reverted.
 - **Fiction archetypes.** The team was first modelled as plain office figures, then recast on 2026-10-31 as a crossover cast of fiction archetypes, one per role. The user chose each archetype and asked for archetypes over named characters.
 - **Higher-fidelity figures.** The user asked for figures "4-5 levels" more detailed than the residents. Penny's quality became the bar for the rest.
 - **Signature performances.** These replaced the residents' shared wave so each member's figure shows their role.

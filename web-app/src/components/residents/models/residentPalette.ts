@@ -57,7 +57,7 @@ export const HERO = {
 
 /*
  * The executive team's fiction cast (#146): a typewriter mascot, a dwarf,
- * an oracle, a leprechaun, a mech pilot, a gnome, a sidekick, a bridge
+ * an oracle, a mech pilot, a gnome, a sidekick, a bridge
  * troll and a private investigator. Each
  * character only reads in its own colours, so these are brighter than
  * the residents' (like HERO).

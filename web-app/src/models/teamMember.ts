@@ -5,7 +5,7 @@ import { z } from "zod";
  * the CEO is the human owner, and everyone else is an AI agent. The
  * roster is fixed content shipped with the page.
  */
-export const TEAM_ROLES = ["CEO", "CHIEF_OF_STAFF", "COO", "CPO", "CFO", "CTO", "ENGINEER"] as const;
+export const TEAM_ROLES = ["CEO", "CHIEF_OF_STAFF", "COO", "CPO", "CTO", "ENGINEER"] as const;
 export type TeamRole = (typeof TEAM_ROLES)[number];
 
 export const MEMBER_KINDS = ["HUMAN", "AGENT"] as const;
@@ -23,7 +23,7 @@ export const TeamMemberSchema = z.object({
   member_id: z.string().min(1),
   name: z.string().min(1),
   title: z.string().min(1),
-  /* Who they are in the cast: a dwarf foreman, an oracle, a leprechaun. */
+  /* Who they are in the cast: a dwarf foreman, an oracle, a bridge troll. */
   character: z.string().min(1),
   role: z.enum(TEAM_ROLES),
   kind: z.enum(MEMBER_KINDS),

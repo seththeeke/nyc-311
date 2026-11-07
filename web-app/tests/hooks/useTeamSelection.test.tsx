@@ -16,8 +16,8 @@ describe("useTeamSelection", () => {
     expect(result.current).toMatchObject({ memberId: "cto", channelId: "tech-team" });
     act(() => result.current.selectMember(null));
     expect(result.current).toMatchObject({ memberId: null, channelId: "tech-team" });
-    act(() => result.current.selectMember("cfo"));
-    expect(result.current.memberId).toBe("cfo");
+    act(() => result.current.selectMember("cpo"));
+    expect(result.current.memberId).toBe("cpo");
   });
 
   it("opens and closes a thread, and a new channel closes it", () => {

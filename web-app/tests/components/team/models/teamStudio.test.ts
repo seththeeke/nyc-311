@@ -41,7 +41,7 @@ describe("teamStudio", () => {
   });
 
   it("frames the head for the avatar and the whole figure for the stage", () => {
-    const rig = TEAM_MODELS["fergus-farthing"]();
+    const rig = TEAM_MODELS["brogan-anvilhand"]();
     const portrait = teamPortraitCamera(rig);
     const full = teamFullBodyCamera(rig, 0.75);
     expect(portrait.position.x).toBeGreaterThan(0.5);
@@ -50,7 +50,7 @@ describe("teamStudio", () => {
   });
 
   it("frames a figure with no performance from its rest pose alone, ignoring effects", () => {
-    const rig = TEAM_MODELS["fergus-farthing"]();
+    const rig = TEAM_MODELS["brogan-anvilhand"]();
     const still = teamFullBodyCamera(rig, 0.75);
     rig.cycle = undefined;
     const fx = new Group();

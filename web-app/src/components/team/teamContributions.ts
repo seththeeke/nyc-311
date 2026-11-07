@@ -47,8 +47,6 @@ export const TEAM_CONTRIBUTIONS: readonly Contribution[] = [
   did("C7", "coo", "2026-10-28T10:00", "DECISION", "Moved two crews to night shifts", "Overnight requests were waiting 14 hours for the morning crew."),
   did("C8", "cpo", "2026-10-31T11:15", "ISSUE", "Filed: batch same-block repairs", "A third of pothole orders are within 50 m of another open order.", `${REPO}/issues/146`),
   did("C9", "cpo", "2026-10-30T15:40", "DECISION", "Declined resident idea: SMS updates", "Lots of interest, but it adds cost per order without cutting work."),
-  did("C10", "cfo", "2026-10-31T07:50", "BUDGET", "Flagged AWS spend at 82% of budget", "Lambda concurrency from the ingestion backfill; asked the CTO to cap it."),
-  did("C11", "cfo", "2026-10-29T16:30", "BUDGET", "Signed off the weekend driver spend", "Two drivers cost less than the SLA credits a missed weekend would."),
   did("C12", "cto", "2026-10-30T14:10", "REVIEW", "Approved the resident ideas feed fix", "Blank follow-ups broke the feed; the fix stores them as null.", `${REPO}/issues/147`),
   did("C13", "cto", "2026-10-30T09:20", "DECISION", "Approved the synth test speedup", "66 s per run was slowing every PR in the pipeline."),
   did("C14", "devx", "2026-10-30T16:30", "PULL_REQUEST", "Cut the stack synth test from 66 s to 5.5 s", "Cached the Lambda bundling between test cases.", `${REPO}/pulls`),

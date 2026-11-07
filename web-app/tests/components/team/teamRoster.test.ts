@@ -23,14 +23,14 @@ describe("TEAM_ROSTER", () => {
 
 describe("memberById / directReports", () => {
   it("finds a member or returns null", () => {
-    expect(memberById("cfo")?.name).toBe("Fergus Farthing");
+    expect(memberById("cto")?.name).toBe("Rex Rivet");
     expect(memberById("nobody")).toBeNull();
     expect(memberById(null)).toBeNull();
   });
 
   it("lists direct reports in roster order", () => {
     expect(directReports("cto").map((member) => member.member_id)).toEqual(["devx", "gen-dev", "aws-cost", "software-analyzer"]);
-    expect(directReports(CEO_ID).map((member) => member.role)).toEqual(["CHIEF_OF_STAFF", "COO", "CPO", "CFO", "CTO"]);
+    expect(directReports(CEO_ID).map((member) => member.role)).toEqual(["CHIEF_OF_STAFF", "COO", "CPO", "CTO"]);
     expect(directReports("devx")).toEqual([]);
   });
 });

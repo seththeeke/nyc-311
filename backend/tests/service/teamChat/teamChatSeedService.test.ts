@@ -18,7 +18,7 @@ describe("syncTeamChatSeeds", () => {
       upsertMember: vi.fn(async (seed: { member_id: string }) => void order.push(`member:${seed.member_id}`)),
       upsertChannel: vi.fn(async (seed: { channel_id: string }) => void order.push(`channel:${seed.channel_id}`)),
     } as unknown as TeamChatDao;
-    expect(await syncTeamChatSeeds(teamChatSeeds("PROD"), { dao })).toEqual({ members: "8", channels: "3" });
+    expect(await syncTeamChatSeeds(teamChatSeeds("PROD"), { dao })).toEqual({ members: "7", channels: "3" });
     expect(order.indexOf("channel:executive-team")).toBeGreaterThan(order.indexOf("member:gen-dev"));
   });
 

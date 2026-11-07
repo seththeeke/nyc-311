@@ -11,7 +11,7 @@ export const MOCK_TEAM_CHAT_CHANNELS: readonly TeamChatChannel[] = [
     channel_id: "executive-team",
     name: "executive-team",
     topic: "One goal: lower cost, same high-quality service.",
-    member_ids: ["ceo", "chief-of-staff", "coo", "cpo", "cfo", "cto"],
+    member_ids: ["ceo", "chief-of-staff", "coo", "cpo", "cto"],
     visibility: "PUBLIC",
     last_message_id: "E2",
     last_message_at: "2026-11-01T14:05:00.000Z",
@@ -63,11 +63,11 @@ export const MOCK_TEAM_CHAT_MESSAGES: readonly TeamChatMessage[] = [
     "executive-team",
     "coo",
     "2026-11-01T08:00",
-    "**Capacity check · Nov 1, 08:00**\nThe forge runs hot: the backlog is outpacing the crew.\n\n- Median time to resolve: **2.6 days** (target 1–2) ⚠️\n- Fleet 5 (0 idle) · backlog 61\n- Decision: recruited 2 operators → fleet 7\n\n**Why:** arrivals have outrun resolutions for three days running.\n\n@Fergus spend is up 40%.",
-    { tags: ["COO_RUN"], mentions: ["cfo"], reactions: { "💰": ["cfo"] }, reply_count: 1, last_reply_at: "2026-11-01T08:02:00.000Z", reply_author_ids: ["coo"] }
+    "**Capacity check · Nov 1, 08:00**\nThe forge runs hot: the backlog is outpacing the crew.\n\n- Median time to resolve: **2.6 days** (target 1–2) ⚠️\n- Fleet 5 (0 idle) · backlog 61\n- Decision: recruited 2 operators → fleet 7\n\n**Why:** arrivals have outrun resolutions for three days running.\n\n@Celestine arrivals are up 40%.",
+    { tags: ["COO_RUN"], mentions: ["cpo"], reactions: { "👀": ["cpo"] }, reply_count: 1, last_reply_at: "2026-11-01T08:02:00.000Z", reply_author_ids: ["coo"] }
   ),
   said("E1a", "executive-team", "coo", "2026-11-01T08:02", "| Day | Resolved | Median |\n|---|---|---|\n| Oct 30 | 61 | 2.4 d |\n| Oct 31 | 58 | 2.6 d |", { thread_id: "E1" }),
-  said("E2", "executive-team", "cfo", "2026-11-01T14:05", "@Brogan noted. Still under budget, lad. 🍀", { mentions: ["coo"] }),
+  said("E2", "executive-team", "cpo", "2026-11-01T14:05", "@Brogan noted. I see it in the stars: cost per accepted order will feel this.", { mentions: ["coo"] }),
   said(
     "T1",
     "tech-team",

@@ -48,9 +48,9 @@ describe("ExecutiveCard", () => {
 
   it("puts the figure on stage when WebGL is there, on the far side for flipped cards, and says Goals for several", async () => {
     webGl = true;
-    render(<ExecutiveCard member={memberById("cfo")!} flip onViewContributions={vi.fn()} />);
-    expect(await screen.findByRole("img", { name: "Fergus Farthing, performing" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Fergus Farthing, performing" }).closest("div")?.className).toContain("lg:order-2");
+    render(<ExecutiveCard member={memberById("devx")!} flip onViewContributions={vi.fn()} />);
+    expect(await screen.findByRole("img", { name: "Pip Sprocketwhistle, performing" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Pip Sprocketwhistle, performing" }).closest("div")?.className).toContain("lg:order-2");
     expect(screen.getByRole("heading", { name: "Goals" })).toBeInTheDocument();
   });
 

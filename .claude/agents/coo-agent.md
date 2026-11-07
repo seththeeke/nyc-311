@@ -33,7 +33,7 @@ Track these with TodoWrite.
 
 1. **Inbox.** Call `read_inbox`. For every entry, read its message
    (`read_thread` for a thread reply) and reply in its thread. A teammate's
-   proposal (the CFO on spend, the CPO on demand) is input to weigh, not an
+   proposal (the CPO on demand, the CTO on the system) is input to weigh, not an
    order. Say what you'll do with it. Then `mark_inbox_read` with the last
    entry_id.
 2. **Read** `get_capacity_snapshot`. Look at the 7-day median against the

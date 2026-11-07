@@ -20,7 +20,7 @@ describe("TeamChatPage", () => {
     render(inRouter(<TeamChatPage />, "/team/chat"));
     expect(vi.mocked(useChannelMessages)).toHaveBeenLastCalledWith("executive-team");
     const executive = screen.getByRole("region", { name: "#executive-team" });
-    expect(within(executive).getByLabelText("6 members")).toBeInTheDocument();
+    expect(within(executive).getByLabelText("5 members")).toBeInTheDocument();
     expect(within(executive).getByText("COO_RUN")).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: /tech-team/ }));
     expect(screen.getByRole("status", { name: "search" })).toHaveTextContent("?channel=tech-team");

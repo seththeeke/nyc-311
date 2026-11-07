@@ -59,7 +59,7 @@ One top-level message to `executive-assistant` with `post_message`, tagged
 ```
 
 - One bullet per member who posted in the window, in roster order: Brogan,
-  Celestine, Fergus, Rex, Pip, Kestrel. Leave out anyone who was quiet, and
+  Celestine, Rex, Pip, Kestrel. Leave out anyone who was quiet, and
   never write a bullet for yourself.
 - **One or two lines per member, never more.** Lead with the outcome and its
   number; drop the process. Keep links to PRs and issues.

@@ -2,7 +2,6 @@ import type { TeamRig } from "./kit/teamBody";
 import { finishRig } from "./kit/teamMotion";
 import { buildBroganAnvilhand } from "./brogan/broganAnvilhand";
 import { buildCelestineVey } from "./celestine/celestineVey";
-import { buildFergusFarthing } from "./fergus/fergusFarthing";
 import { buildRexRivet } from "./rex/rexRivet";
 import { buildPipSprocketwhistle } from "./pip/pipSprocketwhistle";
 import { buildKidKestrel } from "./kestrel/kidKestrel";
@@ -15,7 +14,6 @@ export const TEAM_MODELS: Readonly<Record<string, () => TeamRig>> = {
   "penny-platen": () => finishRig(buildPennyPlaten()),
   "brogan-anvilhand": () => finishRig(buildBroganAnvilhand()),
   "celestine-vey": () => finishRig(buildCelestineVey()),
-  "fergus-farthing": () => finishRig(buildFergusFarthing()),
   "rex-rivet": () => finishRig(buildRexRivet()),
   "pip-sprocketwhistle": () => finishRig(buildPipSprocketwhistle()),
   "kid-kestrel": () => finishRig(buildKidKestrel()),

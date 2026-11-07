@@ -31,7 +31,7 @@ describe("MemberProfilePanel via ChatSidePanel", () => {
     expect(screen.getByRole("img", { name: "Seth Theeke" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Profile" })).toHaveTextContent("HUMAN");
     unmount();
-    render(inRouter(<ChatSidePanel />, "/team/chat?profile=cfo"));
+    render(inRouter(<ChatSidePanel />, "/team/chat?profile=gen-dev"));
     expect(screen.getByText("Work in progress")).toBeInTheDocument();
   });
 

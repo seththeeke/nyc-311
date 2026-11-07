@@ -15,7 +15,6 @@ export const MENTION_HANDLES: Readonly<Record<string, string>> = {
   "chief-of-staff": "Penny",
   coo: "Brogan",
   cpo: "Celestine",
-  cfo: "Fergus",
   cto: "Rex",
   devx: "Pip",
   "gen-dev": "Kestrel",

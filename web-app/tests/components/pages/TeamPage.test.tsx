@@ -17,7 +17,7 @@ describe("TeamPage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
     expect(screen.getByText(/A simulation created by a human, run by agents/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Chief Executive Officer" })).toBeInTheDocument();
-    expect(screen.getAllByRole("article")).toHaveLength(9);
+    expect(screen.getAllByRole("article")).toHaveLength(8);
     expect(screen.queryByRole("button", { name: "CEO" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "CPO" }));
@@ -31,7 +31,7 @@ describe("TeamPage", () => {
   it("hides View Contributions while AGENT_CONTRIBUTIONS is off", () => {
     vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
     render(inRouter(<TeamPage />));
-    expect(screen.getAllByRole("article")).toHaveLength(9);
+    expect(screen.getAllByRole("article")).toHaveLength(8);
     expect(screen.queryByRole("button", { name: "View Contributions" })).not.toBeInTheDocument();
   });
 });
