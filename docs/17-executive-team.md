@@ -1112,6 +1112,101 @@ Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-co
 
 ---
 
+## 21. Agent team v2 launch
+
+**Status:** planned 2026-11-07, not started. Notes for the next agent install.
+
+**Goal:** every member except Kid Kestrel launched and active: Penny, Brogan, Celestine, Rex, Pip, Grimble (§18) and Sable (§19). Kid Kestrel stays Work in progress.
+
+### 21.1 Times and the Mac mini's clock
+
+- **The Mac mini runs on Pacific time.** launchd fires on the machine's local time, and the run times prove it is Pacific: Pip's 06:00 and 18:00 runs post at 14:04 and 02:07 UTC, and Penny's 09:00 brief lands at 11:01 Central. The "New York" notes in the schedule files and Appendix B are wrong.
+- **v2 schedules are written in Central time (CT)**, the CEO's time zone. Open decision: set the Mac mini's time zone to America/Chicago so `SCHEDULE` values read as CT, or convert each to Pacific (CT minus 2 hours) when writing the schedule files. The first is simpler and keeps the files honest.
+- All times below are CT.
+
+### 21.2 Changes by member
+
+**Penny (Chief of Staff)**
+- One run at **08:00 CT**, the morning brief, as today.
+
+**Pip (DevX)**
+- **8 runs a day**, in two blocks: **09:00, 11:00, 13:00, 15:00** and **22:00, 00:00, 02:00, 04:00**. A ninth at 05:30 is optional.
+- The per-agent lock still skips a run while the last one is going, and `MAX_OPEN_PRS` (3) still switches him to REVISE mode, so more runs mean faster tending and merging, not an unbounded PR queue.
+
+**Rex (CTO)**
+- **8 runs a day, an hour after each of Pip's**: 10:00, 12:00, 14:00, 16:00, 23:00, 01:00, 03:00, 05:00. A PR opened in one Pip run is reviewed, and merged if clean, before Pip's next.
+- **Where he posts:** each run's review summary goes to **`#tech-team`** (tag `CTO_REVIEW`), no longer `#executive-team`.
+- **Once a day** (the 16:00 run), one roll-up to `#executive-team`, tagged `CTO_DAILY`: PRs reviewed, merged and escalated in the last 24 hours, and Celestine's and Sable's tickets answered. Escalations to @Seth still go out on the run that finds them, in `#tech-team`.
+
+**Brogan (COO)**
+- Schedule unchanged (four checks a day).
+- **Shorter posts, same content.** The `COO_RUN` post is at most 4 lines: the decision, the 7-day median against the band, the fleet and backlog, and one line of why. Supporting numbers (per-day medians, arrivals versus resolutions) go in a thread reply, and only when he recruits or releases.
+
+**Celestine (CPO)**
+- **More runs, in two modes** (§21.3):
+  - **AUDIT**, once a day at **07:00**, before Penny's brief: today's deep run: contacts, the WBR, her reports and research agenda, tickets, the `CPO_DAILY` report.
+  - **CONVERSE** at **10:00, 13:00, 16:00 and 19:00**: her inbox and her ticket threads with Rex, follow-ups on open tickets, updating a ticket when the spec changes, new contacts triaged. No new audit; at most 2 warehouse queries per run; no `CPO_DAILY`.
+
+**Grimble (AWS Cost Efficiency, §18)**
+- **Twice a week**, Tuesday and Friday at 23:00.
+- **A cost report every run**, saved under `.claude/agent-memory/aws-cost-agent/reports/` (§18.3) and summarized in `#tech-team`.
+- **Experiments.** Grimble may try a change whose saving isn't certain, as an experiment:
+  - the PR is labelled `cost-experiment` and states the baseline cost, the expected saving, the date it will be judged, and the exact rollback;
+  - **Rex reviews it** like any `cost/` PR (§18.4), and only what he approves goes ahead;
+  - Grimble's memory tracks each experiment: PR, merge date, baseline, judge date, result;
+  - on its judge date Grimble reads the bill: a saving is kept and recorded; anything else gets a **rollback PR** (a revert of the experiment's merge), reviewed by Rex the same way.
+- Open decision: who merges `cost/` PRs. §18.4 says only the CEO. Allowing "what Rex allows" would mean extending Rex's merge rule to approved `cost-experiment` PRs and their rollbacks, guarded the way `devx/` is (§16.2). Until decided, the CEO merges.
+
+**Sable (Software Analyzer, §19)**
+- **Twice a week**, Monday and Thursday at 23:00, with **at least one full report a week**: the Monday run always produces one; the Thursday run produces one if Monday's failed, and otherwise files and follows up tickets.
+- **Reports on the website**: a new **Code Quality** page under System Monitoring (`/monitoring/code-quality`, a tile on `/monitoring` beside Ingestion, Pipeline and Lambda). It shows the latest report's overall and per-package scores, the trend across reports, and each report's findings with their tickets.
+- Open decision, where reports live:
+  - **(a) API-backed (recommended):** Sable submits each report through a new MCP tool to an admin route (a new Cognito group for him), stored in a small table and read by a public route.
+  - **(b) Committed with his memory:** the web app imports the files at build time, so every report triggers a deploy.
+  - **(c) S3:** a JSON object per report behind CloudFront.
+
+  Option (a) matches how every other page reads data.
+
+### 21.3 Celestine: modes or separate agents
+
+**Proposed: one agent with modes**, like Pip's NEW and REVISE, rather than a second product agent.
+
+- **Why one:**
+  - Her conversations with Rex are about her own tickets, research and memory; a second agent would need all of it and would split her memory in two.
+  - One persona keeps one voice in chat, so Rex never has two CPOs answering the same thread.
+  - One Cognito user and one guard.
+- **Why separate agents could win:** smaller prompts per job, and a different model per job. Both are available to one agent: a mode-specific section of her prompt, and a per-slot model in the schedule.
+- **Model per mode:** Opus for AUDIT, Sonnet for CONVERSE, so the frequent runs stay cheap (§20).
+
+### 21.4 Scheduler work this needs
+
+The wrapper (`scripts/agent-scheduled-run.sh`, `agent-schedule-install.sh`) today runs every slot daily with one prompt per mode. v2 needs:
+
+- **Weekday slots**, for Grimble and Sable (launchd's `StartCalendarInterval` takes a `Weekday`).
+- **A mode per slot**, for Celestine (`07:00=AUDIT 10:00=CONVERSE …`) and Rex's daily roll-up slot, each with its own prompt.
+- **A model per slot or mode**, passed to `claude --model`.
+- After merging, re-run `scripts/agent-schedule-install.sh install <agent>` on the Mac mini for every agent whose `SCHEDULE` changed (Appendix B).
+
+### 21.5 Usage
+
+v2 roughly triples the daily runs: about 26 a day plus 4 a week, against about 15 a day now. Before launch:
+
+- Ship the per-run usage log (#169) and capture a week of baseline.
+- Fit the protected hours of §20: the v2 times suggest the CEO is active roughly 06:00 to 09:00 and 16:00 to 22:00 CT. Pip and Rex already run outside both. Celestine's 07:00, 16:00 and 19:00 and Brogan's daytime checks fall inside them.
+- Watch the weekly limit. If v2 regularly exhausts it, the levers are Sonnet over Opus, fewer CONVERSE runs, and fewer night runs.
+
+### 21.6 Launch checklist
+
+- [ ] Grimble built (§18.6, G1 to G4) and Sable built (§19.7, S1 to S4), including the Code Quality page.
+- [ ] Team Chat: Grimble and Sable as seed members in `#tech-team`, mention handles `@Grimble` and `@Sable`, tags `COST_RUN`, `ANALYSIS` and `CTO_DAILY`.
+- [ ] Prompts: Rex (`#tech-team` per run, daily `#executive-team` roll-up), Brogan (4-line posts), Celestine (AUDIT and CONVERSE).
+- [ ] Scheduler: weekdays, per-slot modes and models (§21.4).
+- [ ] The Mac mini's time zone decided (§21.1), and every v2 schedule installed.
+- [ ] Usage baseline from #169.
+- [ ] Roster: `live: true` for Grimble and Sable; Kid Kestrel stays Work in progress.
+
+---
+
 ## Appendix: decisions and history
 
 - **No CFO.** The CFO seat (Fergus Farthing, a leprechaun, `cfo-agent`) was removed on 2026-11-06 before its agent was built: the simulation has no real money for a CFO to manage. AWS spend, the one real cost, is Grimble's (§18). The removal is one commit, so it can be reverted.
