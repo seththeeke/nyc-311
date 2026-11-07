@@ -7,7 +7,8 @@ import { MarketingGate } from "./MarketingGate";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { CONTACTS_PAGE_FLAG, CONTACTS_PAGE_ON, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
 import { MAP_JOB_PATTERN, MAP_PATH } from "../components/map/mapRoutes";
-import { CONTACTS_PATH, IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
+import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
+import { CONTACTS_PATH, LEGACY_CONTACTS_PATH } from "../components/contacts/contactRoutes";
 import { SpinnerIcon } from "../components/icons";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
 
@@ -102,6 +103,8 @@ export function AppRoutes(): ReactElement {
               </FeatureFlagRoute>
             }
           />
+          {/* Contacts' old path as a Residents tab, kept so bookmarks still land on it. */}
+          <Route path={LEGACY_CONTACTS_PATH} element={<Navigate to={CONTACTS_PATH} replace />} />
           <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
           <Route
             path={TEAM_PATH}

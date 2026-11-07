@@ -1,6 +1,6 @@
 import type { Contact } from "../models/contact";
 
-/* Baked feature requests for mock mode's Contacts page. */
+/* Baked feature requests for mock mode's Contacts page, sent by baked residents so the detail panel finds them. */
 export const MOCK_CONTACTS: readonly Contact[] = [
   {
     contact_id: "01MOCKCONTACT0000000000003",
@@ -21,7 +21,7 @@ export const MOCK_CONTACTS: readonly Contact[] = [
     status: "IN_PROGRESS",
     title: "Show an estimated fix date on my request",
     description: "When I report a pothole I'd like to see roughly when someone will get to it.",
-    submitter_name: "Marisol",
+    submitter_name: "Sycamore",
     closure_reason_code: null,
     closure_reason_description: "We're tracking this as ticket #170.",
     ticket_number: 170,
@@ -34,7 +34,7 @@ export const MOCK_CONTACTS: readonly Contact[] = [
     status: "CLOSED",
     title: "Notify me when my street is fixed",
     description: "A message when the work on my block is done would be great.",
-    submitter_name: "Otis",
+    submitter_name: "Juniper",
     closure_reason_code: "DUPLICATE",
     closure_reason_description: "Same as ticket #170, which we're already tracking.",
     ticket_number: 170,

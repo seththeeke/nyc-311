@@ -1,11 +1,13 @@
 import type { ReactElement } from "react";
+import { useContactSelection } from "../../hooks/useContactSelection";
 import { useContacts } from "../../hooks/useContacts";
 import type { ContactQuery } from "../../models/contact";
 import { ContactRow } from "./ContactRow";
 
-/** The contacts matching the filters, a page at a time. */
+/** The contacts matching the filters, a page at a time; picking one opens it in the secondary workspace. */
 export function ContactList({ query }: { query: ContactQuery }): ReactElement {
   const { data, status, error, hasNextPage, fetchNextPage, isFetchingNextPage } = useContacts(query);
+  const { contactId, selectContact } = useContactSelection();
   if (status === "pending") {
     return (
       <p role="status" className="text-sm text-fg-muted">
@@ -26,7 +28,7 @@ export function ContactList({ query }: { query: ContactQuery }): ReactElement {
       {contacts.length === 0 && <p className="text-sm text-fg-muted">No contacts match these filters yet.</p>}
       <ul className="space-y-3">
         {contacts.map((contact) => (
-          <ContactRow key={contact.contact_id} contact={contact} />
+          <ContactRow key={contact.contact_id} contact={contact} selected={contact.contact_id === contactId} onSelect={selectContact} />
         ))}
       </ul>
       {hasNextPage && (

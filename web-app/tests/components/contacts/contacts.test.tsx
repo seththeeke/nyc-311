@@ -5,17 +5,13 @@ import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ContactsPage } from "../../../src/components/pages/ContactsPage";
-import { ContactRow } from "../../../src/components/residents/ContactRow";
-import { contactStatusText } from "../../../src/components/residents/contactFormat";
-import { ResidentsTabs } from "../../../src/components/residents/ResidentsTabs";
-import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
+import { ContactRow } from "../../../src/components/contacts/ContactRow";
+import { contactStatusText } from "../../../src/components/contacts/contactFormat";
 import { contactService } from "../../../src/services/contactService";
 import type { ContactPage, ContactQuery } from "../../../src/models/contact";
 import { MOCK_CONTACTS } from "../../../src/test-data/contacts";
 
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => true) }));
-
-function wrap(ui: ReactElement, path = "/residents/contacts") {
+function wrap(ui: ReactElement, path = "/contacts") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -41,10 +37,10 @@ afterEach(() => {
 });
 
 describe("Contacts", () => {
-  it("lists feature requests with tabs, filters and Load more", async () => {
+  it("lists feature requests with filters and Load more, with no Residents tabs", async () => {
     wrap(<ContactsPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Residents" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Contacts" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("heading", { level: 1, name: "Contacts" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(await screen.findByText(MOCK_CONTACTS[0].title)).toBeInTheDocument();
     expect(screen.queryByText(MOCK_CONTACTS[2].title)).not.toBeInTheDocument();
     const user = userEvent.setup();
@@ -59,6 +55,15 @@ describe("Contacts", () => {
     await user.selectOptions(screen.getByLabelText("Sort"), "OLDEST");
     expect(await screen.findByText(MOCK_CONTACTS[2].title)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Type"), "FEATURE_REQUEST");
+  });
+
+  it("opens a contact from its title, marking that row selected", async () => {
+    wrap(<ContactsPage />);
+    const title = await screen.findByRole("button", { name: MOCK_CONTACTS[0].title });
+    expect(title).toHaveAttribute("aria-pressed", "false");
+    await userEvent.setup().click(title);
+    expect(screen.getByRole("button", { name: MOCK_CONTACTS[0].title })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: MOCK_CONTACTS[1].title })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("says when nothing matches, and shows a load error", async () => {
@@ -77,13 +82,9 @@ describe("Contacts", () => {
     expect(screen.getByText(MOCK_CONTACTS[2].closure_reason_description!)).toBeInTheDocument();
     expect(screen.getByText(/Ticket #170/)).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(contactStatusText("CLOSED", "LATER")).toBe("Closed · LATER");
     expect(contactStatusText("RECEIVED", null)).toBe("Received");
   });
 
-  it("hides the tabs while CONTACTS_PAGE is off", () => {
-    vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
-    const { container } = wrap(<ResidentsTabs />, "/residents");
-    expect(container).toBeEmptyDOMElement();
-  });
 });

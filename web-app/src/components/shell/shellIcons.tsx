@@ -40,6 +40,14 @@ export const ResidentsIcon = (p: IconProps): ReactElement => (
   </StrokeIcon>
 );
 
+/* An inbox tray: what residents have sent in (Contacts, docs/17 §17.3). */
+export const ContactsIcon = (p: IconProps): ReactElement => (
+  <StrokeIcon {...p}>
+    <path d="M4 13 6.5 5h11L20 13v6H4z" />
+    <path d="M4 13h4.5l1 2h5l1-2H20" />
+  </StrokeIcon>
+);
+
 /* An org chart: one box over three, joined by a bus line (Meet the Team, #146). */
 export const TeamIcon = (p: IconProps): ReactElement => (
   <StrokeIcon {...p}>

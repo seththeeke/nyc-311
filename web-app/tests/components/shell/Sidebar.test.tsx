@@ -286,6 +286,18 @@ describe("Sidebar flagged entries", () => {
     expect(links.indexOf("Meet the Team")).toBe(links.indexOf("Residents") + 1);
     expect(screen.getByRole("link", { name: /Team Chat/ })).toHaveAttribute("href", "/team/chat");
   });
+
+  it("CONTACTS_PAGE = T1: shows Contacts right after Residents; hidden otherwise", () => {
+    withTreatments({ CONTACTS_PAGE: "T1" });
+    const { unmount } = renderSidebar({ path: "/contacts" });
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links.indexOf("Contacts")).toBe(links.indexOf("Residents") + 1);
+    expect(screen.getByRole("link", { name: "Contacts" })).toHaveAttribute("aria-current", "page");
+    unmount();
+    withTreatments({ CONTACTS_PAGE: "C" });
+    renderSidebar();
+    expect(screen.queryByRole("link", { name: "Contacts" })).not.toBeInTheDocument();
+  });
 });
 
 describe("Sidebar map entry", () => {

@@ -211,9 +211,15 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Residents" })).toBeInTheDocument();
   });
 
-  it("renders the Contacts tab at /residents/contacts while CONTACTS_PAGE is on", async () => {
-    await renderAt("/residents/contacts");
+  it("renders the Contacts page at /contacts while CONTACTS_PAGE is on", async () => {
+    await renderAt("/contacts");
+    expect(await screen.findByRole("heading", { level: 1, name: "Contacts" })).toBeInTheDocument();
     expect(await screen.findByLabelText("Status")).toBeInTheDocument();
+  });
+
+  it("redirects the old /residents/contacts tab to /contacts", async () => {
+    await renderAt("/residents/contacts");
+    expect(await screen.findByRole("heading", { level: 1, name: "Contacts" })).toBeInTheDocument();
   });
 
   it("renders ResidentIdeaPage at a resident/idea deep link", async () => {

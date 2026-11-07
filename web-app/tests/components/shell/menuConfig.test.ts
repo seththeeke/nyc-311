@@ -15,14 +15,15 @@ const admin = sections.find((s) => s.id === "ADMIN")!;
 const map = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK")!;
 
 describe("MENU", () => {
-  it("has exactly six primary entries in order: Map, Residents, Meet the Team, Team Chat, System Monitoring, Admin", () => {
-    expect(MENU.map((e) => e.label)).toEqual(["Map", "Residents", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
+  it("has exactly seven primary entries in order: Map, Residents, Contacts, Meet the Team, Team Chat, System Monitoring, Admin", () => {
+    expect(MENU.map((e) => e.label)).toEqual(["Map", "Residents", "Contacts", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
   });
 
-  it("flags only Meet the Team and Team Chat (T1); Map and Residents are unflagged", () => {
+  it("flags Contacts, Meet the Team and Team Chat (T1); Map and Residents are unflagged", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
-    expect(flagged.map((e) => e.id)).toEqual(["TEAM", "TEAM_CHAT"]);
-    expect(flagged[0]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
+    expect(flagged.map((e) => e.id)).toEqual(["CONTACTS", "TEAM", "TEAM_CHAT"]);
+    expect(flagged[0]).toMatchObject({ to: "/contacts", featureFlag: { key: "CONTACTS_PAGE", showOn: ["T1"] } });
+    expect(flagged[1]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
     expect(map).toMatchObject({ id: "MAP", to: "/" });
     expect(map.featureFlag).toBeUndefined();
   });
