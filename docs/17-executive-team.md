@@ -71,7 +71,7 @@ The other agents' goals stand until each agent is designed (§9):
 
 ### 2.1 Joining the team: Grimble and Sable
 
-Both join as Work in progress (`live: false`), with figures and roster cards; their agents are designed next. Neither has goals yet.
+Both join as Work in progress (`live: false`), with figures and roster cards. Their agents are designed in §18 and §19. Neither has goals yet.
 
 - **Grimble Tollbridge, AWS Cost Efficiency Engineer** (`aws-cost-agent`), reporting to the CTO. A reformed bridge troll who once charged every toll there is, so knows what each crossing really costs. The job: read BoroughSim's AWS billing history and projected costs, find creative ways to cut them, keep a memory of the AWS reports, and land each saving as a PR the way Pip does. Rex reviews the PRs as he reviews Pip's, but **only the CEO merges them**.
 - **Sable Marsh, Software Analyzer** (`software-analyzer-agent`), reporting to the CTO. A noir private investigator: an outside hire with no stake in the answer. The job is software quality, not product quality: assess the codebase as an impartial third party who knows nothing of what BoroughSim sells, give it a complexity score, and file findings (code smells, poor patterns, dead code, overly complex code) as tickets for Rex to weigh, as Celestine's are. Sable never changes code.
@@ -953,6 +953,164 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 **Research agenda.** Her memory holds a short list of ideas about where BoroughSim loses time or money, each one an idea, being measured, proven (with its ticket) or disproved (with its numbers). She moves at least one forward each run. An idea the warehouse can't answer becomes a measurement ticket.
 
 **Saved queries and reports.** A query worth rerunning goes in `.claude/agent-memory/cpo-agent/queries/<name>.sql`, with a header: the question, `kind` (`report` or `research`), `cadence` (`daily`, `weekly` or `once`), created and last-run dates, the last result in one line, and notes. She reuses a saved query before writing a new one, so numbers stay comparable between runs. Reports are the saved queries she reruns on their cadence: her own business review beyond the WBR, summarized in her daily report. The files are committed with her memory (§17.6) and are public; she shares aggregates, never raw rows, addresses or a single resident's request.
+
+---
+
+## 18. The AWS Cost Efficiency agent
+
+**Status:** designed 2026-11-06, not built. The figure and roster card ship as Work in progress (§2.1).
+
+`aws-cost-agent` is Grimble Tollbridge, a reformed bridge troll who once charged every toll there is, so knows what each crossing really costs. Grimble reports to Rex. The job is BoroughSim's own AWS bill: read the billing history and the forecast, find creative ways to pay less for the same system, land each saving as a pull request, and report what it saved. Grimble works like Pip, except that **only the CEO merges Grimble's PRs**.
+
+### 18.1 The run
+
+`KIND` like Pip's (NEW and REVISE modes by open-PR count), branch prefix `cost/`, PRs only, never `main`.
+
+1. **Memory:** read `.claude/agent-memory/aws-cost-agent/MEMORY.md` and the saved bill reports (§18.3).
+2. **Tend open `cost/` PRs:** Rex's review comments and merge conflicts, as Pip does (§11, §16.5).
+3. **Read the bill:** month-to-date and the last 3 to 6 months by service and by usage type, the month-end forecast, and the stack each cost comes from (Test, Prod, pipeline, customer, Team Chat).
+4. **Find a saving:** the biggest cost line with a change that keeps the system working the same, then read the CDK and backend code that creates it.
+5. **Land one change** (NEW mode only): a backlog issue with the plan and the expected monthly saving, a `cost/<issue>-<slug>` branch, the Operational Loop in every touched package, and a PR stating the before cost, the expected after cost and how to check it.
+6. **Measure shipped savings:** for each merged PR old enough to show in the bill, the actual change against the forecast, posted on its issue.
+7. **Post:** one `COST_RUN` message to `#tech-team` per run, and a short summary in `#executive-team` when a saving lands.
+8. **Memory:** update the bill report and lessons.
+
+### 18.2 What Grimble can reach
+
+| Data | How | Not |
+|---|---|---|
+| Billing history and forecast | AWS Cost Explorer (`ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetDimensionValues`) and Budgets reads, through `Nyc311CostAgentRole` | Any write: no budget, tag or anomaly-monitor changes |
+| Resources behind the costs | `ReadOnlyAccess` through the same role, secrets denied, like Pip's | Any mutation, any deploy |
+| The code | The worktree, Pip's tools, the Operational Loop | `main`, merges, force-pushes |
+| GitHub | Issues and PRs on `cost/` branches, Pip's way | Merging; Rex's labels and statuses |
+| Team Chat | Cognito user `aws-cost-agent@agents.boroughsim.com`, `BOROUGH_SIM_TEAM` | — |
+
+### 18.3 Memory and bill reports
+
+- `MEMORY.md` holds the savings agenda (idea, measuring, shipped with its PR, disproved), shipped savings and their measured effect, and lessons.
+- A dated bill report per run under `.claude/agent-memory/aws-cost-agent/reports/<YYYY-MM-DD>.md`: total and forecast, the top cost lines, and what changed since the last report. Reports older than 90 days are pruned.
+- `scripts/agent-memory-commit.sh` learns a `reports/<YYYY-MM-DD>.md` allowance next to `queries/<name>.sql` (§17.6).
+
+### 18.4 Rex's review, and no merge
+
+- Rex reviews `cost/` PRs with the same marks, rounds and rubric as Pip's (§16). His approval comment says "Ready for Seth to merge".
+- Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2). A `cost/` PR is never merged by an agent.
+- A cost change can remove or resize infrastructure, so every `cost/` PR states what it removes or resizes and how to roll it back.
+
+### 18.5 Open decisions
+
+- **Goal:** the CFO's old goal (AWS spend month to date under $20) is the candidate, alongside a monthly saving target.
+- **Schedule and model:** see §20. Daily is enough; the bill updates about once a day.
+- **IAM:** a new `Nyc311CostAgentRole` on `ReadOnlyAgentRole.ts` plus the Cost Explorer reads, or the Cost Explorer actions added to the shared read-only role.
+
+### 18.6 Build plan
+
+| Leg | What |
+|---|---|
+| **G1** | IAM user `aws-cost-agent` and its role with the Cost Explorer reads (cdk, pipeline stack). |
+| **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule, and the reports allowance in the memory commit script. |
+| **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. |
+| **G4** | Deploy, then Mac mini setup per Appendix B, and `live: true` on the roster. |
+
+---
+
+## 19. The Software Analyzer agent
+
+**Status:** designed 2026-11-06, not built. The figure and roster card ship as Work in progress (§2.1).
+
+`software-analyzer-agent` is Sable Marsh, a noir private investigator: an outside hire with no stake in the answer. He reports to Rex. His job is **software quality, not product quality**: he assesses the codebase as an impartial third party who knows nothing of what BoroughSim sells, scores it, and files what he finds as tickets for Rex to weigh, as Celestine's are. Some will be built and some won't. He never changes code.
+
+### 19.1 Staying a third party
+
+- His prompt describes his job as auditing a TypeScript codebase for a client. It never names BoroughSim's product, goals or roadmap.
+- He reads code, tests, configuration and build files. He doesn't read `docs/`, the marketing page or Team Chat history, so he judges the code as he finds it.
+- Open decision: Claude Code loads `CLAUDE.md` into every session in the repo. Either he runs where it isn't loaded, or his prompt says to treat it as the client's stated conventions: a standard to check the code against, not a reason to excuse it.
+
+### 19.2 The assessment
+
+- **A complexity score**, 0 to 100, from a rubric in `.claude/review/software-analysis-rubric.md`, per package (`web-app`, `backend`, `cdk`, `customer/backend`) and overall. The rubric weighs cyclomatic and cognitive complexity, file and function size, duplication, dead code (unused exports, files and dependencies), coupling between modules, test quality (not just coverage), and consistency of patterns.
+- **Measured, not guessed:** each score cites its numbers, from tooling run on a detached checkout of `origin/main` (ESLint complexity rules, a duplication detector, an unused-export finder). The tools are open decisions; each must run without network access beyond `npm ci`.
+- **Findings:** code smells, poor usage patterns, dead code, overly complex code and duplicated logic, each with file and line, why it matters, and a suggested direction.
+
+### 19.3 The run
+
+1. **Memory:** read `.claude/agent-memory/software-analyzer-agent/MEMORY.md`: past scores and the findings already filed.
+2. **Inbox:** answer Rex's questions on his tickets, at most 2 replies per ticket, as Celestine does (§17.7).
+3. **Assess** the code at `origin/main` per §19.2.
+4. **File** the strongest few findings as GitHub issues labelled `backlog` and `software-analyzer`, deduped against his open and closed issues. The body starts with `<!-- software-analyzer-agent -->` and **Filed by Sable (Software Analyzer)**, then: Finding, Evidence, Impact, Suggested direction, and the score it would move.
+5. **Post:** one `ANALYSIS` report to `#tech-team`: the overall score and its trend, the score per package, and the tickets filed. He tags `@Rex` on each new ticket.
+6. **Memory:** record the scores, so the trend is honest from run to run.
+
+### 19.4 Permissions
+
+- Read-only, like Celestine (§17.6): `Write` only to his memory file and `/tmp`, `git` read-only, `gh issue` only on his own `software-analyzer` issues, no AWS.
+- He may run the analysis tools and `npm ci` in his worktree, never `npm install` of a new package.
+
+### 19.5 Rex on his tickets
+
+Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a formal comment on feasibility and worth, a short reply in the thread, at most 2 per issue, then escalation to the CEO. Rex may label a finding `wont-fix` with his reason; Sable records it in memory and doesn't re-file it.
+
+### 19.6 Open decisions
+
+- **Schedule and model:** weekly is enough to see a trend (see §20).
+- **The analysis tools**, and whether they become dev dependencies of each package.
+- **Ticket cap:** a proposed 3 new tickets per run, so Rex's queue stays readable.
+
+### 19.7 Build plan
+
+| Leg | What |
+|---|---|
+| **S1** | The rubric file and the analysis tooling, proven by hand on one package. |
+| **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule and memory. |
+| **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. |
+| **S4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
+
+---
+
+## 20. Agent schedules and Claude usage
+
+**Status:** research 2026-11-06; no schedule changed yet.
+
+The CEO wants every agent to run more often without using the Claude capacity the CEO wants for their own work. The agents run headless on the Mac mini; whether they share the CEO's Claude subscription is set by how `claude` is signed in there.
+
+### 20.1 How Pro limits work
+
+From third-party summaries; Anthropic publishes the mechanics but not exact numbers, and the in-app Settings > Usage page is the source of truth for an account:
+
+- **Two limits:** a session limit that resets on a rolling 5-hour window, starting with the first message of the window, and a weekly limit across all models that resets at a time fixed per account.
+- **One shared pool:** claude.ai, the desktop app and Claude Code all draw on the same limits.
+- **Peak hours:** in May 2026 Anthropic reportedly removed the peak-hour limit reduction for Claude Code on Pro and Max. Chat may still be throttled at peak; one source puts peak at weekday 13:00 to 19:00 UTC, which Anthropic hasn't confirmed.
+- **Size:** no fixed message or token count is published. Independent estimates put Pro at roughly 10 to 45 prompts per 5-hour window, and the weekly limit at about 13 full windows.
+
+### 20.2 What that means for the schedules
+
+- **The weekly limit is shared whatever the hour.** Moving runs overnight doesn't make them free; it only keeps them out of the 5-hour windows the CEO uses.
+- **Off-hours runs protect the CEO's sessions.** A run at 03:00 opens and spends a window that has reset by morning. A run at 14:00 can spend the window the CEO is working in.
+- **Batch the runs.** Runs that start inside one 5-hour window share it. Clustering the agents into one or two overnight windows uses fewer windows than spreading them through the day.
+- **Model choice is the biggest lever.** Opus draws down limits several times faster than Sonnet. Celestine and Kid Kestrel run on Opus; the rest on Sonnet or the default.
+- **IDLE runs are free.** Kid Kestrel's runs with nothing assigned don't start `claude`.
+
+### 20.3 Today's schedules (Mac mini time, New York)
+
+| Agent | Times | Model |
+|---|---|---|
+| `coo-agent` | 02:00, 08:00, 14:00, 20:00 | Sonnet |
+| `devx-agent` | 06:00, 18:00 | Default |
+| `gen-purpose-dev` | 07:00 to 21:00, every 2 hours | Opus |
+| `cto-agent` | 08:00, 11:00, 14:00, 17:00 | Sonnet |
+| `chief-of-staff-agent` | 09:00 | Sonnet |
+| `cpo-agent` | 09:00 | Opus |
+
+### 20.4 Proposal (not applied)
+
+- **Get the CEO's active hours** first, then treat them as protected: no scheduled runs start inside them.
+- **Overnight batches.** Two batches, for example around 00:00 and 04:00, each running in order: Pip, Rex, Celestine, Brogan, then the Chief of Staff's brief last so it reflects the night's work. A batch then spends one window.
+- **More runs, off-hours only.** Pip and Rex can run in both batches, so a PR opened in the first batch is reviewed and merged by the second.
+- **Brogan keeps one daytime check** if the fleet needs it, since operations can't wait for night. It's a Sonnet run with a small prompt.
+- **Measure before and after** with the per-run usage log (#169), so the change is judged on numbers.
+- Changing a schedule means editing `SCHEDULE` in `scripts/agent-schedules/<agent>.env`, merging, and re-running `scripts/agent-schedule-install.sh install <agent>` on the Mac mini.
+
+Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-code-usage-limits), [AI Toolbox: Claude usage limits 2026](https://www.ai-toolbox.co/claude-management-and-productivity/claude-usage-limits-2026), [TrueFoundry: Claude Code limits explained](https://www.truefoundry.com/blog/claude-code-limits-explained), [Wokey: Claude usage limits, measured](https://wokey.ai/claude-usage-limits), [ExplainX: usage limits timeline](https://www.explainx.ai/blog/claude-usage-limits-2026-timeline-explained).
 
 ---
 
