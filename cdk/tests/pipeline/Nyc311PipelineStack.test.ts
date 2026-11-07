@@ -70,6 +70,19 @@ describe("Nyc311PipelineStack", () => {
     }
   });
 
+  it("pins every CodeBuild step to Node 22, matching the Lambdas' NODEJS_22_X and Vitest 5's engine (#167)", () => {
+    /* Assets/FileAssets takes CDK's asset-publishing defaults, not codeBuildDefaults, so it pins nothing. */
+    const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) => ({
+      step: (project.Properties as { Description: string }).Description,
+      pin: /nodejs\\+"\s*:\s*\\+"(\d+)/.exec(JSON.stringify(project.Properties.Source.BuildSpec))?.[1],
+    }));
+    const pinned = projects.filter((p) => p.pin !== undefined);
+
+    expect(pinned.map((p) => p.step)).toContainEqual(expect.stringMatching(/\/Build\/Synth$/));
+    expect(pinned.length).toBe(projects.length - 1);
+    expect(new Set(pinned.map((p) => p.pin))).toEqual(new Set(["22"]));
+  });
+
   it("publishes every file asset from one CodeBuild project, not one per asset (publishAssetsInParallel: false)", () => {
     const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map(
       (project) => (project.Properties as { Description: string }).Description

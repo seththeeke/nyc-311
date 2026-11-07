@@ -154,15 +154,15 @@ export class Nyc311PipelineStack extends Stack {
           computeType: codebuild.ComputeType.SMALL,
         },
         /*
-         * STANDARD_7_0's default Node (18) is too old for this repo's
-         * tooling (Vite 7/Vitest require Node >=20) — pin it explicitly
-         * for every CodeBuild-backed step rather than relying on the
-         * image default.
+         * Pin Node for every CodeBuild-backed step, never the image
+         * default: 22 matches every Lambda's NODEJS_22_X and Vitest 5's
+         * engine (^22.12.0). Node 20 is EOL and drew 12 EBADENGINE
+         * warnings per Synth (#167). CodeBuild installs the newest 22.x.
          */
         partialBuildSpec: codebuild.BuildSpec.fromObject({
           phases: {
             install: {
-              "runtime-versions": { nodejs: "20" },
+              "runtime-versions": { nodejs: "22" },
             },
           },
         }),
