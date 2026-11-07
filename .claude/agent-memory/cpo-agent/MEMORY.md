@@ -4,77 +4,77 @@ Public: committed to the repo after any run that changes it. Conclusions from
 past runs only, never secrets. Hard cap 8 KB; prune the oldest or least useful
 lines to stay under it. See docs/17-executive-team.md §17.6.
 
-## Tickets filed (issue, what, contacts merged into it)
+## Tickets filed
 
-- **#166 (2026-11-06, feature-request):** Add `ORDER_SCHEDULED` to
-  `WEBHOOK_EVENT_TYPES` (today only `ORDER_ACCEPTED`/`ORDER_RESOLVED` fire —
-  `backend/models/webhookSubscription.ts`) so residents get a proactive
-  notice when their repair is scheduled, not just accepted/resolved. Open
-  question left for Rex: webhook fan-out vs. a pull-only public API
-  addition. Merged 18 contacts (12 push/notification-themed + 6
-  dashboard/map/filter/history-themed — same underlying "status visibility"
-  need, different form). If more status-visibility contacts arrive, add
-  them to #166 as a comment, don't file a new issue.
+- **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
+  on 11-07 (my reply 1/2 used): two fields `scheduled_start`/`scheduled_end`,
+  fires on every ORDER_SCHEDULED, latest delivery wins, both SNS filters,
+  dashboard/neighbourhood view deferred. 21 contacts. Track all future
+  status-visibility asks (notifications, dashboard, map, neighbourhood filter) here.
+- **#170 (11-07):** event-driven dispatch. Scheduler is `rate(1 hour)`
+  (`cdk/lambda/Nyc311OrderSchedulingSchedule.ts`), so Prod (time scale 1)
+  operators idle until the next tick. Asked Rex about overlapping runs
+  (conditional claim vs one-operator path vs FIFO). 0 contacts.
 
-## Contacts declined and why
+## Declines (reuse the reasoning)
 
-- **Data export/analytics/"open API" asks (Ginkgo mostly, some Sassafras):**
-  already served — `POST /v1/requests/search` on the public API
-  (`public-api.boroughsim.com/v1`) returns per-request status, scheduled
-  window and timestamps with no auth. Crew/operator performance data is
-  *deliberately* excluded from the public API by design
-  (`backend/models/publicApi/serviceRequest.ts` comment: "Never carries
-  SLA, priority, operator, stage, costs or coordinates") — decline any
-  future ask for crew/operator-level exports on that basis, don't re-litigate.
-- **Hazard-flagging / direct resident reporting (Dogwood mostly, also
-  Yellowwood/Sassafras/Hornbeam):** out of scope by architecture — BoroughSim
-  only ingests Requests from NYC 311's own SODA feed
-  (`backend/controller/ingestion/`); there is no resident-submission path
-  and the public API has no "create a request" route (only
-  `requests/search`, `feature-requests`). Any future ask for an in-app
-  hazard/photo/incident reporting tool should decline the same way.
-- **Self-service mark-complete / feedback / follow-up scheduling
-  (Sassafras):** declined — completion is crew-verified for data
-  integrity, and follow-ups are already auto-scheduled by dispatch
-  (SLA-ordered, `backend/service/scheduling/orderSchedulingService.ts`).
-- **Single-order escalations (Hawthorn, Hornbeam) and physical-maintenance
-  cadence asks (crosswalk repainting, Yellowwood):** not generalizable
-  product features; declined with a pointer to the active fleet expansion
-  (see WBR trend below) rather than a ticket.
+- Data export / analytics tool / "open API": served by public API
+  `POST /v1/requests/search`. Crew/operator data is excluded by design.
+- Hazard flagging, photo/video upload, direct reporting: BoroughSim only
+  ingests NYC 311's feed. There is no resident intake path. Point residents to 311.
+- Self-service mark-complete / feedback / follow-up: completion is
+  crew-verified, and follow-ups are auto-scheduled.
+- Auto-categorise/prioritise: already exists (descriptor-based estimates,
+  SLA-deadline-ordered dispatch).
+- Single-order escalations, physical-maintenance cadence: not features.
 
-## WBR trends worth remembering
+## WBR and cost model (know this)
 
-- **2026-11-06 run:** a resolution-time crisis has been underway since
-  ~Oct 19: 7-day median time to resolve climbed 6.2d (Oct 20) → 13.4d peak
-  (Nov 1), still ~11d and falling as of Nov 6. Brogan grew the fleet 5→17
-  operators over Oct 31–Nov 6 (capped at 2 recruits/day, repeatedly asking
-  Seth to raise the cap) and burn rose $225/h→$765/h. Backlog still ~580
-  orders (Nov 6), oldest order 10 days stale. WBR has no explicit
-  `cost_per_order` column — I approximated it as
-  `total_cost / orders_created` (labor+materials over ALL complaints
-  created, not just street-condition ones; `rejected_service_not_supported`
-  is consistently ~96-98% of `orders_created` every week — a stable
-  structural ratio, not a new problem). That ratio sat ~$4-5/order every
-  full week since early Oct, but is tracking ~$30 for the still-partial
-  week of Nov 2 — watch next run whether that holds once the week closes
-  or was a partial-week artifact (orders_created for that week looked
-  anomalously low/lagged across consecutive daily runs, possibly an
-  ingestion-lag quirk, not a confirmed real demand drop).
-- `orders_accepted`/`orders_resolved` as a cost-per-order denominator gives
-  $300-600/order — implausible against the $25 target, so `orders_created`
-  (the blended/all-complaints denominator) is almost certainly the right
-  read of `business-insights.md`'s "`period_platform_cost / orders_in_period`".
+- Goal metric = `total_cost / orders_accepted` (same week). Oct 12/19/26:
+  $299/$357/$327. Week of Nov 2 (partial) $1,599: cost is booked on
+  RESOLVED orders (596) against ACCEPTED (183), so it swings wildly during
+  a backlog drain. (Earlier memory wrongly used orders_created; don't.)
+- total_cost ≈ 80% materials. Materials = descriptor constant × U[1,2)
+  variance (`orderExecutionService.ts`). Cave-in ($600 base, ~$890 actual)
+  is 58% of materials. ~$426/resolved order. The <$25 goal is unreachable
+  under this cost model; flagged to Seth on 11-07.
+- WBR labor = ORDER_SCHEDULED→RESOLVED only, so it excludes idle. Real fleet
+  pay ≈ burn × 168h (~$128k/wk at $765/h) vs $57k WBR labor.
+- Fleet: Brogan grew it 5→17 (Oct 31–Nov 6) and has held at 17 since. Burn
+  $765/h (~$45/h per operator). Median time to resolve: 13.4d peak (Nov 1),
+  9.3d daily / 12d 7-day on Nov 7. Backlog 461 (Nov 7), down from 940.
+  Brogan keeps flagging idle operators during the backlog (now explained by #170).
+
+## Research agenda
+
+- **Proven → #170:** dispatch is hourly-batched. 739/739 job starts at :22
+  (Nov 1–7). Idle is 19.3% of 1,861 paid h, median gap after a job ~30 min,
+  ≈$16k/wk. ~24% more throughput available from the same fleet.
+- **Idea:** nearest-operator matching. `findIdleOperator` picks the
+  oldest-start idle operator, ignoring location. Transit is 20% of paid
+  hours (380 h/wk, ~31 min/job). Test: transit minutes per job vs. the
+  distance to the nearest idle operator. Probably needs job lat/lng
+  joined from locations.
+- **Idea:** the materials estimate is biased ~33% low (actual/estimate ≈1.5
+  everywhere). That only matters for planning, not cost. Low priority.
+- **Idea:** cost per accepted order mixes resolved-cost with accepted-count.
+  Propose a cohort version (cost of orders accepted in week W). Possible
+  measurement ticket, combined with adding paid fleet hours to the WBR.
+
+## Saved queries
+
+- Writing `.claude/agent-memory/cpo-agent/queries/*.sql` was blocked on
+  11-07 ("sensitive file" permission). The three queries used then:
+  fleet time budget by day (operator_events segments via LEAD, classed
+  IDLE/TRANSIT/WORKING), dispatch minute-of-hour histogram, and materials by
+  descriptor (first ORDER_RESOLVED → snapshot.request_id → latest request).
+  Retry saving them next run.
 
 ## Lessons
 
-- Contacts cluster heavily by persona repeating near-identical asks every
-  1-3 days (Dogwood, Sassafras, Ginkgo, Juniper, Yellowwood all did this
-  2026-10-31→11-06). Group by underlying need, not by title wording, before
-  counting "how many residents asked."
-- Push notifications and status dashboards/maps are the same underlying
-  resident need (visibility into order status) in two different UI forms —
-  fine to merge into one ticket.
-- The "satisfaction" KPI likely traces to `customer/backend/models/residentIdea.ts`'s
-  `ResolutionStatus` (`SATISFIED`/`UNSATISFIED`/`GAVE_UP`/`MAX_DEPTH_REACHED`)
-  on each resident idea — repeated identical feature requests from the same
-  persona are a plausible proxy for ideas ending un-satisfied.
+- Contacts cluster by persona repeating near-identical asks every 1-3 days.
+  Group by underlying need before counting.
+- Notifications and dashboards are the same need (status visibility).
+- `Edit` and `python3` are unavailable. Rewrite issue bodies with Write to
+  /tmp, then `gh issue edit --body-file`.
+- Start research from operator_events: it gives the whole paid-time budget.
