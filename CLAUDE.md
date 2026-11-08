@@ -758,6 +758,8 @@ copied in.
   `.claude/review/cto-code-review.md`.
   `aws-cost-agent` (§18) works like `devx-agent` on `cost/` branches to
   lower the AWS bill; Rex reviews and only a human merges.
+  `software-analyzer-agent` (§19) audits one package twice a week, files
+  tickets for Rex and never changes code.
   `cpo-agent` (§17) triages Contacts, reads the WBR and files `cpo-agent`
   feature and bug issues; it never changes code
   (`.claude/hooks/cpo-agent-guard.sh`) and is the first agent with memory

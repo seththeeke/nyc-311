@@ -1082,7 +1082,7 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 | Leg | What |
 |---|---|
 | **S1** | The audits file. Built 2026-11-07: `.claude/review/software-analyzer-audits.md`, six weighted audits (complexity 20, pattern sprawl 15, consistency 15, divergence and duplication 15, code smells 15, AI-friendliness 20) and five packages (`backend`, `web-app`, `cdk`, `customer`, `tooling`). |
-| **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. |
+| **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. Built 2026-11-07: `.claude/agents/software-analyzer-agent.md`, `.claude/hooks/software-analyzer-agent-guard.sh` (writes only memory, his reports and `/tmp`; `npm` only `ci`, `run lint`, `run build`), `.claude/agent-settings/software-analyzer-agent.json`, `scripts/agent-schedules/software-analyzer-agent.env` (`Mon@21:30 Thu@21:30`, Opus, `MEMORY=1`, `REPORTS=1`), seeded memory with the rotation. Each report starts with a `package`/`score`/`previous` front matter the Code Quality page reads. |
 | **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. |
 | **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. |
 | **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. |
@@ -1317,6 +1317,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 5 a day: AUDIT 05:00, CONVERSE ×4 (§21.4), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`, `REPORTS=1` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
 | `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | 03:30 daily (05:30 CT), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
+| `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Mon and Thu 21:30 (23:30 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 
