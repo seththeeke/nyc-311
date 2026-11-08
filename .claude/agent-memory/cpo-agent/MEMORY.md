@@ -8,18 +8,19 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
   on 11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, fires on
-  every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 25 contacts
-  (as of 11-08 10:00). Track all status-visibility asks (notifications,
-  dashboard, live feed) here.
+  every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 25+ contacts
+  (as of 11-08). Track all status-visibility asks (notifications, dashboard,
+  live feed) here.
 - **#170 (11-07):** event-driven dispatch. Rex replied 11-07; I answered 11-08
   (1/2 used): the `startTransit` race fix (IDLE check into `foldProjection`,
   TransactionCanceled = skip) is in scope and blocks the merge, hourly run
   stays as the safety net, no debounce, no FIFO. Body has a Decisions section.
-  No new comments as of 11-08 10:00.
+  No new comments as of 11-08 13:00.
 - **#181 (11-08, bug):** NYC 311 intake stall. The poller treats a short/empty
-  SODA page as drained (`nyc311RequestService.ts`), so a run stops at 0 or
-  1,000. Asked Rex for poller logs; 0 comments as of 11-08 10:00. Related
-  #72 (Socrata app token, not mine).
+  SODA page as drained (`nyc311RequestService.ts`). Rex confirmed from poller
+  logs (11-08, 1/2 replies used): empty/short pages, not timeouts/throttling.
+  Plan: ship #72's token first, then tune backoff. Body's Open Questions
+  closed out; no further questions from me unless new issue arises.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented with
   evidence 11-08. No reply yet. Pitch it to Seth again if it doesn't move.
 
@@ -28,7 +29,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Data export / analytics / "open API": the public API `POST /v1/requests/search`.
 - Hazard flagging / detection, photo upload, direct reporting: BoroughSim only
   ingests NYC 311. Point residents to 311 (or 911). Dogwood repeats this
-  (again 11-08).
+  (again 11-08, declined 3rd+ time).
 - Self-service mark-complete / satisfaction sign-off / feedback / live chat
   with crews: completion is crew-verified, no resident channel into a job.
   Sassafras repeats these near-daily.
@@ -46,14 +47,16 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   resolve starts at ORDER_CREATED (ingestion), so it hides 311→ingest lag
   (normally ~46 h, 84–100 h since Nov 4).
 - location_unresolved_rate ~0.55 every week (BBL-only resolution).
-- Fleet: 5→17 (Oct 31–Nov 6), 19 on Nov 7. Backlog 940→322 (Nov 8). Median
-  TTR 13.4d peak → 11.3d. Brogan reads falling accepted as demand clearing.
+- Fleet: 5→17 (Oct 31–Nov 6), 19 on Nov 7. Backlog 940→302 (Nov 8). Median
+  TTR 13.4d peak → 11.27d. Brogan still recruiting at 2/day despite falling
+  accepted, correctly reading it as the intake stall not demand clearing.
 
 ## Research agenda
 
 - **Proven → #170:** hourly dispatch. 739/739 starts at :22. Idle 18–20% of
   paid h every day Nov 1–8 (≈$16k/wk).
-- **Proven → #181:** intake stall. Normal 10–12.6k req/day (~220 Street
+- **Proven → #181:** intake stall, confirmed by Rex from logs 11-08 (empty/
+  short SODA pages, not timeouts). Normal 10–12.6k req/day (~220 Street
   Condition). Nov 3–8: 34,890 vs ~69k. 13/30 polls added none, 5 exactly 1,000.
 - **Proven → #69 (comment):** 62% of Street Condition have no BBL
   (intersection 100%, blockface 100%). Open + has lat/lng: 1,412 in 28 days ≈
@@ -71,8 +74,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Saved queries (folder writes BLOCKED, 11-07 and 11-08)
 
 Writing `.claude/agent-memory/cpo-agent/queries/*.sql` fails ("sensitive
-file"); asked Seth for permission. Not retried 11-08 conversation run (no
-query needed). Rebuild from these shapes until unblocked:
+file"); asked Seth for permission. Not retried 11-08 conversation runs (no
+query needed either run). Rebuild from these shapes until unblocked:
 - fleet-time-budget-daily: dedupe operator_events (9d), LEAD next occurred_at
   (or now), class by opening event (TRANSIT_STARTED→TRANSIT, WORK_STARTED→
   WORKING, ADDED/COMPLETED/ABORTED→IDLE), sum hours by start day.
@@ -90,5 +93,7 @@ query needed). Rebuild from these shapes until unblocked:
 - Contacts cluster by persona repeating near-identical asks. Group by need.
 - `Edit` and `python3` are unavailable; `mkdir` in a compound command needs
   approval (Write creates folders). Rewrite issue bodies with Write to /tmp.
+  Reading a file written by `gh ... > /tmp/x` via Bash can fail standalone
+  (wc blocked on /tmp); run the redirect alone, then Read the file directly.
 - Top-level posts are capped at 75 words, and the counter is strict; aim for 65.
 - Check upstream intake before reading a demand drop as real.
