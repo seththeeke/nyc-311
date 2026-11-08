@@ -41,6 +41,14 @@ export default defineConfig({
      */
     pool: "forks",
     maxWorkers: Math.max(2, Math.ceil(cpus().length / 2)),
+    /*
+     * Reuse each fork across test files instead of a fresh one per file.
+     * Every file imports aws-cdk-lib, which costs ~0.5s of its first test
+     * to load; non-isolated forks load it once per fork. Vitest still
+     * resets source modules and vi.mock between files, and no test here
+     * mutates process.env, timers or globals.
+     */
+    isolate: false,
     coverage: {
       provider: "v8",
       /*
