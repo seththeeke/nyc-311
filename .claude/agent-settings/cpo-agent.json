@@ -9,7 +9,7 @@
       "Skill(query-builder)",
       "Edit(.claude/agent-memory/cpo-agent/MEMORY.md)",
       "Edit(.claude/agent-memory/cpo-agent/queries/**)",
-      "Edit(.claude/agent-reports/**)",
+      "Edit(agent-reports/**)",
       "Edit(//tmp/**)",
       "Edit(//private/tmp/**)",
       "Bash(gh --version)",

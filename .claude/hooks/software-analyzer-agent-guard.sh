@@ -2,7 +2,7 @@
 #
 # PreToolUse guard for software-analyzer-agent (docs/17-executive-team.md
 # §19.4), wired in through the agent's frontmatter. Sable never changes code:
-# Write and Edit only his memory file, his reports (.claude/agent-reports/,
+# Write and Edit only his memory file, his reports (agent-reports/,
 # §21.3) or /tmp; no git writes, no PRs, no AWS; npm only `ci`, `run lint`
 # and `run build`; gh writes only on his own software-analyzer issues.
 # Exit 2 blocks.
@@ -28,10 +28,10 @@ if tool in ("Write", "Edit"):
     memory = os.path.join(project, ".claude", "agent-memory", "software-analyzer-agent", "MEMORY.md")
     if path == memory or path.startswith("/tmp/") or path.startswith("/private/tmp/"):
         sys.exit(0)
-    reports = os.path.join(project, ".claude", "agent-reports") + os.sep
+    reports = os.path.join(project, "agent-reports") + os.sep
     if path.startswith(reports) and re.fullmatch(r"\d{4}-\d{2}-\d{2}/[0-2]\d_[0-5]\d/software-analyzer-agent-[a-z0-9][a-z0-9-]*\.md", path[len(reports):]):
         sys.exit(0)
-    deny("writing " + str(args.get("file_path")) + " is blocked; only his memory file, his reports (.claude/agent-reports/<date>/<HH_MM>/software-analyzer-agent-<name>.md) and /tmp.")
+    deny("writing " + str(args.get("file_path")) + " is blocked; only his memory file, his reports (agent-reports/<date>/<HH_MM>/software-analyzer-agent-<name>.md) and /tmp.")
 
 if tool != "Bash":
     sys.exit(0)
@@ -60,6 +60,8 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
         continue
     head, rest = words[0], words[1:]
     if head == "npm":
+        if rest[:1] == ["--prefix"] and len(rest) > 2:
+            rest = rest[2:]
         if rest[:1] == ["ci"] or rest[:2] in (["run", "lint"], ["run", "build"]):
             continue
         deny("npm is limited to ci, run lint and run build.")

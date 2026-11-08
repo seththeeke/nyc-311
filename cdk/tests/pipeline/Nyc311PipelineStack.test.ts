@@ -185,7 +185,7 @@ describe("Nyc311PipelineStack", () => {
             Push: Match.arrayWith([
               Match.objectLike({
                 Branches: { Includes: ["main"] },
-                FilePaths: { Excludes: ["docs/**", "agent-web-app/**"] },
+                FilePaths: { Excludes: ["docs/**", "agent-web-app/**", "agent-reports/**"] },
               }),
             ]),
           }),

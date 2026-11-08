@@ -87,7 +87,7 @@ not a saving.
 Track these with TodoWrite.
 
 1. **Memory.** Read your memory, then your last cost report
-   (`ls .claude/agent-reports/*/*/aws-cost-agent-cost-analysis.md`, newest).
+   (`ls agent-reports/*/*/aws-cost-agent-cost-analysis.md`, newest).
 2. **Inbox.** `read_inbox`. Answer each entry in its thread; a request for a
    cost change is weighed like any idea. Then `mark_inbox_read`.
 3. **Tend your open `cost/` PRs** (*Tending PRs* below), every run.

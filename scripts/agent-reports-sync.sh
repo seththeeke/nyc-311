@@ -3,7 +3,7 @@
 # agent-reports-sync.sh <agent>
 #
 # Copies every report <agent> has committed to main
-# (.claude/agent-reports/<date>/<HH_MM>/<agent>-*.md, docs/17 §21.3) to
+# (agent-reports/<date>/<HH_MM>/<agent>-*.md, docs/17 §21.3) to
 # s3://$REPORTS_BUCKET/<agent>/<date>/<HH_MM>/, as the agent's own AWS
 # profile ($REPORTS_AWS_PROFILE), for the website (docs/17 §19.6). Reads from
 # origin/main, so a run whose sync failed is caught up by the next. Adds and
@@ -20,17 +20,17 @@ tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 git -C "$primary" fetch -q origin main || { printf 'agent-reports-sync: fetch failed\n' >&2; exit 1; }
-if ! git -C "$primary" cat-file -e origin/main:.claude/agent-reports 2>/dev/null; then
+if ! git -C "$primary" cat-file -e origin/main:agent-reports 2>/dev/null; then
   printf 'agent-reports-sync: no reports on main\n' >&2
   exit 0
 fi
-git -C "$primary" archive origin/main .claude/agent-reports | tar -x -C "$tmp" || exit 1
+git -C "$primary" archive origin/main agent-reports | tar -x -C "$tmp" || exit 1
 
 mkdir -p "$tmp/stage"
 count=0
-for file in "$tmp"/.claude/agent-reports/*/*/"$agent"-*.md; do
+for file in "$tmp"/agent-reports/*/*/"$agent"-*.md; do
   [ -f "$file" ] || continue
-  rel=${file#"$tmp/.claude/agent-reports/"}
+  rel=${file#"$tmp/agent-reports/"}
   mkdir -p "$tmp/stage/$(dirname -- "$rel")"
   cp "$file" "$tmp/stage/$rel"
   count=$((count + 1))

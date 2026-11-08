@@ -6,7 +6,7 @@
       "Glob",
       "TodoWrite",
       "Skill(log-backlog-item)",
-      "Edit(.claude/agent-reports/**)",
+      "Edit(agent-reports/**)",
       "Edit(.claude/agent-memory/software-analyzer-agent/MEMORY.md)",
       "Edit(//tmp/**)",
       "Edit(//private/tmp/**)",
@@ -47,6 +47,9 @@
       "Bash(npm ci)",
       "Bash(npm run lint)",
       "Bash(npm run build)",
+      "Bash(npm --prefix * ci)",
+      "Bash(npm --prefix * run lint)",
+      "Bash(npm --prefix * run build)",
       "Bash(git blame *)",
       "Bash(git rev-parse *)"
     ],

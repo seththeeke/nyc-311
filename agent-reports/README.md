@@ -4,7 +4,7 @@ Reports the scheduled agents write, one folder per run
 (`docs/17-executive-team.md` §21.3):
 
 ```
-.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md
+agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md
 ```
 
 - The date and time are the run's start in Central time; the scheduler picks

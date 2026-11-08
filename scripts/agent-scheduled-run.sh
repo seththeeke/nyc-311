@@ -382,7 +382,7 @@ fi
 # Reports (docs/17 §21.3): this run's folder, by its start in CT, committed after the run.
 AGENT_REPORT_DIR=""
 if [ -n "${REPORTS:-}" ] && [ "$mode" != "IDLE" ]; then
-  AGENT_REPORT_DIR=".claude/agent-reports/$(TZ=America/Chicago date +%Y-%m-%d)/$(TZ=America/Chicago date +%H_%M)"
+  AGENT_REPORT_DIR="agent-reports/$(TZ=America/Chicago date +%Y-%m-%d)/$(TZ=America/Chicago date +%H_%M)"
   prompt="$prompt Your report folder for this run is $AGENT_REPORT_DIR/ (create it): write each report there as $agent-<name>.md, at most 500 words."
   log "report folder: $AGENT_REPORT_DIR"
 fi

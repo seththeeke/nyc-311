@@ -23,6 +23,11 @@ The repo root will contain exactly four top-level working directories:
   (`agent-web-app/SPEC.md`), one npm package (§5.5). Never
   deployed, never built or triggered by the pipeline. Added 2026-11-07;
   the Directory Lock applies to it like the others.
+- `agent-reports/` — reports the scheduled agents write, one folder per run
+  (`agent-reports/README.md`, `17-executive-team.md` §21.3), committed
+  straight to `main` by `scripts/agent-report-commit.sh`. Not code: no
+  structure section, no Operational Loop, and the pipeline ignores it. It
+  lives outside `.claude/` because Claude Code refuses agent writes there.
 - `docs/` - design docs, prompts, and other documents for the app
 
 No further structure exists inside any of these yet.
@@ -843,7 +848,7 @@ copied in.
   (`.claude/hooks/cpo-agent-guard.sh`) and is the first agent with memory
   (`.claude/agent-memory/<agent>/MEMORY.md`, committed by
   `scripts/agent-memory-commit.sh` when `MEMORY=1`). Agents' reports go to
-  `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, committed by
+  `agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, committed by
   `scripts/agent-report-commit.sh` when `REPORTS=1` (`17-executive-team.md`
   §21.3).
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →

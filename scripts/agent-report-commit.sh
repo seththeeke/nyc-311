@@ -6,7 +6,7 @@
 # §21.3) straight to main, and nothing else. Run by agent-worktree.sh when
 # AGENT_REPORT_DIR is set (REPORTS=1 in the agent's schedule). Accepts only
 # new files in <report-dir> named <agent>-<name>.md, each within the word
-# and byte caps. Anything else under .claude/agent-reports/ logs a WARN, is
+# and byte caps. Anything else under agent-reports/ logs a WARN, is
 # restored, and nothing is committed. Never fails the run.
 
 set -u
@@ -14,7 +14,7 @@ set -u
 REPORT_MAX_WORDS=500
 REPORT_MAX_BYTES=8192
 REPORT_MAX_FILES=5
-ROOT=".claude/agent-reports"
+ROOT="agent-reports"
 
 agent=${1:?usage: agent-report-commit.sh <agent> <worktree> <report-dir>}
 dest=${2:?usage: agent-report-commit.sh <agent> <worktree> <report-dir>}

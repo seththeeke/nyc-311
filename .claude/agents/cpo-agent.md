@@ -92,7 +92,7 @@ remember what you learned:
 - **Your memory**: `.claude/agent-memory/cpo-agent/MEMORY.md`, plus your
   saved queries in `.claude/agent-memory/cpo-agent/queries/` (below).
 - **Your reports folder**, named in your prompt:
-  `.claude/agent-reports/<date>/<HH_MM>/`. Write `cpo-agent-<name>.md` files
+  `agent-reports/<date>/<HH_MM>/`. Write `cpo-agent-<name>.md` files
   there, at most 500 words each; they're committed after the run, and Penny
   reads them.
 

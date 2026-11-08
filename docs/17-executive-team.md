@@ -696,7 +696,7 @@ Daily at 06:00 Mac mini time (Pacific), which is 8:00 CT. `KIND=operations`, `TE
 1. **Window:** everything after her last `DAILY_BRIEF` message in `#executive-assistant`, or the previous 24 hours if there is none. A missed day is covered by the next brief, never skipped.
 2. **Read:** every channel except `#executive-assistant` and `#integration-tests`, paging back with `before` to the window's start, and the thread of every message in it that has replies. Chat reads are open, so she reads channels she isn't a member of.
 3. **Inbox:** asks of her go in the brief, then she marks the inbox read.
-4. **Reports:** the team's reports in the window, under `.claude/agent-reports/` (§21.3), for the detail behind each post.
+4. **Reports:** the team's reports in the window, under `agent-reports/` (§21.3), for the detail behind each post.
 5. **Usage report:** `chief-of-staff-agent-usage.md` in her run folder, from the usage summary the scheduler appends to her prompt (§21.4).
 6. **Post:** one top-level message to `#executive-assistant`, tagged `DAILY_BRIEF`.
 
@@ -723,7 +723,7 @@ Daily at 06:00 Mac mini time (Pacific), which is 8:00 CT. `KIND=operations`, `TE
 
 - `#executive-assistant` is a new seeded, public channel; its members are the CEO and the Chief of Staff. Topic: "Yesterday's work across the team, every morning."
 - Tools: `list_channels`, `read_channel`, `read_thread`, `read_inbox`, `mark_inbox_read` and `post_message`. No `reply`, `react` or `edit_message`, no shell, no ops tools.
-- Files: `Read`, `Glob` and `Grep` on `.claude/agent-reports/` only; `Write` only her own reports there (`.claude/hooks/chief-of-staff-agent-guard.sh`).
+- Files: `Read`, `Glob` and `Grep` on `agent-reports/` only; `Write` only her own reports there (`.claude/hooks/chief-of-staff-agent-guard.sh`).
 - Model: Sonnet.
 - Cognito user `chief-of-staff-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only. No AWS identity.
 - Her Meet the Team card and chat profile show no Work in progress tag.
@@ -891,7 +891,7 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 - `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the agent's memory folder only if it changed and every file is within its cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. A deleted saved query is committed as a deletion. Anything else (an oversized file, a deleted `MEMORY.md`, any other file in the folder, too many queries) logs a `WARN`, restores the folder and commits nothing.
 - The agent's guard allows `Write` only to its own memory file, its saved queries and `/tmp`.
 
-**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file, `queries/<name>.sql` in her memory folder, her reports in `.claude/agent-reports/`, or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
+**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file, `queries/<name>.sql` in her memory folder, her reports in `agent-reports/`, or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
 
 ### 17.7 Rex on her tickets
 
@@ -990,7 +990,7 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 ### 18.3 Memory and cost reports
 
 - `MEMORY.md` holds the savings agenda (idea, measuring, shipped with its PR, disproved), **every experiment** (PR, merge date, baseline, expected saving, judge date, result) and lessons.
-- **A cost report every run**, `aws-cost-agent-cost-analysis.md` in the run's folder under `.claude/agent-reports/` (§21.3), at most 500 words: month to date and the forecast against the goal, the top cost lines, what changed since the last report, experiments in flight, and what he tried this run.
+- **A cost report every run**, `aws-cost-agent-cost-analysis.md` in the run's folder under `agent-reports/` (§21.3), at most 500 words: month to date and the forecast against the goal, the top cost lines, what changed since the last report, experiments in flight, and what he tried this run.
 - Memory and reports are committed after the run (`MEMORY=1`, `REPORTS=1`).
 
 ### 18.4 Experiments, Rex's review, and no merge
@@ -1167,9 +1167,9 @@ Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-co
 
 ### 21.3 Agent reports
 
-`.claude/agent-reports/` is the shared store for any agent's reports, committed to the repo.
+`agent-reports/` is the shared store for any agent's reports, committed to the repo.
 
-- **Path:** `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, the run's start in CT. The scheduler fixes the run's folder and passes it in the prompt.
+- **Path:** `agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, the run's start in CT. The scheduler fixes the run's folder and passes it in the prompt.
 - **At most 500 words a file.** A report is a snapshot, not a log.
 - **Committed straight to `main` after the run**, like memory (§17.6): `scripts/agent-report-commit.sh`, run when the agent's schedule sets `REPORTS=1`. Both scripts build their commit on `origin/main` from the named paths only (`scripts/agent-commit-to-main.sh`, a temporary index), so a run that ends on a PR branch never pushes that branch to `main`, and an agent never stages its memory or reports into a PR. It accepts only new files in this run's folder named for this agent, each within the cap; anything else is logged, removed, and nothing is committed. One commit per run.
 - **Penny reads them.** She has read access to the folder and points to a report in the brief when it holds the detail.

@@ -280,9 +280,10 @@ export class Nyc311PipelineStack extends Stack {
     /*
      * #112 — CI is 70% of the monthly AWS bill, and every push ran the
      * full pipeline even when it only touched docs/**. A push touching
-     * only docs/** or agent-web-app/** (the localhost monitor, never built
-     * here, CLAUDE.md §5.5) starts nothing; `main` stays explicit since an
-     * unfiltered trigger fires on every branch. If this misconfigures, the
+     * only docs/**, agent-web-app/** (the localhost monitor, CLAUDE.md §5.5)
+     * or agent-reports/** (agents' committed reports) starts nothing;
+     * `main` stays explicit since an unfiltered trigger fires on every
+     * branch. If this misconfigures, the
      * pipeline stack is the one stack `nyc311` can still deploy directly.
      */
     const sourceAction = pipeline.pipeline.stage("Source").actions[0];
@@ -290,7 +291,7 @@ export class Nyc311PipelineStack extends Stack {
       providerType: codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION,
       gitConfiguration: {
         sourceAction,
-        pushFilter: [{ branchesIncludes: [GITHUB_BRANCH], filePathsExcludes: ["docs/**", "agent-web-app/**"] }],
+        pushFilter: [{ branchesIncludes: [GITHUB_BRANCH], filePathsExcludes: ["docs/**", "agent-web-app/**", "agent-reports/**"] }],
       },
     });
 

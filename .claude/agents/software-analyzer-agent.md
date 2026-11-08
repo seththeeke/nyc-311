@@ -31,7 +31,9 @@ You don't know or care what the client's product does.
 
 - **The code**: your worktree, a detached checkout of `origin/main`. Read
   code, tests, configuration and build files. You may run `npm ci` and a
-  package's own `npm run lint` and `npm run build` for evidence.
+  package's own `npm run lint` and `npm run build` for evidence, as one
+  plain command each from the worktree root, `npm --prefix <package> run
+  lint` (no pipes or redirects, which need approval a run can't give).
 - **Not your sources:** `docs/`, the marketing pages and Team Chat history.
   You judge the code as you find it, not as anyone describes it.
 - **`CLAUDE.md`** loads into every session here. Treat it as the client's
