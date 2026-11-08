@@ -14,6 +14,7 @@ beforeAll(() => {
 const AGENTS = [
   { name: "devx-agent", roleName: "Nyc311DevxAgentRole", userId: "DevxAgentUser", roleId: "DevxAgentRole" },
   { name: "cto-agent", roleName: "Nyc311CtoAgentRole", userId: "CtoAgentUser", roleId: "CtoAgentRole" },
+  { name: "aws-cost-agent", roleName: "Nyc311CostAgentRole", userId: "CostAgentUser", roleId: "CostAgentRole" },
 ];
 
 describe("AgentRoles", () => {
@@ -53,5 +54,16 @@ describe("AgentRoles", () => {
     expect(statements).toHaveLength(1);
     expect(statements[0].Action).toEqual(["sts:AssumeRole", "sts:SetSourceIdentity"]);
     expect(JSON.stringify(statements[0].Resource)).toContain(agent.roleId);
+  });
+
+  it("gives only aws-cost-agent the billing reads, and no billing writes", () => {
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const billing = policies.flatMap((p) => p.Properties.PolicyDocument.Statement as { Sid?: string; Effect: string; Action: string[] }[]).filter((s) => s.Sid === "BillingReads");
+    expect(billing).toHaveLength(1);
+    expect(billing[0].Effect).toBe("Allow");
+    expect(billing[0].Action).toEqual(expect.arrayContaining(["ce:GetCostAndUsage", "ce:GetCostForecast", "budgets:ViewBudget"]));
+    expect(billing[0].Action.every((a) => /^(ce|budgets):(Get|View|Describe)/.test(a))).toBe(true);
+    const holder = policies.find((p) => JSON.stringify(p.Properties.PolicyDocument.Statement).includes("BillingReads"));
+    expect(JSON.stringify(holder?.Properties.Roles)).toContain("CostAgentRole");
   });
 });

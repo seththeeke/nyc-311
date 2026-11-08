@@ -12,3 +12,4 @@ export interface AgentIdentity {
 
 export const DEVX_AGENT: AgentIdentity = { name: "devx-agent", userName: "devx-agent", roleName: "Nyc311DevxAgentRole" };
 export const CTO_AGENT: AgentIdentity = { name: "cto-agent", userName: "cto-agent", roleName: "Nyc311CtoAgentRole" };
+export const AWS_COST_AGENT: AgentIdentity = { name: "aws-cost-agent", userName: "aws-cost-agent", roleName: "Nyc311CostAgentRole" };

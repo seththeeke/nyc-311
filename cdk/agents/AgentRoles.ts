@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
-import { CTO_AGENT, DEVX_AGENT } from "./agentIdentities";
+import { AWS_COST_AGENT, CTO_AGENT, DEVX_AGENT } from "./agentIdentities";
 import { AgentUser } from "./AgentUser";
+import { CostAgentRole } from "./CostAgentRole";
 import { CtoAgentRole } from "./CtoAgentRole";
 import { DevxAgentRole } from "./DevxAgentRole";
 
@@ -14,6 +15,8 @@ export class AgentRoles extends Construct {
   public readonly devxAgentRole: DevxAgentRole;
   public readonly ctoAgentUser: AgentUser;
   public readonly ctoAgentRole: CtoAgentRole;
+  public readonly costAgentUser: AgentUser;
+  public readonly costAgentRole: CostAgentRole;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -23,5 +26,8 @@ export class AgentRoles extends Construct {
     this.ctoAgentUser = new AgentUser(this, "CtoAgentUser", CTO_AGENT);
     this.ctoAgentRole = new CtoAgentRole(this, "CtoAgentRole", { agentUser: this.ctoAgentUser });
     this.ctoAgentUser.allowAssume(this.ctoAgentRole);
+    this.costAgentUser = new AgentUser(this, "CostAgentUser", AWS_COST_AGENT);
+    this.costAgentRole = new CostAgentRole(this, "CostAgentRole", { agentUser: this.costAgentUser });
+    this.costAgentUser.allowAssume(this.costAgentRole);
   }
 }

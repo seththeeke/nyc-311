@@ -980,6 +980,8 @@ Daily at 05:30 CT, on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR
 | Data | How | Not |
 |---|---|---|
 | Billing history and forecast | AWS Cost Explorer (`ce:GetCostAndUsage`, `ce:GetCostForecast`, `ce:GetDimensionValues`) and Budgets reads, through `Nyc311CostAgentRole` | Any write: no budget, tag or anomaly-monitor changes |
+
+Cost Explorer charges about $0.01 per API request, so each run makes **at most 8 Cost Explorer calls**: daily cost by service over the window in one call, the forecast in another, and a few drill-downs.
 | Resources behind the costs | `ReadOnlyAccess` through the same role, secrets denied, like Pip's | Any mutation, any deploy |
 | The code | The worktree, Pip's tools, the Operational Loop | `main`, merges, force-pushes |
 | GitHub | Issues and PRs on `cost/` branches, Pip's way | Merging; Rex's labels and statuses |
@@ -1008,7 +1010,7 @@ Daily at 05:30 CT, on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR
 
 | Leg | What |
 |---|---|
-| **G1** | IAM user `aws-cost-agent` and its role with the Cost Explorer reads (cdk, pipeline stack). |
+| **G1** | IAM user `aws-cost-agent` and its role `Nyc311CostAgentRole` (`cdk/agents/CostAgentRole.ts`): `ReadOnlyAccess`, secrets denied, plus `ce:Get*` and `budgets:View*` reads (cdk, pipeline stack). Built 2026-11-07. |
 | **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. |
 | **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. |
 | **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
