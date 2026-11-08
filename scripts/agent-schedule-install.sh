@@ -6,7 +6,9 @@
 # deliberately barebones — calendar times + one command — and only ever calls
 # scripts/agent-scheduled-run.sh <agent> in this checkout; every bit of logic
 # lives in the repo. Times come from SCHEDULE in
-# scripts/agent-schedules/<agent>.env. See docs/agent-automation-setup.md.
+# scripts/agent-schedules/<agent>.env, each slot [Day@]HH:MM[=MODE] in the
+# machine's local time (Pacific on the Mac mini). See
+# docs/agent-automation-setup.md.
 #
 #   install    write ~/Library/LaunchAgents/com.nyc311.agent.<agent>.plist and
 #              (re)load it — re-run after changing SCHEDULE
@@ -36,17 +38,37 @@ cmd_install() {
   . "$config"
   : "${SCHEDULE:?SCHEDULE not set in $config}"
 
+  # A slot is [Day@]HH:MM[=MODE] (docs/17-executive-team.md §21.6): Day is
+  # Sun..Sat for a weekly slot; MODE picks PROMPT_<MODE> at run time.
   intervals=""
-  for t in $SCHEDULE; do
+  for slot in $SCHEDULE; do
+    t=${slot%%=*}
+    if [ "$t" != "$slot" ]; then
+      case "${slot#*=}" in
+        '' | [!A-Z]* | *[!A-Z0-9_]*) die "bad SCHEDULE mode in '$slot' (want ALL_CAPS)" ;;
+      esac
+    fi
+    weekday=""
+    case "$t" in
+      *@*)
+        case "${t%%@*}" in
+          Sun) weekday=0 ;; Mon) weekday=1 ;; Tue) weekday=2 ;; Wed) weekday=3 ;;
+          Thu) weekday=4 ;; Fri) weekday=5 ;; Sat) weekday=6 ;;
+          *) die "bad SCHEDULE day in '$slot' (want Sun..Sat)" ;;
+        esac
+        t=${t#*@} ;;
+    esac
     case "$t" in
       [0-2][0-9]:[0-5][0-9]) : ;;
-      *) die "bad SCHEDULE time '$t' (want HH:MM)" ;;
+      *) die "bad SCHEDULE time '$slot' (want [Day@]HH:MM[=MODE])" ;;
     esac
     h=${t%%:*}; m=${t#*:}
     h=${h#0}; m=${m#0}
-    [ "$h" -le 23 ] || die "bad SCHEDULE hour in '$t'"
+    [ "${h:-0}" -le 23 ] || die "bad SCHEDULE hour in '$slot'"
+    day_key=""
+    [ -n "$weekday" ] && day_key="<key>Weekday</key><integer>$weekday</integer>"
     intervals="$intervals
-    <dict><key>Hour</key><integer>${h:-0}</integer><key>Minute</key><integer>${m:-0}</integer></dict>"
+    <dict>$day_key<key>Hour</key><integer>${h:-0}</integer><key>Minute</key><integer>${m:-0}</integer></dict>"
   done
 
   mkdir -p "$HOME/Library/LaunchAgents" "$log_dir"

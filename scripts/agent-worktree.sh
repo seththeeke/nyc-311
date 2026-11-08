@@ -143,16 +143,21 @@ cmd_run() {
   trap cleanup_chat EXIT INT TERM
 
   set +e
+  # A model for this run (docs/17-executive-team.md §21.6), from the scheduler.
+  model_args=""
+  [ -n "${AGENT_MODEL:-}" ] && model_args="--model $AGENT_MODEL"
   if [ -n "$mcp_config" ]; then
     set -- --mcp-config "$mcp_config" --strict-mcp-config -p "$*"
   else
     set -- -p "$*"
   fi
   if [ -f "$dest/$agent_settings" ]; then
-    (cd "$dest" && claude --agent "$agent" --settings "$agent_settings" "$@")
+    # shellcheck disable=SC2086
+    (cd "$dest" && claude --agent "$agent" $model_args --settings "$agent_settings" "$@")
   else
     printf 'agent-worktree: note: no %s — %s runs with the base allowlist only\n' "$agent_settings" "$agent" >&2
-    (cd "$dest" && claude --agent "$agent" "$@")
+    # shellcheck disable=SC2086
+    (cd "$dest" && claude --agent "$agent" $model_args "$@")
   fi
   status=$?
   set -e

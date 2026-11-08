@@ -293,6 +293,24 @@ primary checkout fast-forwarding.
 Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run
 `install` on the machine (the only change that needs a machine-side step).
 
+### Schedule slots
+
+`SCHEDULE` is a space-separated list of slots, in the Mac mini's local time
+(**Pacific**). Plan in CT and subtract 2 hours; each file notes the CT time.
+
+| Slot | Fires |
+|---|---|
+| `06:00` | daily at 06:00 |
+| `Mon@21:30` | Mondays at 21:30 (`Sun`..`Sat`) |
+| `05:00=AUDIT` | daily at 05:00, in mode `AUDIT` |
+
+- **Modes** (`KIND=operations` only): a slot's mode runs `PROMPT_<MODE>`
+  instead of `PROMPT_NEW`. A fire belongs to the slot whose time most
+  recently passed, so a delayed fire keeps its slot's mode. `AGENT_MODE=<MODE>`
+  forces one for a manual run.
+- **Models:** `MODEL_<MODE>` for one mode, else `MODEL`, else the agent's
+  frontmatter, passed to `claude --model`.
+
 ## Team Chat for an agent
 
 An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team-chat` MCP server, signed in as its own Cognito user.

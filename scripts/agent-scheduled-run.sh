@@ -9,7 +9,9 @@
 #   1. fast-forward the primary checkout (only if on a clean main) and re-run
 #      `npm ci` for any package whose lockfile changed — worktrees CoW-clone
 #      node_modules from here, so it must track origin/main
-#   2. pick the mode, by the schedule's KIND:
+#   2. pick the mode, by the schedule's KIND (and, for operations, the
+#      slot's mode: SCHEDULE="05:00=AUDIT 08:00=CONVERSE" runs PROMPT_AUDIT or
+#      PROMPT_CONVERSE; MODEL_<MODE> or MODEL picks the model):
 #      pr-limit (default, devx-agent) — count the agent's open PRs (head branch
 #        starts with BRANCH_PREFIX): below MAX_OPEN_PRS → NEW mode, else REVISE
 #      assigned-issue (gen-purpose-dev) — poll for ONE issue carrying the label
@@ -111,8 +113,8 @@ export AGENT_TEAM_CHAT_ENV
 case "$KIND" in
   pr-limit) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" ;;
   assigned-issue) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" "${PROMPT_RESUME:?}" ;;
-  # An operating agent (docs/17-executive-team.md §12.4): every fire is one run of PROMPT_NEW, with no PRs or issues to count.
-  operations) : "${PROMPT_NEW:?}" ;;
+  # An operating agent (docs/17-executive-team.md §12.4): every fire is one run, of PROMPT_<MODE> for its slot's mode (§21.6) or else PROMPT_NEW, with no PRs or issues to count.
+  operations) : ;;
   *) die "unknown KIND '$KIND' in $agent.env (pr-limit | assigned-issue | operations)" ;;
 esac
 # The boroughsim-ops MCP server rides along with team-chat for agents that act on operations.
@@ -124,6 +126,42 @@ export AGENT_PRODUCT_TOOLS
 # Agent memory (docs/17 §17.6): commit the agent's MEMORY.md to main after the run when it changed.
 AGENT_MEMORY=${MEMORY:-}
 export AGENT_MEMORY
+
+# The slot this fire belongs to (docs/17 §21.6): the SCHEDULE slot whose time
+# most recently passed, so a fire launchd delays (asleep, or skipped while a
+# run held the lock) still gets its own slot's mode. AGENT_MODE overrides it
+# for a manual run. Prints the slot's MODE, empty for a slot without one.
+slot_mode() {
+  now_wd=$(date +%w); now_h=$(date +%H); now_m=$(date +%M)
+  now=$(( now_wd * 1440 + ${now_h#0} * 60 + ${now_m#0} ))
+  best=""; best_delta=""
+  for slot in $SCHEDULE; do
+    t=${slot%%=*}; m=""
+    [ "$t" != "$slot" ] && m=${slot#*=}
+    day=""
+    case "$t" in *@*) day=${t%%@*}; t=${t#*@} ;; esac
+    h=${t%%:*}; mm=${t#*:}
+    at=$(( ${h#0} * 60 + ${mm#0} ))
+    case "$day" in
+      '') delta=$(( ((now % 1440) - at + 1440) % 1440 )) ;;
+      *)
+        case "$day" in Sun) d=0 ;; Mon) d=1 ;; Tue) d=2 ;; Wed) d=3 ;; Thu) d=4 ;; Fri) d=5 ;; Sat) d=6 ;; *) continue ;; esac
+        delta=$(( (now - (d * 1440 + at) + 10080) % 10080 )) ;;
+    esac
+    if [ -z "$best_delta" ] || [ "$delta" -lt "$best_delta" ]; then
+      best_delta=$delta; best=$m
+    fi
+  done
+  printf '%s' "$best"
+}
+SLOT_MODE=${AGENT_MODE:-$(slot_mode)}
+# The model for this run: MODEL_<MODE>, else MODEL, else the agent's default.
+AGENT_MODEL=""
+if [ -n "$SLOT_MODE" ]; then
+  eval "AGENT_MODEL=\${MODEL_$SLOT_MODE:-}"
+fi
+AGENT_MODEL=${AGENT_MODEL:-${MODEL:-}}
+export AGENT_MODEL
 
 # ---- lock: one run per agent at a time ---------------------------------------
 
@@ -261,7 +299,12 @@ fi
 if [ "$KIND" = "operations" ]; then
   mode=RUN
   prompt="$PROMPT_NEW"
-  log "operations run → $mode"
+  if [ -n "$SLOT_MODE" ]; then
+    eval "prompt=\${PROMPT_$SLOT_MODE:-}"
+    [ -n "$prompt" ] || die "slot mode $SLOT_MODE has no PROMPT_$SLOT_MODE in $agent.env"
+    mode=$SLOT_MODE
+  fi
+  log "operations run → $mode${AGENT_MODEL:+ (model $AGENT_MODEL)}"
 elif [ "$KIND" = "assigned-issue" ]; then
   command -v jq >/dev/null 2>&1 || die "'jq' not on PATH"
   issue_state ensure-labels || die "could not ensure the agent labels exist"
