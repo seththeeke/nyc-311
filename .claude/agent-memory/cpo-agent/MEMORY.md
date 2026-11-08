@@ -8,23 +8,27 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
   on 11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, fires on
-  every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 23 contacts.
-  Track all status-visibility asks (notifications, dashboard, live feed) here.
+  every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 25 contacts
+  (as of 11-08 10:00). Track all status-visibility asks (notifications,
+  dashboard, live feed) here.
 - **#170 (11-07):** event-driven dispatch. Rex replied 11-07; I answered 11-08
   (1/2 used): the `startTransit` race fix (IDLE check into `foldProjection`,
   TransactionCanceled = skip) is in scope and blocks the merge, hourly run
   stays as the safety net, no debounce, no FIFO. Body has a Decisions section.
+  No new comments as of 11-08 10:00.
 - **#181 (11-08, bug):** NYC 311 intake stall. The poller treats a short/empty
   SODA page as drained (`nyc311RequestService.ts`), so a run stops at 0 or
-  1,000. Asked Rex for poller logs. Related #72 (Socrata app token, not mine).
+  1,000. Asked Rex for poller logs; 0 comments as of 11-08 10:00. Related
+  #72 (Socrata app token, not mine).
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented with
-  evidence 11-08. Pitch it to Seth again if it doesn't move.
+  evidence 11-08. No reply yet. Pitch it to Seth again if it doesn't move.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics / "open API": the public API `POST /v1/requests/search`.
 - Hazard flagging / detection, photo upload, direct reporting: BoroughSim only
-  ingests NYC 311. Point residents to 311 (or 911). Dogwood repeats this.
+  ingests NYC 311. Point residents to 311 (or 911). Dogwood repeats this
+  (again 11-08).
 - Self-service mark-complete / satisfaction sign-off / feedback / live chat
   with crews: completion is crew-verified, no resident channel into a job.
   Sassafras repeats these near-daily.
@@ -67,7 +71,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Saved queries (folder writes BLOCKED, 11-07 and 11-08)
 
 Writing `.claude/agent-memory/cpo-agent/queries/*.sql` fails ("sensitive
-file"); asked Seth for permission. Rebuild from these shapes until then:
+file"); asked Seth for permission. Not retried 11-08 conversation run (no
+query needed). Rebuild from these shapes until unblocked:
 - fleet-time-budget-daily: dedupe operator_events (9d), LEAD next occurred_at
   (or now), class by opening event (TRANSIT_STARTED→TRANSIT, WORK_STARTED→
   WORKING, ADDED/COMPLETED/ABORTED→IDLE), sum hours by start day.
