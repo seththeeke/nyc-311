@@ -1044,7 +1044,7 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 - **The audits live in their own file**, `.claude/review/software-analyzer-audits.md`, outside his prompt, so the CEO can change what he looks for without touching code. Each audit names what to look for, how to find it and how it scores.
 - **What he hunts:** complexity (deep nesting, long functions, cognitive load), how many design patterns the code uses for the same job, inconsistency between parts that should match, code that has diverged from its siblings, code smells, dead code, duplicated logic, leaky abstractions, and how AI-friendly the code is (whether an agent can find, read and change it safely: naming, file size, explicit types, local reasoning).
 - **What he doesn't:** security vulnerabilities and developer-experience work (build speed, flaky tests, dependencies), which are Pip's.
-- **One package per run, the whole package.** He audits one top-level part in depth (`backend`, `web-app`, `cdk`, `customer/backend`, `scripts` with `.claude`), rotating through them; his memory records which was audited when. The whole package keeps the broad context the first runs need; the unit shrinks later if runs prove too token-heavy.
+- **One package per run, the whole package.** He audits one top-level part in depth (`backend`, `web-app`, `cdk`, `customer` for `customer/backend`, `tooling` for `scripts` and `.claude`), rotating through them; his memory records which was audited when. The whole package keeps the broad context the first runs need; the unit shrinks later if runs prove too token-heavy.
 - **A score**, 0 to 100, for the package, per the audits file, with the evidence behind it: file and line, counts he made (`wc`, `grep`, the package's own ESLint). No new tools or dependencies.
 
 ### 19.3 The run
@@ -1081,7 +1081,7 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 
 | Leg | What |
 |---|---|
-| **S1** | The audits file. |
+| **S1** | The audits file. Built 2026-11-07: `.claude/review/software-analyzer-audits.md`, six weighted audits (complexity 20, pattern sprawl 15, consistency 15, divergence and duplication 15, code smells 15, AI-friendliness 20) and five packages (`backend`, `web-app`, `cdk`, `customer`, `tooling`). |
 | **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. |
 | **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. |
 | **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. |
