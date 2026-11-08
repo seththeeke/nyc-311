@@ -1,5 +1,5 @@
 import { logInfo } from "../../logger";
-import type { OpsClientConfig } from "../../models/opsClientConfig";
+import { PRODUCT_QUERY_LIMIT_MAX, type ProductClientConfig } from "../../models/productClientConfig";
 import { IdTokenProvider, type IdTokenDeps } from "../agentAuth/idTokenProvider";
 
 export interface ProductCallResult {
@@ -14,8 +14,8 @@ export interface ListContactsArgs {
   cursor?: string;
 }
 
-/** The most warehouse queries one CPO run may send (docs/17-executive-team.md §17.11). */
-export const MAX_QUERIES_PER_RUN = 10;
+/** The most warehouse queries one CPO run may send (docs/17-executive-team.md §17.11); a run may set fewer. */
+export const MAX_QUERIES_PER_RUN = PRODUCT_QUERY_LIMIT_MAX;
 
 export interface UpdateContactArgs {
   contact_id: string;
@@ -35,11 +35,13 @@ export class BoroughSimProductClient {
   private readonly tokens: IdTokenProvider;
   private readonly fetchFn: typeof fetch;
   private queriesSent = 0;
+  private readonly maxQueries: number;
 
   constructor(
-    private readonly config: OpsClientConfig,
+    private readonly config: ProductClientConfig,
     deps: IdTokenDeps = {}
   ) {
+    this.maxQueries = config.PRODUCT_QUERY_LIMIT ?? MAX_QUERIES_PER_RUN;
     this.fetchFn = deps.fetch ?? fetch;
     this.tokens = new IdTokenProvider(
       { idToken: config.AGENT_ID_TOKEN, refreshToken: config.AGENT_REFRESH_TOKEN, clientId: config.AGENT_CLIENT_ID, region: config.AGENT_REGION },
@@ -74,12 +76,12 @@ export class BoroughSimProductClient {
    * against the run's budget, failed ones too; past it, nothing is sent.
    */
   async runQuery(sql: string): Promise<ProductCallResult> {
-    if (this.queriesSent >= MAX_QUERIES_PER_RUN) {
-      logInfo("BoroughSimProductClient.queryBudgetUsed", { max: MAX_QUERIES_PER_RUN });
-      return { status: 429, body: { message: `Query budget used: ${MAX_QUERIES_PER_RUN} of ${MAX_QUERIES_PER_RUN} this run.`, queries_remaining: 0 } };
+    if (this.queriesSent >= this.maxQueries) {
+      logInfo("BoroughSimProductClient.queryBudgetUsed", { max: this.maxQueries });
+      return { status: 429, body: { message: `Query budget used: ${this.maxQueries} of ${this.maxQueries} this run.`, queries_remaining: 0 } };
     }
     this.queriesSent += 1;
-    const queriesRemaining = MAX_QUERIES_PER_RUN - this.queriesSent;
+    const queriesRemaining = this.maxQueries - this.queriesSent;
     logInfo("BoroughSimProductClient.runQuery", { queriesSent: this.queriesSent, queriesRemaining });
     const result = await this.call("POST", "/admin/warehouse/query", { sql });
     const body = result.body !== null && typeof result.body === "object" ? result.body : { result: result.body };

@@ -166,6 +166,13 @@ if [ -n "$SLOT_MODE" ]; then
 fi
 AGENT_MODEL=${AGENT_MODEL:-${MODEL:-}}
 export AGENT_MODEL
+# The run's warehouse query budget for the product tools (docs/17 §21.4): PRODUCT_QUERY_LIMIT_<MODE>, else PRODUCT_QUERY_LIMIT, else the client's cap.
+AGENT_PRODUCT_QUERY_LIMIT=""
+if [ -n "$SLOT_MODE" ]; then
+  eval "AGENT_PRODUCT_QUERY_LIMIT=\${PRODUCT_QUERY_LIMIT_$SLOT_MODE:-}"
+fi
+AGENT_PRODUCT_QUERY_LIMIT=${AGENT_PRODUCT_QUERY_LIMIT:-${PRODUCT_QUERY_LIMIT:-}}
+export AGENT_PRODUCT_QUERY_LIMIT
 
 # ---- lock: one run per agent at a time ---------------------------------------
 

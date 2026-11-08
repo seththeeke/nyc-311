@@ -2,8 +2,8 @@
 #
 # PreToolUse guard for cpo-agent (docs/17-executive-team.md §17.2), wired in
 # through the agent's frontmatter. Celestine never changes code: Write and
-# Edit only her memory file, her saved queries (queries/<name>.sql, §17.11)
-# or /tmp, no git writes, no PRs, no AWS, and gh writes only on her own
+# Edit only her memory file, her saved queries (queries/<name>.sql, §17.11),
+# her reports (.claude/agent-reports/, §21.3) or /tmp, no git writes, no PRs, no AWS, and gh writes only on her own
 # cpo-agent issues. Exit 2 blocks.
 
 input=$(cat)
@@ -30,7 +30,10 @@ if tool in ("Write", "Edit"):
         sys.exit(0)
     if os.path.dirname(path) == queries_dir and re.fullmatch(r"[a-z0-9][a-z0-9-]*\.sql", os.path.basename(path)):
         sys.exit(0)
-    deny("writing " + str(args.get("file_path")) + " is blocked; only her memory file, queries/<name>.sql and /tmp.")
+    reports = os.path.join(project, ".claude", "agent-reports") + os.sep
+    if path.startswith(reports) and re.fullmatch(r"\d{4}-\d{2}-\d{2}/[0-2]\d_[0-5]\d/cpo-agent-[a-z0-9][a-z0-9-]*\.md", path[len(reports):]):
+        sys.exit(0)
+    deny("writing " + str(args.get("file_path")) + " is blocked; only her memory file, queries/<name>.sql, her reports (.claude/agent-reports/<date>/<HH_MM>/cpo-agent-<name>.md) and /tmp.")
 
 if tool != "Bash":
     sys.exit(0)

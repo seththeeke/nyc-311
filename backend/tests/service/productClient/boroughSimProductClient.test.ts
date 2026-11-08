@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ProductClientConfigSchema } from "../../../models/productClientConfig";
 import { BoroughSimProductClient, MAX_QUERIES_PER_RUN } from "../../../service/productClient/boroughSimProductClient";
 
 const NOW = new Date("2026-11-05T10:00:00.000Z");
@@ -71,6 +72,23 @@ describe("BoroughSimProductClient", () => {
     expect(over.body).toMatchObject({ queries_remaining: 0 });
     expect(fetchMock).toHaveBeenCalledTimes(MAX_QUERIES_PER_RUN);
     expect((await client().runQuery("SELECT 1")).status).toBe(200);
+  });
+
+  it("holds a run to a lower query budget when the run sets one (CONVERSE, docs/17 §21.4)", async () => {
+    const c = new BoroughSimProductClient({ ...CONFIG, PRODUCT_QUERY_LIMIT: 2 }, { fetch: fetchMock as unknown as typeof fetch, now: () => NOW });
+    fetchMock.mockImplementation(async () => json({ rows: [] }));
+    expect((await c.runQuery("SELECT 1")).body).toMatchObject({ queries_remaining: 1 });
+    expect((await c.runQuery("SELECT 2")).body).toMatchObject({ queries_remaining: 0 });
+    const over = await c.runQuery("SELECT 3");
+    expect(over).toEqual({ status: 429, body: { message: "Query budget used: 2 of 2 this run.", queries_remaining: 0 } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads the run's query budget from the environment, never above the cap", () => {
+    const env = { BOROUGH_SIM_API_URL: "https://api.example.com", AGENT_ID_TOKEN: "a", AGENT_REFRESH_TOKEN: "b", AGENT_CLIENT_ID: "c", AGENT_REGION: "us-east-1" };
+    expect(ProductClientConfigSchema.parse(env).PRODUCT_QUERY_LIMIT).toBeUndefined();
+    expect(ProductClientConfigSchema.parse({ ...env, PRODUCT_QUERY_LIMIT: "2" }).PRODUCT_QUERY_LIMIT).toBe(2);
+    expect(() => ProductClientConfigSchema.parse({ ...env, PRODUCT_QUERY_LIMIT: "11" })).toThrow();
   });
 
   it("uses the real fetch by default", () => {

@@ -820,7 +820,7 @@ Pip already tends unaddressed comments on his PRs at the start of every run. He 
 
 ### 17.1 The run
 
-Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`. Model: Opus.
+Five runs a day in two modes (§21.4, §21.5), Mac mini time (Pacific): **AUDIT** at 05:00 (07:00 CT) on Opus, the deep run below; **CONVERSE** at 08:00, 11:00, 14:00 and 17:00 on Sonnet: inbox and ticket threads with Rex, follow-ups on open tickets, new contacts, at most 2 warehouse queries (`PRODUCT_QUERY_LIMIT_CONVERSE=2`), no daily report. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`, `REPORTS=1`. The audit writes `cpo-agent-product-report.md` (§21.3), and its `CPO_DAILY` post keeps to 75 words with the per-contact lines in a thread reply.
 
 1. **Memory:** read `.claude/agent-memory/cpo-agent/MEMORY.md`.
 2. **Inbox:** reply to Rex's feedback in her ticket threads (§17.7).
@@ -838,7 +838,7 @@ Daily at 09:00 Mac mini time (New York), an hour after Rex's first run. `KIND=op
 |---|---|---|
 | Contacts | `boroughsim-product` MCP: `list_contacts`, `track_contact` (in progress, with a ticket), `close_contact` (duplicate, declined, shipped) | — |
 | WBR | `boroughsim-product` MCP: `get_wbr`, the newest successful runs of the `wbr` warehouse job and their result rows, read through `GET /admin/warehouse/job-runs` and `POST /admin/warehouse/job-runs/results` | Other warehouse jobs' results |
-| The warehouse | `boroughsim-product` MCP: `run_query`, read-only SQL through `POST /admin/warehouse/query`, at most 10 per run, written with the `query-builder` skill (§17.11) | Creating, changing or scheduling warehouse jobs |
+| The warehouse | `boroughsim-product` MCP: `run_query`, read-only SQL through `POST /admin/warehouse/query`, at most 10 per audit and 2 per conversation, written with the `query-builder` skill (§17.11) | Creating, changing or scheduling warehouse jobs |
 | Brogan's fleet actions | Team Chat, `#executive-team` | The `boroughsim-ops` tools and the capacity routes; she is not in `BOROUGH_SIM_OPERATIONS` |
 | How the system works | `Read`, `Grep`, `Glob` over her worktree | Any edit, commit, push or PR |
 | Her tickets | `gh issue` on `cpo-agent` issues only | Anyone else's issues |
@@ -891,7 +891,7 @@ Her Cognito user `cpo-agent@agents.boroughsim.com` is in `BOROUGH_SIM_TEAM` and 
 - `MEMORY=1` in the agent's schedule turns this on. After the run, `scripts/agent-memory-commit.sh` (called by `agent-worktree.sh run`) commits the agent's memory folder only if it changed and every file is within its cap, as `[feat] - <agent>: Memory update`, touching no other path, then rebases onto `origin/main` and pushes to `main`, with one retry. A deleted saved query is committed as a deletion. Anything else (an oversized file, a deleted `MEMORY.md`, any other file in the folder, too many queries) logs a `WARN`, restores the folder and commits nothing.
 - The agent's guard allows `Write` only to its own memory file, its saved queries and `/tmp`.
 
-**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file, `queries/<name>.sql` in her memory folder, or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
+**Guard (`.claude/hooks/cpo-agent-guard.sh`):** `Write` and `Edit` only her memory file, `queries/<name>.sql` in her memory folder, her reports in `.claude/agent-reports/`, or `/tmp`; output redirection only to `/tmp`; `git` read-only; `gh` only `issue` (and label list/create), with `create` requiring the `cpo-agent` label and comment, edit or close allowed only on an issue that already carries it; no `aws`, `npm`, `npx`, `curl` or `gh api`. Her settings deny the `boroughsim-ops` tools outright.
 
 ### 17.7 Rex on her tickets
 
@@ -931,7 +931,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 - [x] GitHub labels `cpo-agent` and `feature-request` (2026-11-05).
 - [ ] Copy `~/.nyc-311/credentials` to the Mac mini.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`; `AGENT_PRODUCT_TOOLS=1 scripts/agent-team-chat-config.sh cpo-agent TEST "$PWD"` lists `team-chat` and `boroughsim-product`.
-- [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (09:00).
+- [ ] Mac mini: a hand run against Test, then `scripts/agent-schedule-install.sh install cpo-agent` (5 slots, v2, §21.4).
 
 ### 17.11 Her lever and her own data
 
@@ -944,7 +944,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 **Warehouse queries.**
 
 - `run_query` on the `boroughsim-product` MCP server sends one read-only SQL query to `POST /admin/warehouse/query`, the admin SQL console's route, now open to `BOROUGH_SIM_PRODUCT`. It runs on the `Nyc311AdHocQueries` workgroup: `SELECT`, `WITH`, `SHOW`, `DESCRIBE` or `EXPLAIN` only, 500 rows, 1 GB scanned, 20 seconds. The Lambda's role grants no warehouse writes beyond Athena's result files.
-- **At most 10 queries per run**, failed ones included. The MCP server's client holds the count, since one server process serves one run; past 10 it returns `429` without calling the API. Each result carries `queries_remaining`. Her guard blocks `curl` and `gh api`, so the tool is her only way to the route.
+- **At most 10 queries per run** (2 in a CONVERSE run, `PRODUCT_QUERY_LIMIT`, which can't exceed 10), failed ones included. The MCP server's client holds the count, since one server process serves one run; past the budget it returns `429` without calling the API. Each result carries `queries_remaining`. Her guard blocks `curl` and `gh api`, so the tool is her only way to the route.
 - She writes each query with the **`query-builder` skill** (`.claude/skills/query-builder/`): the warehouse's tables, persisted enum values, how the WBR defines its numbers, and the idioms and traps. It replaces the `biz-intel-agent`, and the CEO can use it in any session to draft SQL for the console.
 
 **Research agenda.** Her memory holds a short list of ideas about where BoroughSim loses time or money, each one an idea, being measured, proven (with its ticket) or disproved (with its numbers). She moves at least one forward each run. An idea the warehouse can't answer becomes a measurement ticket.

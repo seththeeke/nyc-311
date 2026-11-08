@@ -73,7 +73,7 @@ auth=$(aws cognito-idp initiate-auth --no-sign-request --region "$region" --cli-
   || { rm -rf "$dir"; die "sign-in failed for $email"; }
 rm -f "$dir/auth.json"
 
-AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server POST_WORDS=${AGENT_CHAT_POST_WORDS:-} CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
+AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server POST_WORDS=${AGENT_CHAT_POST_WORDS:-} QUERY_LIMIT=${AGENT_PRODUCT_QUERY_LIMIT:-} CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
 import json, os
 result = json.loads(os.environ["AUTH_RESULT"]).get("AuthenticationResult") or {}
 if not result.get("IdToken") or not result.get("RefreshToken"):
@@ -97,6 +97,8 @@ if os.environ.get("PRODUCT_TOOLS"):
         "env": {"BOROUGH_SIM_API_URL": os.environ["OPS_API_URL"], "AGENT_ID_TOKEN": result["IdToken"],
                 "AGENT_REFRESH_TOKEN": result["RefreshToken"], "AGENT_CLIENT_ID": os.environ["CLIENT_ID"],
                 "AGENT_REGION": os.environ["REGION"]}}
+    if os.environ.get("QUERY_LIMIT"):
+        servers["boroughsim-product"]["env"]["PRODUCT_QUERY_LIMIT"] = os.environ["QUERY_LIMIT"]
 print(json.dumps({"mcpServers": servers}, indent=2))
 ' >"$dir/mcp.json" || { rm -rf "$dir"; die "could not write the MCP config"; }
 
