@@ -359,6 +359,20 @@ if [ -n "${REPORTS:-}" ] && [ "$mode" != "IDLE" ]; then
 fi
 export AGENT_REPORT_DIR
 
+# Usage (docs/17 §21.4): the last 24 hours of scheduled runs' Claude usage, appended to the prompt.
+if [ -n "${USAGE_SUMMARY:-}" ] && [ "$mode" != "IDLE" ]; then
+  if usage=$("$script_dir/agent-usage-summary.sh" 24 2>&1); then
+    prompt="$prompt
+
+$usage"
+  else
+    log "WARN: agent-usage-summary failed: $usage"
+    prompt="$prompt
+
+Claude usage: the usage summary failed on the Mac mini; say so in your report."
+  fi
+fi
+
 # ---- 3. run the agent --------------------------------------------------------
 
 status=0

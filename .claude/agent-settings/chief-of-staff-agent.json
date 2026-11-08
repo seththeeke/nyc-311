@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "TodoWrite",
-      "mcp__team-chat"
+      "mcp__team-chat",
+      "Read(.claude/agent-reports/**)",
+      "Glob(.claude/agent-reports/**)",
+      "Grep(.claude/agent-reports/**)",
+      "Write(.claude/agent-reports/**)",
+      "Write(//tmp/**)",
+      "Write(//private/tmp/**)"
     ],
     "deny": [
       "Bash",
@@ -12,7 +18,6 @@
       "WebSearch",
       "Read(~/.nyc-311/**)",
       "Edit",
-      "Write",
       "mcp__boroughsim-ops"
     ]
   },

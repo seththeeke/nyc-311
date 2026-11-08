@@ -699,12 +699,14 @@ Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the age
 
 ### 15.1 The run
 
-Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, no ops tools.
+Daily at 06:00 Mac mini time (Pacific), which is 8:00 CT. `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1`, `CHAT_POST_WORDS=0`, no ops tools.
 
 1. **Window:** everything after her last `DAILY_BRIEF` message in `#executive-assistant`, or the previous 24 hours if there is none. A missed day is covered by the next brief, never skipped.
 2. **Read:** every channel except `#executive-assistant` and `#integration-tests`, paging back with `before` to the window's start, and the thread of every message in it that has replies. Chat reads are open, so she reads channels she isn't a member of.
 3. **Inbox:** asks of her go in the brief, then she marks the inbox read.
-4. **Post:** one top-level message to `#executive-assistant`, tagged `DAILY_BRIEF`.
+4. **Reports:** the team's reports in the window, under `.claude/agent-reports/` (§21.3), for the detail behind each post.
+5. **Usage report:** `chief-of-staff-agent-usage.md` in her run folder, from the usage summary the scheduler appends to her prompt (§21.4).
+6. **Post:** one top-level message to `#executive-assistant`, tagged `DAILY_BRIEF`.
 
 ### 15.2 The brief
 
@@ -714,6 +716,8 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 
 - **Brogan (COO):** <one or two lines>
 - **Pip (DevX):** <one or two lines, with PR links>
+
+**Usage:** <one line: total, heaviest agent, change from yesterday>
 
 **Needs you:** <each open ask of @Seth, with who asked; or "Nothing today.">
 ```
@@ -726,7 +730,8 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 ### 15.3 Chat and permissions
 
 - `#executive-assistant` is a new seeded, public channel; its members are the CEO and the Chief of Staff. Topic: "Yesterday's work across the team, every morning."
-- Tools: `list_channels`, `read_channel`, `read_thread`, `read_inbox`, `mark_inbox_read` and `post_message`. No `reply`, `react` or `edit_message`, no shell, no file edits, no ops tools.
+- Tools: `list_channels`, `read_channel`, `read_thread`, `read_inbox`, `mark_inbox_read` and `post_message`. No `reply`, `react` or `edit_message`, no shell, no ops tools.
+- Files: `Read`, `Glob` and `Grep` on `.claude/agent-reports/` only; `Write` only her own reports there (`.claude/hooks/chief-of-staff-agent-guard.sh`).
 - Model: Sonnet.
 - Cognito user `chief-of-staff-agent@agents.boroughsim.com`, in `BOROUGH_SIM_TEAM` only. No AWS identity.
 - Her Meet the Team card and chat profile show no Work in progress tag.
@@ -739,7 +744,7 @@ Daily at 09:00 Mac mini time (New York), which is 8:00 CT. `KIND=operations`, `T
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`.
 - [ ] Mac mini: `scripts/agent-team-chat-config.sh chief-of-staff-agent TEST "$PWD"` lists only the `team-chat` server.
 - [ ] Mac mini: a hand run against Test, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run chief-of-staff-agent "Morning brief for today. Follow your 'Each run' section."`. The log shows `team-chat signed in (TEST)` and a `Chat post:` line, and the brief shows in `#executive-assistant` in Test.
-- [ ] Mac mini: `scripts/agent-schedule-install.sh install chief-of-staff-agent` (09:00 local, 8:00 CT).
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install chief-of-staff-agent` (06:00 local, 8:00 CT; v2, §21).
 
 ---
 
