@@ -50,28 +50,26 @@ describe("putRequest", () => {
     });
   });
 
-  it("derives gsi1pk/gsi2pk/gsi2sk, and omits gsi3pk/gsi3sk while location_id is null", async () => {
+  it("derives gsi1pk only — gsi2pk/gsi2sk/gsi3pk/gsi3sk removed 2026-11-08 (#182), unused", async () => {
     ddbMock.on(PutCommand).resolves({});
     await dao.putRequest(validRequest);
     const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
     expect(item).toMatchObject({
       gsi1pk: validRequest.external_unique_key,
-      gsi2pk: validRequest.status,
-      gsi2sk: validRequest.created_at,
     });
+    expect(item).not.toHaveProperty("gsi2pk");
+    expect(item).not.toHaveProperty("gsi2sk");
     expect(item).not.toHaveProperty("gsi3pk");
     expect(item).not.toHaveProperty("gsi3sk");
   });
 
-  it("also derives gsi3pk/gsi3sk once location_id is set", async () => {
+  it("still omits gsi3pk/gsi3sk once location_id is set (no longer derived at all)", async () => {
     ddbMock.on(PutCommand).resolves({});
     const resolvedRequest: Request = { ...validRequest, location_id: "1234567890" };
     await dao.putRequest(resolvedRequest);
     const item = ddbMock.commandCalls(PutCommand)[0].args[0].input.Item as Record<string, unknown>;
-    expect(item).toMatchObject({
-      gsi3pk: "1234567890",
-      gsi3sk: resolvedRequest.created_at,
-    });
+    expect(item).not.toHaveProperty("gsi3pk");
+    expect(item).not.toHaveProperty("gsi3sk");
   });
 
   it("throws ValidationError for a malformed Request", async () => {
@@ -292,8 +290,10 @@ describe("updateRequestStatus", () => {
       ConditionExpression: "#status = :expectedStatus",
       ExpressionAttributeValues: { ":expectedStatus": "DRAFT" },
       ExpressionAttributeNames: { "#status": "status" },
-      Item: expect.objectContaining({ status: "PROMOTED", gsi2pk: "PROMOTED", gsi3pk: "1234567890" }),
+      Item: expect.objectContaining({ status: "PROMOTED", location_id: "1234567890" }),
     });
+    expect(putInput.Item as Record<string, unknown>).not.toHaveProperty("gsi2pk");
+    expect(putInput.Item as Record<string, unknown>).not.toHaveProperty("gsi3pk");
   });
 
   it("rejects a DRAFT Request without touching location_id when none is given", async () => {
