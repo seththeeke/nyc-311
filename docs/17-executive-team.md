@@ -604,7 +604,7 @@ There is no minimum or maximum fleet size. The fleet can swing by up to 4 operat
 
 ### 12.4 The run
 
-launchd runs `coo-agent` every 6 hours (02:00, 08:00, 14:00, 20:00 New York time) through `scripts/agent-scheduled-run.sh`, against **Prod**, as `KIND=operations`: one run per fire, with no PRs or issues to count.
+launchd runs `coo-agent` every 6 hours (02:00, 08:00, 14:00, 20:00 Mac mini time, Pacific) through `scripts/agent-scheduled-run.sh`, against **Prod**, as `KIND=operations`: one run per fire, with no PRs or issues to count.
 
 - **Definition:** `.claude/agents/coo-agent.md`, on `sonnet`.
 - **Tools:** the `team-chat` and `boroughsim-ops` tools only, with no shell.
@@ -956,22 +956,25 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 
 ## 18. The AWS Cost Efficiency agent
 
-**Status:** designed 2026-11-06, not built. The figure and roster card ship as Work in progress (§2.1).
+**Status:** designed 2026-11-06, decisions 2026-11-07 (§21), building. The figure and roster card ship as Work in progress (§2.1).
 
 `aws-cost-agent` is Grimble Tollbridge, a reformed bridge troll who once charged every toll there is, so knows what each crossing really costs. Grimble reports to Rex. The job is BoroughSim's own AWS bill: read the billing history and the forecast, find creative ways to pay less for the same system, land each saving as a pull request, and report what it saved. Grimble works like Pip, except that **only the CEO merges Grimble's PRs**.
 
 ### 18.1 The run
 
-`KIND` like Pip's (NEW and REVISE modes by open-PR count), branch prefix `cost/`, PRs only, never `main`.
+Daily at 05:30 CT, on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR count), branch prefix `cost/`, PRs only, never `main`. **At most 3 open `cost/` PRs** (`MAX_OPEN_PRS=3`), counted apart from Pip's `devx/` PRs.
 
-1. **Memory:** read `.claude/agent-memory/aws-cost-agent/MEMORY.md` and the saved bill reports (§18.3).
+**Goal:** the month-end forecast under **$30** (October was $52.80, about half of it CodeBuild).
+
+1. **Memory:** read `.claude/agent-memory/aws-cost-agent/MEMORY.md` and his last few cost reports (§18.3).
 2. **Tend open `cost/` PRs:** Rex's review comments and merge conflicts, as Pip does (§11, §16.5).
 3. **Read the bill:** month-to-date and the last 3 to 6 months by service and by usage type, the month-end forecast, and the stack each cost comes from (Test, Prod, pipeline, customer, Team Chat).
 4. **Find a saving:** the biggest cost line with a change that keeps the system working the same, then read the CDK and backend code that creates it.
 5. **Land one change** (NEW mode only): a backlog issue with the plan and the expected monthly saving, a `cost/<issue>-<slug>` branch, the Operational Loop in every touched package, and a PR stating the before cost, the expected after cost and how to check it.
-6. **Measure shipped savings:** for each merged PR old enough to show in the bill, the actual change against the forecast, posted on its issue.
-7. **Post:** one `COST_RUN` message to `#tech-team` per run, and a short summary in `#executive-team` when a saving lands.
-8. **Memory:** update the bill report and lessons.
+6. **Judge experiments and shipped savings:** for each merged PR whose judge date has come, the actual change against its baseline, posted on its issue. A saving is kept and recorded; anything else gets a rollback PR (§18.4).
+7. **Report:** one cost report (§18.3).
+8. **Post:** one `COST_RUN` message to `#tech-team` (at most 75 words, §21.2) summarizing the report, and a short summary in `#executive-team` when a saving lands.
+9. **Memory:** the savings agenda, experiments and lessons.
 
 ### 18.2 What Grimble can reach
 
@@ -983,85 +986,95 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 | GitHub | Issues and PRs on `cost/` branches, Pip's way | Merging; Rex's labels and statuses |
 | Team Chat | Cognito user `aws-cost-agent@agents.boroughsim.com`, `BOROUGH_SIM_TEAM` | — |
 
-### 18.3 Memory and bill reports
+### 18.3 Memory and cost reports
 
-- `MEMORY.md` holds the savings agenda (idea, measuring, shipped with its PR, disproved), shipped savings and their measured effect, and lessons.
-- A dated bill report per run under `.claude/agent-memory/aws-cost-agent/reports/<YYYY-MM-DD>.md`: total and forecast, the top cost lines, and what changed since the last report. Reports older than 90 days are pruned.
-- `scripts/agent-memory-commit.sh` learns a `reports/<YYYY-MM-DD>.md` allowance next to `queries/<name>.sql` (§17.6).
+- `MEMORY.md` holds the savings agenda (idea, measuring, shipped with its PR, disproved), **every experiment** (PR, merge date, baseline, expected saving, judge date, result) and lessons.
+- **A cost report every run**, `aws-cost-agent-cost-analysis.md` in the run's folder under `.claude/agent-reports/` (§21.3), at most 500 words: month to date and the forecast against the goal, the top cost lines, what changed since the last report, experiments in flight, and what he tried this run.
+- Memory and reports are committed after the run (`MEMORY=1`, `REPORTS=1`).
 
-### 18.4 Rex's review, and no merge
+### 18.4 Experiments, Rex's review, and no merge
 
-- Rex reviews `cost/` PRs with the same marks, rounds and rubric as Pip's (§16). His approval comment says "Ready for Seth to merge".
-- Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2). A `cost/` PR is never merged by an agent.
+- **Experiments.** Grimble may try a change whose saving isn't certain. The PR is labelled `cost-experiment` and states the baseline cost, the expected saving, the date it will be judged and the exact rollback. On the judge date he reads the bill; a saving is kept, anything else gets a rollback PR (a revert of the experiment's merge).
+- Rex reviews every `cost/` PR, experiments and rollbacks included, with the same marks, rounds and rubric as Pip's (§16). His approval comment says "Ready for Seth to merge".
+- **Only the CEO merges a `cost/` PR**, until the CEO trusts the work. Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2).
 - A cost change can remove or resize infrastructure, so every `cost/` PR states what it removes or resizes and how to roll it back.
 
-### 18.5 Open decisions
+### 18.5 Decided
 
-- **Goal:** AWS spend month to date under $20 (a goal the removed CFO seat held) is the candidate, alongside a monthly saving target.
-- **Schedule and model:** see §20. Daily is enough; the bill updates about once a day.
-- **IAM:** a new `Nyc311CostAgentRole` on `ReadOnlyAgentRole.ts` plus the Cost Explorer reads, or the Cost Explorer actions added to the shared read-only role.
+- **Goal:** month-end forecast under $30.
+- **Schedule and model:** daily at 05:30 CT, Sonnet.
+- **IAM:** his own `Nyc311CostAgentRole` on `ReadOnlyAgentRole.ts`, plus the Cost Explorer and Budgets reads.
 
 ### 18.6 Build plan
 
 | Leg | What |
 |---|---|
 | **G1** | IAM user `aws-cost-agent` and its role with the Cost Explorer reads (cdk, pipeline stack). |
-| **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule, and the reports allowance in the memory commit script. |
+| **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. |
 | **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. |
-| **G4** | Deploy, then Mac mini setup per Appendix B, and `live: true` on the roster. |
+| **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
 
 ---
 
 ## 19. The Software Analyzer agent
 
-**Status:** designed 2026-11-06, not built. The figure and roster card ship as Work in progress (§2.1).
+**Status:** designed 2026-11-06, decisions 2026-11-07 (§21), building. The figure and roster card ship as Work in progress (§2.1).
 
-`software-analyzer-agent` is Sable Marsh, a noir private investigator: an outside hire with no stake in the answer. He reports to Rex. His job is **software quality, not product quality**: he assesses the codebase as an impartial third party who knows nothing of what BoroughSim sells, scores it, and files what he finds as tickets for Rex to weigh, as Celestine's are. Some will be built and some won't. He never changes code.
+`software-analyzer-agent` is Sable Marsh, a noir private investigator: an outside hire with no stake in the answer. He reports to Rex. His job is **software quality, not product quality**, and he is **adversarial**: he looks for reasons the code is bad and says so, and Rex decides which findings to accept (§19.5). He never changes code.
 
 ### 19.1 Staying a third party
 
 - His prompt describes his job as auditing a TypeScript codebase for a client. It never names BoroughSim's product, goals or roadmap.
 - He reads code, tests, configuration and build files. He doesn't read `docs/`, the marketing page or Team Chat history, so he judges the code as he finds it.
-- Open decision: Claude Code loads `CLAUDE.md` into every session in the repo. Either he runs where it isn't loaded, or his prompt says to treat it as the client's stated conventions: a standard to check the code against, not a reason to excuse it.
+- **`CLAUDE.md`** loads into every session in the repo. His prompt treats it as the client's stated conventions: a standard to check the code against, never a reason to excuse it, and its product description is ignored.
 
-### 19.2 The assessment
+### 19.2 The audits
 
-- **A complexity score**, 0 to 100, from a rubric in `.claude/review/software-analysis-rubric.md`, per package (`web-app`, `backend`, `cdk`, `customer/backend`) and overall. The rubric weighs cyclomatic and cognitive complexity, file and function size, duplication, dead code (unused exports, files and dependencies), coupling between modules, test quality (not just coverage), and consistency of patterns.
-- **Measured, not guessed:** each score cites its numbers, from tooling run on a detached checkout of `origin/main` (ESLint complexity rules, a duplication detector, an unused-export finder). The tools are open decisions; each must run without network access beyond `npm ci`.
-- **Findings:** code smells, poor usage patterns, dead code, overly complex code and duplicated logic, each with file and line, why it matters, and a suggested direction.
+- **The audits live in their own file**, `.claude/review/software-analyzer-audits.md`, outside his prompt, so the CEO can change what he looks for without touching code. Each audit names what to look for, how to find it and how it scores.
+- **What he hunts:** complexity (deep nesting, long functions, cognitive load), how many design patterns the code uses for the same job, inconsistency between parts that should match, code that has diverged from its siblings, code smells, dead code, duplicated logic, leaky abstractions, and how AI-friendly the code is (whether an agent can find, read and change it safely: naming, file size, explicit types, local reasoning).
+- **What he doesn't:** security vulnerabilities and developer-experience work (build speed, flaky tests, dependencies), which are Pip's.
+- **One package per run, the whole package.** He audits one top-level part in depth (`backend`, `web-app`, `cdk`, `customer/backend`, `scripts` with `.claude`), rotating through them; his memory records which was audited when. The whole package keeps the broad context the first runs need; the unit shrinks later if runs prove too token-heavy.
+- **A score**, 0 to 100, for the package, per the audits file, with the evidence behind it: file and line, counts he made (`wc`, `grep`, the package's own ESLint). No new tools or dependencies.
 
 ### 19.3 The run
 
-1. **Memory:** read `.claude/agent-memory/software-analyzer-agent/MEMORY.md`: past scores and the findings already filed.
+Twice a week, Monday and Thursday at 23:30 CT, on Opus.
+
+1. **Memory:** read `.claude/agent-memory/software-analyzer-agent/MEMORY.md`: the rotation, past scores and the findings already filed or declined.
 2. **Inbox:** answer Rex's questions on his tickets, at most 2 replies per ticket, as Celestine does (§17.7).
-3. **Assess** the code at `origin/main` per §19.2.
-4. **File** the strongest few findings as GitHub issues labelled `backlog` and `software-analyzer`, deduped against his open and closed issues. The body starts with `<!-- software-analyzer-agent -->` and **Filed by Sable (Software Analyzer)**, then: Finding, Evidence, Impact, Suggested direction, and the score it would move.
-5. **Post:** one `ANALYSIS` report to `#tech-team`: the overall score and its trend, the score per package, and the tickets filed. He tags `@Rex` on each new ticket.
-6. **Memory:** record the scores, so the trend is honest from run to run.
+3. **Pick the package**: the one audited longest ago.
+4. **Audit** it per the audits file.
+5. **File at most 3 tickets**, the strongest findings, as GitHub issues labelled `backlog` and `software-analyzer`, deduped against his open and closed issues. The body starts with `<!-- software-analyzer-agent -->` and **Filed by Sable (Software Analyzer)**, then: Finding, Evidence, Impact, Suggested direction.
+6. **Report:** `software-analyzer-agent-<package>.md` in the run's report folder (§21.3), at most 500 words: a header with the package and score, then the score's reasons, the findings, and the tickets filed.
+7. **Post:** one `ANALYSIS` message to `#tech-team` (at most 75 words): the package, its score and trend, the tickets, tagging `@Rex`.
+8. **Memory:** the rotation, the score, the findings.
 
 ### 19.4 Permissions
 
-- Read-only, like Celestine (§17.6): `Write` only to his memory file and `/tmp`, `git` read-only, `gh issue` only on his own `software-analyzer` issues, no AWS.
-- He may run the analysis tools and `npm ci` in his worktree, never `npm install` of a new package.
+- Read-only, like Celestine (§17.6): `Write` only to his memory and his report folder, `git` read-only, `gh issue` only on his own `software-analyzer` issues.
+- He may run `npm ci` and a package's own lint in his worktree, never `npm install` of a new package.
+- No AWS from the agent. The S3 sync (§19.6) runs in the scheduler after his run, as his IAM user.
 
 ### 19.5 Rex on his tickets
 
-Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a formal comment on feasibility and worth, a short reply in the thread, at most 2 per issue, then escalation to the CEO. Rex may label a finding `wont-fix` with his reason; Sable records it in memory and doesn't re-file it.
+Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a formal comment on whether the finding is right and worth fixing, a short reply in the thread, at most 2 per issue, then escalation to the CEO. Rex may label a finding `wont-fix` with his reason; Sable records it in memory and doesn't re-file it.
 
-### 19.6 Open decisions
+### 19.6 The Code Quality page
 
-- **Schedule and model:** weekly is enough to see a trend (see §20).
-- **The analysis tools**, and whether they become dev dependencies of each package.
-- **Ticket cap:** a proposed 3 new tickets per run, so Rex's queue stays readable.
+- **Bucket:** one S3 bucket, `nyc311-agent-reports-<account>`, in the pipeline stack beside the agents' identities (account-level, like them). Private, read only by the monitoring API.
+- **Sync:** after each Sable run the scheduler copies his report files from `.claude/agent-reports/` to `s3://<bucket>/software-analyzer-agent/<YYYY-MM-DD>/<HH_MM>/<file>` (`aws s3 sync`, his own profile, write to that prefix only).
+- **API:** two public routes on the monitoring bundle: `GET /monitoring/code-quality/reports` (each report's date, time, package and score, newest first) and `GET /monitoring/code-quality/reports/{date}/{time}` (the report's text). Test and Prod read the same bucket.
+- **Page:** `/monitoring/code-quality`, a tile on `/monitoring` beside Ingestion, Pipeline and Lambda: the latest score per package, the trend, and each report.
 
 ### 19.7 Build plan
 
 | Leg | What |
 |---|---|
-| **S1** | The rubric file and the analysis tooling, proven by hand on one package. |
-| **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule and memory. |
+| **S1** | The audits file. |
+| **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. |
 | **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. |
-| **S4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
+| **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. |
+| **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. |
 
 ---
 
@@ -1088,7 +1101,7 @@ From third-party summaries; Anthropic publishes the mechanics but not exact numb
 - **Model choice is the biggest lever.** Opus draws down limits several times faster than Sonnet. Celestine and Kid Kestrel run on Opus; the rest on Sonnet or the default.
 - **IDLE runs are free.** Kid Kestrel's runs with nothing assigned don't start `claude`.
 
-### 20.3 Today's schedules (Mac mini time, New York)
+### 20.3 Schedules before v2 (Mac mini time, Pacific)
 
 | Agent | Times | Model |
 |---|---|---|
@@ -1114,101 +1127,123 @@ Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-co
 
 ## 21. Agent team v2 launch
 
-**Status:** planned 2026-11-07, not started. Notes for the next agent install.
+**Status:** decided 2026-11-07, building. One commit per leg (§21.9).
 
 **Goal:** every member except Kid Kestrel launched and active: Penny, Brogan, Celestine, Rex, Pip, Grimble (§18) and Sable (§19). Kid Kestrel stays Work in progress.
 
 ### 21.1 Times and the Mac mini's clock
 
-- **The Mac mini runs on Pacific time.** launchd fires on the machine's local time, and the run times prove it is Pacific: Pip's 06:00 and 18:00 runs post at 14:04 and 02:07 UTC, and Penny's 09:00 brief lands at 11:01 Central. The "New York" notes in the schedule files and Appendix B are wrong.
-- **v2 schedules are written in Central time (CT)**, the CEO's time zone. Open decision: set the Mac mini's time zone to America/Chicago so `SCHEDULE` values read as CT, or convert each to Pacific (CT minus 2 hours) when writing the schedule files. The first is simpler and keeps the files honest.
-- All times below are CT.
+- **The Mac mini stays on Pacific time.** launchd fires on the machine's local time: Pip's 06:00 and 18:00 runs post at 14:04 and 02:07 UTC.
+- **Schedules are planned in Central time (CT)**, the CEO's, and written in Pacific (CT minus 2 hours). Each schedule file shows the CT time beside each slot.
+- Times below are CT, with Pacific in brackets.
 
-### 21.2 Changes by member
+### 21.2 Rules for every agent
+
+- **No run type in chat.** A post never names the run's mode (NEW, REVISE, AUDIT, CONVERSE, the daily roll-up). Modes are the scheduler's business; the post says what was done.
+- **75 words for a top-level post.** Every top-level post in a team channel is at most 75 words. Thread replies have no cap, and detail can also live in memory or a report (§21.3).
+  - Enforced in the team-chat MCP client, like tags (§10.7): `post_message`, and `edit_message` on a top-level post, reject a longer text before it is sent. The message model and the chat API don't change.
+  - The cap is per agent (`CHAT_POST_WORDS` in the schedule file, default 75; `0` is no cap). Penny is exempt for now.
+- **Tags stay.** Each post keeps its tag (`DEVX_RUN`, `CTO_REVIEW`, …): Penny and the duplicate check rely on them.
+
+### 21.3 Agent reports
+
+`.claude/agent-reports/` is the shared store for any agent's reports, committed to the repo.
+
+- **Path:** `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, the run's start in CT. The scheduler fixes the run's folder and passes it in the prompt.
+- **At most 500 words a file.** A report is a snapshot, not a log.
+- **Committed straight to `main` after the run**, like memory (§17.6): `scripts/agent-report-commit.sh`, run when the agent's schedule sets `REPORTS=1`. It accepts only new files in this run's folder named for this agent, each within the cap; anything else is logged, removed, and nothing is committed. One commit per run.
+- **Penny reads them.** She has read access to the folder and points to a report in the brief when it holds the detail.
+- Chat posts summarize a report; the report holds the detail.
+
+### 21.4 Changes by member
 
 **Penny (Chief of Staff)**
-- One run at **08:00 CT**, the morning brief, as today.
+- One run at **08:00 (06:00)**, the morning brief.
+- **Usage report.** Before her run, `scripts/agent-usage-summary.sh` totals the last 24 hours of Claude usage per agent and per run from the transcripts Claude Code writes on the Mac mini (`~/.claude/projects/<worktree>/*.jsonl`; a run's worktree is named `<agent>-<epoch>-<rand>`). The scheduler hands her the figures. She writes `chief-of-staff-agent-usage.md` to her report folder and puts one line on usage in the brief. This covers #169 while it's tested.
+- Exempt from the 75-word cap.
 
 **Pip (DevX)**
-- **8 runs a day**, in two blocks: **09:00, 11:00, 13:00, 15:00** and **22:00, 00:00, 02:00, 04:00**. A ninth at 05:30 is optional.
-- The per-agent lock still skips a run while the last one is going, and `MAX_OPEN_PRS` (3) still switches him to REVISE mode, so more runs mean faster tending and merging, not an unbounded PR queue.
+- **8 runs a day:** 09:00, 11:00, 13:00, 15:00, 22:00, 00:00, 02:00, 04:00 (07:00, 09:00, 11:00, 13:00, 20:00, 22:00, 00:00, 02:00).
+- The per-agent lock still skips a run while the last is going, and `MAX_OPEN_PRS` (3) still switches him to REVISE mode.
 
 **Rex (CTO)**
-- **8 runs a day, an hour after each of Pip's**: 10:00, 12:00, 14:00, 16:00, 23:00, 01:00, 03:00, 05:00. A PR opened in one Pip run is reviewed, and merged if clean, before Pip's next.
-- **Where he posts:** each run's review summary goes to **`#tech-team`** (tag `CTO_REVIEW`), no longer `#executive-team`.
-- **Once a day** (the 16:00 run), one roll-up to `#executive-team`, tagged `CTO_DAILY`: PRs reviewed, merged and escalated in the last 24 hours, and Celestine's and Sable's tickets answered. Escalations to @Seth still go out on the run that finds them, in `#tech-team`.
+- **8 runs a day, an hour after each of Pip's:** 10:00, 12:00, 14:00, 16:00, 23:00, 01:00, 03:00, 05:00 (08:00, 10:00, 12:00, 14:00, 21:00, 23:00, 01:00, 03:00).
+- **Each run's summary goes to `#tech-team`** (`CTO_REVIEW`), no longer `#executive-team`. Escalations to @Seth go out on the run that finds them, in `#tech-team`.
+- **Once a day**, the 16:00 run (14:00) also posts one roll-up to `#executive-team` (`CTO_DAILY`): PRs reviewed, merged and escalated in the last 24 hours, and Celestine's, Sable's and Grimble's work answered.
+- **Reviews Grimble's `cost/` PRs** (§18.4) and **answers Sable's tickets** (§19.5). He merges only Pip's `devx/` PRs.
 
 **Brogan (COO)**
-- Schedule unchanged (four checks a day).
-- **Shorter posts, same content.** The `COO_RUN` post is at most 4 lines: the decision, the 7-day median against the band, the fleet and backlog, and one line of why. Supporting numbers (per-day medians, arrivals versus resolutions) go in a thread reply, and only when he recruits or releases.
+- Schedule unchanged: 04:00, 10:00, 16:00, 22:00 (02:00, 08:00, 14:00, 20:00).
+- **Shorter posts:** the `COO_RUN` post is the decision, the 7-day median against the band, the fleet and backlog, and one line of why, within the 75 words. Supporting numbers go in a thread reply, and only when he recruits or releases.
 
-**Celestine (CPO)**
-- **More runs, in two modes** (§21.3):
-  - **AUDIT**, once a day at **07:00**, before Penny's brief: today's deep run: contacts, the WBR, her reports and research agenda, tickets, the `CPO_DAILY` report.
-  - **CONVERSE** at **10:00, 13:00, 16:00 and 19:00**: her inbox and her ticket threads with Rex, follow-ups on open tickets, updating a ticket when the spec changes, new contacts triaged. No new audit; at most 2 warehouse queries per run; no `CPO_DAILY`.
+**Celestine (CPO)**, one agent with two modes (§21.5):
+- **AUDIT** at **07:00 (05:00)**, on Opus: today's deep run (contacts, the WBR, her reports and research agenda, tickets, the `CPO_DAILY` post).
+- **CONVERSE** at **10:00, 13:00, 16:00, 19:00 (08:00, 11:00, 14:00, 17:00)**, on Sonnet: her inbox and ticket threads with Rex, follow-ups on open tickets, updating a ticket when its spec changes, new contacts triaged. No new audit and no `CPO_DAILY`. **At most 2 warehouse queries**, enforced by the product MCP client (`PRODUCT_QUERY_LIMIT`, default 10).
 
 **Grimble (AWS Cost Efficiency, §18)**
-- **Twice a week**, Tuesday and Friday at 23:00.
-- **A cost report every run**, saved under `.claude/agent-memory/aws-cost-agent/reports/` (§18.3) and summarized in `#tech-team`.
-- **Experiments.** Grimble may try a change whose saving isn't certain, as an experiment:
-  - the PR is labelled `cost-experiment` and states the baseline cost, the expected saving, the date it will be judged, and the exact rollback;
-  - **Rex reviews it** like any `cost/` PR (§18.4), and only what he approves goes ahead;
-  - Grimble's memory tracks each experiment: PR, merge date, baseline, judge date, result;
-  - on its judge date Grimble reads the bill: a saving is kept and recorded; anything else gets a **rollback PR** (a revert of the experiment's merge), reviewed by Rex the same way.
-- Open decision: who merges `cost/` PRs. §18.4 says only the CEO. Allowing "what Rex allows" would mean extending Rex's merge rule to approved `cost-experiment` PRs and their rollbacks, guarded the way `devx/` is (§16.2). Until decided, the CEO merges.
+- **Daily** at **05:30 (03:30)**, on Sonnet, so the report is ready for Penny's brief.
+- A cost report every run, in the shared reports folder (§21.3), summarized in `#tech-team`.
+- Experiments, Rex's review and the 3-PR cap: §18.
 
 **Sable (Software Analyzer, §19)**
-- **Twice a week**, Monday and Thursday at 23:00, with **at least one full report a week**: the Monday run always produces one; the Thursday run produces one if Monday's failed, and otherwise files and follows up tickets.
-- **Reports on the website**: a new **Code Quality** page under System Monitoring (`/monitoring/code-quality`, a tile on `/monitoring` beside Ingestion, Pipeline and Lambda). It shows the latest report's overall and per-package scores, the trend across reports, and each report's findings with their tickets.
-- Open decision, where reports live:
-  - **(a) API-backed (recommended):** Sable submits each report through a new MCP tool to an admin route (a new Cognito group for him), stored in a small table and read by a public route.
-  - **(b) Committed with his memory:** the web app imports the files at build time, so every report triggers a deploy.
-  - **(c) S3:** a JSON object per report behind CloudFront.
+- **Twice a week**, Monday and Thursday at **23:30 (21:30)**, on Opus. One package per run, rotating (§19.2), so each run writes a full report.
+- Reports go to the shared folder, are synced to S3 after the run, and are shown on a new **Code Quality** page under System Monitoring (§19.6).
 
-  Option (a) matches how every other page reads data.
+### 21.5 Celestine: modes, not a second agent
 
-### 21.3 Celestine: modes or separate agents
+One agent with modes, like Pip's NEW and REVISE.
+- Her conversations with Rex are about her own tickets, research and memory; a second agent would need all of it and would split her memory.
+- One persona keeps one voice, so Rex never has two CPOs in a thread.
+- What separate agents would give, a smaller prompt and a different model per job, one agent gets from a mode section in her prompt and a model per schedule slot.
 
-**Proposed: one agent with modes**, like Pip's NEW and REVISE, rather than a second product agent.
+### 21.6 Scheduler
 
-- **Why one:**
-  - Her conversations with Rex are about her own tickets, research and memory; a second agent would need all of it and would split her memory in two.
-  - One persona keeps one voice in chat, so Rex never has two CPOs answering the same thread.
-  - One Cognito user and one guard.
-- **Why separate agents could win:** smaller prompts per job, and a different model per job. Both are available to one agent: a mode-specific section of her prompt, and a per-slot model in the schedule.
-- **Model per mode:** Opus for AUDIT, Sonnet for CONVERSE, so the frequent runs stay cheap (§20).
+`scripts/agent-scheduled-run.sh` and `agent-schedule-install.sh` gain:
 
-### 21.4 Scheduler work this needs
+- **A mode per slot:** `SCHEDULE="05:00=AUDIT 08:00=CONVERSE"`. The slot's mode picks `PROMPT_<MODE>`, and the run script finds its slot from the time it was fired.
+- **Weekday slots:** `Mon@21:30 Thu@21:30` (launchd's `Weekday` key). Both forms combine: `Mon@21:30=AUDIT`.
+- **A model per run:** `MODEL`, or `MODEL_<MODE>` for one mode, passed to `claude --model`.
+- **Reports:** `REPORTS=1` gives the run its report folder (`AGENT_REPORT_DIR`, appended to the prompt) and commits it after (§21.3).
+- **The chat word cap:** `CHAT_POST_WORDS`, passed to the team-chat MCP server.
+- Existing schedule files keep working unchanged: a slot without a mode runs as today.
+- After merging, re-run `scripts/agent-schedule-install.sh install <agent>` on the Mac mini for each agent whose `SCHEDULE` changed (Appendix B).
 
-The wrapper (`scripts/agent-scheduled-run.sh`, `agent-schedule-install.sh`) today runs every slot daily with one prompt per mode. v2 needs:
+### 21.7 Usage
 
-- **Weekday slots**, for Grimble and Sable (launchd's `StartCalendarInterval` takes a `Weekday`).
-- **A mode per slot**, for Celestine (`07:00=AUDIT 10:00=CONVERSE …`) and Rex's daily roll-up slot, each with its own prompt.
-- **A model per slot or mode**, passed to `claude --model`.
-- After merging, re-run `scripts/agent-schedule-install.sh install <agent>` on the Mac mini for every agent whose `SCHEDULE` changed (Appendix B).
+v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15 now.
+- Penny's daily usage report (§21.4) is the baseline and the check.
+- The protected hours of §20 suggest the CEO is active roughly 06:00 to 09:00 and 16:00 to 22:00 CT. Pip, Rex, Grimble and Sable run outside both; Celestine's 07:00, 16:00 and 19:00 and Brogan's 16:00 fall inside.
+- If v2 regularly exhausts the weekly limit, the levers are Sonnet over Opus, fewer CONVERSE runs and fewer night runs.
 
-### 21.5 Usage
+### 21.8 Launch checklist
 
-v2 roughly triples the daily runs: about 26 a day plus 4 a week, against about 15 a day now. Before launch:
-
-- Ship the per-run usage log (#169) and capture a week of baseline.
-- Fit the protected hours of §20: the v2 times suggest the CEO is active roughly 06:00 to 09:00 and 16:00 to 22:00 CT. Pip and Rex already run outside both. Celestine's 07:00, 16:00 and 19:00 and Brogan's daytime checks fall inside them.
-- Watch the weekly limit. If v2 regularly exhausts it, the levers are Sonnet over Opus, fewer CONVERSE runs, and fewer night runs.
-
-### 21.6 Launch checklist
-
-- [ ] Grimble built (§18.6, G1 to G4) and Sable built (§19.7, S1 to S4), including the Code Quality page.
-- [ ] Team Chat: Grimble and Sable as seed members in `#tech-team`, mention handles `@Grimble` and `@Sable`, tags `COST_RUN`, `ANALYSIS` and `CTO_DAILY`.
-- [ ] Prompts: Rex (`#tech-team` per run, daily `#executive-team` roll-up), Brogan (4-line posts), Celestine (AUDIT and CONVERSE).
-- [ ] Scheduler: weekdays, per-slot modes and models (§21.4).
-- [ ] The Mac mini's time zone decided (§21.1), and every v2 schedule installed.
-- [ ] Usage baseline from #169.
+- [ ] Scheduler (§21.6), reports (§21.3) and the chat word cap (§21.2).
+- [ ] Prompts and schedules: Penny, Pip, Rex, Brogan, Celestine.
+- [ ] Grimble built (§18.6) and Sable built (§19.7), including the Code Quality page.
+- [ ] Team Chat: Grimble and Sable as seed members in `#tech-team`, `@Grimble` and `@Sable`, tags `COST_RUN`, `ANALYSIS` and `CTO_DAILY`.
+- [ ] Every changed schedule installed on the Mac mini.
 - [ ] Roster: `live: true` for Grimble and Sable; Kid Kestrel stays Work in progress.
+
+### 21.9 Build plan
+
+| Leg | What |
+|---|---|
+| **V1** | Scheduler: modes per slot, weekdays, models (§21.6). |
+| **V2** | Agent reports: the folder, the commit script, `REPORTS=1` (§21.3). |
+| **V3** | The 75-word cap in the team-chat MCP client (§21.2). |
+| **V4** | Penny: 08:00, usage summary and report, reads reports. |
+| **V5** | Pip: 8 runs, no run type. |
+| **V6** | Rex: 8 runs, `#tech-team` per run, the daily roll-up. |
+| **V7** | Brogan: shorter posts. |
+| **V8** | Celestine: AUDIT and CONVERSE, the query limit. |
+| **G1 to G4** | Grimble (§18.6). |
+| **S1 to S5** | Sable (§19.7). |
 
 ---
 
 ## Appendix: decisions and history
 
+- **v2 launch rules (2026-11-07).** The CEO kept the Mac mini on Pacific time ("deal with it"), so schedules are written in Pacific. Posts drop run types and keep to 75 words, with detail in threads, memory and reports; the cap is enforced in the MCP client only, not the data model, with Penny exempt for now. Reports went to one shared, committed folder so Penny and the website can read them. Usage tracking became part of Penny's job. Grimble runs daily to get the bill under control, with a 3-PR cap of his own; the CEO merges his PRs until confident. Sable is adversarial, audits one whole package per run to keep broad context, and his reports are synced to one Prod-account S3 bucket for the website.
 - **No CFO.** The CFO seat (Fergus Farthing, a leprechaun, `cfo-agent`) was removed on 2026-11-06 before its agent was built: the simulation has no real money for a CFO to manage. AWS spend, the one real cost, is Grimble's (§18). The removal is one commit, so it can be reverted.
 - **Fiction archetypes.** The team was first modelled as plain office figures, then recast on 2026-10-31 as a crossover cast of fiction archetypes, one per role. The user chose each archetype and asked for archetypes over named characters.
 - **Higher-fidelity figures.** The user asked for figures "4-5 levels" more detailed than the residents. Penny's quality became the bar for the rest.
