@@ -3,6 +3,8 @@ export const MONITORING_API_ROUTES = [
   "GET /ingestion/metrics",
   "GET /lambda-metrics",
   "GET /public-api/metrics",
+  "GET /monitoring/code-quality/reports",
+  "GET /monitoring/code-quality/reports/{date}/{time}",
 ] as const;
 
 export type MonitoringApiRouteKey = (typeof MONITORING_API_ROUTES)[number];

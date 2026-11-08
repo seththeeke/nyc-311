@@ -1,11 +1,12 @@
 import * as path from "node:path";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
+import { agentReportsBucketName } from "../agents/AgentReportsBucket";
 import type { RequestsTable } from "../data/RequestsTable";
 import { PIPELINE_STATUS_FUNCTION_NAME } from "../pipeline/Nyc311PipelineStatusLambda";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
@@ -36,8 +37,10 @@ export interface Nyc311MonitoringApiLambdaProps {
 
 /**
  * The monitoring Service API bundle (`15-resource-consolidation.md`
- * §3.3): `GET /ingestion/metrics`, `GET /lambda-metrics` and
- * `GET /public-api/metrics`, entry
+ * §3.3): `GET /ingestion/metrics`, `GET /lambda-metrics`,
+ * `GET /public-api/metrics` and the Code Quality reports
+ * (`17-executive-team.md` §19.6, read from the account's agent reports
+ * bucket, which the pipeline stack owns), entry
  * `backend/controller/web-api/monitoring/monitoringApiRouter.ts`. Its
  * timeout is the Lambda-health route's: up to 48 parallel CloudWatch calls
  * (16 monitored Lambdas × 3 metrics), itself among them.
@@ -85,10 +88,15 @@ export class Nyc311MonitoringApiLambda extends NodejsFunction {
         MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
         MONITORED_LAMBDA_PUBLIC_V1_API: props.publicV1ApiFunctionName,
         PUBLIC_API_ID: props.publicApiId,
+        AGENT_REPORTS_BUCKET: agentReportsBucketName(Stack.of(scope).account),
       },
     });
 
     props.requestsTable.grant(this, "dynamodb:Query", "dynamodb:GetItem");
     this.addToRolePolicy(new iam.PolicyStatement({ actions: ["cloudwatch:GetMetricStatistics", "cloudwatch:GetMetricData"], resources: ["*"] }));
+    /* Sable's published reports only: his prefix of the agent reports bucket, by name (a pipeline-stack resource, no cross-stack reference). */
+    const reportsBucketArn = `arn:aws:s3:::${agentReportsBucketName(Stack.of(scope).account)}`;
+    this.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [reportsBucketArn], conditions: { StringLike: { "s3:prefix": ["software-analyzer-agent/*"] } } }));
+    this.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [`${reportsBucketArn}/software-analyzer-agent/*`] }));
   }
 }

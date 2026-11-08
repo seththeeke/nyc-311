@@ -81,7 +81,8 @@ describe("Nyc311MonitoringApiLambda", () => {
     expect(keys).toContain("REQUESTS_TABLE_NAME");
     expect(keys.filter((key) => key.startsWith("MONITORED_LAMBDA_"))).toHaveLength(17);
     expect(keys).toContain("PUBLIC_API_ID");
-    expect(keys).toHaveLength(19);
+    expect(keys).toContain("AGENT_REPORTS_BUCKET");
+    expect(keys).toHaveLength(20);
   });
 
   it("names itself as the monitored MonitoringApi Lambda, and every other web API bundle by its function name", () => {
@@ -101,7 +102,21 @@ describe("Nyc311MonitoringApiLambda", () => {
     expect(Object.keys(variables).filter((key) => /METRICS_API|SCHEMA_API|JOBS_API|JOB_RESULT_API|FLEET_LOCATIONS_API/.test(key))).toEqual([]);
   });
 
-  it("grants Requests Query/GetItem and CloudWatch metric reads (GetMetricData for the public API's health)", () => {
-    expect(actionsOf(testTemplate)).toEqual(["cloudwatch:GetMetricData", "cloudwatch:GetMetricStatistics", "dynamodb:GetItem", "dynamodb:Query"]);
+  it("grants Requests Query/GetItem, CloudWatch metric reads (GetMetricData for the public API's health) and reads of Sable's reports", () => {
+    expect(actionsOf(testTemplate)).toEqual(["cloudwatch:GetMetricData", "cloudwatch:GetMetricStatistics", "dynamodb:GetItem", "dynamodb:Query", "s3:GetObject", "s3:ListBucket"]);
+  });
+
+  it("reads only Sable's prefix of the account's agent reports bucket, by name (docs/17 §19.6)", () => {
+    const app = new App();
+    const stack = new Stack(app, "AccountStack", { env: { account: "123456789012", region: "us-east-1" } });
+    new Nyc311MonitoringApiLambda(stack, "Nyc311MonitoringApiLambda", { envName: "PROD", ...MONITORED, requestsTable: new RequestsTable(stack, "RequestsTable", { envName: "PROD" }) });
+    const template = Template.fromStack(stack);
+    const [fn] = Object.values(template.findResources("AWS::Lambda::Function"));
+    expect((fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables.AGENT_REPORTS_BUCKET).toBe("nyc311-agent-reports-123456789012");
+    const s3 = statementsOf(template).filter((s) => String(s.Action).startsWith("s3:"));
+    expect(s3).toEqual([
+      expect.objectContaining({ Action: "s3:ListBucket", Resource: "arn:aws:s3:::nyc311-agent-reports-123456789012", Condition: { StringLike: { "s3:prefix": ["software-analyzer-agent/*"] } } }),
+      expect.objectContaining({ Action: "s3:GetObject", Resource: "arn:aws:s3:::nyc311-agent-reports-123456789012/software-analyzer-agent/*" }),
+    ]);
   });
 });
