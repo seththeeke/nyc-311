@@ -63,6 +63,18 @@ const NYC311_CLI_USER_NAME = "seththeeke-cli";
  */
 const CDK_BOOTSTRAP_QUALIFIER = "hnb659fds";
 
+/*
+ * Every CodeBuild step runs Node 22, matching the Lambdas' NODEJS_22_X and
+ * Vitest 5's engine (#167), at the image's own 22.x. Not `runtime-versions`:
+ * that copies standard:7.0's cached 22 into place, 51s on a cold host (#179).
+ * An empty N_CACHE_PREFIX makes `n` download it fresh (~20s, as Node 20 did).
+ * The grep fails the step if node is not 22.
+ */
+export const NODE_22_INSTALL_COMMANDS = [
+  'N_CACHE_PREFIX="$(mktemp -d)" n "$NODE_22_VERSION"',
+  "node --version | grep -E '^v22[.]'",
+];
+
 /**
  * The self-mutating CI/CD pipeline (`aws-code-pipeline-plan.md`). This is
  * the standing exception to `CLAUDE.md` §5.3's single-stack rule — CI/CD
@@ -153,16 +165,10 @@ export class Nyc311PipelineStack extends Stack {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           computeType: codebuild.ComputeType.SMALL,
         },
-        /*
-         * Pin Node for every CodeBuild-backed step, never the image
-         * default: 22 matches every Lambda's NODEJS_22_X and Vitest 5's
-         * engine (^22.12.0). Node 20 is EOL and drew 12 EBADENGINE
-         * warnings per Synth (#167). CodeBuild installs the newest 22.x.
-         */
         partialBuildSpec: codebuild.BuildSpec.fromObject({
           phases: {
             install: {
-              "runtime-versions": { nodejs: "22" },
+              commands: NODE_22_INSTALL_COMMANDS,
             },
           },
         }),

@@ -1,7 +1,10 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import type { CloudAssembly } from "aws-cdk-lib/cx-api";
 import { beforeAll, describe, expect, it } from "vitest";
-import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
+import { NODE_22_INSTALL_COMMANDS, Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
 
@@ -12,11 +15,13 @@ const TEST_ENV = { account: "178280182163", region: "us-east-1" };
  * Template. Same reasoning as tests/stack/Nyc311Stack.test.ts's beforeAll.
  */
 let template: Template;
+let assembly: CloudAssembly;
 
 beforeAll(() => {
   const app = new App();
   const stack = new Nyc311PipelineStack(app, "TestPipelineStack", { env: TEST_ENV });
   template = Template.fromStack(stack);
+  assembly = app.synth();
 });
 
 describe("Nyc311PipelineStack", () => {
@@ -70,17 +75,30 @@ describe("Nyc311PipelineStack", () => {
     }
   });
 
-  it("pins every CodeBuild step to Node 22, matching the Lambdas' NODEJS_22_X and Vitest 5's engine (#167)", () => {
-    /* Assets/FileAssets takes CDK's asset-publishing defaults, not codeBuildDefaults, so it pins nothing. */
-    const projects = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) => ({
-      step: (project.Properties as { Description: string }).Description,
-      pin: /nodejs\\+"\s*:\s*\\+"(\d+)/.exec(JSON.stringify(project.Properties.Source.BuildSpec))?.[1],
-    }));
-    const pinned = projects.filter((p) => p.pin !== undefined);
+  it("installs Node 22 first in every inline CodeBuild step via a fresh n download, never runtime-versions (#167, #179)", () => {
+    /* Assets/FileAssets' buildspec is a YAML file in the assembly, not inline, so it is checked by the next test. */
+    const inline = Object.values(template.findResources("AWS::CodeBuild::Project"))
+      .map((project) => project.Properties.Source.BuildSpec as unknown)
+      .filter((spec): spec is string => typeof spec === "string" && spec.trimStart().startsWith("{"))
+      .map((spec) => JSON.parse(spec) as { phases: { install?: Record<string, unknown> & { commands?: string[] } } });
 
-    expect(pinned.map((p) => p.step)).toContainEqual(expect.stringMatching(/\/Build\/Synth$/));
-    expect(pinned.length).toBe(projects.length - 1);
-    expect(new Set(pinned.map((p) => p.pin))).toEqual(new Set(["22"]));
+    expect(inline.length).toBeGreaterThan(5);
+    for (const spec of inline) {
+      expect(spec.phases.install).not.toHaveProperty("runtime-versions");
+      expect(spec.phases.install?.commands?.slice(0, NODE_22_INSTALL_COMMANDS.length)).toEqual(NODE_22_INSTALL_COMMANDS);
+    }
+    expect(NODE_22_INSTALL_COMMANDS[0]).toMatch(/^N_CACHE_PREFIX="\$\(mktemp -d\)" n "\$NODE_22_VERSION"$/);
+  });
+
+  it("installs Node 22 before cdk-assets in the FileAssets buildspec too", () => {
+    const assetSpecs = readdirSync(assembly.directory).filter((f) => /^buildspec-.*-FileAsset\.yaml$/.test(f));
+    expect(assetSpecs).toHaveLength(1);
+    const spec = JSON.parse(readFileSync(join(assembly.directory, assetSpecs[0]), "utf8")) as {
+      phases: { install: Record<string, unknown> & { commands: string[] } };
+    };
+
+    expect(spec.phases.install).not.toHaveProperty("runtime-versions");
+    expect(spec.phases.install.commands).toEqual([...NODE_22_INSTALL_COMMANDS, "npm install -g cdk-assets@latest"]);
   });
 
   it("publishes every file asset from one CodeBuild project, not one per asset (publishAssetsInParallel: false)", () => {
