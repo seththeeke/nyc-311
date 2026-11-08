@@ -7,7 +7,9 @@
 # agent with saved queries, queries/<name>.sql (§17.11). Run by
 # agent-worktree.sh when AGENT_MEMORY is set. Commits only when something
 # changed and every file is within its cap; anything else logs a WARN,
-# restores the folder and commits nothing. Never fails the run.
+# restores the folder and commits nothing. The commit is built on
+# origin/main by agent-commit-to-main.sh, whatever branch the run is on.
+# Never fails the run.
 
 set -u
 
@@ -56,19 +58,15 @@ if [ -d "$dest/$dir/queries" ]; then
 fi
 [ "$count" -le "$QUERY_MAX_FILES" ] || reject "$count saved queries, over the $QUERY_MAX_FILES-file cap"
 
-git -C "$dest" add -A -- "$dir" &&
-  git -C "$dest" commit -q -m "[feat] - $agent: Memory update" -- "$dir" || {
-  say "WARN: could not commit $dir"
+# Commit on top of origin/main, never on the run's own branch (a PR branch for a pr-limit agent).
+sha=$("$(dirname -- "$0")/agent-commit-to-main.sh" "$dest" "[feat] - $agent: Memory update" "$dir")
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  say "memory committed to main ($size bytes, $count saved queries, $(printf '%.7s' "$sha"))"
   exit 0
-}
-
-for attempt in 1 2; do
-  if git -C "$dest" fetch -q origin main && git -C "$dest" rebase -q --autostash origin/main && git -C "$dest" push -q origin HEAD:main; then
-    say "memory committed to main ($size bytes, $count saved queries, $(git -C "$dest" rev-parse --short HEAD))"
-    exit 0
-  fi
-  git -C "$dest" rebase --abort 2>/dev/null || true
-  say "WARN: memory push attempt $attempt failed"
-done
-say "WARN: memory not pushed; the commit stays in the kept worktree"
+fi
+case $rc in
+  1) say "no new memory for $agent against main" ;;
+  *) say "WARN: memory not pushed; it stays in the kept worktree" ;;
+esac
 exit 0

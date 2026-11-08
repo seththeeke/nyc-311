@@ -1152,7 +1152,7 @@ Sources: [MorphLLM: Claude Code usage limits](https://www.morphllm.com/claude-co
 
 - **Path:** `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, the run's start in CT. The scheduler fixes the run's folder and passes it in the prompt.
 - **At most 500 words a file.** A report is a snapshot, not a log.
-- **Committed straight to `main` after the run**, like memory (§17.6): `scripts/agent-report-commit.sh`, run when the agent's schedule sets `REPORTS=1`. It accepts only new files in this run's folder named for this agent, each within the cap; anything else is logged, removed, and nothing is committed. One commit per run.
+- **Committed straight to `main` after the run**, like memory (§17.6): `scripts/agent-report-commit.sh`, run when the agent's schedule sets `REPORTS=1`. Both scripts build their commit on `origin/main` from the named paths only (`scripts/agent-commit-to-main.sh`, a temporary index), so a run that ends on a PR branch never pushes that branch to `main`, and an agent never stages its memory or reports into a PR. It accepts only new files in this run's folder named for this agent, each within the cap; anything else is logged, removed, and nothing is committed. One commit per run.
 - **Penny reads them.** She has read access to the folder and points to a report in the brief when it holds the detail.
 - Chat posts summarize a report; the report holds the detail.
 

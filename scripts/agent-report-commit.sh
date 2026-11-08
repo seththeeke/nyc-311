@@ -74,20 +74,10 @@ $changes
 EOF
 [ "$count" -le "$REPORT_MAX_FILES" ] || reject "$count reports, over the $REPORT_MAX_FILES-file cap"
 
-git -C "$dest" add -- "$dir" &&
-  git -C "$dest" commit -q -m "[feat] - $agent: Report ${dir#"$ROOT"/}" -- "$dir" || {
-  say "WARN: could not commit $dir"
-  restore
+# Commit on top of origin/main, never on the run's own branch (a PR branch for a pr-limit agent).
+if sha=$("$(dirname -- "$0")/agent-commit-to-main.sh" "$dest" "[feat] - $agent: Report ${dir#"$ROOT"/}" "$dir"); then
+  say "$count report(s) committed to main ($words_total words, $(printf '%.7s' "$sha"))"
   exit 0
-}
-
-for attempt in 1 2; do
-  if git -C "$dest" fetch -q origin main && git -C "$dest" rebase -q --autostash origin/main && git -C "$dest" push -q origin HEAD:main; then
-    say "$count report(s) committed to main ($words_total words, $(git -C "$dest" rev-parse --short HEAD))"
-    exit 0
-  fi
-  git -C "$dest" rebase --abort 2>/dev/null || true
-  say "WARN: report push attempt $attempt failed"
-done
-say "WARN: reports not pushed; the commit stays in the kept worktree"
+fi
+say "WARN: reports not pushed; they stay in the kept worktree"
 exit 0
