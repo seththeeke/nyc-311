@@ -614,16 +614,12 @@ export class Nyc311Stack extends Stack {
       failureNotificationEmail: FAILURE_NOTIFICATION_EMAIL,
     });
 
-    /* 10-capacity-modeling-and-integration.md §5.1 — admin on-demand scheduling trigger, for testing purposes. */
-
     /* 15-resource-consolidation.md §3.2 — the admin Service API bundle, serving every admin route. */
     const adminApiLambda = new Nyc311AdminApiLambda(this, "Nyc311AdminApiLambda", {
       envName: props.envName,
       usersTable,
       operatorsTable,
       ordersTable,
-      requestsTable,
-      locationsTable,
       featureFlagsTable,
       liveWorkspaceMetricsTable,
       jobRunsTable: warehouseJobRunsTable,
@@ -633,7 +629,6 @@ export class Nyc311Stack extends Stack {
       adHocQueryWorkgroup,
       jobRunnerLambda: warehouseJobRunnerLambda,
       jobScheduleGroup: warehouseJobScheduleGroup,
-      orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
     });
 
     const websiteHosting = new WebsiteHosting(this, "WebsiteHosting", {

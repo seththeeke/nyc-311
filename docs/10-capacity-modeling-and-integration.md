@@ -422,6 +422,8 @@ run, same as any other mutating AWS call.
 
 ### 5.1 Admin Scheduling tile
 
+> **Removed 2026-11-07.** The tile, `/admin/scheduling`, `POST /scheduling/run` and its controller are gone; scheduling runs only on its EventBridge schedule.
+
 **Agreed.** A second Admin tile (alongside Capacity), `/admin/scheduling`
 — an on-demand trigger for `scheduleOrders` ("kick off scheduling on
 demand for testing purposes"), since it otherwise only runs on its

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
-import { CapacityIcon, FeatureFlagIcon, SchedulingIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
+import { CapacityIcon, FeatureFlagIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 
@@ -19,13 +19,6 @@ const ADMIN_TILES: AdminTileConfig[] = [
     to: "/admin/capacity",
     accent: "emerald",
     icon: <CapacityIcon />,
-  },
-  {
-    title: "Scheduling",
-    description: "Kick off an on-demand scheduling run — dispatches queued Orders against the idle fleet.",
-    to: "/admin/scheduling",
-    accent: "cyan",
-    icon: <SchedulingIcon />,
   },
   {
     title: "Data Warehouse",

@@ -163,11 +163,6 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
   });
 
-  it("redirects /admin/scheduling to /login when logged out", async () => {
-    await renderAt("/admin/scheduling");
-    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
-  });
-
   it("redirects /admin/warehouse to /login when logged out", async () => {
     await renderAt("/admin/warehouse");
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
@@ -248,16 +243,6 @@ describe("AppRoutes", () => {
       try {
         await renderAt("/admin/capacity");
         expect(await screen.findByRole("heading", { name: "Capacity" })).toBeInTheDocument();
-      } finally {
-        loggedIn = false;
-      }
-    });
-
-    it("renders SchedulingManagementPage at /admin/scheduling", async () => {
-      loggedIn = true;
-      try {
-        await renderAt("/admin/scheduling");
-        expect(await screen.findByRole("heading", { name: "Scheduling" })).toBeInTheDocument();
       } finally {
         loggedIn = false;
       }

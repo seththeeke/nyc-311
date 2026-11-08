@@ -43,10 +43,9 @@ describe("MENU", () => {
     expect(monitoring.requiresAuth).toBe(false);
   });
 
-  it("lists the four admin items and requires auth", () => {
+  it("lists the three admin items and requires auth", () => {
     expect(admin.items.map((i) => i.to)).toEqual([
       "/admin/capacity",
-      "/admin/scheduling",
       "/admin/warehouse",
       "/admin/feature-flags",
     ]);

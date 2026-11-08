@@ -14,7 +14,6 @@ import { listWarehouseJobsController } from "../../../../controller/web-api/admi
 import { postJobRunResultsController } from "../../../../controller/web-api/admin/postJobRunResultsController";
 import { removeCapacityController } from "../../../../controller/web-api/admin/removeCapacityController";
 import { runAdHocQueryController } from "../../../../controller/web-api/admin/runAdHocQueryController";
-import { runSchedulingController } from "../../../../controller/web-api/admin/runSchedulingController";
 import { updateContactController } from "../../../../controller/web-api/admin/updateContactController";
 import { updateFeatureFlagController } from "../../../../controller/web-api/admin/updateFeatureFlagController";
 import { updateWarehouseJobController } from "../../../../controller/web-api/admin/updateWarehouseJobController";
@@ -33,7 +32,6 @@ vi.mock("../../../../controller/web-api/admin/listWarehouseJobsController", () =
 vi.mock("../../../../controller/web-api/admin/postJobRunResultsController", () => ({ postJobRunResultsController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/removeCapacityController", () => ({ removeCapacityController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/runAdHocQueryController", () => ({ runAdHocQueryController: vi.fn() }));
-vi.mock("../../../../controller/web-api/admin/runSchedulingController", () => ({ runSchedulingController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/updateContactController", () => ({ updateContactController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/updateFeatureFlagController", () => ({ updateFeatureFlagController: vi.fn() }));
 vi.mock("../../../../controller/web-api/admin/updateWarehouseJobController", () => ({ updateWarehouseJobController: vi.fn() }));
@@ -45,7 +43,6 @@ const EXPECTED_CONTROLLERS: Record<AdminApiRouteKey, unknown> = {
   "GET /capacity/snapshot": getCapacitySnapshotController,
   "POST /capacity": addCapacityController,
   "DELETE /capacity/{operator_id}": removeCapacityController,
-  "POST /scheduling/run": runSchedulingController,
   "PATCH /admin/contacts/{contact_id}": updateContactController,
   "POST /admin/feature-flags": createFeatureFlagController,
   "PUT /admin/feature-flags/{flag_key}": updateFeatureFlagController,
@@ -84,9 +81,9 @@ afterEach(() => {
 });
 
 describe("adminApiRouter", () => {
-  it("covers exactly the 18 admin routes", () => {
-    expect(ADMIN_API_ROUTES).toHaveLength(18);
-    expect(new Set(ADMIN_API_ROUTES).size).toBe(18);
+  it("covers exactly the 17 admin routes", () => {
+    expect(ADMIN_API_ROUTES).toHaveLength(17);
+    expect(new Set(ADMIN_API_ROUTES).size).toBe(17);
   });
 
   it.each(ADMIN_API_ROUTES)("dispatches %s to its controller with the raw event", async (routeKey) => {

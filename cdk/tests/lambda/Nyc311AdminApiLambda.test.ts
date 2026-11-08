@@ -1,14 +1,11 @@
 import { ContactsTable } from "../../data/ContactsTable";
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { beforeAll, describe, expect, it } from "vitest";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
 import { LiveWorkspaceMetricsTable } from "../../data/LiveWorkspaceMetricsTable";
-import { LocationsTable } from "../../data/LocationsTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
 import { OrdersTable } from "../../data/OrdersTable";
-import { RequestsTable } from "../../data/RequestsTable";
 import { UsersTable } from "../../data/UsersTable";
 import { WarehouseJobRunsTable } from "../../data/WarehouseJobRunsTable";
 import { Nyc311AdminApiLambda } from "../../lambda/Nyc311AdminApiLambda";
@@ -18,8 +15,6 @@ import { Nyc311WarehouseBucket } from "../../warehouse/Nyc311WarehouseBucket";
 import { Nyc311WarehouseCatalog } from "../../warehouse/Nyc311WarehouseCatalog";
 import { Nyc311WarehouseJobRunnerLambda } from "../../warehouse/Nyc311WarehouseJobRunnerLambda";
 import { Nyc311WarehouseJobScheduleGroup } from "../../warehouse/Nyc311WarehouseJobScheduleGroup";
-
-const FAKE_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:123456789012:stateMachine:Fake";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
@@ -40,8 +35,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     usersTable: new UsersTable(stack, "UsersTable", { envName }),
     operatorsTable: new OperatorsTable(stack, "OperatorsTable", { envName }),
     ordersTable: new OrdersTable(stack, "OrdersTable", { envName }),
-    requestsTable: new RequestsTable(stack, "RequestsTable", { envName }),
-    locationsTable: new LocationsTable(stack, "LocationsTable", { envName }),
     featureFlagsTable: new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName }),
     liveWorkspaceMetricsTable: new LiveWorkspaceMetricsTable(stack, "LiveWorkspaceMetricsTable", { envName }),
     jobRunsTable,
@@ -55,7 +48,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
       jobRunnerLambda,
       failureNotificationEmail: "ops@example.com",
     }),
-    orderExecutionStateMachine: sfn.StateMachine.fromStateMachineArn(stack, "FakeStateMachine", FAKE_STATE_MACHINE_ARN),
   });
   return Template.fromStack(stack);
 }
@@ -81,12 +73,12 @@ describe("Nyc311AdminApiLambda", () => {
     testTemplate = synthesize("TEST");
   });
 
-  it("bundles the admin router on Node 22 with a 5-minute timeout", () => {
+  it("bundles the admin router on Node 22 with a 30-second timeout", () => {
     testTemplate.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "Nyc311AdminApi-Test",
       Handler: "index.adminApiRouter",
       Runtime: "nodejs22.x",
-      Timeout: 300,
+      Timeout: 30,
       MemorySize: 512,
     });
   });
@@ -110,11 +102,8 @@ describe("Nyc311AdminApiLambda", () => {
         "FEATURE_FLAGS_TABLE_NAME",
         "LIVE_WORKSPACE_METRICS_TABLE_NAME",
         "JOB_RESULTS_BUCKET",
-        "LOCATIONS_TABLE_NAME",
         "OPERATORS_TABLE_NAME",
         "ORDERS_TABLE_NAME",
-        "ORDER_EXECUTION_STATE_MACHINE_ARN",
-        "REQUESTS_TABLE_NAME",
         "SCHEDULER_GROUP_NAME",
         "SCHEDULER_ROLE_ARN",
         "USERS_TABLE_NAME",
@@ -127,7 +116,7 @@ describe("Nyc311AdminApiLambda", () => {
     );
   });
 
-  it("grants exactly the union of the retired per-route admin Lambdas' actions — no Scan, no writes to Requests/Locations", () => {
+  it("grants exactly the union of the retired per-route admin Lambdas' actions — no Scan, no Step Functions", () => {
     expect(actionsOf(bundleStatements(testTemplate))).toEqual(
       [
         "athena:GetQueryExecution",
@@ -152,7 +141,6 @@ describe("Nyc311AdminApiLambda", () => {
         "scheduler:CreateSchedule",
         "scheduler:DeleteSchedule",
         "scheduler:UpdateSchedule",
-        "states:StartExecution",
       ].sort()
     );
   });
@@ -177,13 +165,13 @@ describe("Nyc311AdminApiLambda", () => {
     expect(JSON.stringify(writes[0].Resource)).not.toMatch(/"\/\*"|job-results/);
   });
 
-  it("only reads the Requests and Locations tables", () => {
+  it("only queries the Orders table", () => {
     testTemplate.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: Match.objectLike({
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: "dynamodb:GetItem",
-            Resource: Match.arrayWith([{ "Fn::GetAtt": [Match.stringLikeRegexp("^RequestsTable"), "Arn"] }]),
+            Action: "dynamodb:Query",
+            Resource: Match.arrayWith([{ "Fn::GetAtt": [Match.stringLikeRegexp("^OrdersTable"), "Arn"] }]),
           }),
         ]),
       }),

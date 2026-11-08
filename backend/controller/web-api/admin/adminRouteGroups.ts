@@ -21,7 +21,6 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminApiRouteKey, readonly CognitoGroup[
   "GET /capacity/snapshot": ADMIN_OR_OPERATIONS,
   "POST /capacity": ADMIN_OR_OPERATIONS,
   "DELETE /capacity/{operator_id}": ADMIN_OR_OPERATIONS,
-  "POST /scheduling/run": ADMIN_ONLY,
   "PATCH /admin/contacts/{contact_id}": ADMIN_OR_PRODUCT,
   "POST /admin/feature-flags": ADMIN_ONLY,
   "PUT /admin/feature-flags/{flag_key}": ADMIN_ONLY,

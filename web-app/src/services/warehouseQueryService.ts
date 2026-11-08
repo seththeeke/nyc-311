@@ -5,7 +5,7 @@ import { MOCK_AD_HOC_QUERY_RESULT } from "../test-data/adHocQueryResult";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
- * (CLAUDE.md §5.1) — same shape as schedulingService. Backs the admin
+ * (CLAUDE.md §5.1). Backs the admin
  * ad-hoc SQL console (7-data-warehousing.md §12a, Leg 7).
  */
 export interface WarehouseQueryService {

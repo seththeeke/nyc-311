@@ -2,8 +2,7 @@ import type { AdHocQueryResult } from "../models/adHocQueryResult";
 
 /*
  * Mock mode has no real Athena backing it — one canned resultset returned
- * regardless of the query text, same "no real dispatch loop to simulate"
- * shape as MockSchedulingService (7-data-warehousing.md §12a).
+ * regardless of the query text (7-data-warehousing.md §12a).
  */
 export const MOCK_AD_HOC_QUERY_RESULT: AdHocQueryResult = {
   columns: [

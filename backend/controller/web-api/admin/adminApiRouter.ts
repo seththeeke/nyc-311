@@ -19,7 +19,6 @@ import { listWarehouseJobsController } from "./listWarehouseJobsController";
 import { postJobRunResultsController } from "./postJobRunResultsController";
 import { removeCapacityController } from "./removeCapacityController";
 import { runAdHocQueryController } from "./runAdHocQueryController";
-import { runSchedulingController } from "./runSchedulingController";
 import { updateContactController } from "./updateContactController";
 import { updateFeatureFlagController } from "./updateFeatureFlagController";
 import { updateWarehouseJobController } from "./updateWarehouseJobController";
@@ -32,7 +31,6 @@ const ADMIN_API_CONTROLLERS: Record<AdminApiRouteKey, ApiController> = {
   "GET /capacity/snapshot": getCapacitySnapshotController,
   "POST /capacity": addCapacityController,
   "DELETE /capacity/{operator_id}": removeCapacityController,
-  "POST /scheduling/run": runSchedulingController,
   "PATCH /admin/contacts/{contact_id}": updateContactController,
   "POST /admin/feature-flags": createFeatureFlagController,
   "PUT /admin/feature-flags/{flag_key}": updateFeatureFlagController,

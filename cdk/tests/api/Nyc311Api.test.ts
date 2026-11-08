@@ -1,7 +1,6 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { beforeAll, describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
@@ -86,19 +85,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
   const adminAuth = new Nyc311AdminAuth(stack, "Nyc311AdminAuth", { envName });
   const operatorsTable = new OperatorsTable(stack, "OperatorsTable", { envName });
   const locationsTable = new LocationsTable(stack, "LocationsTable", { envName });
-  /*
-   * Referenced by ARN, not the real construct — the real state machine
-   * pulls in Nyc311OrderExecutionLambda, and this file already bundles
-   * ~12 Lambdas with esbuild once per environment (see the CI-cost note
-   * on the describe block below); a fake ARN keeps that count from
-   * growing further for a route-wiring test that has no reason to care
-   * what's on the other end of it.
-   */
-  const orderExecutionStateMachine = sfn.StateMachine.fromStateMachineArn(
-    stack,
-    "FakeOrderExecutionStateMachine",
-    "arn:aws:states:us-east-1:123456789012:stateMachine:Fake"
-  );
   const getFleetLocationsApiLambda = new Nyc311FleetApiLambda(stack, "Nyc311GetFleetLocationsApiLambda", {
     envName,
     operatorsTable,
@@ -130,8 +116,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     usersTable,
     operatorsTable,
     ordersTable,
-    requestsTable,
-    locationsTable,
     featureFlagsTable,
     liveWorkspaceMetricsTable,
     jobRunsTable: warehouseJobRunsTable,
@@ -140,7 +124,6 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     adHocQueryWorkgroup,
     jobRunnerLambda: warehouseJobRunnerLambda,
     jobScheduleGroup: warehouseJobScheduleGroup,
-    orderExecutionStateMachine,
   });
   const apiDomainName = apigwv2.DomainName.fromDomainNameAttributes(stack, "ApiDomainName", {
     name: "api.test.boroughsim.com",

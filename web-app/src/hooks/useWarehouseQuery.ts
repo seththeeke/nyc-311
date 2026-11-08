@@ -12,8 +12,7 @@ export interface UseWarehouseQueryResult {
 /**
  * Components call hooks, never services, directly (CLAUDE.md §5.1). Backs
  * `SqlQueryConsole` (`7-data-warehousing.md` §12a, Leg 7) — a mutation, not
- * a poll, same shape as `useScheduling`, but returns the resultset instead
- * of a void success signal.
+ * a poll, returning the resultset.
  */
 export function useWarehouseQuery(): UseWarehouseQueryResult {
   const mutation = useMutation<AdHocQueryResult, Error, string>({

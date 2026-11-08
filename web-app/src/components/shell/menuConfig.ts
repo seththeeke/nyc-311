@@ -124,7 +124,6 @@ export const MENU: readonly MenuEntry[] = [
     requiresAuth: true,
     items: [
       { label: "Capacity", to: "/admin/capacity" },
-      { label: "Scheduling", to: "/admin/scheduling" },
       { label: "Data Warehouse", to: "/admin/warehouse" },
       { label: "Feature Flags", to: "/admin/feature-flags" },
     ],

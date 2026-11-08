@@ -5,15 +5,12 @@ import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
-import type { IStateMachine } from "aws-cdk-lib/aws-stepfunctions";
 import type { Construct } from "constructs";
 import type { ContactsTable } from "../data/ContactsTable";
 import type { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import type { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
-import type { LocationsTable } from "../data/LocationsTable";
 import type { OperatorsTable } from "../data/OperatorsTable";
 import type { OrdersTable } from "../data/OrdersTable";
-import type { RequestsTable } from "../data/RequestsTable";
 import type { UsersTable } from "../data/UsersTable";
 import type { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
 import type { Nyc311AdHocQueryWorkgroup } from "../warehouse/Nyc311AdHocQueryWorkgroup";
@@ -28,8 +25,6 @@ export interface Nyc311AdminApiLambdaProps {
   usersTable: UsersTable;
   operatorsTable: OperatorsTable;
   ordersTable: OrdersTable;
-  requestsTable: RequestsTable;
-  locationsTable: LocationsTable;
   featureFlagsTable: FeatureFlagsTable;
   /** Read by GET /capacity/snapshot (docs/17-executive-team.md §12.3). */
   liveWorkspaceMetricsTable: LiveWorkspaceMetricsTable;
@@ -41,7 +36,6 @@ export interface Nyc311AdminApiLambdaProps {
   adHocQueryWorkgroup: Nyc311AdHocQueryWorkgroup;
   jobRunnerLambda: Nyc311WarehouseJobRunnerLambda;
   jobScheduleGroup: Nyc311WarehouseJobScheduleGroup;
-  orderExecutionStateMachine: IStateMachine;
 }
 
 /**
@@ -70,12 +64,8 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
       handler: "adminApiRouter",
       runtime: Runtime.NODEJS_22_X,
       bundling: NYC311_LAMBDA_BUNDLING,
-      /*
-       * POST /scheduling/run's 5 minutes, kept: API Gateway answers at 30s,
-       * but the scheduling pass it started still runs to completion, as it
-       * did in its own Lambda. Every other route finishes well inside 30s.
-       */
-      timeout: Duration.minutes(5),
+      /* API Gateway answers at 30s; the ad-hoc query's own poll gives up at 20s. */
+      timeout: Duration.seconds(30),
       memorySize: 512,
       logGroup,
       projectRoot: backendRoot,
@@ -84,9 +74,6 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
         USERS_TABLE_NAME: props.usersTable.tableName,
         OPERATORS_TABLE_NAME: props.operatorsTable.tableName,
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
-        REQUESTS_TABLE_NAME: props.requestsTable.tableName,
-        LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
-        ORDER_EXECUTION_STATE_MACHINE_ARN: props.orderExecutionStateMachine.stateMachineArn,
         FEATURE_FLAGS_TABLE_NAME: props.featureFlagsTable.tableName,
         LIVE_WORKSPACE_METRICS_TABLE_NAME: props.liveWorkspaceMetricsTable.tableName,
         AD_HOC_ATHENA_WORKGROUP: props.adHocQueryWorkgroup.workgroupName,
@@ -102,17 +89,14 @@ export class Nyc311AdminApiLambda extends NodejsFunction {
       },
     });
 
-    /* requireAdminUser (every route); capacity CRUD + scheduling; flag writes; job definitions. */
+    /* requireAdminUser (every route); capacity CRUD and snapshot; flag writes; job definitions. */
     props.usersTable.grant(this, "dynamodb:Query", "dynamodb:PutItem");
     props.operatorsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
-    props.ordersTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query");
+    props.ordersTable.grant(this, "dynamodb:Query");
     props.liveWorkspaceMetricsTable.grant(this, "dynamodb:BatchGetItem");
-    props.requestsTable.grant(this, "dynamodb:GetItem");
-    props.locationsTable.grant(this, "dynamodb:GetItem");
     props.featureFlagsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem");
     props.jobRunsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Query");
     props.contactsTable.grant(this, "dynamodb:GetItem", "dynamodb:PutItem");
-    props.orderExecutionStateMachine.grantStartExecution(this);
 
     const stack = Stack.of(this);
     const bucketArn = props.warehouseBucket.bucket.bucketArn;

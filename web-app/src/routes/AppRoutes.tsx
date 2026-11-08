@@ -55,9 +55,6 @@ const AdminPage = lazy(() => import("../components/pages/AdminPage").then((m) =>
 const CapacityManagementPage = lazy(() =>
   import("../components/pages/CapacityManagementPage").then((m) => ({ default: m.CapacityManagementPage }))
 );
-const SchedulingManagementPage = lazy(() =>
-  import("../components/pages/SchedulingManagementPage").then((m) => ({ default: m.SchedulingManagementPage }))
-);
 const AdminWarehousePage = lazy(() =>
   import("../components/pages/AdminWarehousePage").then((m) => ({ default: m.AdminWarehousePage }))
 );
@@ -156,10 +153,6 @@ export function AppRoutes(): ReactElement {
           <Route
             path="/admin/capacity"
             element={<AdminRoute>{withLoadingFallback(<CapacityManagementPage />)}</AdminRoute>}
-          />
-          <Route
-            path="/admin/scheduling"
-            element={<AdminRoute>{withLoadingFallback(<SchedulingManagementPage />)}</AdminRoute>}
           />
           <Route
             path="/admin/warehouse"
