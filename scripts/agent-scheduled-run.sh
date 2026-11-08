@@ -110,6 +110,9 @@ KIND=${KIND:-pr-limit}
 # Team Chat environment for this agent's runs (docs/17-executive-team.md §11.4); unset runs without chat.
 AGENT_TEAM_CHAT_ENV=${TEAM_CHAT_ENV:-}
 export AGENT_TEAM_CHAT_ENV
+# The word cap on this agent's top-level chat posts (docs/17 §21.2); unset is the client's default (75), 0 is none.
+AGENT_CHAT_POST_WORDS=${CHAT_POST_WORDS:-}
+export AGENT_CHAT_POST_WORDS
 case "$KIND" in
   pr-limit) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" ;;
   assigned-issue) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" "${PROMPT_RESUME:?}" ;;

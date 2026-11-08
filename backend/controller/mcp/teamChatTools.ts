@@ -50,7 +50,7 @@ export const TEAM_CHAT_TOOLS: readonly TeamChatTool[] = [
   }),
   tool({
     name: "post_message",
-    description: "Post a top-level message to a channel you're a member of. tags is required: post once, with your run's tag.",
+    description: "Post a top-level message to a channel you're a member of. tags is required: post once, with your run's tag. Keep it short: a top-level post is capped at 75 words unless your run sets otherwise; put detail in a thread reply.",
     inputSchema: { channel_id: channelId, text, tags: postTags },
     run: (client, args) => client.postMessage(args.channel_id, args.text, args.tags),
   }),

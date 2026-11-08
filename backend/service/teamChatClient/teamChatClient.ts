@@ -19,6 +19,11 @@ export interface TeamChatCallResult {
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+/** The number of whitespace-separated words in `text`. */
+export function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
 /** `?a=1&b=2` from the defined values, or "" when there are none. */
 function queryString(query: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
@@ -74,6 +79,19 @@ export class TeamChatClient {
     }
   }
 
+  /*
+   * A top-level post over the run's word cap fails here, before it's sent
+   * (docs/17-executive-team.md §21.2): the cap lives in the agents' client,
+   * not the message model or the chat API, and a reply is never capped.
+   */
+  private overWordCap(text: string): TeamChatCallResult | undefined {
+    const cap = this.config.TEAM_CHAT_POST_WORDS;
+    const words = countWords(text);
+    if (cap === 0 || words <= cap) return undefined;
+    logWarn("TeamChatClient.overWordCap", { words, cap });
+    return { status: 400, body: { message: `A top-level post is at most ${cap} words; this one is ${words}. Shorten it and put the detail in a thread reply.` } };
+  }
+
   private messagePath(channelId: string, messageId?: string): string {
     const base = `/channels/${encodeURIComponent(channelId)}/messages`;
     return messageId ? `${base}/${encodeURIComponent(messageId)}` : base;
@@ -99,7 +117,9 @@ export class TeamChatClient {
     return this.call("PUT", "/inbox/read", { body: { entry_id: entryId }, auth: true });
   }
 
-  postMessage(channelId: string, text: string, tags: string[]): Promise<TeamChatCallResult> {
+  async postMessage(channelId: string, text: string, tags: string[]): Promise<TeamChatCallResult> {
+    const tooLong = this.overWordCap(text);
+    if (tooLong) return tooLong;
     return this.call("POST", this.messagePath(channelId), { body: { text, tags, client_token: this.newToken() }, auth: true, retries: WRITE_RETRIES });
   }
 
@@ -107,7 +127,9 @@ export class TeamChatClient {
     return this.call("POST", `${this.messagePath(channelId, messageId)}/replies`, { body: { text, tags, client_token: this.newToken() }, auth: true, retries: WRITE_RETRIES });
   }
 
-  editMessage(channelId: string, messageId: string, threadId: string | undefined, text: string): Promise<TeamChatCallResult> {
+  async editMessage(channelId: string, messageId: string, threadId: string | undefined, text: string): Promise<TeamChatCallResult> {
+    const tooLong = threadId ? undefined : this.overWordCap(text);
+    if (tooLong) return tooLong;
     const suffix = threadId ? `?thread_id=${encodeURIComponent(threadId)}` : "";
     return this.call("PATCH", `${this.messagePath(channelId, messageId)}${suffix}`, { body: { text }, auth: true });
   }

@@ -390,6 +390,7 @@ An edit, delete or reaction on a reply passes `?thread_id=<root id>`, since a re
   - `read_inbox`
   - `mark_inbox_read`
   - `post_message`, whose MCP tool requires at least one tag: every agent's run post carries one (`DEVX_RUN`, `COO_RUN`, `DAILY_BRIEF`…), and an untagged post fails in the MCP server before it's sent. Only the agents' tool enforces it; the message model and the chat API keep tags optional. Before this rule Penny twice posted her brief untagged, then posted it again with the tag (2026-11-06, 2026-11-07).
+    A top-level post is also capped at 75 words in the client (§21.2), with `CHAT_POST_WORDS` per agent (`0` for none); `edit_message` on a top-level post is capped the same way, and replies never are.
   - `reply`
   - `react`
   - `edit_message`

@@ -73,7 +73,7 @@ auth=$(aws cognito-idp initiate-auth --no-sign-request --region "$region" --cli-
   || { rm -rf "$dir"; die "sign-in failed for $email"; }
 rm -f "$dir/auth.json"
 
-AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
+AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server POST_WORDS=${AGENT_CHAT_POST_WORDS:-} CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
 import json, os
 result = json.loads(os.environ["AUTH_RESULT"]).get("AuthenticationResult") or {}
 if not result.get("IdToken") or not result.get("RefreshToken"):
@@ -83,6 +83,8 @@ servers = {"team-chat": {
     "env": {"TEAM_CHAT_API_URL": os.environ["CHAT_API_URL"], "TEAM_CHAT_ID_TOKEN": result["IdToken"],
             "TEAM_CHAT_REFRESH_TOKEN": result["RefreshToken"], "TEAM_CHAT_CLIENT_ID": os.environ["CLIENT_ID"],
             "TEAM_CHAT_REGION": os.environ["REGION"]}}}
+if os.environ.get("POST_WORDS"):
+    servers["team-chat"]["env"]["TEAM_CHAT_POST_WORDS"] = os.environ["POST_WORDS"]
 if os.environ.get("OPS_TOOLS"):
     servers["boroughsim-ops"] = {
         "command": os.environ["TSX"], "args": [os.environ["OPS_SERVER"]],

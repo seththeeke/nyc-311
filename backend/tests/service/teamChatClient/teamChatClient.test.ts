@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TeamChatClient } from "../../../service/teamChatClient/teamChatClient";
+import { TEAM_CHAT_POST_WORDS_DEFAULT, TeamChatClientConfigSchema } from "../../../models/teamChatClientConfig";
+import { countWords, TeamChatClient } from "../../../service/teamChatClient/teamChatClient";
 
 const NOW = new Date("2026-11-01T10:00:00.000Z");
 const jwt = (exp: number): string => `h.${Buffer.from(JSON.stringify({ exp })).toString("base64url")}.s`;
 const FRESH = jwt(NOW.getTime() / 1000 + 3600);
 const STALE = jwt(NOW.getTime() / 1000 + 30);
-const CONFIG = { TEAM_CHAT_API_URL: "https://chat.example.com", TEAM_CHAT_ID_TOKEN: FRESH, TEAM_CHAT_REFRESH_TOKEN: "refresh", TEAM_CHAT_CLIENT_ID: "client", TEAM_CHAT_REGION: "us-east-1" };
+const CONFIG = { TEAM_CHAT_API_URL: "https://chat.example.com", TEAM_CHAT_ID_TOKEN: FRESH, TEAM_CHAT_REFRESH_TOKEN: "refresh", TEAM_CHAT_CLIENT_ID: "client", TEAM_CHAT_REGION: "us-east-1", TEAM_CHAT_POST_WORDS: 75 };
 
 const json = (status: number, body: unknown): Response => new Response(body === null ? null : JSON.stringify(body), { status });
 
@@ -52,6 +53,44 @@ describe("TeamChatClient reads", () => {
   it("returns a null body for an empty response", async () => {
     fetchMock.mockResolvedValueOnce(json(204, null));
     expect(await client().markInboxRead("E1")).toEqual({ status: 204, body: null });
+  });
+});
+
+describe("TeamChatClient word cap (docs/17 §21.2)", () => {
+  const words = (n: number): string => Array.from({ length: n }, (_, i) => `w${i}`).join(" ");
+
+  it("counts whitespace-separated words", () => {
+    expect(countWords("  one two\n three\tfour  ")).toBe(4);
+    expect(countWords("")).toBe(0);
+  });
+
+  it("sends a top-level post at the cap and rejects one over it without calling the API", async () => {
+    await client().postMessage("tech-team", words(75), ["DEVX_RUN"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const result = await client().postMessage("tech-team", words(76), ["DEVX_RUN"]);
+    expect(result.status).toBe(400);
+    expect(result.body).toEqual({ message: expect.stringContaining("at most 75 words; this one is 76") });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps an edit of a top-level post but never a reply or an edit of one", async () => {
+    expect((await client().editMessage("tech-team", "M1", undefined, words(80))).status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await client().reply("tech-team", "M1", words(300), []);
+    await client().editMessage("tech-team", "R1", "M1", words(300));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("has no cap when the run sets 0", async () => {
+    await client({ ...CONFIG, TEAM_CHAT_POST_WORDS: 0 }).postMessage("executive-assistant", words(400), ["DAILY_BRIEF"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults the cap to 75 when the environment doesn't set it", () => {
+    const { TEAM_CHAT_POST_WORDS: _unused, ...env } = CONFIG;
+    void _unused;
+    expect(TeamChatClientConfigSchema.parse(env).TEAM_CHAT_POST_WORDS).toBe(TEAM_CHAT_POST_WORDS_DEFAULT);
+    expect(TeamChatClientConfigSchema.parse({ ...env, TEAM_CHAT_POST_WORDS: "0" }).TEAM_CHAT_POST_WORDS).toBe(0);
   });
 });
 
