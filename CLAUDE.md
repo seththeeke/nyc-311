@@ -19,6 +19,10 @@ The repo root will contain exactly four top-level working directories:
   (§5.4). Its infrastructure lives in `cdk/customer/` (§5.3). Added
   2026-10-13; the Directory Lock below applies to it exactly as it does
   to the other three.
+- `agent-web-app/` — the localhost-only agent monitor
+  (`agent-web-app/SPEC.md`), one npm package (§5.5). Never
+  deployed, never built or triggered by the pipeline. Added 2026-11-07;
+  the Directory Lock applies to it like the others.
 - `docs/` - design docs, prompts, and other documents for the app
 
 No further structure exists inside any of these yet.
@@ -53,8 +57,8 @@ The documents folder is freeform with few rules and contains design docs, prompt
 
 ## 2. Operational Loop (Definition of Done)
 
-No task touching `web-app/`, `backend/`, `cdk/`, or `customer/backend/` is
-considered complete
+No task touching `web-app/`, `backend/`, `cdk/`, `customer/backend/` or
+`agent-web-app/` is considered complete
 until ALL of the following have been done, in this run, after the final
 code change — not asserted, not assumed from a prior run:
 
@@ -71,7 +75,10 @@ with the remaining gate named.
 
 This loop applies per affected package, not just once for the whole repo —
 a change spanning `backend/` and `cdk/` needs build+test+coverage verified
-in both.
+in both. The flip side holds too: **only the affected packages run it.** A
+change confined to `agent-web-app/` runs the loop in `agent-web-app/` alone
+— never `web-app/`, `backend/`, `cdk/` or `customer/backend/`, which it
+can't affect (§5.5 isolation), and it ships with no pipeline run.
 
 *(Once each directory's structure section exists — see §1 — it should also
 specify the exact build/test/coverage commands for that package, so this
@@ -606,6 +613,75 @@ happens in `cdk/customer/`, not here.
 | `npm run test` | `vitest run` |
 | `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
 
+### 5.5 agent-web-app/
+
+The localhost-only agent monitor (`agent-web-app/SPEC.md`). Phase 1
+is **read-only**: it reads the Mac mini's launchd plists, `launchctl`, the
+agent log dir, `scripts/agent-schedules/` and `git worktree list`, and changes
+nothing. One npm package: a local Node server (Fastify, bound to `127.0.0.1`
+only) that also serves the built React UI. Brute force is fine — it's a
+personal tool; keep it simple and expect rework as later phases land.
+
+It follows `backend/`'s rules on the server (§5.2: layering, zod at every
+boundary, lazily constructed readers, logging by layer, typed errors, camelCase
+files) and `web-app/`'s on the UI (§5.1: React, Vite, TanStack Query polling,
+React Router, Tailwind, hooks → services, zod models, jsx-a11y, 200-line
+components), minus what doesn't apply: no in-memory mode, no `.env.test` /
+`.env.production`, no feature flags, no auth. §6 applies in full.
+
+**It is never deployed and never in the pipeline.** `Nyc311PipelineStack`
+names no command for it, and its push trigger excludes `agent-web-app/**`, so
+a commit touching only this package starts no pipeline run.
+
+**It is fully self-contained, both ways.** Its frontend, backend, tests,
+fixtures and docs (`SPEC.md`) all live under `agent-web-app/`. It imports
+nothing from `web-app/`, `backend/`, `cdk/`, `customer/` or `docs/` (helpers
+like `logger.ts` are copied, as `customer/backend/` does), and nothing there
+imports from it. Both directions are enforced from inside this package, so
+the other packages' configs never change for it: its ESLint bans imports
+that leave `agent-web-app/`, and a test fails if any source file in the
+other packages names an `agent-web-app` path.
+It reads the agent scripts' *outputs* on disk (logs, plists, `.env` files) at
+runtime and never imports or edits them. The root coverage rollup (§8) and
+the pipeline ignore it.
+
+-> agent-web-app
+ -> shared
+  -> models - one file per entity (Agent, Schedule, Run, RunEvent, ...), TS
+     type + zod schema, used by both server and UI
+ -> server
+  -> main.ts - entry: config, Fastify listen, static UI
+  -> config.ts - port and the paths it reads (log root, scheduler clone,
+     LaunchAgents dir), each overridable by env
+  -> logger.ts - copied from backend/
+  -> controller - one per route; parses params with zod, calls a service
+  -> service - run parsing, health checks, next fire, agent assembly
+  -> source - the data-access layer: readers over files and commands
+     (`launchctl`, `plutil`, `git`), including the `RunSource` interface and
+     its launchd-log implementation (spec §4.2). Controllers never import it
+  -> models/errors.ts - typed errors → HTTP status in controllers
+ -> web
+  -> config.ts, routes, services, hooks, components (pages under
+     components/pages) - as web-app/
+ -> test-data - fixture log dirs, plists and `.env` files copied from real
+    shapes, read by tests via the config.ts path overrides
+ -> tests - mirrors shared/, server/ and web/
+
+### Building and Testing agent-web-app
+
+**Vitest** + `@vitest/coverage-v8`, RTL for components, Fastify `inject()` for
+controllers, commands (`launchctl`, `git`) stubbed behind the source layer,
+**90% coverage gate, per file**; `server/main.ts` is excluded like `bin/`.
+
+| Command | Purpose |
+|---|---|
+| `npm start` | build, then serve UI + API on `http://127.0.0.1:4311` |
+| `npm run dev` | watch-mode server + Vite HMR (`/api` proxied); read-only, so it reads the real logs safely |
+| `npm run build` | `tsc -b && vite build` |
+| `npm run lint` | `eslint .` |
+| `npm run test` | `vitest run` |
+| `npm run test:coverage` | `vitest run --coverage` — fails if any file is under 90% |
+
 ## 6. Coding Conventions
 
 Apply across every package (`web-app`, `backend`, `cdk`), not just one
@@ -781,7 +857,8 @@ copied in.
   that agent's frontmatter); the guard reads the branch from
   `CLAUDE_PROJECT_DIR`, which is the worktree, so it works unchanged.
 
-Design + rationale: `docs/autonomous-agent-plan.md`.
+Design + rationale: `docs/autonomous-agent-plan.md`. To see what the agents
+are doing, `agent-web-app/` (§5.5) is the read-only monitor.
 
 **Scheduled runs.** On the Mac mini, launchd runs agents on a cadence via
 `scripts/agent-scheduled-run.sh <agent>` (NEW vs REVISE mode by open-PR

@@ -29,7 +29,7 @@ cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)
 [ -z "$cmd" ] && exit 0
 
 # The hook input's cwd follows the session into a worktree; CLAUDE_PROJECT_DIR
-# is the fallback (docs/agent-orchestration-spec.md §12).
+# is the fallback (it stays at the main checkout after EnterWorktree).
 dir=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
 [ -z "$dir" ] && dir="${CLAUDE_PROJECT_DIR:-.}"
 branch=$(git -C "$dir" branch --show-current 2>/dev/null)

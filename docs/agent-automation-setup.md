@@ -1,8 +1,8 @@
 # Agent automation — scheduled autonomous runs
 
-> **Being replaced** by the local orchestrator app — see
-> `agent-orchestration-spec.md`. This launchd setup stays live until that
-> spec's migration (§12) completes.
+> **Monitoring:** `agent-web-app/` (its `SPEC.md`) is a localhost, read-only
+> view of everything below. It may take over scheduling in a later phase;
+> until then this launchd setup is the scheduler.
 
 How the repo's autonomous agents (today: `devx-agent` and `gen-purpose-dev`)
 run unattended on a cadence, on the dedicated Mac mini. Builds on the worktree isolation in
@@ -164,9 +164,9 @@ for your next comment rather than retrying every poll.
 | Worktree | `scripts/agent-worktree.sh` | touching your checkout or another run's |
 | Wrapper | `scripts/agent-scheduled-run.sh` | two runs at once (lock), a dead run silently retrying (parks it) |
 
-Not yet covered, and waiting on the orchestrator
-(`agent-orchestration-spec.md`): a per-run wall-clock cap, cost circuit
-breaker, and a run trace in a UI. Today a run's trace is its host log.
+Not yet covered: a per-run wall-clock cap and a cost circuit breaker
+(`agent-web-app/SPEC.md` Phase 3). A run's trace is its host log, which
+`agent-web-app/` shows in a UI.
 
 ### AWS access — one role per agent
 
