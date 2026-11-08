@@ -33,6 +33,9 @@ const LambdaMonitoringPage = lazy(() =>
 const PublicApiPage = lazy(() =>
   import("../components/pages/PublicApiPage").then((m) => ({ default: m.PublicApiPage }))
 );
+const CodeQualityPage = lazy(() =>
+  import("../components/pages/CodeQualityPage").then((m) => ({ default: m.CodeQualityPage }))
+);
 const IntegrationTestReportPage = lazy(() =>
   import("../components/pages/IntegrationTestReportPage").then((m) => ({ default: m.IntegrationTestReportPage }))
 );
@@ -139,6 +142,10 @@ export function AppRoutes(): ReactElement {
           <Route
             path="/monitoring/public-api"
             element={<PublicRoute>{withLoadingFallback(<PublicApiPage />)}</PublicRoute>}
+          />
+          <Route
+            path="/monitoring/code-quality"
+            element={<PublicRoute>{withLoadingFallback(<CodeQualityPage />)}</PublicRoute>}
           />
           <Route
             path="/monitoring/integration-tests"

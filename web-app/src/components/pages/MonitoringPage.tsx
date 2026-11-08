@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
 import {
+  CodeQualityIcon,
   CoverageIcon,
   DataWarehouseIcon,
   IngestionIcon,
@@ -48,6 +49,13 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
     to: "/monitoring/public-api",
     accent: "emerald",
     icon: <PublicApiIcon />,
+  },
+  {
+    title: "Code Quality",
+    description: "An outside auditor's scores for each part of the codebase, and the findings behind them.",
+    to: "/monitoring/code-quality",
+    accent: "violet",
+    icon: <CodeQualityIcon />,
   },
   {
     title: "Test Coverage",

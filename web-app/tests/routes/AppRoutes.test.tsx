@@ -143,6 +143,11 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "Integration Tests" })).toBeInTheDocument();
   });
 
+  it("renders CodeQualityPage at /monitoring/code-quality", async () => {
+    await renderAt("/monitoring/code-quality");
+    expect(await screen.findByRole("heading", { level: 1, name: "Code Quality" })).toBeInTheDocument();
+  });
+
   it("renders LoginPage at /login", async () => {
     await renderAt("/login");
     expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();

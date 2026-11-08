@@ -109,6 +109,7 @@ export const MENU: readonly MenuEntry[] = [
       { label: "Pipeline", to: "/monitoring/pipeline" },
       { label: "Lambda Health", to: "/monitoring/lambda-health" },
       { label: "Public API", to: "/monitoring/public-api" },
+      { label: "Code Quality", to: "/monitoring/code-quality" },
       { label: "Test Coverage", to: "/coverage/index.html", external: true },
       { label: "Integration Tests", to: "/monitoring/integration-tests" },
       { label: "Data Modeling", to: "/data" },

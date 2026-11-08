@@ -28,12 +28,13 @@ describe("MENU", () => {
     expect(map.featureFlag).toBeUndefined();
   });
 
-  it("lists the seven monitoring items, with Test Coverage flagged external", () => {
+  it("lists the eight monitoring items, with Test Coverage flagged external", () => {
     expect(monitoring.items.map((i) => i.label)).toEqual([
       "311 Request Metrics",
       "Pipeline",
       "Lambda Health",
       "Public API",
+      "Code Quality",
       "Test Coverage",
       "Integration Tests",
       "Data Modeling",

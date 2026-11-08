@@ -54,6 +54,16 @@ describe("MonitoringPage", () => {
     expect(screen.getByRole("link", { name: /public api/i })).toHaveAttribute("href", "/monitoring/public-api");
   });
 
+  it("renders a Code Quality tile linking to /monitoring/code-quality", () => {
+    render(
+      <MemoryRouter>
+        <MonitoringPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /code quality/i })).toHaveAttribute("href", "/monitoring/code-quality");
+  });
+
   it("renders a Test Coverage tile linking out to the hosted coverage report in a new tab", () => {
     render(
       <MemoryRouter>

@@ -120,3 +120,13 @@ export function FeatureFlagIcon(): ReactElement {
     </svg>
   );
 }
+
+export function CodeQualityIcon(): ReactElement {
+  return (
+    <svg {...ICON_STROKE_PROPS} className="h-6 w-6">
+      <circle cx="10.5" cy="10.5" r="5.5" />
+      <path d="M14.5 14.5L20 20" />
+      <path d="M8.5 9l-1.5 1.5L8.5 12M12.5 9l1.5 1.5-1.5 1.5" />
+    </svg>
+  );
+}

@@ -106,7 +106,7 @@ describe("Sidebar menu", () => {
     expect(screen.getByRole("button", { name: /^Admin/ })).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("collapses and re-expands the monitoring accordion, listing its seven items", async () => {
+  it("collapses and re-expands the monitoring accordion, listing its eight items", async () => {
     mockedUseAuth.mockReturnValue(authResult());
     renderSidebar();
     const user = userEvent.setup();
@@ -114,7 +114,7 @@ describe("Sidebar menu", () => {
     await user.click(header);
 
     const group = screen.getByRole("group", { name: "System Monitoring" });
-    expect(within(group).getAllByRole("link")).toHaveLength(7);
+    expect(within(group).getAllByRole("link")).toHaveLength(8);
     expect(within(group).getByRole("link", { name: "311 Request Metrics" })).toHaveAttribute(
       "href",
       "/monitoring/ingestion",
