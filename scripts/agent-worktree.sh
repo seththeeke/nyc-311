@@ -167,6 +167,10 @@ cmd_run() {
   if [ -n "${AGENT_MEMORY:-}" ]; then
     "$PRIMARY/scripts/agent-memory-commit.sh" "$agent" "$dest" || true
   fi
+  # Agent reports (docs/17-executive-team.md §21.3): only new files in this run's folder.
+  if [ -n "${AGENT_REPORT_DIR:-}" ]; then
+    "$PRIMARY/scripts/agent-report-commit.sh" "$agent" "$dest" "$AGENT_REPORT_DIR" || true
+  fi
 
   dirty=$(git -C "$dest" status --porcelain 2>/dev/null | grep -c . || true)
   if [ "$status" -eq 0 ] && [ "$dirty" -eq 0 ]; then

@@ -311,6 +311,16 @@ Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run
 - **Models:** `MODEL_<MODE>` for one mode, else `MODEL`, else the agent's
   frontmatter, passed to `claude --model`.
 
+### Memory and reports
+
+- `MEMORY=1`: after the run, `scripts/agent-memory-commit.sh` commits the
+  agent's `.claude/agent-memory/<agent>/` folder to `main`.
+- `REPORTS=1`: the run gets a report folder,
+  `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/` (its start in CT), named in
+  its prompt; after the run `scripts/agent-report-commit.sh` commits the new
+  `<agent>-<name>.md` files there (500 words each) to `main`. The agent also
+  needs `Write` to that folder in its settings and guard.
+
 ## Team Chat for an agent
 
 An agent posts to Team Chat (`docs/17-executive-team.md` §10) through the `team-chat` MCP server, signed in as its own Cognito user.

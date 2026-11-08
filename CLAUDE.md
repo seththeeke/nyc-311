@@ -760,7 +760,10 @@ copied in.
   feature and bug issues; it never changes code
   (`.claude/hooks/cpo-agent-guard.sh`) and is the first agent with memory
   (`.claude/agent-memory/<agent>/MEMORY.md`, committed by
-  `scripts/agent-memory-commit.sh` when `MEMORY=1`).
+  `scripts/agent-memory-commit.sh` when `MEMORY=1`). Agents' reports go to
+  `.claude/agent-reports/<YYYY-MM-DD>/<HH_MM>/<agent>-<name>.md`, committed by
+  `scripts/agent-report-commit.sh` when `REPORTS=1` (`17-executive-team.md`
+  §21.3).
 - **Committer stamp is per-worktree.** `.claude/hooks/stamp-committer.sh` →
   `.githooks/prepare-commit-msg` key the stamp to the per-worktree git dir, so
   concurrent commits keep their correct agent prefix no matter which agent (or

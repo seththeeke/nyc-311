@@ -124,6 +124,7 @@ export AGENT_OPS_TOOLS
 AGENT_PRODUCT_TOOLS=${PRODUCT_TOOLS:-}
 export AGENT_PRODUCT_TOOLS
 # Agent memory (docs/17 §17.6): commit the agent's MEMORY.md to main after the run when it changed.
+# REPORTS=1 (docs/17 §21.3) gives the run a report folder, set below once the mode is known.
 AGENT_MEMORY=${MEMORY:-}
 export AGENT_MEMORY
 
@@ -345,6 +346,15 @@ else
   prompt="$PROMPT_NEW"
   log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode mode"
 fi
+
+# Reports (docs/17 §21.3): this run's folder, by its start in CT, committed after the run.
+AGENT_REPORT_DIR=""
+if [ -n "${REPORTS:-}" ] && [ "$mode" != "IDLE" ]; then
+  AGENT_REPORT_DIR=".claude/agent-reports/$(TZ=America/Chicago date +%Y-%m-%d)/$(TZ=America/Chicago date +%H_%M)"
+  prompt="$prompt Your report folder for this run is $AGENT_REPORT_DIR/ (create it): write each report there as $agent-<name>.md, at most 500 words."
+  log "report folder: $AGENT_REPORT_DIR"
+fi
+export AGENT_REPORT_DIR
 
 # ---- 3. run the agent --------------------------------------------------------
 
