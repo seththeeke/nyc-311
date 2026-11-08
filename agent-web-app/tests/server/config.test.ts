@@ -1,5 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { getConfig } from "../../server/config.ts";
+
+/* The repo root holding this package, whatever the checkout is named: agent worktrees live in <repo>-worktrees/<name>, not nyc-311. */
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 describe("getConfig", () => {
   it("defaults to today's Mac mini layout under HOME", () => {
@@ -8,7 +13,7 @@ describe("getConfig", () => {
       host: "127.0.0.1", port: 4311, uid: 501, staticDir: null,
       logRoot: "/h/Library/Logs/nyc311-agents", schedulerClone: "/h/agents/nyc-311", launchAgentsDir: "/h/Library/LaunchAgents",
     });
-    expect(config.primaryCheckout).toMatch(/nyc-311$/);
+    expect(config.primaryCheckout).toBe(REPO_ROOT);
   });
 
   it("takes every path from env, and serves the built UI in production", () => {
