@@ -258,7 +258,9 @@ Then, from that clone:
 3. **Claude auth:** run `claude` once and log in. Credentials go in the login
    keychain, which launchd jobs can read while you're logged in.
 4. **Dependencies:** `npm ci` in `.`, `web-app/`, `backend/`, `cdk/`,
-   `customer/backend/` — worktrees CoW-clone these. (Newer npm blocks
+   `customer/backend/`, `agent-web-app/` — worktrees CoW-clone these, and
+   the scheduler and `agent-team.sh start` re-run `npm ci` in any of them
+   left without `node_modules`. (Newer npm blocks
    `esbuild`/`fsevents` install scripts by
    default; builds and tests pass without them.)
 5. **Keep the machine up:**
