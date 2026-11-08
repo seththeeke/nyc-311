@@ -18,6 +18,13 @@ except Exception:
 if not cmd:
     sys.exit(0)
 
+def analyzer_issue(number):
+    try:
+        out = subprocess.run(["gh", "issue", "view", number, "--repo", "seththeeke/nyc-311", "--json", "labels", "--jq", "[.labels[].name] | index(\"software-analyzer\") != null"], capture_output=True, text=True, timeout=30)
+    except Exception:
+        return False
+    return out.stdout.strip() == "true"
+
 def deny(why):
     print(f"cto-agent guard: {why} Rex reviews and merges only: leave the change to Pip.", file=sys.stderr)
     sys.exit(2)
@@ -80,7 +87,10 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
                 flags = [a for a in rest if a.startswith("-")]
                 if labels == ["cto-escalated"] and all(f in {"--add-label", "--repo", "-R"} for f in flags):
                     continue
-            deny(f"gh issue {action} is blocked; Rex only reads, comments on and escalates issues.")
+                number = next((a for a in rest if re.fullmatch(r"#?\d+", a)), None)
+                if labels == ["wont-fix"] and all(f in {"--add-label", "--repo", "-R"} for f in flags) and number and analyzer_issue(number.lstrip("#")):
+                    continue
+            deny(f"gh issue {action} is blocked; Rex only reads, comments on and escalates issues, and declines Sable\x27s with wont-fix.")
         if sub in {"issue", "repo", "release", "label", "workflow", "run", "secret", "variable", "auth"} and args[:2] != ["auth", "status"]:
             deny(f"gh {sub} is blocked.")
         if sub == "pr" and len(args) > 1:

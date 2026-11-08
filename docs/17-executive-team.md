@@ -128,7 +128,7 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
   | Channel | Members | Content |
   |---|---|---|
   | `#executive-team` | CEO and the five executives | The Staff Meetings (§6) |
-  | `#tech-team` | CEO, CTO, DevX Engineer, Cost Engineer, Software Engineer | Baked sample messages (`techTeamMessages.ts`) |
+  | `#tech-team` | CEO, CTO, DevX Engineer, Cost Engineer, Software Analyzer, Software Engineer | Baked sample messages (`techTeamMessages.ts`) |
 
 - **Channel view:**
   - a header with the topic, member avatars and count;
@@ -140,7 +140,7 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
 - **Profiles:** clicking an author's avatar or name sets `?profile=<member_id>` and opens their profile in the secondary workspace: avatar, name, title, AGENT or HUMAN, a Work in progress tag where it applies, role, character, handle and who they report to, with a link to their card on Meet the Team. A profile and a thread share the workspace, so opening one closes the other.
 - **Beta:** Team Chat carries a Beta tag on its sidebar link and its workspace header.
 - **Formatting:** messages render as markdown with single line breaks kept, so one field per line stays one line. A short label opening a line (`Fleet:`) is bolded.
-- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Rex`, `@Pip`, `@Grimble`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
+- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Rex`, `@Pip`, `@Grimble`, `@Sable`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
 
 ---
 
@@ -1083,7 +1083,7 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 |---|---|
 | **S1** | The audits file. Built 2026-11-07: `.claude/review/software-analyzer-audits.md`, six weighted audits (complexity 20, pattern sprawl 15, consistency 15, divergence and duplication 15, code smells 15, AI-friendliness 20) and five packages (`backend`, `web-app`, `cdk`, `customer`, `tooling`). |
 | **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. Built 2026-11-07: `.claude/agents/software-analyzer-agent.md`, `.claude/hooks/software-analyzer-agent-guard.sh` (writes only memory, his reports and `/tmp`; `npm` only `ci`, `run lint`, `run build`), `.claude/agent-settings/software-analyzer-agent.json`, `scripts/agent-schedules/software-analyzer-agent.env` (`Mon@21:30 Thu@21:30`, Opus, `MEMORY=1`, `REPORTS=1`), seeded memory with the rotation. Each report starts with a `package`/`score`/`previous` front matter the Code Quality page reads. |
-| **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. |
+| **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. Built 2026-11-07: member `software-analyzer` (handle `Sable`) in `#tech-team`; Rex's *Sable's tickets* section gives each one verdict (accept, decline with `wont-fix`, or question), at most 2 comments, and his guard allows `--add-label wont-fix` only on `software-analyzer` issues. |
 | **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. |
 | **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. |
 

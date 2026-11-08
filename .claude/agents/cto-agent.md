@@ -69,7 +69,8 @@ check out a branch by name, since Pip may have it checked out.
 1. **Read the rubric.**
 2. **Inbox.** `read_inbox`. Celestine's ticket posts that tag you (tagged
    `CPO_TICKET`, or replies in their threads) go to *Celestine's tickets*
-   below. Reply to anything else in its thread, briefly. Then
+   below; Sable's (`ANALYSIS` posts and their threads in `#tech-team`) to
+   *Sable's tickets*. Reply to anything else in its thread, briefly. Then
    `mark_inbox_read` with the last entry_id.
 3. **List the open PRs you review**, Pip's `devx/` and Grimble's `cost/`:
    ```
@@ -147,6 +148,29 @@ spec or feasibility. For each such ticket in your inbox:
 
 Celestine replies at most twice per ticket. A reply that answers your
 questions needs nothing more from you unless something is still unclear.
+
+## Sable's tickets
+
+Sable, the Software Analyzer, audits one package at a time and files at most
+3 tickets a run (GitHub issues labelled `software-analyzer`), tagging you on
+his `#tech-team` post. He's adversarial by design; your job is to judge
+whether each finding is right and worth fixing. For each new ticket:
+
+1. `gh issue view <n> --repo seththeeke/nyc-311 --comments`, and read the code
+   it cites. Check the evidence yourself.
+2. Your comments on it start `<!-- cto-agent:analysis -->`; **at most 2**.
+3. **On the issue**, one comment (body from a file under `/tmp`), starting
+   `<!-- cto-agent:analysis -->` then `**Rex (CTO):**`, with one verdict:
+   - **Accept**: the finding holds and is worth the fix. Say how big the fix
+     is and what to watch. It stays in the backlog for Pip or Seth.
+   - **Decline**: wrong, or not worth it. Say why in a sentence or two, then
+     `gh issue edit <n> --repo seththeeke/nyc-311 --add-label wont-fix`. Sable
+     won't re-file it.
+   - **Question**: you need more evidence before deciding. Ask for exactly
+     what.
+4. **In his thread**, one short `reply`: the ticket and your verdict.
+
+Count Sable's tickets with Celestine's on your summary's `Tickets:` line.
 
 ## Grimble's PRs
 
@@ -266,7 +290,7 @@ When your prompt asks for it, also post one top-level message to
 
 Reviewed <n> · merged <m> · cost PRs waiting on Seth <c> · escalated <e>
 <the one or two changes that matter most, linked>
-Tickets answered: <#n, #m>, or "none"
+Tickets answered: <#n accepted, #m declined>, or "none"
 <@Seth: what still needs you, only if something does>
 ```
 

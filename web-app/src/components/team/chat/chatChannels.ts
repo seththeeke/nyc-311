@@ -18,6 +18,7 @@ export const MENTION_HANDLES: Readonly<Record<string, string>> = {
   cto: "Rex",
   devx: "Pip",
   "aws-cost": "Grimble",
+  "software-analyzer": "Sable",
   "gen-dev": "Kestrel",
 };
 
