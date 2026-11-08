@@ -750,15 +750,16 @@ Daily at 06:00 Mac mini time (Pacific), which is 8:00 CT. `KIND=operations`, `TE
 
 ### 16.1 The run
 
-Four times a day, at 08:00, 11:00, 14:00 and 17:00 Mac mini time, across working hours. `KIND=operations`, `TEAM_CHAT_ENV=PROD`. Pip's 06:00 PRs are reviewed at 08:00 and his 18:00 PRs the next morning.
+Eight times a day, an hour after each of Pip's runs (§21.4): 08:00, 10:00, 12:00, 14:00, 21:00, 23:00, 01:00 and 03:00 Mac mini time (Pacific). `KIND=operations`, `TEAM_CHAT_ENV=PROD`. The 14:00 slot runs mode `DAILY`, which adds the roll-up.
 
 1. Read the rubric (§16.3) and the inbox.
 2. List the open `devx/` PRs. Skip any labelled `cto-escalated`. The head SHA's `cto-review` status decides the rest: none means review it; `failure` means skip it, waiting on Pip; `success` means approved but not merged, so go straight to the merge (§16.2). **A revision is reviewed once, and every new revision is reviewed until the PR is merged or escalated**, including a new revision of an approved PR (usually Pip's conflict resolution).
 3. For each remaining PR, in his own worktree (`agent-worktree.sh`, a separate directory from Pip's): fetch `pull/<n>/head` and check it out **detached**, never by branch name, since Pip's worktree may hold the branch. Read the PR's conversation, diff it against `main`, and run `build`, `lint` and `test:coverage` in every touched package.
 4. Decide: **approve** if nothing is blocking; **comment** if something is, on rounds 1 and 2; **escalate** to the CEO if something is still blocking at round 3.
 5. Mark the PR on GitHub (§16.2). After an approval, **merge** it if GitHub reports it mergeable, or leave the conflict comment if it conflicts with `main` (§16.2).
-6. React to Pip's `#tech-team` post for that PR: `✅` approved (merged or not), `💬` commented or escalated. No message in `#tech-team`.
-7. Post one summary to `#executive-team`, tagged `CTO_REVIEW`, **every run**: one line per open PR, **approved and merged** or **approved, not merged** (with why: merge conflicts, draft, mergeability unknown, or GitHub refused), commented (blocking count and round), escalated (with `@Seth`) or skipped (no new revision, waiting on Pip's conflict fix), or "No open devx PRs."
+6. React to Pip's `#tech-team` post for that PR: `✅` approved (merged or not), `💬` commented or escalated. His only message there is the run's summary.
+7. Post one summary to `#tech-team`, tagged `CTO_REVIEW`, **every run**, at most 75 words (§21.2): one line per open PR, **merged** or **not merged** (with why), comments with the round, or escalated, and the tickets answered. Escalations to @Seth go out on the run that finds them.
+8. **Once a day** (the `DAILY` slot), one roll-up of the last 24 hours to `#executive-team`, tagged `CTO_DAILY`: PRs reviewed, merged, waiting and escalated, the changes that matter most, and tickets answered. No post names the run's type.
 
 ### 16.2 Signed marks
 
@@ -809,7 +810,7 @@ Pip already tends unaddressed comments on his PRs at the start of every run. He 
 - [ ] Mac mini: `[cto-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-cto-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311CtoAgentRole cto-agent`; `aws --profile nyc311-cto-agent sts get-caller-identity` ends in `assumed-role/Nyc311CtoAgentRole/cto-agent`.
 - [ ] Mac mini: `git pull && (cd backend && npm ci)`, then a hand run against Test chat, `AGENT_TEAM_CHAT_ENV=TEST scripts/agent-worktree.sh run cto-agent "Code review. Follow your 'Each run' section."`.
 - [x] Cognito logins in Test and Prod (2026-11-04).
-- [ ] Mac mini: `scripts/agent-schedule-install.sh install cto-agent` (08:00, 11:00, 14:00, 17:00).
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install cto-agent` (8 slots, v2, §21.4).
 
 ---
 
@@ -1302,7 +1303,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 |---|---|---|---|---|---|
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 8 a day (§21.4), `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
-| `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00, 11:00, 14:00, 17:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
+| `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 8 a day (§21.4), the 14:00 slot `DAILY`, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
