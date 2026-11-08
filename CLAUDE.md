@@ -756,6 +756,8 @@ copied in.
   comments, labels and a `cto-review` status, and never changes code
   (`.claude/hooks/cto-agent-guard.sh`); its rubric is
   `.claude/review/cto-code-review.md`.
+  `aws-cost-agent` (§18) works like `devx-agent` on `cost/` branches to
+  lower the AWS bill; Rex reviews and only a human merges.
   `cpo-agent` (§17) triages Contacts, reads the WBR and files `cpo-agent`
   feature and bug issues; it never changes code
   (`.claude/hooks/cpo-agent-guard.sh`) and is the first agent with memory

@@ -1011,9 +1011,19 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 | Leg | What |
 |---|---|
 | **G1** | IAM user `aws-cost-agent` and its role `Nyc311CostAgentRole` (`cdk/agents/CostAgentRole.ts`): `ReadOnlyAccess`, secrets denied, plus `ce:Get*` and `budgets:View*` reads (cdk, pipeline stack). Built 2026-11-07. |
-| **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. |
+| **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. Built 2026-11-07: `.claude/agents/aws-cost-agent.md`, `.claude/hooks/aws-cost-agent-guard.sh` (also blocks merges, force-pushes, `git add -A`/`.` and staging memory or reports), `.claude/agent-settings/aws-cost-agent.json`, `scripts/agent-schedules/aws-cost-agent.env`, seeded memory. |
 | **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. |
 | **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
+
+### 18.7 Setup TODO
+
+- [ ] Deploy: the pipeline stack creates `aws-cost-agent` and `Nyc311CostAgentRole` (G1); the app stacks seed him in Team Chat (G3).
+- [ ] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM`: `scripts/agent-credentials.py create aws-cost-agent TEST` and `… PROD` on the MacBook; copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] IAM console: create `aws-cost-agent`'s access key by hand.
+- [ ] Mac mini: `[aws-cost-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-aws-cost-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311CostAgentRole aws-cost-agent`; `aws --profile nyc311-aws-cost-agent sts get-caller-identity` ends in `assumed-role/Nyc311CostAgentRole/aws-cost-agent`, and `aws --profile nyc311-aws-cost-agent ce get-cost-forecast …` works.
+- [ ] GitHub labels `aws-cost-agent` and `cost-experiment`.
+- [ ] Mac mini: `git pull && (cd backend && npm ci)`, a hand run against Test chat, `AGENT_TEAM_CHAT_ENV=TEST AGENT_REPORT_DIR=… scripts/agent-worktree.sh run aws-cost-agent "Cost run. Follow your 'Each run' section."`.
+- [ ] Mac mini: `scripts/agent-schedule-install.sh install aws-cost-agent`.
 
 ---
 
@@ -1302,10 +1312,11 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | Agent | Persona | Cognito user (both pools) | Cognito groups | AWS identity | Runs |
 |---|---|---|---|---|---|
 | `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 8 a day (§21.4), `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
-| `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00 (Pacific), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
 | `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 8 a day (§21.4), the 14:00 slot `DAILY`, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
-| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
-| `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 09:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
+| `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 5 a day: AUDIT 05:00, CONVERSE ×4 (§21.4), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`, `REPORTS=1` |
+| `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
+| `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | 03:30 daily (05:30 CT), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 
