@@ -1013,7 +1013,7 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 | **G1** | IAM user `aws-cost-agent` and its role `Nyc311CostAgentRole` (`cdk/agents/CostAgentRole.ts`): `ReadOnlyAccess`, secrets denied, plus `ce:Get*` and `budgets:View*` reads (cdk, pipeline stack). Built 2026-11-07. |
 | **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. Built 2026-11-07: `.claude/agents/aws-cost-agent.md`, `.claude/hooks/aws-cost-agent-guard.sh` (also blocks merges, force-pushes, `git add -A`/`.` and staging memory or reports), `.claude/agent-settings/aws-cost-agent.json`, `scripts/agent-schedules/aws-cost-agent.env`, seeded memory. |
 | **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. Built 2026-11-07: member `aws-cost` (handle `Grimble`) in `#tech-team`; Rex lists `devx/` and `cost/` PRs, checks the cost case, ends a `cost/` approval with "Ready for Seth to merge" and never merges one (his guard already merges `devx/` only). |
-| **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
+| **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. Roster flipped 2026-11-07 with the goal "Month-end AWS forecast under $30"; the Mac mini setup is §18.7. |
 
 ### 18.7 Setup TODO
 
@@ -1085,7 +1085,16 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 | **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. Built 2026-11-07: `.claude/agents/software-analyzer-agent.md`, `.claude/hooks/software-analyzer-agent-guard.sh` (writes only memory, his reports and `/tmp`; `npm` only `ci`, `run lint`, `run build`), `.claude/agent-settings/software-analyzer-agent.json`, `scripts/agent-schedules/software-analyzer-agent.env` (`Mon@21:30 Thu@21:30`, Opus, `MEMORY=1`, `REPORTS=1`), seeded memory with the rotation. Each report starts with a `package`/`score`/`previous` front matter the Code Quality page reads. |
 | **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. Built 2026-11-07: member `software-analyzer` (handle `Sable`) in `#tech-team`; Rex's *Sable's tickets* section gives each one verdict (accept, decline with `wont-fix`, or question), at most 2 comments, and his guard allows `--add-label wont-fix` only on `software-analyzer` issues. |
 | **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. Built 2026-11-07: `cdk/agents/AgentReportsBucket.ts`, `SoftwareAnalyzerAgentRole.ts` (on a new `AgentRole` base that `ReadOnlyAgentRole` now extends), `scripts/agent-reports-sync.sh`, the two monitoring routes and the Code Quality page. |
-| **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. |
+| **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. Roster flipped 2026-11-07; the Mac mini setup is §19.8. |
+
+### 19.8 Setup TODO
+
+- [ ] Deploy: the pipeline stack creates `software-analyzer-agent`, `Nyc311SoftwareAnalyzerAgentRole` and the reports bucket; the app stacks seed him in Team Chat and add the Code Quality routes.
+- [ ] Cognito logins in Test and Prod, in `BOROUGH_SIM_TEAM`: `scripts/agent-credentials.py create software-analyzer-agent TEST` and `… PROD` on the MacBook; copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] IAM console: create `software-analyzer-agent`'s access key by hand.
+- [ ] Mac mini: `[software-analyzer-agent-key]` in `~/.aws/credentials`, and `[profile nyc311-software-analyzer-agent]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311SoftwareAnalyzerAgentRole software-analyzer-agent`; `aws --profile nyc311-software-analyzer-agent sts get-caller-identity` ends in `assumed-role/Nyc311SoftwareAnalyzerAgentRole/software-analyzer-agent`.
+- [ ] GitHub labels `software-analyzer` and `wont-fix`.
+- [ ] Mac mini: a hand run against Test chat, then `scripts/agent-schedule-install.sh install software-analyzer-agent`.
 
 ---
 
@@ -1233,7 +1242,7 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 - [ ] Grimble built (§18.6) and Sable built (§19.7), including the Code Quality page.
 - [ ] Team Chat: Grimble and Sable as seed members in `#tech-team`, `@Grimble` and `@Sable`, tags `COST_RUN`, `ANALYSIS` and `CTO_DAILY`.
 - [ ] Every changed schedule installed on the Mac mini.
-- [ ] Roster: `live: true` for Grimble and Sable; Kid Kestrel stays Work in progress.
+- [x] Roster: `live: true` for Grimble and Sable; Kid Kestrel stays Work in progress (2026-11-07).
 
 ### 21.9 Build plan
 

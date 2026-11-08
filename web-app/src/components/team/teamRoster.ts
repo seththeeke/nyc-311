@@ -148,8 +148,8 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     short_title: "Cost Engineer",
     photo_url: null,
     responsibility: "Reads the AWS bill, past and projected, and finds creative ways to pay less for the same system.",
-    goals: [],
-    live: false,
+    goals: [{ goal: "Pay less for the same system", metric: "Month-end AWS forecast", target: "Under $30" }],
+    live: true,
     links: [],
   },
   {
@@ -166,7 +166,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Judges the software's quality as an outside assessor: scores the codebase's complexity and reports code smells, dead code and overly complex code.",
     goals: [],
-    live: false,
+    live: true,
     links: [],
   },
 ];
