@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getAgent, listAgents } from "../../../web/services/agentService.ts";
 import { getServerHealth, listWorktrees } from "../../../web/services/machineService.ts";
-import { getRun, listRuns, readRunLog } from "../../../web/services/runService.ts";
+import { getRun, listRuns, readRunLog, startRun } from "../../../web/services/runService.ts";
 import { makeAgent, makeHealth, makeRun, makeRunDetail, makeWorktree, stubApi } from "../fixtures.tsx";
 
 describe("services", () => {
@@ -14,6 +14,7 @@ describe("services", () => {
       "/agents/cto-agent/runs/20261107T140004/log?offset=7": { text: "x", offset: 7, nextOffset: 8 },
       "/health": makeHealth(),
       "/worktrees": [makeWorktree()],
+      "/agents/cto-agent/run": { agent: "cto-agent", pid: 3, requestedAt: "2026-11-07T00:00:00Z" },
     });
     expect(await listAgents()).toHaveLength(1);
     expect((await getAgent("cto-agent")).config.name).toBe("cto-agent");
@@ -22,5 +23,6 @@ describe("services", () => {
     expect((await readRunLog("cto-agent", "20261107T140004", 7)).nextOffset).toBe(8);
     expect((await getServerHealth()).ok).toBe(true);
     expect(await listWorktrees()).toHaveLength(1);
+    expect((await startRun("cto-agent", { prompt: "", promptMode: "APPEND", mode: null, testChat: false })).pid).toBe(3);
   });
 });

@@ -4,7 +4,7 @@ import type { RunSummary } from "../../../shared/models/run.ts";
 
 const run = (overrides: Partial<RunSummary> = {}): RunSummary => ({
   agent: "a", runId: "20261107T080000", startedAt: "2026-11-07T08:00:00.000Z", endedAt: null, status: "SUCCEEDED", mode: "RUN", model: null,
-  exitCode: 0, durationSeconds: 60, chatPostId: null, openPrsBefore: null, openPrsAfter: null, warnings: [], error: null, hasReport: false, ...overrides,
+  exitCode: 0, durationSeconds: 60, chatPostId: null, openPrsBefore: null, openPrsAfter: null, warnings: [], error: null, hasReport: false, manual: false, ...overrides,
 });
 
 const healthy = (overrides: Partial<AgentHealthInput> = {}): AgentHealthInput => ({

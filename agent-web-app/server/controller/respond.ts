@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { ZodType, ZodTypeAny, output } from "zod";
 import { logError, logInfo, logWarn } from "../logger.ts";
-import { NotFoundError, ValidationError } from "../models/errors.ts";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../models/errors.ts";
 
 /** Parses route input; a bad value is a ValidationError (400), never a raw ZodError. */
 export function parseInput<S extends ZodTypeAny>(schema: S, value: unknown): output<S> {
@@ -13,6 +13,8 @@ export function parseInput<S extends ZodTypeAny>(schema: S, value: unknown): out
 function statusOf(error: unknown): number {
   if (error instanceof NotFoundError) return 404;
   if (error instanceof ValidationError) return 400;
+  if (error instanceof ForbiddenError) return 403;
+  if (error instanceof ConflictError) return 409;
   return 500;
 }
 

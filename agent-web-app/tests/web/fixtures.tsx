@@ -13,7 +13,7 @@ export function makeRun(overrides: Partial<RunSummary> = {}): RunSummary {
   return {
     agent: "cto-agent", runId: "20261107T140004", startedAt: "2026-11-07T22:00:04.000Z", endedAt: "2026-11-07T22:01:52.000Z",
     status: "SUCCEEDED", mode: "RUN", model: null, exitCode: 0, durationSeconds: 108, chatPostId: "01M6W0G1GQGVFVSFJPTFA0VYEH",
-    openPrsBefore: null, openPrsAfter: null, warnings: [], error: null, hasReport: true, ...overrides,
+    openPrsBefore: null, openPrsAfter: null, warnings: [], error: null, hasReport: true, manual: false, ...overrides,
   };
 }
 
@@ -46,7 +46,7 @@ export function makeWorktree(overrides: Partial<Worktree> = {}): Worktree {
 
 /** Stubs `fetch`, answering each `/api` path from `routes` (exact path incl. query), else a 404 `{ error }`. */
 export function stubApi(routes: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn<typeof fetch>(async (input) => {
     const url = String(input);
     const path = url.startsWith("/api") ? url.slice("/api".length) : url;
     if (path in routes) return new Response(JSON.stringify(routes[path]), { status: 200 });

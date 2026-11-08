@@ -5,6 +5,7 @@ import { formatDuration, formatElapsed, formatWhen } from "./format.ts";
 /** The parsed facts of one run. */
 export function RunFacts({ run }: { run: RunDetail }) {
   const rows: [string, string | null][] = [
+    ["Trigger", run.manual ? "Manual (Run button)" : "Schedule"],
     ["Mode", run.mode],
     ["Model", run.model],
     ["Started", formatWhen(run.startedAt)],

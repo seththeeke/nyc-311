@@ -24,7 +24,10 @@ export function RunTable({ runs }: { runs: RunSummary[] }) {
               <Link to={`/agents/${run.agent}/runs/${run.runId}`} className="hover:underline">{formatWhen(run.startedAt)}</Link>
             </td>
             <td className="py-1 pr-3"><StatusBadge status={run.status} /></td>
-            <td className="py-1 pr-3">{run.mode ?? "—"}{run.model ? ` · ${run.model}` : ""}</td>
+            <td className="py-1 pr-3">
+              {run.mode ?? "—"}{run.model ? ` · ${run.model}` : ""}
+              {run.manual && <span className="ml-2 rounded bg-violet-500/20 px-1 text-xs text-violet-200">manual</span>}
+            </td>
             <td className="py-1 pr-3">{formatDuration(run.durationSeconds)}</td>
             <td className="py-1 text-slate-400">{run.error ?? (run.warnings.length > 0 ? `${run.warnings.length} warning(s)` : "")}</td>
           </tr>

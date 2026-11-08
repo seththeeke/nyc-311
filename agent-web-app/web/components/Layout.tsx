@@ -19,7 +19,7 @@ export function Layout() {
       <aside className="border-b border-slate-800 bg-slate-950 md:sticky md:top-0 md:h-screen md:w-52 md:shrink-0 md:border-r md:border-b-0">
         <div className="flex items-center justify-between gap-3 px-4 py-4 md:block">
           <h1 className="text-lg font-semibold">Agent Monitor</h1>
-          <p className="hidden text-xs text-slate-500 md:mt-1 md:block">localhost · read-only</p>
+          <p className="hidden text-xs text-slate-500 md:mt-1 md:block">localhost only</p>
         </div>
         <nav aria-label="Views" className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:pb-0">
           {VIEWS.map((view) => (

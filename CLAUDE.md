@@ -615,11 +615,13 @@ happens in `cdk/customer/`, not here.
 
 ### 5.5 agent-web-app/
 
-The localhost-only agent monitor (`agent-web-app/SPEC.md`). Phase 1
-is **read-only**: it reads the Mac mini's launchd plists, `launchctl`, the
-agent log dir, `scripts/agent-schedules/` and `git worktree list`, and changes
-nothing. One npm package: a local Node server (Fastify, bound to `127.0.0.1`
-only) that also serves the built React UI. Brute force is fine — it's a
+The localhost-only agent monitor (`agent-web-app/SPEC.md`). It reads the
+Mac mini's launchd plists, `launchctl`, the agent log dir,
+`scripts/agent-schedules/` and `git worktree list`. Its one write is the Run
+button (SPEC.md §5.1), which starts `scripts/agent-scheduled-run.sh` for an
+agent when the user asks; it never starts a run on its own. One npm
+package: a local Node server (Fastify, bound to `127.0.0.1` only) that also
+serves the built React UI. Brute force is fine — it's a
 personal tool; keep it simple and expect rework as later phases land.
 
 It follows `backend/`'s rules on the server (§5.2: layering, zod at every
@@ -676,7 +678,7 @@ controllers, commands (`launchctl`, `git`) stubbed behind the source layer,
 | Command | Purpose |
 |---|---|
 | `npm start` | build, then serve UI + API on `http://127.0.0.1:4311` |
-| `npm run dev` | watch-mode server + Vite HMR (`/api` proxied); read-only, so it reads the real logs safely |
+| `npm run dev` | watch-mode server + Vite HMR (`/api` proxied), against the real logs; a Run click starts a real run |
 | `npm run build` | `tsc -b && vite build` |
 | `npm run lint` | `eslint .` |
 | `npm run test` | `vitest run` |
@@ -858,7 +860,7 @@ copied in.
   `CLAUDE_PROJECT_DIR`, which is the worktree, so it works unchanged.
 
 Design + rationale: `docs/autonomous-agent-plan.md`. To see what the agents
-are doing, `agent-web-app/` (§5.5) is the read-only monitor.
+are doing, or to start one now, `agent-web-app/` (§5.5) is the monitor.
 
 **Scheduled runs.** On the Mac mini, launchd runs agents on a cadence via
 `scripts/agent-scheduled-run.sh <agent>` (NEW vs REVISE mode by open-PR

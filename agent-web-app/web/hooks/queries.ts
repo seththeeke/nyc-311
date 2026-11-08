@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { RunRequest } from "../../shared/models/runRequest.ts";
 import { config } from "../config.ts";
 import { getAgent, listAgents } from "../services/agentService.ts";
 import { getServerHealth, listWorktrees } from "../services/machineService.ts";
-import { getRun, listRuns, readRunLog } from "../services/runService.ts";
+import { getRun, listRuns, readRunLog, startRun } from "../services/runService.ts";
 
 /* One hook per read (CLAUDE.md §5.1: components call hooks, never services). Everything polls; a running run polls faster. */
 
@@ -37,4 +38,17 @@ export function useServerHealth() {
 
 export function useWorktrees() {
   return useQuery({ queryKey: ["worktrees"], queryFn: listWorktrees, refetchInterval: config.refreshMs });
+}
+
+/** Starts a manual run, then refreshes the agents and that agent's runs so it shows as running. */
+export function useStartRun(agent: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (request: RunRequest) => startRun(agent, request),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["agents"] });
+      await client.invalidateQueries({ queryKey: ["agent", agent] });
+      await client.invalidateQueries({ queryKey: ["runs", agent] });
+    },
+  });
 }

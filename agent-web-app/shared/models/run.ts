@@ -25,5 +25,7 @@ export const runSummarySchema = z.object({
   warnings: z.array(z.string()),
   error: z.string().nullable(),
   hasReport: z.boolean(),
+  /** Started from the agent monitor's Run button, not by its schedule. */
+  manual: z.boolean(),
 });
 export type RunSummary = z.infer<typeof runSummarySchema>;

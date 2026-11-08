@@ -15,7 +15,7 @@ Mac mini. It's built in phases:
 | Phase | Scope | Scheduler |
 |---|---|---|
 | **1 (now)** | **Read-only monitor**: what's installed, what ran, what's running, what broke | launchd, unchanged |
-| 2 | Actions over launchd: Run now, pause/resume, (re)install | launchd |
+| 2 (started) | Actions over launchd: **Run** (built 2026-11-07), pause/resume, (re)install | launchd |
 | 3 (north star) | The app owns scheduling and runs; launchd retired | the app |
 
 Each phase builds on the last: same package, same layering, same UI. What
@@ -32,8 +32,9 @@ not the structure.
 - **It never defines agent behavior.** Agents, prompts, permissions and run
   rules live where they live today (§2). The app reads them; later it
   triggers them; it never re-implements them.
-- **Phase 1 never changes anything.** No buttons that start, stop, install or
-  edit. Agent runs are started by launchd or by the user in a terminal.
+- **Writes are few and deliberate.** Phase 1 changed nothing. Phase 2's
+  first write is the Run button (§5.1): the user starts a run, never the
+  app on its own.
 
 ## 2. How the agents actually run today (2026-11-07)
 
@@ -170,8 +171,8 @@ ignored, never an error — the runner's output will drift.
 | `GET /agents/:agent/runs/:runId/log?offset=` | raw log bytes from `offset`, plus the new offset (live tail) |
 | `GET /worktrees` | worktrees in both checkouts |
 
-`runId` is the log's timestamp (`20261107T140004`). No mutating routes exist
-in Phase 1, so there's nothing to guard yet beyond binding `127.0.0.1`.
+`runId` is the log's timestamp (`20261107T140004`). The one write route,
+`POST /api/agents/:agent/run`, is Phase 2's (§5.1).
 
 ### 3.5 Where it reads from
 
@@ -223,15 +224,29 @@ the Phase 3 names (`Agent`, `Schedule`, `Run`, `RunEvent`) from the start.
 
 ### 5.1 Phase 2 — actions over launchd
 
-Buttons for what's done by hand in a terminal today, each a thin wrapper over
-the existing script: **Run now** (`agent-schedule-install.sh kick`),
-**Pause / Resume** (`launchctl bootout` / `bootstrap` of the existing plist),
-**Install** (from the scheduler clone only, which also fixes the wrong-path
-mistake), **Remove worktree** (`agent-worktree.sh rm`, clean ones only).
-Every mutating request carries an `X-Agent-Orchestrator: 1` header (a
-cross-site page can't send it without a CORS preflight the server never
-approves); no CORS. Decide at the time whether Run now belongs in the app —
-today the user prefers starting runs from their own terminal.
+**Run (built 2026-11-07).** A Run button on the Agent page and each
+Dashboard card opens a dialog: an optional prompt, whether it's added to the
+scheduled prompt (default) or replaces it, a slot mode for agents that have
+them, and Post to Test chat. `POST /api/agents/:agent/run` starts the
+scheduler's own wrapper, detached, from the scheduler clone:
+`agent-scheduled-run.sh <agent>` with `AGENT_MANUAL=1` and, as chosen,
+`AGENT_PROMPT`, `AGENT_PROMPT_MODE=replace`, `AGENT_MODE` and
+`AGENT_CHAT_ENV=TEST` (the script's header). So a manual run gets everything
+a scheduled one does: latest code, the per-agent lock, worktree, tools,
+allowlist and guard, reports, memory and its log, which the monitor shows
+tagged **manual** (from the `manual run:` log line). It answers 409 while
+the agent is already running and 400 for a mode its schedule lacks. An empty
+prompt runs the scheduled one.
+
+Every write carries an `X-Agent-Orchestrator: 1` header (a cross-site page
+can't send it without a CORS preflight the server never approves; there is
+no CORS), refused with 403 otherwise. Any process on this machine can still
+call it, which is accepted for a localhost tool.
+
+Still to build, each a thin wrapper over the existing scripts: **Pause /
+Resume** (`scripts/agent-team.sh stop` / `start <agent>`), **Install** (from
+the scheduler clone only), **Remove worktree** (`agent-worktree.sh rm`, clean
+ones only).
 
 ### 5.2 Phase 3 — the app schedules (north star)
 

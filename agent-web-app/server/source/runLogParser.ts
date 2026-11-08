@@ -31,6 +31,7 @@ interface Parsed {
   openPrsAfter: string | null;
   warnings: string[];
   error: string | null;
+  manual: boolean;
 }
 
 function readMessage(message: string, stamp: string | null, parsed: Parsed): void {
@@ -59,6 +60,7 @@ function readMessage(message: string, stamp: string | null, parsed: Parsed): voi
   else if (message.startsWith("team-chat:")) parsed.chatPostId = CHAT_ID.exec(message)?.[0] ?? parsed.chatPostId;
   else if (message.endsWith("is in progress — skipping")) parsed.skipped = true;
   else if (message.startsWith("nothing assigned to ")) parsed.mode = "IDLE";
+  else if (message.startsWith("manual run:")) parsed.manual = true;
   const mode = message.includes(" → ") ? MODE.exec(message) : null;
   if (mode) parsed.mode = mode[1];
   const model = mode ? MODEL.exec(message) : null;
@@ -83,7 +85,7 @@ function statusOf(parsed: Parsed, isRunning: boolean): RunSummary["status"] {
 export function parseRunLog(text: string, context: RunLogContext): RunSummary {
   const parsed: Parsed = {
     mode: null, model: null, exitCode: null, durationSeconds: null, endedAt: null, done: false, skipped: false,
-    chatPostId: null, openPrsBefore: null, openPrsAfter: null, warnings: [], error: null,
+    chatPostId: null, openPrsBefore: null, openPrsAfter: null, warnings: [], error: null, manual: false,
   };
   for (const line of text.split("\n")) {
     const stamped = STAMPED.exec(line);
@@ -113,5 +115,6 @@ export function parseRunLog(text: string, context: RunLogContext): RunSummary {
     warnings: parsed.warnings,
     error: parsed.error,
     hasReport: context.hasReport,
+    manual: parsed.manual,
   };
 }

@@ -11,9 +11,20 @@ export class ApiError extends Error {
   }
 }
 
+/** The header every write carries (SPEC.md §5.1); the server refuses a write without it. */
+export const WRITE_HEADERS = { "Content-Type": "application/json", "X-Agent-Orchestrator": "1" };
+
 /** GETs `path` under the API base and parses the body through `schema`, so a drifted response fails here, not in a component. */
 export async function getJson<T>(path: string, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
-  const response = await fetch(`${config.apiBaseUrl}${path}`);
+  return parseResponse(await fetch(`${config.apiBaseUrl}${path}`), schema);
+}
+
+/** POSTs `body` as JSON with the write header, and parses the response like getJson. */
+export async function postJson<T>(path: string, body: unknown, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
+  return parseResponse(await fetch(`${config.apiBaseUrl}${path}`, { method: "POST", headers: WRITE_HEADERS, body: JSON.stringify(body) }), schema);
+}
+
+async function parseResponse<T>(response: Response, schema: ZodType<T, ZodTypeDef, unknown>): Promise<T> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const message = body && typeof body === "object" && "error" in body ? String(body.error) : `HTTP ${response.status}`;

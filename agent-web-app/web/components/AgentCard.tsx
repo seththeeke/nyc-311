@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Agent } from "../../shared/models/agent.ts";
 import { FindingList } from "./FindingList.tsx";
 import { HealthDot } from "./HealthDot.tsx";
+import { RunButton } from "./RunButton.tsx";
 import { StatusBadge } from "./StatusBadge.tsx";
 import { formatDuration, formatElapsed, formatSlot, formatWhen } from "./format.ts";
 
@@ -15,7 +16,10 @@ export function AgentCard({ agent }: { agent: Agent }) {
         <h2 className="font-semibold">
           <Link to={`/agents/${config.name}`} className="hover:underline">{config.name}</Link>
         </h2>
-        <HealthDot agent={agent} />
+        <div className="flex items-center gap-3">
+          <HealthDot agent={agent} />
+          <RunButton agent={agent} compact />
+        </div>
       </header>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-slate-400">Schedule</dt>

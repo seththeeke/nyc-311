@@ -45,6 +45,12 @@ describe("parseRunLog", () => {
     expect(parseRunLog(log("gamma-agent", "20261107T070001"), ctx("gamma-agent", "20261107T070001"))).toMatchObject({ status: "SKIPPED", mode: "IDLE" });
   });
 
+  it("tags a manual run", () => {
+    const text = "[2026-11-07 05:00:05] operations run → RUN\n[2026-11-07 05:00:05] manual run: prompt added, Team Chat TEST\n";
+    expect(parseRunLog(text, ctx("x", "20261107T050004")).manual).toBe(true);
+    expect(parseRunLog(log("gamma-agent", "20261107T070001"), ctx("gamma-agent", "20261107T070001")).manual).toBe(false);
+  });
+
   it("ignores unknown lines and survives a malformed run id", () => {
     const run = parseRunLog("garbage\n[not a stamp] x\n", ctx("x", "bad"));
     expect(run).toMatchObject({ status: "ABORTED", mode: null, startedAt: new Date(0).toISOString() });

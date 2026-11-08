@@ -3,6 +3,7 @@ import { useAgent, useRuns } from "../../hooks/queries.ts";
 import { FindingList } from "../FindingList.tsx";
 import { HealthDot } from "../HealthDot.tsx";
 import { QueryState } from "../QueryState.tsx";
+import { RunButton } from "../RunButton.tsx";
 import { RunTable } from "../RunTable.tsx";
 import { formatSlot, formatWhen } from "../format.ts";
 
@@ -17,11 +18,14 @@ export function AgentPage() {
   return (
     <div className="space-y-6">
       <QueryState data={agent.data} error={agent.error}>
-        {({ config, job, health, nextFireAt, ...rest }) => (
+        {(loaded) => {
+          const { config, job, health, nextFireAt } = loaded;
+          return (
           <section className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-xl font-semibold">{config.name}</h2>
-              <HealthDot agent={{ config, job, health, nextFireAt, ...rest }} />
+              <HealthDot agent={loaded} />
+              <RunButton agent={loaded} />
             </div>
             {config.description && <p className="max-w-3xl text-sm text-slate-300">{config.description}</p>}
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -37,7 +41,8 @@ export function AgentPage() {
             </dl>
             <FindingList findings={health} />
           </section>
-        )}
+          );
+        }}
       </QueryState>
       <section aria-labelledby="runs-heading" className="space-y-2">
         <h3 id="runs-heading" className="font-semibold">Runs</h3>

@@ -12,3 +12,19 @@ export class ValidationError extends Error {
     this.name = "ValidationError";
   }
 }
+
+/** The request conflicts with current state, e.g. the agent is already running. */
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}
+
+/** A write without the X-Agent-Orchestrator header (SPEC.md §5.1). */
+export class ForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}

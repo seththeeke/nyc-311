@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { ApiError, getJson } from "../../../web/services/apiClient.ts";
+import { ApiError, WRITE_HEADERS, getJson, postJson } from "../../../web/services/apiClient.ts";
 
 describe("getJson", () => {
   it("parses a 2xx body through the schema", async () => {
@@ -20,5 +20,11 @@ describe("getJson", () => {
   it("fails loudly on a drifted body", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ a: "x" }))));
     await expect(getJson("/x", z.object({ a: z.number() }))).rejects.toThrow();
+  });
+
+  it("POSTs JSON with the write header", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: 1 }))));
+    expect(await postJson("/x", { a: 1 }, z.object({ ok: z.number() }))).toEqual({ ok: 1 });
+    expect(fetch).toHaveBeenCalledWith("/api/x", { method: "POST", headers: WRITE_HEADERS, body: '{"a":1}' });
   });
 });

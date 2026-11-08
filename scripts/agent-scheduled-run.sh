@@ -27,6 +27,11 @@
 # without reaching review or parking, parks the issue with a comment — fail
 # closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
 # ~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log (AGENT_LOG_ROOT overrides).
+#
+# A manual run (the agent monitor's Run button, agent-web-app/SPEC.md §5.1)
+# sets AGENT_MANUAL=1 and may set AGENT_PROMPT (added to the scheduled
+# prompt, or replacing it with AGENT_PROMPT_MODE=replace), AGENT_MODE (a slot
+# mode) and AGENT_CHAT_ENV (TEST to keep its chat posts out of Prod).
 
 set -u
 
@@ -108,7 +113,7 @@ rm -f "$latest_config"
 MAX_OPEN_PRS=${AGENT_MAX_OPEN_PRS:-${MAX_OPEN_PRS:-}}
 KIND=${KIND:-pr-limit}
 # Team Chat environment for this agent's runs (docs/17-executive-team.md §11.4); unset runs without chat.
-AGENT_TEAM_CHAT_ENV=${TEAM_CHAT_ENV:-}
+AGENT_TEAM_CHAT_ENV=${AGENT_CHAT_ENV:-${TEAM_CHAT_ENV:-}}
 export AGENT_TEAM_CHAT_ENV
 # The word cap on this agent's top-level chat posts (docs/17 §21.2); unset is the client's default (75), 0 is none.
 AGENT_CHAT_POST_WORDS=${CHAT_POST_WORDS:-}
@@ -355,6 +360,23 @@ else
   mode=NEW
   prompt="$PROMPT_NEW"
   log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode mode"
+fi
+
+# A manual run's own prompt (see the header); its log line is what the agent monitor tags runs by.
+if [ -n "${AGENT_MANUAL:-}" ]; then
+  how="scheduled prompt"
+  if [ -n "${AGENT_PROMPT:-}" ] && [ "$mode" != "IDLE" ]; then
+    if [ "${AGENT_PROMPT_MODE:-append}" = replace ]; then
+      prompt=$AGENT_PROMPT
+      how="prompt replaced"
+    else
+      prompt="$prompt
+
+For this run only, from the CEO via the agent monitor: $AGENT_PROMPT"
+      how="prompt added"
+    fi
+  fi
+  log "manual run: $how, Team Chat ${AGENT_TEAM_CHAT_ENV:-off}"
 fi
 
 # Reports (docs/17 §21.3): this run's folder, by its start in CT, committed after the run.
