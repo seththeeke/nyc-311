@@ -117,6 +117,15 @@ runner itself.
 - **Run** — parsed summary (status, mode, exit code, duration, PRs before and
   after, chat post id, warnings), the report rendered as markdown, and the raw
   log. While `RUNNING`, the log tails (poll every 2 s).
+- **Pixel Office** (`/office`) — the same agents as 8-bit rooms, one per
+  persona (Pip's workshop, Celestine's sanctum, Brogan's forge, Rex's
+  hangar, Penny's 1950s office, Grimble's toll bridge, Sable's office, Kid
+  Kestrel's rooftop; a server closet for an agent with no persona). Each
+  room is drawn in code on a 160×112 canvas at 8 fps and shows the agent's
+  state: at work during a run, an alarm on an error, asleep with the lights
+  off when not scheduled, idle otherwise. Windows follow the local clock.
+  Under reduced motion each room holds one frame. Views are switched from a
+  left sidebar.
 - **Worktrees** — `git worktree list` for both checkouts: path, branch,
   dirty count, age; highlights hand-run leftovers that nothing will prune.
 
