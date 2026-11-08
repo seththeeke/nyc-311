@@ -26,7 +26,9 @@ The repo root will contain exactly four top-level working directories:
 - `agent-reports/` — reports the scheduled agents write, one folder per run
   (`agent-reports/README.md`, `17-executive-team.md` §21.3), committed
   straight to `main` by `scripts/agent-report-commit.sh`. Not code: no
-  structure section, no Operational Loop, and the pipeline ignores it. It
+  structure section, no Operational Loop, and the pipeline ignores it, as
+  it does `.claude/` (agents' memory, definitions and settings), `docs/`
+  and `agent-web-app/`: a push touching only those starts no pipeline run. It
   lives outside `.claude/` because Claude Code refuses agent writes there.
 - `docs/` - design docs, prompts, and other documents for the app
 
