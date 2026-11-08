@@ -1073,7 +1073,7 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 ### 19.6 The Code Quality page
 
 - **Bucket:** one S3 bucket, `nyc311-agent-reports-<account>`, in the pipeline stack beside the agents' identities (account-level, like them). Private, read only by the monitoring API.
-- **Sync:** after each Sable run the scheduler copies his report files from `.claude/agent-reports/` to `s3://<bucket>/software-analyzer-agent/<YYYY-MM-DD>/<HH_MM>/<file>` (`aws s3 sync`, his own profile, write to that prefix only).
+- **Sync:** after each Sable run the scheduler runs `scripts/agent-reports-sync.sh software-analyzer-agent`, which copies every report of his on `origin/main` to `s3://<bucket>/software-analyzer-agent/<YYYY-MM-DD>/<HH_MM>/<file>` (`aws s3 sync`, adds only), as `nyc311-software-analyzer-agent`: role `Nyc311SoftwareAnalyzerAgentRole`, which may only list and put objects under that prefix. Reading from `main` means a failed sync is caught up by the next run. Set by `REPORTS_BUCKET` and `REPORTS_AWS_PROFILE` in his schedule.
 - **API:** two public routes on the monitoring bundle: `GET /monitoring/code-quality/reports` (each report's date, time, package and score, newest first) and `GET /monitoring/code-quality/reports/{date}/{time}` (the report's text). Test and Prod read the same bucket.
 - **Page:** `/monitoring/code-quality`, a tile on `/monitoring` beside Ingestion, Pipeline and Lambda: the latest score per package, the trend, and each report.
 
@@ -1084,7 +1084,7 @@ Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a fo
 | **S1** | The audits file. Built 2026-11-07: `.claude/review/software-analyzer-audits.md`, six weighted audits (complexity 20, pattern sprawl 15, consistency 15, divergence and duplication 15, code smells 15, AI-friendliness 20) and five packages (`backend`, `web-app`, `cdk`, `customer`, `tooling`). |
 | **S2** | Agent definition, settings, guard (Celestine's, scoped to `software-analyzer` issues), schedule, memory and reports. Built 2026-11-07: `.claude/agents/software-analyzer-agent.md`, `.claude/hooks/software-analyzer-agent-guard.sh` (writes only memory, his reports and `/tmp`; `npm` only `ci`, `run lint`, `run build`), `.claude/agent-settings/software-analyzer-agent.json`, `scripts/agent-schedules/software-analyzer-agent.env` (`Mon@21:30 Thu@21:30`, Opus, `MEMORY=1`, `REPORTS=1`), seeded memory with the rotation. Each report starts with a `package`/`score`/`previous` front matter the Code Quality page reads. |
 | **S3** | Team Chat seed member, `@Sable` mention handle, `ANALYSIS` tag, the `software-analyzer` label; Rex's prompt answers his tickets. Built 2026-11-07: member `software-analyzer` (handle `Sable`) in `#tech-team`; Rex's *Sable's tickets* section gives each one verdict (accept, decline with `wont-fix`, or question), at most 2 comments, and his guard allows `--add-label wont-fix` only on `software-analyzer` issues. |
-| **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. |
+| **S4** | IAM user and role, the reports bucket, the scheduler's sync step, the monitoring routes and the Code Quality page. Infrastructure and sync built 2026-11-07: `cdk/agents/AgentReportsBucket.ts`, `SoftwareAnalyzerAgentRole.ts` (on a new `AgentRole` base that `ReadOnlyAgentRole` now extends), `scripts/agent-reports-sync.sh`. |
 | **S5** | Mac mini setup per Appendix B, and `live: true` on the roster. |
 
 ---

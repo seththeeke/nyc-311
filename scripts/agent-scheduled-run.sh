@@ -417,6 +417,12 @@ else
   fi
 fi
 
+# Published reports (docs/17 §19.6): copy this agent's committed reports to the website's bucket.
+if [ -n "${REPORTS_BUCKET:-}" ] && [ "$mode" != "IDLE" ]; then
+  REPORTS_BUCKET=$REPORTS_BUCKET REPORTS_AWS_PROFILE=${REPORTS_AWS_PROFILE:-} \
+    "$script_dir/agent-reports-sync.sh" "$agent" 2>&1 | while IFS= read -r line; do log "$line"; done
+fi
+
 # ---- 4. housekeeping ---------------------------------------------------------
 
 find "$log_dir" -maxdepth 1 -type f \( -name '*.log' -o -name '*.report.md' \) \
