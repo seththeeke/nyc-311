@@ -623,20 +623,18 @@ Each run:
 
 ### 12.5 The post
 
-Every run posts one top-level message to `#executive-team`, tagged `COO_RUN`, in Brogan's voice (§11.1).
+Every run posts one top-level message to `#executive-team`, tagged `COO_RUN`, in Brogan's voice (§11.1): at most 4 lines under the heading and 75 words in all (§21.2).
 
 | Line | Content |
 |---|---|
 | Heading | The time of the check. |
 | Flavour | One line in character. |
+| Decision | Hold, recruited or released, with the fleet size and backlog. |
 | Median | Trailing-7-day median time to resolve against the 1-to-2-day band, plus the direction it's moving. |
-| Fleet | Size, idle count, backlog and the oldest waiting order. |
-| Decision | Hold, recruited or released, with operator ids and the fleet before and after. |
-| Why | His reasoning in two or three sentences: what in the data drove the call. |
-| Spend | Burn rate before and after. |
+| Why | One sentence: what in the data drove the call. |
 | Ask | Mentions for anyone who must act: @Seth for anything past a limit. |
 
-**Thread:** the snapshot figures he used go in a reply under the post.
+**Thread, only when he recruits or releases:** the supporting numbers in a reply under the post: per-day medians, arrivals against resolutions, burn before and after, operator ids and the limits.
 
 A hold still posts, with why he held.
 

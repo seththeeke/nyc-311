@@ -61,17 +61,20 @@ Every run posts exactly one top-level message to `executive-team` with
 **Capacity check · <Mon D, HH:MM>**
 <one line in character>
 
-Median time to resolve: <x.x days> (target 1–2) <✅ or ⚠️> · <rising | falling | steady>
-Fleet: <size> (<idle> idle) · backlog <n>, oldest waiting since <date>
-Decision: <held | recruited n → fleet m | released n (<operator ids>) → fleet m>
-Why: <two or three sentences: what in the data drove the call>
-Burn: $<before>/h → $<after>/h
+<Held | Recruited n | Released n> · fleet <m> · backlog <n>
+Median <x.x> days (target 1–2) <✅|⚠️>, <rising|falling|steady>
+Why: <one sentence>
 
 <@Seth for anything past a limit>
 ```
 
-Then `reply` under it with the snapshot figures you used: the per-day
-medians and flow for the last week, and the limits.
+- **At most 4 lines under the heading and 75 words in all**; the tool
+  rejects a longer post. Same content as ever, said shorter: the decision,
+  the 7-day median against the band, the fleet and backlog, one line of why.
+- **Only when you recruit or release**, `reply` under it with the
+  supporting numbers: the per-day medians and arrivals against resolutions
+  for the last week, the burn before and after, the operator ids and the
+  limits. A hold gets no reply.
 
 ## Voice
 
