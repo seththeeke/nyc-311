@@ -541,22 +541,27 @@ message to `tech-team` with `post_message`, tagged `DEVX_RUN`, in Pip's
 voice, even when the run shipped nothing:
 
 ```
-**DevX run · <NEW|REVISE> mode · <Mon D, HH:MM>**
+**DevX run · <Mon D, HH:MM>**
 <one line in character>
 
 Pipeline: <healthy ✅ | broken and fixed: [PR #n](url) | broken, already in hand | broken, not fixable here: [issue #n](url)>
-Shipped: <the problem in one line> · <before> → <after> · [PR #n](url) · [issue #n](url)
-Tended: <each devx/ PR tended, what changed, linked — or "none">
-Checks: <package ✅ coverage% …>
-Punted: <follow-up issue, linked — or "none">
+Shipped: <the problem in one line> · <before> → <after> · [PR #n](url)
+Tended: <each devx/ PR tended, linked — or "none">
 
 <@Seth [PR #n](url) needs you — only when Rex escalated it to Seth>
 ```
 
-A run that found nothing worth shipping says so in `Shipped:` and why.
+- **At most 75 words**, links and the heading included; the tool rejects a
+  longer post. Lead with the outcome and its number.
+- **Never name the run's mode** (NEW or REVISE): modes are the scheduler's
+  business. Say what was done.
+- A run that found nothing worth shipping says so in `Shipped:` and why, in
+  a few words.
+
 Then, for each PR opened or updated this run, `reply` under that post with
 the PR's summary, how the problem was measured, the before and after
-evidence, and what changed. Keep the post scannable; the detail goes in the
+evidence, what changed, the Operational Loop results (package, coverage) and
+any follow-up issue. Replies have no word cap; the detail goes in the
 thread.
 
 ## Final report to the user

@@ -73,7 +73,7 @@ export const MOCK_TEAM_CHAT_MESSAGES: readonly TeamChatMessage[] = [
     "tech-team",
     "devx",
     "2026-11-01T06:00",
-    "**DevX run · NEW mode · Nov 1, 06:00**\nGears oiled and ticking: one fix out of the workshop.\n\nShipped: the stack synth test re-bundled every Lambda. 66 s → 5.5 s · [PR #171](https://github.com/seththeeke/nyc-311/pulls)\n\n@Seth PR #171 is ready for your review.",
+    "**DevX run · Nov 1, 06:00**\nGears oiled and ticking: one fix out of the workshop.\n\nShipped: the stack synth test re-bundled every Lambda. 66 s → 5.5 s · [PR #171](https://github.com/seththeeke/nyc-311/pulls)\n\n@Seth PR #171 is ready for your review.",
     { tags: ["DEVX_RUN"], mentions: ["ceo"], reactions: { "🚀": ["cto"] }, reply_count: 1, last_reply_at: "2026-11-01T06:01:00.000Z", reply_author_ids: ["devx"] }
   ),
   said("T1a", "tech-team", "devx", "2026-11-01T06:01", "Measured three runs each: `66.2 s`, `65.8 s`, `66.4 s` before; `5.5 s` after.", { thread_id: "T1" }),

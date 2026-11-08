@@ -445,7 +445,7 @@ This gives attribution and least privilege, not OS isolation: a process that can
 
 **Status:** designed 2026-11-01, not built. It depends on the Team Chat application (§10).
 
-Pip Sprocketwhistle is the persona of the existing `devx-agent` (`docs/autonomous-agent-plan.md`, `docs/agent-automation-setup.md`). launchd runs it at 06:00 and 18:00 through `scripts/agent-scheduled-run.sh`, in NEW or REVISE mode. This section adds two things to every run: posting what it did to `#tech-team`, and reading its inbox.
+Pip Sprocketwhistle is the persona of the existing `devx-agent` (`docs/autonomous-agent-plan.md`, `docs/agent-automation-setup.md`). launchd runs it 8 times a day (§21.4) through `scripts/agent-scheduled-run.sh`, in NEW or REVISE mode. This section adds two things to every run: posting what it did to `#tech-team`, and reading its inbox.
 
 ### 11.1 Agent voices (every agent)
 
@@ -458,16 +458,14 @@ Every agent writes in its persona's voice, defined in its agent prompt (`.claude
 
 ### 11.2 The run post
 
-Every scheduled run posts exactly one top-level message to `#tech-team`, tagged `DEVX_RUN`. The post holds:
+Every scheduled run posts exactly one top-level message to `#tech-team`, tagged `DEVX_RUN`, at most 75 words (§21.2). It never names the run's mode. The post holds:
 
 | Line | Content |
 |---|---|
-| Heading | The run's mode and start time. |
+| Heading | The run's start time. |
 | Pipeline | Healthy, broken and fixed (PR link), broken but already in hand, or broken and not fixable here (issue link). |
 | Shipped | The problem in one line, the before → after metric, and **links to the PR and its issue**. |
 | Tended | Each open `devx/` PR tended this run, with what changed and a link. |
-| Checks | The Operational Loop result per affected package. |
-| Punted | Any follow-up ticket, linked. |
 | Ask | A mention of whoever must act: @Seth for a PR Rex escalated. Rex merges the PRs he approves (§16.2). |
 
 A run that finds nothing worth shipping still posts. It says so and gives the reason.
@@ -475,17 +473,12 @@ A run that finds nothing worth shipping still posts. It says so and gives the re
 Example:
 
 ```
-**DevX run · NEW mode · Nov 1, 06:00**
-Gears oiled and ticking: one fix out of the workshop this morning.
+**DevX run · Nov 1, 06:00**
+Gears oiled and ticking: one fix out of the workshop.
 
 Pipeline: healthy ✅
-Shipped: the stack synth test re-bundled every Lambda per test case.
-  66 s → 5.5 s · [PR #171](…/pull/171) · [issue #170](…/issues/170)
-Tended: [PR #168](…/pull/168), merge conflict resolved
-Checks: backend ✅ 96.2% · cdk ✅ 94.8%
-Punted: none
-
-@Seth [PR #171](…/pull/171) is ready for your review.
+Shipped: the stack synth test re-bundled every Lambda. 66 s → 5.5 s · [PR #171](…/pull/171)
+Tended: [PR #168](…/pull/168), conflict resolved
 ```
 
 **Thread:** the details of each PR opened or updated in the run go in replies under the run post, one reply per PR:
@@ -493,7 +486,8 @@ Punted: none
 - the PR's summary;
 - how the problem was measured;
 - the before and after evidence;
-- what was changed.
+- what was changed;
+- the Operational Loop result per package, and any follow-up ticket.
 
 ### 11.3 The inbox
 
@@ -1306,7 +1300,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 
 | Agent | Persona | Cognito user (both pools) | Cognito groups | AWS identity | Runs |
 |---|---|---|---|---|---|
-| `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 06:00 and 18:00, `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
+| `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 8 a day (§21.4), `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
 | `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
 | `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 08:00, 11:00, 14:00, 17:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 09:00, `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1` |
