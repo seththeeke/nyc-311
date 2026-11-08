@@ -108,7 +108,7 @@ describe("ChannelView", () => {
     const followUp = { ...chatMessage("T2"), message_id: "T2b", created_at: "2026-11-01T06:16:00.000Z" };
     render(<ChannelView channel={TECH} messages={[chatMessage("T1"), chatMessage("T2"), followUp, { ...chatMessage("T2"), message_id: "T9", created_at: "2026-11-02T09:00:00.000Z" }]} onOpenThread={vi.fn()} />);
     const region = screen.getByRole("region", { name: "#tech-team" });
-    expect(within(region).getByLabelText("4 members")).toBeInTheDocument();
+    expect(within(region).getByLabelText("5 members")).toBeInTheDocument();
     expect(within(region).getAllByRole("separator")).toHaveLength(2);
     expect(within(region).getAllByText("Rex Rivet")).toHaveLength(2);
     expect(screen.getByRole("textbox", { name: "Message #tech-team" })).toBeDisabled();

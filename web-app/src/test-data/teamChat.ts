@@ -20,7 +20,7 @@ export const MOCK_TEAM_CHAT_CHANNELS: readonly TeamChatChannel[] = [
     channel_id: "tech-team",
     name: "tech-team",
     topic: "What ships, what breaks and what it costs.",
-    member_ids: ["ceo", "cto", "devx", "gen-dev"],
+    member_ids: ["ceo", "cto", "devx", "aws-cost", "gen-dev"],
     visibility: "PUBLIC",
     last_message_id: "T3",
     last_message_at: "2026-11-01T06:20:00.000Z",

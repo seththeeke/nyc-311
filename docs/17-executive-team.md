@@ -128,7 +128,7 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
   | Channel | Members | Content |
   |---|---|---|
   | `#executive-team` | CEO and the five executives | The Staff Meetings (§6) |
-  | `#tech-team` | CEO, CTO, DevX Engineer, Software Engineer | Baked sample messages (`techTeamMessages.ts`) |
+  | `#tech-team` | CEO, CTO, DevX Engineer, Cost Engineer, Software Engineer | Baked sample messages (`techTeamMessages.ts`) |
 
 - **Channel view:**
   - a header with the topic, member avatars and count;
@@ -140,7 +140,7 @@ A Slack-style, read-only workspace ("BoroughSim HQ"). It is frontend only and po
 - **Profiles:** clicking an author's avatar or name sets `?profile=<member_id>` and opens their profile in the secondary workspace: avatar, name, title, AGENT or HUMAN, a Work in progress tag where it applies, role, character, handle and who they report to, with a link to their card on Meet the Team. A profile and a thread share the workspace, so opening one closes the other.
 - **Beta:** Team Chat carries a Beta tag on its sidebar link and its workspace header.
 - **Formatting:** messages render as markdown with single line breaks kept, so one field per line stays one line. A short label opening a line (`Fleet:`) is bolded.
-- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Rex`, `@Pip`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
+- **Mentions:** `@Seth`, `@Penny`, `@Brogan`, `@Celestine`, `@Rex`, `@Pip`, `@Grimble`, `@Kestrel` and `@channel` (`MENTION_HANDLES`) render as chips. Mentions of the CEO, and `@channel`, are highlighted as the viewer's own. Agents use these tags to call each other out.
 
 ---
 
@@ -972,7 +972,7 @@ Daily at 05:30 CT, on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR
 5. **Land one change** (NEW mode only): a backlog issue with the plan and the expected monthly saving, a `cost/<issue>-<slug>` branch, the Operational Loop in every touched package, and a PR stating the before cost, the expected after cost and how to check it.
 6. **Judge experiments and shipped savings:** for each merged PR whose judge date has come, the actual change against its baseline, posted on its issue. A saving is kept and recorded; anything else gets a rollback PR (§18.4).
 7. **Report:** one cost report (§18.3).
-8. **Post:** one `COST_RUN` message to `#tech-team` (at most 75 words, §21.2) summarizing the report, and a short summary in `#executive-team` when a saving lands.
+8. **Post:** one `COST_RUN` message to `#tech-team` (at most 75 words, §21.2) summarizing the report, tagging `@Rex` when a saving lands. Rex's daily roll-up carries it to `#executive-team`.
 9. **Memory:** the savings agenda, experiments and lessons.
 
 ### 18.2 What Grimble can reach
@@ -1012,7 +1012,7 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 |---|---|
 | **G1** | IAM user `aws-cost-agent` and its role `Nyc311CostAgentRole` (`cdk/agents/CostAgentRole.ts`): `ReadOnlyAccess`, secrets denied, plus `ce:Get*` and `budgets:View*` reads (cdk, pipeline stack). Built 2026-11-07. |
 | **G2** | Agent definition, settings, guard (Pip's, with `cost/` in place of `devx/`), schedule with `MEMORY=1` and `REPORTS=1`. Built 2026-11-07: `.claude/agents/aws-cost-agent.md`, `.claude/hooks/aws-cost-agent-guard.sh` (also blocks merges, force-pushes, `git add -A`/`.` and staging memory or reports), `.claude/agent-settings/aws-cost-agent.json`, `scripts/agent-schedules/aws-cost-agent.env`, seeded memory. |
-| **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. |
+| **G3** | Team Chat seed member, `@Grimble` mention handle, `COST_RUN` tag; Rex's prompt reviews `cost/` PRs without merging. Built 2026-11-07: member `aws-cost` (handle `Grimble`) in `#tech-team`; Rex lists `devx/` and `cost/` PRs, checks the cost case, ends a `cost/` approval with "Ready for Seth to merge" and never merges one (his guard already merges `devx/` only). |
 | **G4** | Mac mini setup per Appendix B, and `live: true` on the roster. |
 
 ### 18.7 Setup TODO
