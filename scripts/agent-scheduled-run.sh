@@ -76,11 +76,15 @@ if [ -z "${AGENT_SCHED_REEXEC:-}" ]; then
       after=$(git -C "$PRIMARY" rev-parse HEAD)
       if [ "$before" != "$after" ]; then
         log "primary fast-forwarded ${before%"${before#???????}"}..${after%"${after#???????}"}"
-        for pkg in . web-app backend cdk customer/backend; do
-          if git -C "$PRIMARY" diff --quiet "$before" "$after" -- "$pkg/package-lock.json"; then
+        # Same list as agent-worktree.sh's NODE_PKGS. A package with no
+        # node_modules installs too, so a newly listed one isn't skipped
+        # until its lockfile next changes (#175).
+        for pkg in . web-app backend cdk customer/backend agent-web-app; do
+          if [ -d "$PRIMARY/$pkg/node_modules" ] \
+            && git -C "$PRIMARY" diff --quiet "$before" "$after" -- "$pkg/package-lock.json"; then
             continue
           fi
-          log "lockfile changed in $pkg — npm ci"
+          log "lockfile changed or node_modules missing in $pkg — npm ci"
           (cd "$PRIMARY/$pkg" && npm ci --no-audit --no-fund) || log "WARN: npm ci failed in $pkg"
         done
         # Re-exec so a change to this script applies to this run, not the next.

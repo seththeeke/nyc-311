@@ -27,7 +27,8 @@ CLONE=${AGENT_SCHEDULER_CLONE:-"$HOME/agents/nyc-311"}
 # Not part of the executive team: gen-purpose-dev works only issues a human
 # assigns it and has never been scheduled on this machine. Name it to manage it.
 NOT_ON_TEAM="gen-purpose-dev"
-LOCKFILE_PACKAGES=". web-app backend cdk customer/backend"
+# Same list as agent-worktree.sh's NODE_PKGS (#175).
+LOCKFILE_PACKAGES=". web-app backend cdk customer/backend agent-web-app"
 
 die() { printf 'agent-team: %s\n' "$*" >&2; exit 1; }
 say() { printf 'agent-team: %s\n' "$*"; }
@@ -78,8 +79,9 @@ ensure_latest() {
     say "scheduler clone is $(git -C "$CLONE" rev-list --count HEAD..origin/main) commit(s) behind; fast-forwarding"
     git -C "$CLONE" merge --quiet --ff-only origin/main || die "fast-forward failed in $CLONE"
     for pkg in $LOCKFILE_PACKAGES; do
-      git -C "$CLONE" diff --quiet "$head" "$latest" -- "$pkg/package-lock.json" && continue
-      say "lockfile changed in $pkg — npm ci"
+      [ -d "$CLONE/$pkg/node_modules" ] \
+        && git -C "$CLONE" diff --quiet "$head" "$latest" -- "$pkg/package-lock.json" && continue
+      say "lockfile changed or node_modules missing in $pkg — npm ci"
       (cd "$CLONE/$pkg" && npm ci --no-audit --no-fund >/dev/null) || die "npm ci failed in $CLONE/$pkg"
     done
   fi

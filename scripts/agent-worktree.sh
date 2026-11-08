@@ -45,8 +45,9 @@ LOCK_DIR="$AGENT_WORKTREE_ROOT/.agent-worktree.lock"
 COPY_UNTRACKED='.claude/settings.local.json
 web-app/.env.local'
 
-# Packages whose node_modules get CoW-cloned.
-NODE_PKGS='. web-app backend cdk customer/backend'
+# Packages whose node_modules get CoW-cloned. Keep in sync with the npm ci
+# loops in agent-scheduled-run.sh and agent-team.sh (#95, #103, #175).
+NODE_PKGS='. web-app backend cdk customer/backend agent-web-app'
 
 die() { printf 'agent-worktree: %s\n' "$*" >&2; exit 1; }
 
