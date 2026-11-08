@@ -60,10 +60,25 @@ launchd (every 2h, 07:00–21:00)
 | Scheduled-run logic | `scripts/agent-scheduled-run.sh` |
 | Issue label state machine (assigned-issue agents) | `scripts/agent-issue-state.sh` |
 | Per-agent `main`/merge/deploy guard hook | `.claude/hooks/<agent>-guard.sh` |
-| launchd install / uninstall / status / kick | `scripts/agent-schedule-install.sh` |
+| launchd install / uninstall / status / kick (one agent) | `scripts/agent-schedule-install.sh` |
+| Start / stop / restart the whole team, latest code checked first | `scripts/agent-team.sh` |
 | Worktree isolation | `scripts/agent-worktree.sh` (`CLAUDE.md` §9) |
 | What the agent may do (complete allowlist + denies) | `.claude/agent-settings/<agent>.json` |
 | Agent behaviour, incl. *Revision mode* | `.claude/agents/<agent>.md` |
+
+### Starting, stopping and restarting the team
+
+`scripts/agent-team.sh {start|stop|restart|status|check} [agent ...]` acts on
+every scheduled agent (except `gen-purpose-dev`, which you name to include),
+or only the agents named. It always works on the scheduler clone
+`~/agents/nyc-311`, whichever checkout it's run from.
+
+- `start` first checks the clone is a clean `main` at the latest
+  `origin/main`, fast-forwarding it (and running `npm ci` where a lockfile
+  changed) or refusing if it can't, then installs each schedule.
+- `stop` unloads each schedule and kills any run in progress.
+- `restart` runs the check, then stop, then start. `status` and `check` change
+  nothing.
 
 ### Seeing what happened
 

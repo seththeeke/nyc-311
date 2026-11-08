@@ -1,0 +1,12 @@
+worktree /Users/x/agents/nyc-311
+HEAD 21a530b1234567890abcdef1234567890abcdef1
+branch refs/heads/main
+
+worktree /Users/x/agents/nyc-311-worktrees/beta-agent-1793757607-51d4
+HEAD 35343d8d978e517045cd151329d040fb674db7db
+branch refs/heads/devx/157-bump-mcp-sdk
+
+worktree /Users/x/agents/nyc-311-worktrees/scratch
+HEAD 60cadd5000000000000000000000000000000000
+detached
+

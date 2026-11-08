@@ -640,7 +640,7 @@ like `logger.ts` are copied, as `customer/backend/` does), and nothing there
 imports from it. Both directions are enforced from inside this package, so
 the other packages' configs never change for it: its ESLint bans imports
 that leave `agent-web-app/`, and a test fails if any source file in the
-other packages names an `agent-web-app` path.
+other packages imports from it.
 It reads the agent scripts' *outputs* on disk (logs, plists, `.env` files) at
 runtime and never imports or edits them. The root coverage rollup (§8) and
 the pipeline ignore it.

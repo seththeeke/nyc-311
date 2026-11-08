@@ -1,6 +1,6 @@
 # Agent Orchestration — spec
 
-> **Status: Phase 1 approved for build — 2026-11-07.** Reworked from the
+> **Status: Phase 1 built — 2026-11-07.** Reworked from the
 > 2026-09-27 spec (a full scheduler replacing launchd, never built) into a
 > phased plan. Phase 1 is a brute-force, **read-only** monitor over the agents
 > as they run today; Phases 2–3 grow it toward the original north star. The
@@ -37,17 +37,21 @@ not the structure.
 
 ## 2. How the agents actually run today (2026-11-07)
 
-Six agents, scheduled by **launchd** on the Mac mini
-(`docs/agent-automation-setup.md`):
+Eight agents (2026-11-07), scheduled by **launchd** on the Mac mini
+(`docs/agent-automation-setup.md`). Their live config is the app's own
+dashboard; this section describes the shape, not the current values, which
+change often.
 
-| Agent | Who | `KIND` | Schedule | Extras |
-|---|---|---|---|---|
-| `devx-agent` | Pip | `pr-limit` (NEW/REVISE by open `devx/` PRs, limit 3) | 06:00, 18:00 | — |
-| `gen-purpose-dev` | — | `assigned-issue` (RESUME/REVISE/NEW/IDLE) | every 2h 07:00–21:00 | not currently installed |
-| `coo-agent` | Brogan | `operations` | 02:00, 08:00, 14:00, 20:00 | `OPS_TOOLS` |
-| `chief-of-staff-agent` | Penny | `operations` | 09:00 | — |
-| `cto-agent` | Rex | `operations` | 08:00, 11:00, 14:00, 17:00 | — |
-| `cpo-agent` | Celestine | `operations` | 09:00 | `PRODUCT_TOOLS`, `MEMORY` |
+- **`KIND`** picks the mode: `pr-limit` (default; NEW or REVISE by the count
+  of open `BRANCH_PREFIX` PRs against `MAX_OPEN_PRS`), `assigned-issue`
+  (RESUME, REVISE, NEW or IDLE from the agent's labelled issues) or
+  `operations` (one run per fire).
+- **`SCHEDULE`** is space-separated slots, `[Day@]HH:MM[=MODE]`: `Day` is
+  Sun..Sat (omitted = daily) and `MODE` an ALL_CAPS slot mode (e.g.
+  `05:00=AUDIT 08:00=CONVERSE`) that picks `PROMPT_<MODE>` and
+  `MODEL_<MODE>`.
+- **Flags**: `MODEL`, `TEAM_CHAT_ENV`, `OPS_TOOLS`, `PRODUCT_TOOLS`,
+  `MEMORY`, `REPORTS`, `USAGE_SUMMARY`.
 
 The run path:
 
@@ -87,8 +91,9 @@ primary fast-forwarded <sha>..<sha>
 lockfile changed in <pkg> — npm ci
 WARN: <anything>
 config + prompts from origin/main @ <sha>
-open devx/* PRs: 2 (#158 #160), limit 3 → NEW mode       (pr-limit)
-operations run → RUN                                       (operations)
+open devx/* PRs: 2 (#158 #160), limit 3 → NEW mode       (pr-limit / assigned-issue)
+nothing assigned to <agent> needs work — not starting claude (IDLE)
+operations run → RUN (model opus)                          (operations; slot mode or RUN, model optional)
 another <agent> run (pid N) is in progress — skipping
 agent exited <code> after <Xm Ys> — final report:
 team-chat: <chat post id …>                                (from the report's "Chat post:" line)
@@ -140,8 +145,8 @@ Derived per run log (ALL_CAPS per CLAUDE.md §6, same set as Phase 3):
 | `SKIPPED` | "is in progress — skipping", or mode `IDLE` |
 | `ABORTED` | no `=== done` line and not running (killed, crashed, machine slept) |
 
-Mode is `NEW`, `REVISE`, `RESUME`, `RUN` or `IDLE` from the mode/`done`
-line. Parsing is lenient: an unrecognized line is kept in the raw log and
+Mode is free-form, from the mode or `done` line: `NEW`, `REVISE`,
+`RESUME`, `IDLE`, `RUN` or a slot mode such as `AUDIT`. Parsing is lenient: an unrecognized line is kept in the raw log and
 ignored, never an error — the runner's output will drift.
 
 ### 3.4 API (`/api`, JSON, every response zod-validated)

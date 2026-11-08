@@ -1,0 +1,5 @@
+node_modules
+dist
+coverage
+# The root .gitignore drops *.log; these are fixtures copied from real run logs.
+!test-data/**/*.log

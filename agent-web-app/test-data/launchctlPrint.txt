@@ -1,0 +1,13 @@
+gui/501/com.nyc311.agent.alpha-agent = {
+	active count = 0
+	path = /Users/x/Library/LaunchAgents/com.nyc311.agent.alpha-agent.plist
+	state = not running
+
+	program = /bin/sh
+	runs = 7
+	last exit code = 0
+
+	endpoints = {
+		state = active
+	}
+}
