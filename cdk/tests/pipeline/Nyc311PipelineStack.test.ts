@@ -302,6 +302,22 @@ describe("Nyc311PipelineStack", () => {
     template.hasOutput("Nyc311PipelineStatusApiUrl", {});
   });
 
+  it("expires old pipeline artifacts instead of keeping every execution's objects forever (#192)", () => {
+    template.hasResourceProperties("AWS::S3::Bucket", {
+      LifecycleConfiguration: Match.objectLike({
+        Rules: Match.arrayWith([
+          Match.objectLike({
+            Id: "ExpireOldPipelineArtifacts",
+            Status: "Enabled",
+            ExpirationInDays: 14,
+            NoncurrentVersionExpiration: Match.objectLike({ NoncurrentDays: 1 }),
+            AbortIncompleteMultipartUpload: Match.objectLike({ DaysAfterInitiation: 7 }),
+          }),
+        ]),
+      }),
+    });
+  });
+
   it("does not restrict direct deploys of the pipeline stack itself, the recovery path for a broken Synth step", () => {
     const [{ Properties }] = Object.values(
       template.findResources("AWS::IAM::Policy", {
