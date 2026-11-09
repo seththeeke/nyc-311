@@ -7,105 +7,87 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
-  on 11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, fires on
-  every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 26 contacts
-  (as of 11-08 22:00). Track all status-visibility asks (notifications,
-  dashboard, live feed, severity/priority views) here. No new comments as of
-  11-08 19:00 (conversation check).
+  11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, both SNS
+  filters, dashboard and neighbourhood/geo filter deferred. 28 contacts (11-09).
+  Track all status-visibility asks (notifications, start/end notices,
+  dashboard, geo-fenced alerts, severity views) here.
 - **#170 (11-07):** event-driven dispatch. Rex replied 11-07; I answered 11-08
-  (1/2 used): the `startTransit` race fix (IDLE check into `foldProjection`,
-  TransactionCanceled = skip) is in scope and blocks the merge, hourly run
-  stays as the safety net, no debounce, no FIFO. Body has a Decisions section.
-  No new comments as of 11-08 19:00.
-- **#181 (11-08, bug):** NYC 311 intake stall. The poller treats a short/empty
-  SODA page as drained (`nyc311RequestService.ts`). Rex confirmed from poller
-  logs (11-08, 1/2 replies used): empty/short pages, not timeouts/throttling.
-  Plan: ship #72's token first, then tune backoff. Closed out, no new
-  comments as of 11-08 19:00. Brogan (chat, 11-08 22:01) is holding fleet
-  growth at today's recruit cap, still reading the backlog as real demand.
-- **#69 (backlog, not mine):** lat/lng location fallback. Commented with
-  evidence 11-08. No reply yet as of 11-08 19:00. Pitch it to Seth again if
-  it doesn't move.
+  (1/2 used): `startTransit` race fix in scope, hourly run stays as the safety
+  net. No new comments as of 11-09.
+- **#181 (11-08, bug):** NYC 311 intake stall. Rex confirmed from logs (1/2
+  used). 11-09 comment: worse — fixed 2,000/day since Nov 7, ~3 h of 311 time
+  read per day, lag 85→99→112 h, ~450 accepted orders upstream. #72 (token)
+  still open. Warned Brogan in the #181 thread not to release operators.
+- **#194 (11-09):** dispatch the nearest idle operator. `findIdleOperator` is
+  GSI `Limit: 1`, location-blind. 3 days: actual 8.69 mi vs all-pairs 8.52
+  vs nearest 3.1 mi. Expect ~180–200 paid h/wk (~$8–9k). Asked Rex: greedy vs
+  per-tick assignment solve. 0/2 replies used.
+- **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Declines (reuse the reasoning)
 
-- Data export / analytics / "open API": the public API `POST /v1/requests/search`.
-- Hazard flagging / detection, photo upload, direct reporting: BoroughSim only
-  ingests NYC 311. Point residents to 311 (or 911). Dogwood repeats this
-  (5th+ time declined, incl. 11-08 "real-time hazard detection system").
-- Self-service mark-complete / satisfaction sign-off / feedback / live chat
-  with crews: completion is crew-verified, no resident channel into a job.
-  Sassafras repeats these near-daily (note: Sassafras's 11-08 20:45 "severity/
-  impact dashboard" ask is different — tracked on #166, not declined).
-- Direct phone/email support channel to BoroughSim: no human support line
-  exists; BoroughSim works only from the 311 report + status. Declined for
-  Sycamore 11-08 ("status updates aren't enough when responses are slow") —
-  pointed at #170/#181 (speed) and #166 (visibility) instead.
+- Data export / analytics / historical-data API: public API
+  `POST /v1/requests/search` (Ginkgo again 11-09).
+- Hazard flagging/detection, photo upload, direct reporting: BoroughSim only
+  ingests NYC 311 → point to 311/911. Dogwood repeats (2 more 11-09).
+- Accessibility audits / non-street civic issues: out of scope, use 311.
+- Self-service mark-complete / feedback / live chat with crews: completion is
+  crew-verified. Sassafras repeats these (but check each: some go to #166).
+- Direct phone/email support: none exists; point at #170/#181/#166.
 - Auto-categorise/prioritise: already exists. Single-order escalations,
   maintenance cadence: not features.
 
 ## WBR and cost model (know this)
 
 - Goal metric = `total_cost / orders_accepted` (same week). Oct 12/19/26:
-  $299/$357/$327. Nov 2 partial: $1,885 (cost on 763 resolved vs 192
-  accepted; accepted is depressed by the #181 intake stall).
-- total_cost ≈ 80% materials (descriptor constant × U[1,2)). Cave-in is 58%
-  of materials. <$25 unreachable under this cost model; flagged to Seth 11-07.
-- WBR labor = ORDER_SCHEDULED→RESOLVED only (excludes idle). WBR time to
-  resolve starts at ORDER_CREATED (ingestion), so it hides 311→ingest lag
-  (normally ~46 h, 84–100 h since Nov 4).
-- location_unresolved_rate ~0.55 every week (BBL-only resolution).
-- Fleet: 5→17 (Oct 31–Nov 6), 19 on Nov 7. Backlog 940→302 (Nov 8). Median
-  TTR 13.4d peak → 11.27d, still 11.1d on 11-08 22:00. Brogan hit today's
-  2/day recruit cap, holding, and will flag Seth if 2/day is too slow once
-  the #181 fix lands the ~350-order upstream queue.
+  $299/$357/$327. Nov 2 (final): $2,093 (424,872 / 203; 896 resolved during
+  backlog drain, accepted depressed by #181).
+- total_cost ≈ 80% materials (descriptor constant × U[1,2)). Cave-in 58% of
+  materials. <$25 unreachable under this cost model; flagged to Seth 11-07.
+- WBR labor = ORDER_SCHEDULED→RESOLVED (includes transit, excludes idle).
+  TTR starts at ORDER_CREATED (hides 311→ingest lag, now 112 h).
+- location_unresolved_rate ~0.54–0.59 every week.
+- Fleet 5→21 (Oct 31–Nov 8). Brogan holding at 21, backlog 165, median 9.9 d
+  (11-09 10:00), reads 4–14 arrivals/day as real — it's the #181 stall.
 
 ## Research agenda
 
-- **Proven → #170:** hourly dispatch. 739/739 starts at :22. Idle 18–20% of
-  paid h every day Nov 1–8 (≈$16k/wk).
-- **Proven → #181:** intake stall, confirmed by Rex from logs 11-08 (empty/
-  short SODA pages, not timeouts). Normal 10–12.6k req/day (~220 Street
-  Condition). Nov 3–8: 34,890 vs ~69k. 13/30 polls added none, 5 exactly 1,000.
-- **Proven → #69 (comment):** 62% of Street Condition have no BBL
-  (intersection 100%, blockface 100%). Open + has lat/lng: 1,412 in 28 days ≈
-  350/wk (+70% accepted). Blockface mostly lacks lat/lng (needs geocoding).
-- **Measuring:** nearest-operator matching. Transit = straight-line miles /
-  25 mph, min 10 min, × variance (`transitTimeService.ts`); `findIdleOperator`
-  ignores location. Last 7 days: 838 jobs, 448 transit h, avg 8.6 mi actual vs
-  3.9 mi to the nearest operator dispatched in the same tick. Upper bound
-  ≈40% of transit (~180 h/wk). Next: a 1:1 assignment estimate and how it
-  interacts with #170 (with event dispatch, choose the nearest idle operator).
-  TRANSIT_STARTED and WORK_STARTED payloads carry `location.lat/lng`.
+- **Proven → #170:** hourly dispatch. Idle 18.5–20.4% of paid h every day
+  Nov 1–9 (88 h on Nov 8).
+- **Proven → #181:** intake stall, worsening (see ticket line).
+- **Proven → #194:** nearest-operator matching (see ticket line). Transit is
+  19–24% of paid h.
+- **Proven → #69 (comment):** 62% of Street Condition have no BBL; ~350/wk
+  recoverable via lat/lng.
+- **Idea (next):** WBR measurement ticket — cohort cost (cost of orders
+  accepted that week) plus paid fleet hours incl. idle. The $327→$2,093 swing
+  is mostly accounting (resolved-cost / accepted-count mismatch).
 - **Idea:** materials estimate biased ~33% low. Low priority.
-- **Idea:** cohort cost metric plus paid fleet hours in the WBR (measurement ticket).
 
-## Saved queries (folder writes BLOCKED, 11-07 and 11-08)
+## Saved queries (folder writes BLOCKED 11-07, 11-08, 11-09)
 
 Writing `.claude/agent-memory/cpo-agent/queries/*.sql` fails ("sensitive
-file"); asked Seth for permission. Not retried 11-08 runs (no query needed).
-Rebuild from these shapes until unblocked:
-- fleet-time-budget-daily: dedupe operator_events (9d), LEAD next occurred_at
-  (or now), class by opening event (TRANSIT_STARTED→TRANSIT, WORK_STARTED→
-  WORKING, ADDED/COMPLETED/ABORTED→IDLE), sum hours by start day.
-- intake-daily: requests, STREAM rows, MIN(warehouse_ingested_at) per
-  request_id = ingest time; per day count, Street Condition count, median/p90
-  lag vs created_at. Per-run version: group by date_trunc('hour').
-- street-condition-no-bbl: latest request row, complaint_type 'Street
-  Condition', 28d; by raw_payload address_type: no bbl / open (no closed_date)
-  / has latitude.
-- nearest-operator: TRANSIT_STARTED followed by WORK_STARTED; haversine of start
-  location → job location; self-join on hour tick for the min distance.
+file"); asked Seth. Rebuild from these shapes:
+- intake-daily: requests, STREAM rows, dt>=window; per request_id MIN
+  warehouse_ingested_at / created_at; per ingest day: count, Street Condition,
+  approx_percentile lag 0.5/0.9, MAX(created) = how far the feed has read.
+- fleet-time-budget-daily: dedupe operator_events, LEAD next occurred_at (or
+  now), class by opening event (TRANSIT_STARTED→TRANSIT, WORK_STARTED→WORKING,
+  ADDED/COMPLETED/ABORTED→IDLE), shares by start day.
+- nearest-operator-bounds (weekly): operator_events dt>=, 3 days only (7 days
+  timed out); TRANSIT_STARTED loc + LEAD next WORK_STARTED loc per operator;
+  self-join on hour tick (≥2 jobs); haversine; actual vs all-pairs avg vs
+  per-job min vs per-operator min.
+- street-condition-no-bbl: latest request row, 'Street Condition', 28d, by
+  raw_payload address_type: no bbl / open / has latitude.
 
 ## Lessons
 
-- Contacts cluster by persona repeating near-identical asks. Group by need,
-  but check each new contact individually — same persona can ask something new
-  (e.g. Sassafras's severity-dashboard ask on 11-08 differs from their usual
-  self-service decline pattern).
-- `Edit` and `python3` are unavailable; `mkdir` in a compound command needs
-  approval (Write creates folders). Rewrite issue bodies with Write to /tmp.
-  Reading a file written by `gh ... > /tmp/x` via Bash can fail standalone
-  (wc blocked on /tmp); run the redirect alone, then Read the file directly.
-- Top-level posts are capped at 75 words, and the counter is strict; aim for 65.
+- **Operator event payloads have NO `$.order_id`** (query-builder
+  reference.md is wrong); only `location`. Pair by operator sequence.
+- Contacts cluster by persona repeating near-identical asks; still check each.
+- `Edit`, `python3` unavailable; compound bash with `;`/`echo`/`head` after
+  gh may be denied — run gh commands one per call. Write creates folders.
+- Top-level posts capped at 75 words, strict; aim for 65.
 - Check upstream intake before reading a demand drop as real.
+- Athena 20 s limit: self-joins over 7 days of operator_events time out.
