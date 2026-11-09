@@ -1,6 +1,6 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 
 function synthesize(envName: "TEST" | "PROD"): Template {
@@ -39,7 +39,7 @@ describe("RequestsTable", () => {
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Prod" });
   });
 
-  it("declares gsi1-external-key and gsi4-poller-metrics as GSIs projecting ALL", () => {
+  it("declares gsi1-external-key, gsi3-location and gsi4-poller-metrics as GSIs projecting ALL", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
@@ -47,6 +47,15 @@ describe("RequestsTable", () => {
         Match.objectLike({
           IndexName: "gsi1-external-key",
           KeySchema: [{ AttributeName: "gsi1pk", KeyType: "HASH" }],
+          Projection: { ProjectionType: "ALL" },
+        }),
+        /* Kept one more deploy: DynamoDB deletes only one GSI per update (#186). */
+        Match.objectLike({
+          IndexName: "gsi3-location",
+          KeySchema: [
+            { AttributeName: "gsi3pk", KeyType: "HASH" },
+            { AttributeName: "gsi3sk", KeyType: "RANGE" },
+          ],
           Projection: { ProjectionType: "ALL" },
         }),
         Match.objectLike({
@@ -61,15 +70,19 @@ describe("RequestsTable", () => {
     });
   });
 
-  it("no longer declares gsi2-status or gsi3-location (#182 — unused, removed 2026-11-08)", () => {
+  it("no longer declares gsi2-status (#182 — unused, removed 2026-11-08)", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       GlobalSecondaryIndexes: Match.not(Match.arrayWith([Match.objectLike({ IndexName: "gsi2-status" })])),
     });
-    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
-      GlobalSecondaryIndexes: Match.not(Match.arrayWith([Match.objectLike({ IndexName: "gsi3-location" })])),
-    });
+  });
+
+  it("declares exactly 3 GSIs, so this deploy deletes one GSI from the 4 deployed (#186)", () => {
+    const tables = synthesize("TEST").findResources("AWS::DynamoDB::GlobalTable");
+    const [table] = Object.values(tables);
+
+    expect(table?.Properties.GlobalSecondaryIndexes).toHaveLength(3);
   });
 });
 

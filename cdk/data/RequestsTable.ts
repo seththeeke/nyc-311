@@ -61,14 +61,20 @@ export class RequestsTable extends TableV2 {
           projectionType: ProjectionType.ALL,
         },
         /*
-         * `gsi2-status` ("draft/pending processing queues") and
-         * `gsi3-location` ("recurring-requests-at-this-address view") were
-         * removed 2026-11-08 (#182): neither was ever queried anywhere in
-         * the codebase, and `3-order-ingestion.md` §6 explicitly descoped
-         * the one planned `gsi2-status` consumer (a backfill job) —
-         * "accept the gap." Every Request write was paying full-item
-         * ProjectionType.ALL replication into two indexes nobody read.
+         * `gsi2-status` was removed 2026-11-08 (#182): never queried, and
+         * `3-order-ingestion.md` §6 descoped its one planned consumer.
          */
+        {
+          indexName: "gsi3-location",
+          /*
+           * Unused and no longer written (#182), but kept for one more
+           * deploy: DynamoDB allows only one GSI deletion per table update
+           * (#186). Remove it in its own PR once this has reached Prod.
+           */
+          partitionKey: { name: "gsi3pk", type: AttributeType.STRING }, /* location_id */
+          sortKey: { name: "gsi3sk", type: AttributeType.STRING }, /* created_at */
+          projectionType: ProjectionType.ALL,
+        },
         {
           indexName: "gsi4-poller-metrics",
           /*
