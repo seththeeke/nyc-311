@@ -217,10 +217,6 @@ export class Nyc311PipelineStack extends Stack {
     /* docs/14-maps-refactor.md §4.8 — the 3-D map drawn in a real browser; blocking, like the integration tests above. */
     const browserSmokeTestsTest = createBrowserSmokeTestStep({ id: "BrowserSmokeTestsTest", source });
 
-    pipeline.addStage(deployTestStage, {
-      post: [publishCoverageTest, integrationTestsTest, browserSmokeTestsTest],
-    });
-
     /*
      * §4 "cdk diff visibility (non-blocking)" row — reuses the same
      * GitHub source (not the synthesized assembly) so it's a plain,
@@ -233,6 +229,17 @@ export class Nyc311PipelineStack extends Stack {
       commands: [
         'cd cdk && npm ci && npx cdk diff Nyc311-Prod --app "npx ts-node --prefer-ts-exts bin/pipeline.ts" || true',
       ],
+    });
+
+    /*
+     * #198 — ProdDiff runs beside Test's post steps, not as DeployProd's
+     * `pre`: it needs nothing from them, and as a `pre` its ~94s ran
+     * serially between them and Prod's deploy on every execution. It
+     * still ends before Prod deploys, since DeployProd waits on all of
+     * these.
+     */
+    pipeline.addStage(deployTestStage, {
+      post: [publishCoverageTest, integrationTestsTest, browserSmokeTestsTest, prodDiff],
     });
 
     const publishCoverageProd = createCoveragePublishStep({
@@ -263,7 +270,6 @@ export class Nyc311PipelineStack extends Stack {
     });
 
     pipeline.addStage(deployProdStage, {
-      pre: [prodDiff],
       post: [publishCoverageProd, integrationTestsProd],
     });
 
