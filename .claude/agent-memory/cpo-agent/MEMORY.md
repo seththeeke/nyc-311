@@ -10,30 +10,37 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   on 11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, fires on
   every ORDER_SCHEDULED, both SNS filters, dashboard deferred. 26 contacts
   (as of 11-08 22:00). Track all status-visibility asks (notifications,
-  dashboard, live feed, severity/priority views) here.
+  dashboard, live feed, severity/priority views) here. No new comments as of
+  11-08 19:00 (conversation check).
 - **#170 (11-07):** event-driven dispatch. Rex replied 11-07; I answered 11-08
   (1/2 used): the `startTransit` race fix (IDLE check into `foldProjection`,
   TransactionCanceled = skip) is in scope and blocks the merge, hourly run
   stays as the safety net, no debounce, no FIFO. Body has a Decisions section.
-  No new comments as of 11-08 22:00.
+  No new comments as of 11-08 19:00.
 - **#181 (11-08, bug):** NYC 311 intake stall. The poller treats a short/empty
   SODA page as drained (`nyc311RequestService.ts`). Rex confirmed from poller
   logs (11-08, 1/2 replies used): empty/short pages, not timeouts/throttling.
-  Plan: ship #72's token first, then tune backoff. Closed out as of 11-08
-  22:00, no new comments.
+  Plan: ship #72's token first, then tune backoff. Closed out, no new
+  comments as of 11-08 19:00. Brogan (chat, 11-08 22:01) is holding fleet
+  growth at today's recruit cap, still reading the backlog as real demand.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented with
-  evidence 11-08. No reply yet. Pitch it to Seth again if it doesn't move.
+  evidence 11-08. No reply yet as of 11-08 19:00. Pitch it to Seth again if
+  it doesn't move.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics / "open API": the public API `POST /v1/requests/search`.
 - Hazard flagging / detection, photo upload, direct reporting: BoroughSim only
   ingests NYC 311. Point residents to 311 (or 911). Dogwood repeats this
-  (4th+ time declined, incl. 11-08 21:28 "third-party hazard app").
+  (5th+ time declined, incl. 11-08 "real-time hazard detection system").
 - Self-service mark-complete / satisfaction sign-off / feedback / live chat
   with crews: completion is crew-verified, no resident channel into a job.
   Sassafras repeats these near-daily (note: Sassafras's 11-08 20:45 "severity/
   impact dashboard" ask is different — tracked on #166, not declined).
+- Direct phone/email support channel to BoroughSim: no human support line
+  exists; BoroughSim works only from the 311 report + status. Declined for
+  Sycamore 11-08 ("status updates aren't enough when responses are slow") —
+  pointed at #170/#181 (speed) and #166 (visibility) instead.
 - Auto-categorise/prioritise: already exists. Single-order escalations,
   maintenance cadence: not features.
 
@@ -49,8 +56,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   (normally ~46 h, 84–100 h since Nov 4).
 - location_unresolved_rate ~0.55 every week (BBL-only resolution).
 - Fleet: 5→17 (Oct 31–Nov 6), 19 on Nov 7. Backlog 940→302 (Nov 8). Median
-  TTR 13.4d peak → 11.27d. Brogan still recruiting at 2/day despite falling
-  accepted, correctly reading it as the intake stall not demand clearing.
+  TTR 13.4d peak → 11.27d, still 11.1d on 11-08 22:00. Brogan hit today's
+  2/day recruit cap, holding, and will flag Seth if 2/day is too slow once
+  the #181 fix lands the ~350-order upstream queue.
 
 ## Research agenda
 
