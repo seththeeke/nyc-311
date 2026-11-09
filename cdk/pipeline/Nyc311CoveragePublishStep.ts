@@ -1,5 +1,6 @@
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
+import { NPM_CI } from "./npmCiCommand";
 
 /* hosting-test-coverage.md §2.1/§2.2 — every package's coverage/ output, captured off Synth as additional FileSets. */
 const COVERAGE_PACKAGE_DIRS = ["backend/coverage", "cdk/coverage", "web-app/coverage", "customer/backend/coverage"];
@@ -38,7 +39,7 @@ export function createCoveragePublishStep(props: CoveragePublishStepProps): pipe
     additionalInputs,
     commands: [
       /* Root-level devDependencies (istanbul-lib-*) back scripts/publish-coverage.js's coverage-map merge — not installed by Synth's per-package `npm ci`s. */
-      "npm ci",
+      NPM_CI,
       "node scripts/publish-coverage.js",
       `aws s3 sync coverage-publish/ s3://${props.bucketName}/coverage/ --delete`,
       `aws cloudfront create-invalidation --distribution-id ${props.distributionId} --paths "/coverage/*"`,
