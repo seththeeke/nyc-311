@@ -133,7 +133,7 @@ describe("Nyc311PipelineStack", () => {
     });
   });
 
-  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a non-blocking diff before Prod, a coverage publish, and integration tests after", () => {
+  it("deploys Nyc311-Test and Nyc311-Prod as pipeline stages, with a coverage publish, and integration tests after", () => {
     /*
      * The coverage-publish and integration-test post steps run in
      * parallel (same RunOrder), and CDK Pipelines doesn't render them in
@@ -162,14 +162,6 @@ describe("Nyc311PipelineStack", () => {
       Stages: Match.arrayWith([
         Match.objectLike({
           Name: "DeployProd",
-          Actions: Match.arrayWith([Match.objectLike({ Name: "ProdDiff" })]),
-        }),
-      ]),
-    });
-    template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
-      Stages: Match.arrayWith([
-        Match.objectLike({
-          Name: "DeployProd",
           Actions: Match.arrayWith([Match.objectLike({ Name: "PublishCoverageProd" })]),
         }),
       ]),
@@ -182,6 +174,21 @@ describe("Nyc311PipelineStack", () => {
         }),
       ]),
     });
+  });
+
+  it("runs the non-blocking ProdDiff beside DeployTest's post steps, not serially before DeployProd (#198)", () => {
+    type Action = { Name: string; RunOrder: number };
+    type Stage = { Name: string; Actions: Action[] };
+    const pipelines = Object.values(template.findResources("AWS::CodePipeline::Pipeline"));
+    const stages = (pipelines[0].Properties as { Stages: Stage[] }).Stages;
+    const actions = (name: string): Action[] => stages.find((stage) => stage.Name === name)?.Actions ?? [];
+    const runOrder = (name: string): number | undefined =>
+      actions("DeployTest").find((action) => action.Name === name)?.RunOrder;
+
+    expect(actions("DeployProd").map((action) => action.Name)).not.toContain("ProdDiff");
+    expect(runOrder("ProdDiff")).toBeDefined();
+    expect(runOrder("ProdDiff")).toBe(runOrder("BrowserSmokeTestsTest"));
+    expect(runOrder("ProdDiff")).toBe(runOrder("IntegrationTestsTest"));
   });
 
   it("skips a doc-only push via a V2 trigger filter, rather than running the full pipeline on every push (#112)", () => {
