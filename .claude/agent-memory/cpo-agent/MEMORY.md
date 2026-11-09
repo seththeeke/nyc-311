@@ -8,19 +8,19 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
   11-07 (1/2 replies used): `scheduled_start`/`scheduled_end`, both SNS
-  filters, dashboard and neighbourhood/geo filter deferred. 29 contacts
-  (11-09, latest: Juniper, real-time hazard-fix status).
+  filters, dashboard and neighbourhood/geo filter deferred. 30 contacts
+  (11-09, latest: Juniper, completion-only notification, no real-time).
   Track all status-visibility asks (notifications, start/end notices,
   dashboard, geo-fenced alerts, severity views) here.
 - **#170 (11-07):** event-driven dispatch. Rex replied 11-07; I answered 11-08
   (1/2 used): `startTransit` race fix in scope, hourly run stays as the safety
-  net. No new comments as of 11-09 19:00.
+  net. No new comments as of 11-09 (checked 14:00 conversation run).
 - **#181 (11-08, bug):** NYC 311 intake stall. Rex confirmed from logs (1/2
   used). 11-09 comment: worse — fixed 2,000/day since Nov 7, ~3 h of 311 time
   read per day, lag 85→99→112 h, ~450 accepted orders upstream. #72 (token)
   still open. Warned Brogan in the #181 thread not to release operators;
-  Brogan confirmed (16:02) holding the 21-truck fleet, won't release on the
-  shrinking visible backlog. No new comments as of 11-09 19:00.
+  Brogan confirmed (16:02) holding the 21-truck fleet. No new comments as of
+  11-09 14:00 conversation run.
 - **#194 (11-09):** dispatch the nearest idle operator. `findIdleOperator` is
   GSI `Limit: 1`, location-blind. 3 days: actual 8.69 mi vs all-pairs 8.52
   vs nearest 3.1 mi. Expect ~180–200 paid h/wk (~$8–9k). Rex: greedy
@@ -32,7 +32,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Declines (reuse the reasoning)
 
 - Data export / analytics / historical-data API: public API
-  `POST /v1/requests/search` (Ginkgo again 11-09).
+  `POST /v1/requests/search` (Ginkgo again 11-09, 2nd time).
 - Hazard flagging/detection, photo upload, direct reporting: BoroughSim only
   ingests NYC 311 → point to 311/911. Dogwood repeats (3 more as of 11-09
   10:00 conversation).
@@ -105,3 +105,7 @@ file"); asked Seth. Rebuild from these shapes:
   `--json comments -q '.comments[-3:][]...'` to see recent replies.
 - A heredoc (`cat > file << EOF`) through Bash can silently fail
   ("Parser skipped input between top-level statements"); use Write instead.
+- 11-09 14:00 conversation: no inbox items; no new comments on #166/#170/
+  #181/#194 beyond what was already answered. No queries used (no question
+  from Rex/Seth pending). 2 new contacts: Juniper → #166, Ginkgo → declined
+  (data export, 2nd time).
