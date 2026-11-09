@@ -29,20 +29,14 @@ export class RequestDao extends Dao<Request> {
   }
 
   /**
-   * Derives the three GSI key attributes (`gsi1-external-key`,
-   * `gsi2-status`, `gsi3-location`) from `request`'s domain fields, merged
-   * in via `additionalAttributes` so `RequestSchema` stays the pure domain
-   * shape. gsi3pk/gsi3sk are omitted, not nulled, while `location_id` is
-   * null — DynamoDB needs the attribute entirely absent to stay sparse.
+   * Derives the `gsi1-external-key` GSI key attribute from `request`'s
+   * domain fields, merged in via `additionalAttributes` so `RequestSchema`
+   * stays the pure domain shape. `gsi2-status`/`gsi3-location` attributes
+   * were removed 2026-11-08 (#182) along with their unused indexes.
    */
   private gsiAttributesFor(request: Request): Record<string, unknown> {
     return {
       gsi1pk: request.external_unique_key,
-      gsi2pk: request.status,
-      gsi2sk: request.created_at,
-      ...(request.location_id !== null
-        ? { gsi3pk: request.location_id, gsi3sk: request.created_at }
-        : {}),
     };
   }
 

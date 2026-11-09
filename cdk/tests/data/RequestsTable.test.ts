@@ -39,7 +39,7 @@ describe("RequestsTable", () => {
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "Requests-Prod" });
   });
 
-  it("declares gsi1-external-key, gsi2-status, and gsi3-location as GSIs projecting ALL", () => {
+  it("declares gsi1-external-key and gsi4-poller-metrics as GSIs projecting ALL", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
@@ -47,22 +47,6 @@ describe("RequestsTable", () => {
         Match.objectLike({
           IndexName: "gsi1-external-key",
           KeySchema: [{ AttributeName: "gsi1pk", KeyType: "HASH" }],
-          Projection: { ProjectionType: "ALL" },
-        }),
-        Match.objectLike({
-          IndexName: "gsi2-status",
-          KeySchema: [
-            { AttributeName: "gsi2pk", KeyType: "HASH" },
-            { AttributeName: "gsi2sk", KeyType: "RANGE" },
-          ],
-          Projection: { ProjectionType: "ALL" },
-        }),
-        Match.objectLike({
-          IndexName: "gsi3-location",
-          KeySchema: [
-            { AttributeName: "gsi3pk", KeyType: "HASH" },
-            { AttributeName: "gsi3sk", KeyType: "RANGE" },
-          ],
           Projection: { ProjectionType: "ALL" },
         }),
         Match.objectLike({
@@ -74,6 +58,17 @@ describe("RequestsTable", () => {
           Projection: { ProjectionType: "ALL" },
         }),
       ],
+    });
+  });
+
+  it("no longer declares gsi2-status or gsi3-location (#182 — unused, removed 2026-11-08)", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      GlobalSecondaryIndexes: Match.not(Match.arrayWith([Match.objectLike({ IndexName: "gsi2-status" })])),
+    });
+    template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      GlobalSecondaryIndexes: Match.not(Match.arrayWith([Match.objectLike({ IndexName: "gsi3-location" })])),
     });
   });
 });

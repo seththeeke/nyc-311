@@ -60,23 +60,15 @@ export class RequestsTable extends TableV2 {
           partitionKey: { name: "gsi1pk", type: AttributeType.STRING }, /* external_unique_key */
           projectionType: ProjectionType.ALL,
         },
-        {
-          indexName: "gsi2-status",
-          /* Intended access pattern: draft/pending processing queues. */
-          partitionKey: { name: "gsi2pk", type: AttributeType.STRING }, /* status */
-          sortKey: { name: "gsi2sk", type: AttributeType.STRING }, /* created_at */
-          projectionType: ProjectionType.ALL,
-        },
-        {
-          indexName: "gsi3-location",
-          /*
-           * Intended access pattern: recurring-requests-at-this-address view.
-           * Sparse — null while status = DRAFT.
-           */
-          partitionKey: { name: "gsi3pk", type: AttributeType.STRING }, /* location_id */
-          sortKey: { name: "gsi3sk", type: AttributeType.STRING }, /* created_at */
-          projectionType: ProjectionType.ALL,
-        },
+        /*
+         * `gsi2-status` ("draft/pending processing queues") and
+         * `gsi3-location` ("recurring-requests-at-this-address view") were
+         * removed 2026-11-08 (#182): neither was ever queried anywhere in
+         * the codebase, and `3-order-ingestion.md` §6 explicitly descoped
+         * the one planned `gsi2-status` consumer (a backfill job) —
+         * "accept the gap." Every Request write was paying full-item
+         * ProjectionType.ALL replication into two indexes nobody read.
+         */
         {
           indexName: "gsi4-poller-metrics",
           /*
