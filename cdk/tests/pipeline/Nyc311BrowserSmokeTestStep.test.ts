@@ -29,7 +29,7 @@ describe("Nyc311BrowserSmokeTestStep", () => {
       Environment: Match.objectLike({ ComputeType: "BUILD_GENERAL1_MEDIUM" }),
       Source: Match.objectLike({
         BuildSpec: Match.stringLikeRegexp(
-          "npm install --no-save --no-audit --no-fund @playwright/test@\\$\\(node -p .+\\) && cd web-app && \\.\\./node_modules/\\.bin/playwright install --with-deps chromium && SMOKE_BASE_URL=https://test\\.boroughsim\\.com npm run test:smoke && cd \\.\\.",
+          "npm install --no-save --no-audit --no-fund @playwright/test@\\$\\(node -p .+\\) && cd web-app && \\.\\./node_modules/\\.bin/playwright install --only-shell chromium && SMOKE_BASE_URL=https://test\\.boroughsim\\.com npm run test:smoke && cd \\.\\.",
         ),
       }),
     });
@@ -42,6 +42,16 @@ describe("Nyc311BrowserSmokeTestStep", () => {
     expect(specs).toHaveLength(1);
     expect(specs[0]).not.toContain("npm ci");
     expect(specs[0]).not.toContain("npx playwright");
+  });
+
+  /* The image already has Chromium's libraries; --with-deps added ~32s of apt work for fonts (#196). */
+  it("skips apt deps and the full Chrome download", () => {
+    const spec = Object.values(template.findResources("AWS::CodeBuild::Project"))
+      .map((p) => JSON.stringify(p))
+      .find((p) => p.includes("test:smoke"));
+    expect(spec).not.toContain("--with-deps");
+    expect(spec).not.toContain("install-deps");
+    expect(spec).toContain("--only-shell");
   });
 
   /* The step installs nothing but @playwright/test, so a smoke file importing anything else would fail only in the pipeline. */

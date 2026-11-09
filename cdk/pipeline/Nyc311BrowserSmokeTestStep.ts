@@ -28,8 +28,13 @@ export function createBrowserSmokeTestStep(props: BrowserSmokeTestStepProps): pi
      * (~36s, #190). web-app/ resolves it from ../node_modules and npm run finds the
      * parent's .bin. The local binary installs Chromium: npx could fetch another version.
      */
+    /*
+     * No --with-deps: the CodeBuild image already has every library Chromium needs, and
+     * the apt run cost ~32s for fonts alone (#196). --only-shell skips the 187 MiB full
+     * Chrome that headless runs never launch. A missing library fails the launch loudly.
+     */
     commands: [
-      `npm install --no-save --no-audit --no-fund @playwright/test@$(node -p "${PLAYWRIGHT_LOCKED_VERSION}") && cd web-app && ../node_modules/.bin/playwright install --with-deps chromium && SMOKE_BASE_URL=${baseUrl} npm run test:smoke && cd ..`,
+      `npm install --no-save --no-audit --no-fund @playwright/test@$(node -p "${PLAYWRIGHT_LOCKED_VERSION}") && cd web-app && ../node_modules/.bin/playwright install --only-shell chromium && SMOKE_BASE_URL=${baseUrl} npm run test:smoke && cd ..`,
     ],
     /* MEDIUM, not SMALL: software WebGL is CPU-bound, and a starved renderer would flake the draw checks. */
     buildEnvironment: { computeType: codebuild.ComputeType.MEDIUM },
