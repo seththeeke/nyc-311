@@ -5,6 +5,7 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import type { CloudAssembly } from "aws-cdk-lib/cx-api";
 import { beforeAll, describe, expect, it } from "vitest";
 import { NODE_22_INSTALL_COMMANDS, Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
+import { NPM_CI } from "../../pipeline/npmCiCommand";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
 
@@ -299,7 +300,19 @@ describe("Nyc311PipelineStack", () => {
       JSON.stringify(project.Properties.Source.BuildSpec)
     );
     const synthSpec = buildSpecs.find((spec) => spec.includes("npm run test:coverage:ci"));
-    expect(synthSpec).toContain("cd customer/backend && npm ci && npm run lint && npm run test:coverage && cd ../..");
+    expect(synthSpec).toContain("cd customer/backend && npm ci --no-audit --no-fund && npm run lint && npm run test:coverage && cd ../..");
+  });
+
+  it("skips npm's built-in audit on every npm ci in every CodeBuild step (#200)", () => {
+    const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
+      JSON.stringify(project.Properties.Source.BuildSpec)
+    );
+    const installs = buildSpecs.flatMap((spec) => spec.match(/npm ci[^&"\\]*/g) ?? []);
+    /* Synth x4, ProdDiff, IntegrationTests x2, PublishCoverage x2. */
+    expect(installs.length).toBe(9);
+    for (const install of installs) {
+      expect(install.trim()).toBe(NPM_CI);
+    }
   });
 
   it("wires the pipeline-status API/Lambda, scoped to this pipeline's own ARN", () => {

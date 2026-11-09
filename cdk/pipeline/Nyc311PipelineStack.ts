@@ -14,6 +14,7 @@ import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
 import { createBrowserSmokeTestStep } from "./Nyc311BrowserSmokeTestStep";
 import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
 import { createIntegrationTestStep } from "./Nyc311IntegrationTestStep";
+import { NPM_CI } from "./npmCiCommand";
 import { WEBSITE_HOSTING_TARGETS } from "./websiteHostingTargets";
 
 /*
@@ -111,10 +112,10 @@ export class Nyc311PipelineStack extends Stack {
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       commands: [
-        "cd backend && npm ci && npm run lint && npm run test:coverage && cd ..",
+        `cd backend && ${NPM_CI} && npm run lint && npm run test:coverage && cd ..`,
         /* The fourth package (13-customer-simulation.md). `cd ../..` — the shell persists across commands. */
-        "cd customer/backend && npm ci && npm run lint && npm run test:coverage && cd ../..",
-        `cd web-app && npm ci && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build && cd ..`,
+        `cd customer/backend && ${NPM_CI} && npm run lint && npm run test:coverage && cd ../..`,
+        `cd web-app && ${NPM_CI} && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build && cd ..`,
         /*
          * test:coverage:ci (not the plain test:coverage every other
          * package/local dev uses) — cdk/scripts/test-coverage-sharded.sh
@@ -123,7 +124,7 @@ export class Nyc311PipelineStack extends Stack {
          * header comment for why, and confirmation this doesn't weaken
          * the coverage gate.
          */
-        "cd cdk && npm ci && npm run lint && npm run test:coverage:ci && npm run build && cd ..",
+        `cd cdk && ${NPM_CI} && npm run lint && npm run test:coverage:ci && npm run build && cd ..`,
         'cd cdk && npx cdk synth --app "npx ts-node --prefer-ts-exts bin/pipeline.ts"',
       ],
       primaryOutputDirectory: "cdk/cdk.out",
@@ -227,7 +228,7 @@ export class Nyc311PipelineStack extends Stack {
     const prodDiff = new pipelines.ShellStep("ProdDiff", {
       input: source,
       commands: [
-        'cd cdk && npm ci && npx cdk diff Nyc311-Prod --app "npx ts-node --prefer-ts-exts bin/pipeline.ts" || true',
+        `cd cdk && ${NPM_CI} && npx cdk diff Nyc311-Prod --app "npx ts-node --prefer-ts-exts bin/pipeline.ts" || true`,
       ],
     });
 
