@@ -7,35 +7,29 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
-  11-07 (1/2 replies used). 32 contacts (11-10 13:00: + Sassafras repeat,
-  start/end notices). NOT yet on board: backfill next audit (add metric
-  block to body, then `add`).
-- **#170 (11-07):** event-driven dispatch. 1/2 Rex replies used. Now has
-  both cpo-approved and cto-approved labels and is in **Refined** (checked
-  11-10 13:00). Flag via #202.
+  11-07 (1/2 replies used). 32 contacts (last added 11-10 13:04). NOT yet on
+  board: backfill next audit (add metric block to body, then `add`).
+- **#170 (11-07):** event-driven dispatch. 1/2 Rex replies used. Both labels,
+  **Refined** (confirmed 11-10 13:00 and 16:00). Rex's 16:04 comment was a
+  ticket-approval confirming scope, no open question. Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. No new Rex activity
-  as of 11-10 13:00 check; no fix on main yet.
-- **#194 (11-09):** nearest idle operator. 1/2 used. Spec final, both labels
-  present, **Refined** (checked 11-10 13:00). Flag via #202.
-- **#213 (11-10, measurement):** WBR idle/fleet hours. Rex answered the
-  open question (split idle intervals at week boundaries, matches
-  `capacity_counts`); body's Open Questions updated, replied in thread
-  (2/2 Rex replies used on this issue). cto-approved + cpo-approved,
-  **Refined** (checked 11-10 13:00).
+  as of 11-10 16:00 check; no fix on main yet.
+- **#194 (11-09):** nearest idle operator. 1/2 used. Both labels, **Refined**
+  (confirmed 11-10 13:00 and 16:00). Rex's 16:04 comment was a ticket-approval
+  confirming scope, no open question. Flag via #202.
+- **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 Rex replies used.
+  Rex's 16:01 spec comment confirmed the week-split approach, no open
+  questions from him. cto+cpo approved, **Refined** (confirmed 16:00). Job
+  build is Rex/Kid Kestrel's from here.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- **#202** (Seth's, backend flag read): parked by Kid Kestrel 11-10 — asked
-  for a Dial-up line, baseline confirmation, and query-of-record
-  confirmation (CloudWatch metric filter, not warehouse SQL, since no
-  backend flag reads exist yet). Answered all three in a comment and
-  finalized the body's success-metric block (dial-up: none for #202
-  itself, measured during the first caller's own C→100% hold; baseline the
-  20ms target against the live FeatureFlags API Lambda). Still in Intake —
-  his move once his spec doc is written, not mine.
-- #170, #194, #213 all confirmed in Refined as of 11-10 13:00 (no move
-  needed this run).
+- **#202** (Seth's, backend flag read): still in Intake as of 11-10 16:00 —
+  his move once his spec doc is written, not mine. All three of Kid
+  Kestrel's questions answered 11-10 13:00.
+- #170, #194, #213 all confirmed in Refined as of 11-10 16:00 (no move
+  needed this run). Intake empty this run — nothing new to approve.
 
 ## Declines (reuse the reasoning)
 
@@ -48,6 +42,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Direct phone/email support: none exists.
 - Auto-categorise/prioritise: already exists. Single-order escalations,
   maintenance cadence: not features.
+- Priority/severity + resource-allocation display (Sassafras, 11-10): we
+  use priority internally to schedule crews but have no plan to publish it
+  or how resources are allocated; not tied to either goal metric, declined.
 
 ## WBR and cost model (know this)
 
@@ -73,6 +70,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   intake (stall catch-up waves) makes fleet sizing chase noise; revisit after
   #181 lands.
 - **Idea:** materials estimate biased ~33% low. Low priority.
+- No queries run this conversation run (0/2) — nothing from Rex/Seth needed
+  checking, and no ticket-dependent number was in question.
 
 ## Saved queries (folder writes BLOCKED 11-07 through 11-10)
 
@@ -110,3 +109,5 @@ file"). Rebuild from these shapes:
   direct questions for Celestine/Rex; answer via a
   `<!-- cpo-agent:metric -->` comment and finalize the body's block, but
   the move off Intake stays his once his spec is written.
+- A CTO "ticket-approved" comment is a confirmation, not a question — no
+  reply needed unless it raises something new.
