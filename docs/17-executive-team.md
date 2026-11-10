@@ -5,7 +5,7 @@
 - **Live in Test and Prod:** Team Chat (§10).
 - **Running on the Mac mini, against Prod:**
   - the DevX agent (§11), posting each run to `#tech-team`;
-  - the COO agent (§12), managing the fleet and posting to `#executive-team` every 6 hours.
+  - the COO agent (§12), managing the fleet and posting to `#executive-team` twice a day.
 - **Built, set up on the Mac mini next:**
   - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
   - the CTO agent (§16), reviewing and merging Pip's PRs four times a day and summarizing in `#executive-team`.
@@ -599,7 +599,7 @@ There is no minimum or maximum fleet size. The fleet can swing by up to 4 operat
 
 ### 12.4 The run
 
-launchd runs `coo-agent` every 6 hours (02:00, 08:00, 14:00, 20:00 Mac mini time, Pacific) through `scripts/agent-scheduled-run.sh`, against **Prod**, as `KIND=operations`: one run per fire, with no PRs or issues to count.
+launchd runs `coo-agent` twice a day (08:00 and 20:00 Mac mini time, Pacific, since 2026-11-10, §21.10) through `scripts/agent-scheduled-run.sh`, against **Prod**, as `KIND=operations`: one run per fire, with no PRs or issues to count.
 
 - **Definition:** `.claude/agents/coo-agent.md`, on `sonnet`.
 - **Tools:** the `team-chat` and `boroughsim-ops` tools only, with no shell.
@@ -961,7 +961,7 @@ Each leg is at least one commit, so any leg can be rolled back alone.
 
 ### 18.1 The run
 
-Daily at 05:30 CT, on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR count), branch prefix `cost/`, PRs only, never `main`. **At most 3 open `cost/` PRs** (`MAX_OPEN_PRS=3`), counted apart from Pip's `devx/` PRs.
+Monday and Wednesday at 05:30 CT (§21.10), on Sonnet. `KIND` like Pip's (NEW and REVISE modes by open-PR count), branch prefix `cost/`, PRs only, never `main`. **At most 3 open `cost/` PRs** (`MAX_OPEN_PRS=3`), counted apart from Pip's `devx/` PRs.
 
 **Goal:** the month-end forecast under **$30** (October was $52.80, about half of it CodeBuild).
 
@@ -1051,7 +1051,7 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 
 ### 19.3 The run
 
-Twice a week, Monday and Thursday at 23:30 CT, on Opus.
+Once a week, Tuesday at 23:30 CT (§21.10), on Opus.
 
 1. **Memory:** read `.claude/agent-memory/software-analyzer-agent/MEMORY.md`: the rotation, past scores and the findings already filed or declined.
 2. **Inbox:** answer Rex's questions on his tickets, at most 2 replies per ticket, as Celestine does (§17.7).
@@ -1260,6 +1260,20 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 | **V8** | Celestine: AUDIT and CONVERSE, the query limit. |
 | **G1 to G4** | Grimble (§18.6). |
 | **S1 to S5** | Sable (§19.7). |
+
+### 21.10 Schedule cuts for Kid Kestrel (2026-11-10)
+
+Kid Kestrel's 4 Opus runs a day (§22.6) are paid for by running four agents less often. Times are CT, with Pacific in brackets.
+
+| Member | Before | Now |
+|---|---|---|
+| Pip (DevX) | 8 a day | **2 a day:** 09:00, 22:00 (07:00, 20:00) |
+| Brogan (COO) | Every 6 hours | **2 a day:** 10:00, 22:00 (08:00, 20:00) |
+| Grimble (AWS cost) | Daily | **Monday and Wednesday** at 05:30 (03:30) |
+| Sable (Software Analyzer) | Monday and Thursday | **Tuesday** at 23:30 (21:30) |
+
+- Rex keeps his 8 runs (§21.4). Pip's two slots and all four of Kestrel's are each followed by one of them.
+- Brogan's daily limits (2 recruits, 2 releases) are unchanged; two runs can still use them.
 
 ---
 
@@ -1505,13 +1519,13 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 
 | Agent | Persona | Cognito user (both pools) | Cognito groups | AWS identity | Runs |
 |---|---|---|---|---|---|
-| `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 8 a day (§21.4), `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
-| `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 02:00, 08:00, 14:00, 20:00 (Pacific), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
+| `devx-agent` | Pip Sprocketwhistle, DevX Engineer | `devx-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `devx-agent` → role `Nyc311DevxAgentRole`: `ReadOnlyAccess`, secrets denied, source identity `devx-agent` | 07:00 and 20:00 (§21.10), `KIND=pr-limit`, `TEAM_CHAT_ENV=PROD` |
+| `coo-agent` | Brogan Anvilhand, COO | `coo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_OPERATIONS` | None: everything it does goes through Cognito | 08:00 and 20:00 (Pacific, §21.10), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `OPS_TOOLS=1` |
 | `cto-agent` | Rex Rivet, CTO | `cto-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `cto-agent` → role `Nyc311CtoAgentRole`, the same access as `devx-agent` | 8 a day (§21.4), the 14:00 slot `DAILY`, `KIND=operations`, `TEAM_CHAT_ENV=PROD` |
 | `cpo-agent` | Celestine Vey, CPO | `cpo-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_PRODUCT` (contacts, WBR, warehouse queries) | None | 5 a day: AUDIT 05:00, CONVERSE ×4 (§21.4), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `PRODUCT_TOOLS=1`, `MEMORY=1`, `REPORTS=1` |
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
-| `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | 03:30 daily (05:30 CT), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
-| `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Mon and Thu 21:30 (23:30 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
+| `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | Mon and Wed 03:30 (05:30 CT, §21.10), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
+| `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Tue 21:30 (23:30 CT, §21.10), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | IAM user `gen-purpose-dev` → role `Nyc311EngineerAgentRole`, the same access as `devx-agent`, for verifying through logs and resource state | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `BUILD=0` |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 

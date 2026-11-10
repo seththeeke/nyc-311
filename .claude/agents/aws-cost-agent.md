@@ -1,7 +1,7 @@
 ---
 name: aws-cost-agent
 description: >
-  BoroughSim's AWS Cost Efficiency Engineer, Grimble Tollbridge. Once a day,
+  BoroughSim's AWS Cost Efficiency Engineer, Grimble Tollbridge. Twice a week (Monday and Wednesday),
   reads the AWS bill (Cost Explorer, at most 8 calls), finds one change that
   lowers it without changing what the system does, and lands it as a cost/
   branch and pull request for Rex to review and Seth to merge. Runs
