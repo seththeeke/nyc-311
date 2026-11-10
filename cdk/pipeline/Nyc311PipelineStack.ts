@@ -14,6 +14,7 @@ import { Nyc311PipelineStatusApi } from "./Nyc311PipelineStatusApi";
 import { createBrowserSmokeTestStep } from "./Nyc311BrowserSmokeTestStep";
 import { createCoveragePublishStep } from "./Nyc311CoveragePublishStep";
 import { createIntegrationTestStep } from "./Nyc311IntegrationTestStep";
+import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
 import { NPM_CI } from "./npmCiCommand";
 import { WEBSITE_HOSTING_TARGETS } from "./websiteHostingTargets";
 
@@ -64,18 +65,6 @@ const NYC311_CLI_USER_NAME = "seththeeke-cli";
  */
 const CDK_BOOTSTRAP_QUALIFIER = "hnb659fds";
 
-/*
- * Every CodeBuild step runs Node 22, matching the Lambdas' NODEJS_22_X and
- * Vitest 5's engine (#167), at the image's own 22.x. Not `runtime-versions`:
- * that copies standard:7.0's cached 22 into place, 51s on a cold host (#179).
- * An empty N_CACHE_PREFIX makes `n` download it fresh (~20s, as Node 20 did).
- * The grep fails the step if node is not 22.
- */
-export const NODE_22_INSTALL_COMMANDS = [
-  'N_CACHE_PREFIX="$(mktemp -d)" n "$NODE_22_VERSION"',
-  "node --version | grep -E '^v22[.]'",
-];
-
 /**
  * The self-mutating CI/CD pipeline (`aws-code-pipeline-plan.md`). This is
  * the standing exception to `CLAUDE.md` §5.3's single-stack rule — CI/CD
@@ -111,6 +100,7 @@ export class Nyc311PipelineStack extends Stack {
      */
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
+      installCommands: NODE_22_INSTALL_COMMANDS,
       commands: [
         `cd backend && ${NPM_CI} && npm run lint && npm run test:coverage && cd ..`,
         /* The fourth package (13-customer-simulation.md). `cd ../..` — the shell persists across commands. */
@@ -166,13 +156,11 @@ export class Nyc311PipelineStack extends Stack {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           computeType: codebuild.ComputeType.SMALL,
         },
-        partialBuildSpec: codebuild.BuildSpec.fromObject({
-          phases: {
-            install: {
-              commands: NODE_22_INSTALL_COMMANDS,
-            },
-          },
-        }),
+        /*
+         * No Node install here (#209): defaults reach SelfMutate and
+         * FileAssets too, which only run aws-cdk/cdk-assets and paid ~21s
+         * each for Node 22. Repo-code steps set NODE_22_INSTALL_COMMANDS.
+         */
       },
     });
 
@@ -227,6 +215,7 @@ export class Nyc311PipelineStack extends Stack {
      */
     const prodDiff = new pipelines.ShellStep("ProdDiff", {
       input: source,
+      installCommands: NODE_22_INSTALL_COMMANDS,
       commands: [
         `cd cdk && ${NPM_CI} && npx cdk diff Nyc311-Prod --app "npx ts-node --prefer-ts-exts bin/pipeline.ts" || true`,
       ],

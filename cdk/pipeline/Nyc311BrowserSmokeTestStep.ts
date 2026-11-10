@@ -1,6 +1,7 @@
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import { DOMAIN_CONFIG } from "../stack/Nyc311Stack";
+import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
 
 export interface BrowserSmokeTestStepProps {
   /** Step id, e.g. "BrowserSmokeTestsTest" — must be unique within the pipeline. */
@@ -22,6 +23,7 @@ export function createBrowserSmokeTestStep(props: BrowserSmokeTestStepProps): pi
   const baseUrl = `https://${DOMAIN_CONFIG.TEST.siteDomain}`;
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
+    installCommands: NODE_22_INSTALL_COMMANDS,
     /*
      * The smoke specs import only @playwright/test, so install just that (web-app's
      * locked version) at the repo root instead of web-app's ~550-package npm ci

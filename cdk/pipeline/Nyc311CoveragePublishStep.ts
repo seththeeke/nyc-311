@@ -1,5 +1,6 @@
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
+import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
 import { NPM_CI } from "./npmCiCommand";
 
 /* hosting-test-coverage.md §2.1/§2.2 — every package's coverage/ output, captured off Synth as additional FileSets. */
@@ -37,6 +38,7 @@ export function createCoveragePublishStep(props: CoveragePublishStepProps): pipe
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
     additionalInputs,
+    installCommands: NODE_22_INSTALL_COMMANDS,
     commands: [
       /* Root-level devDependencies (istanbul-lib-*) back scripts/publish-coverage.js's coverage-map merge — not installed by Synth's per-package `npm ci`s. */
       NPM_CI,
