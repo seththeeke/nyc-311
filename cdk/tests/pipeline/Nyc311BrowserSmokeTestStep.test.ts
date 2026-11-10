@@ -3,7 +3,8 @@ import * as path from "node:path";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { beforeAll, describe, expect, it } from "vitest";
-import { PLAYWRIGHT_LOCKED_VERSION } from "../../pipeline/Nyc311BrowserSmokeTestStep";
+import { execFileSync } from "node:child_process";
+import { PLAYWRIGHT_LOCKED_VERSION, PLAYWRIGHT_NODE_CHECK } from "../../pipeline/Nyc311BrowserSmokeTestStep";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
@@ -33,6 +34,32 @@ describe("Nyc311BrowserSmokeTestStep", () => {
         ),
       }),
     });
+  });
+
+  /* #215: the Node 22 download cost ~20s on DeployTest's critical path; Playwright needs only node >=20. */
+  it("runs on the image's default Node with a >=20 floor check, never downloading Node 22", () => {
+    const projects = Object.values(template.findResources("AWS::CodeBuild::Project"))
+      .map((p) => p.Properties as { Source: { BuildSpec: string } })
+      .filter((p) => p.Source.BuildSpec.includes("test:smoke"));
+    expect(projects).toHaveLength(1);
+    const install = (JSON.parse(projects[0].Source.BuildSpec) as { phases: { install: Record<string, unknown> & { commands: string[] } } }).phases.install;
+    expect(install).not.toHaveProperty("runtime-versions");
+    expect(install.commands.filter((c) => !c.includes("ln -s --"))).toEqual([PLAYWRIGHT_NODE_CHECK]);
+    expect(projects[0].Source.BuildSpec).not.toContain("NODE_22_VERSION");
+  });
+
+  it("the floor check's pattern passes Node 20-99 and fails 18 and 19", () => {
+    const pattern = /'(.+)'$/.exec(PLAYWRIGHT_NODE_CHECK)?.[1] as string;
+    const passes = (version: string): boolean => {
+      try {
+        execFileSync("grep", ["-E", pattern], { input: `${version}\n` });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    expect(["v20.19.0", "v22.23.4", "v24.11.1", "v26.10.0"].every(passes)).toBe(true);
+    expect(["v18.20.4", "v19.9.0", "v2.0.0"].some(passes)).toBe(false);
   });
 
   it("never runs web-app's full npm ci or an npx playwright that could fetch another version", () => {

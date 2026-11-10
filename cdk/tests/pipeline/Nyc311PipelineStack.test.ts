@@ -86,10 +86,11 @@ describe("Nyc311PipelineStack", () => {
         step: p.Description.split("/").pop() as string,
         spec: JSON.parse(p.Source.BuildSpec as string) as { phases: { install?: Record<string, unknown> & { commands?: string[] } } },
       }));
-    const repoSteps = inline.filter(({ step }) => step !== "SelfMutate");
+    /* BrowserSmokeTestsTest runs only Playwright on the image's Node (#215); its own test file checks that. */
+    const repoSteps = inline.filter(({ step }) => step !== "SelfMutate" && step !== "BrowserSmokeTestsTest");
 
     expect(repoSteps.map(({ step }) => step).sort()).toEqual([
-      "BrowserSmokeTestsTest", "IntegrationTestsProd", "IntegrationTestsTest", "ProdDiff",
+      "IntegrationTestsProd", "IntegrationTestsTest", "ProdDiff",
       "PublishCoverageProd", "PublishCoverageTest", "Synth",
     ]);
     for (const { spec } of repoSteps) {
