@@ -1,6 +1,7 @@
 import { logInfo } from "../../logger";
 import { PRODUCT_QUERY_LIMIT_MAX, type ProductClientConfig } from "../../models/productClientConfig";
 import { IdTokenProvider, type IdTokenDeps } from "../agentAuth/idTokenProvider";
+import { QueryBudget } from "../agentClient/queryBudget";
 
 export interface ProductCallResult {
   status: number;
@@ -34,14 +35,13 @@ export interface UpdateContactArgs {
 export class BoroughSimProductClient {
   private readonly tokens: IdTokenProvider;
   private readonly fetchFn: typeof fetch;
-  private queriesSent = 0;
-  private readonly maxQueries: number;
+  private readonly queryBudget: QueryBudget;
 
   constructor(
     private readonly config: ProductClientConfig,
     deps: IdTokenDeps = {}
   ) {
-    this.maxQueries = config.PRODUCT_QUERY_LIMIT ?? MAX_QUERIES_PER_RUN;
+    this.queryBudget = new QueryBudget(config.PRODUCT_QUERY_LIMIT ?? MAX_QUERIES_PER_RUN, "BoroughSimProductClient");
     this.fetchFn = deps.fetch ?? fetch;
     this.tokens = new IdTokenProvider(
       { idToken: config.AGENT_ID_TOKEN, refreshToken: config.AGENT_REFRESH_TOKEN, clientId: config.AGENT_CLIENT_ID, region: config.AGENT_REGION },
@@ -75,17 +75,8 @@ export class BoroughSimProductClient {
    * Runs one read-only SQL query against the warehouse. Every call counts
    * against the run's budget, failed ones too; past it, nothing is sent.
    */
-  async runQuery(sql: string): Promise<ProductCallResult> {
-    if (this.queriesSent >= this.maxQueries) {
-      logInfo("BoroughSimProductClient.queryBudgetUsed", { max: this.maxQueries });
-      return { status: 429, body: { message: `Query budget used: ${this.maxQueries} of ${this.maxQueries} this run.`, queries_remaining: 0 } };
-    }
-    this.queriesSent += 1;
-    const queriesRemaining = this.maxQueries - this.queriesSent;
-    logInfo("BoroughSimProductClient.runQuery", { queriesSent: this.queriesSent, queriesRemaining });
-    const result = await this.call("POST", "/admin/warehouse/query", { sql });
-    const body = result.body !== null && typeof result.body === "object" ? result.body : { result: result.body };
-    return { status: result.status, body: { ...body, queries_remaining: queriesRemaining } };
+  runQuery(sql: string): Promise<ProductCallResult> {
+    return this.queryBudget.run(() => this.call("POST", "/admin/warehouse/query", { sql }));
   }
 
   /** The newest `weeks` successful runs of the wbr job, with their result rows. */

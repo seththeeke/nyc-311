@@ -135,6 +135,9 @@ export AGENT_OPS_TOOLS
 # The boroughsim-product MCP server (contacts, WBR) for the CPO (docs/17 §17.2).
 AGENT_PRODUCT_TOOLS=${PRODUCT_TOOLS:-}
 export AGENT_PRODUCT_TOOLS
+# The boroughsim-engineering MCP server (queries, flags) for the Software Engineer (docs/17 §22.9).
+AGENT_ENGINEERING_TOOLS=${ENGINEERING_TOOLS:-}
+export AGENT_ENGINEERING_TOOLS
 # Agent memory (docs/17 §17.6): commit the agent's MEMORY.md to main after the run when it changed.
 # REPORTS=1 (docs/17 §21.3) gives the run a report folder, set below once the mode is known.
 AGENT_MEMORY=${MEMORY:-}
@@ -182,6 +185,13 @@ if [ -n "$SLOT_MODE" ]; then
 fi
 AGENT_PRODUCT_QUERY_LIMIT=${AGENT_PRODUCT_QUERY_LIMIT:-${PRODUCT_QUERY_LIMIT:-}}
 export AGENT_PRODUCT_QUERY_LIMIT
+# The engineering tools' query budget (docs/17 §22.9), set the same way.
+AGENT_ENGINEERING_QUERY_LIMIT=""
+if [ -n "$SLOT_MODE" ]; then
+  eval "AGENT_ENGINEERING_QUERY_LIMIT=\${ENGINEERING_QUERY_LIMIT_$SLOT_MODE:-}"
+fi
+AGENT_ENGINEERING_QUERY_LIMIT=${AGENT_ENGINEERING_QUERY_LIMIT:-${ENGINEERING_QUERY_LIMIT:-}}
+export AGENT_ENGINEERING_QUERY_LIMIT
 
 # ---- lock: one run per agent at a time ---------------------------------------
 

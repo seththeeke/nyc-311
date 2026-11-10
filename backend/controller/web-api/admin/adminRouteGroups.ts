@@ -6,6 +6,10 @@ const ADMIN_ONLY: readonly CognitoGroup[] = ["ADMIN"];
 const ADMIN_OR_OPERATIONS: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_OPERATIONS"];
 /* The CPO's contact updates, WBR reads and ad-hoc queries (§17.2, §17.3, §17.11). */
 const ADMIN_OR_PRODUCT: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_PRODUCT"];
+/* The Software Engineer's flag changes (§22.9). */
+const ADMIN_OR_ENGINEERING: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_ENGINEERING"];
+/* Ad-hoc queries: the CPO's research and the Software Engineer's success metrics (§17.11, §22.9). */
+const ADMIN_PRODUCT_OR_ENGINEERING: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_PRODUCT", "BOROUGH_SIM_ENGINEERING"];
 
 /*
  * The groups each admin route allows (docs/17-executive-team.md §12.2).
@@ -13,7 +17,9 @@ const ADMIN_OR_PRODUCT: readonly CognitoGroup[] = ["ADMIN", "BOROUGH_SIM_PRODUCT
  * declaring its groups. Everything is ADMIN-only except the capacity
  * routes, which BOROUGH_SIM_OPERATIONS (the COO) can call too (§12.3),
  * and the contact update, job-run reads and ad-hoc query, which
- * BOROUGH_SIM_PRODUCT (the CPO) can (§17.2, §17.3, §17.11).
+ * BOROUGH_SIM_PRODUCT (the CPO) can (§17.2, §17.3, §17.11). The ad-hoc
+ * query and the flag update are also open to BOROUGH_SIM_ENGINEERING (the
+ * Software Engineer, §22.9).
  */
 export const ADMIN_ROUTE_GROUPS: Record<AdminApiRouteKey, readonly CognitoGroup[]> = {
   "GET /admin/whoami": ADMIN_ONLY,
@@ -23,9 +29,9 @@ export const ADMIN_ROUTE_GROUPS: Record<AdminApiRouteKey, readonly CognitoGroup[
   "DELETE /capacity/{operator_id}": ADMIN_OR_OPERATIONS,
   "PATCH /admin/contacts/{contact_id}": ADMIN_OR_PRODUCT,
   "POST /admin/feature-flags": ADMIN_ONLY,
-  "PUT /admin/feature-flags/{flag_key}": ADMIN_ONLY,
+  "PUT /admin/feature-flags/{flag_key}": ADMIN_OR_ENGINEERING,
   "DELETE /admin/feature-flags/{flag_key}": ADMIN_ONLY,
-  "POST /admin/warehouse/query": ADMIN_OR_PRODUCT,
+  "POST /admin/warehouse/query": ADMIN_PRODUCT_OR_ENGINEERING,
   "GET /admin/warehouse/jobs": ADMIN_ONLY,
   "POST /admin/warehouse/jobs": ADMIN_ONLY,
   "PUT /admin/warehouse/jobs/{name}": ADMIN_ONLY,

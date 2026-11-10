@@ -9,6 +9,7 @@ describe("parseCognitoGroups", () => {
   it("reads a single group and comma-separated groups", () => {
     expect(parseCognitoGroups("BOROUGH_SIM_OPERATIONS")).toEqual(["BOROUGH_SIM_OPERATIONS"]);
     expect(parseCognitoGroups("[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]")).toEqual(["BOROUGH_SIM_TEAM", "BOROUGH_SIM_PRODUCT"]);
+    expect(parseCognitoGroups("[BOROUGH_SIM_TEAM BOROUGH_SIM_ENGINEERING]")).toEqual(["BOROUGH_SIM_TEAM", "BOROUGH_SIM_ENGINEERING"]);
     expect(parseCognitoGroups("ADMIN,BOROUGH_SIM_TEAM")).toEqual(["ADMIN", "BOROUGH_SIM_TEAM"]);
   });
 

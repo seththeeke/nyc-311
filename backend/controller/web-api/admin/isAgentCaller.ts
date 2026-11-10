@@ -1,5 +1,8 @@
-import { COGNITO_GROUPS_CLAIM, parseCognitoGroups } from "../../../models/cognitoGroup";
+import { COGNITO_GROUPS_CLAIM, parseCognitoGroups, type CognitoGroup } from "../../../models/cognitoGroup";
 import type { ApiGatewayHttpEvent } from "../../../models/apiGatewayHttpEvent";
+
+/* The groups that give an agent admin routes; BOROUGH_SIM_TEAM alone gives none. */
+const AGENT_ROUTE_GROUPS: readonly CognitoGroup[] = ["BOROUGH_SIM_OPERATIONS", "BOROUGH_SIM_PRODUCT", "BOROUGH_SIM_ENGINEERING"];
 
 /**
  * True for an agent on an admin route it's allowed (docs/17-executive-team.md
@@ -8,5 +11,5 @@ import type { ApiGatewayHttpEvent } from "../../../models/apiGatewayHttpEvent";
  */
 export function isAgentCaller(event: ApiGatewayHttpEvent): boolean {
   const groups = parseCognitoGroups(event.requestContext.authorizer?.jwt.claims[COGNITO_GROUPS_CLAIM]);
-  return !groups.includes("ADMIN") && (groups.includes("BOROUGH_SIM_OPERATIONS") || groups.includes("BOROUGH_SIM_PRODUCT"));
+  return !groups.includes("ADMIN") && groups.some((group) => AGENT_ROUTE_GROUPS.includes(group));
 }

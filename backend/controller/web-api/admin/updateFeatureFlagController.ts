@@ -4,12 +4,14 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { NotFoundError, TerminalError, ValidationError } from "../../../models/errors";
 import { FlagKeyParamsSchema, UpdateFeatureFlagRequestSchema } from "../../../models/featureFlag";
 import { updateFeatureFlag } from "../../../service/featureFlag/featureFlagService";
+import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
 
 /**
  * `PUT /admin/feature-flags/{flag_key}` (`11-street-condition-implementation.md`
- * §4.2) — admin-authorized. Replaces the whole config; a stale
+ * §4.2) — the admin, or the Software Engineer agent (docs/17-executive-team.md
+ * §22.9), recorded by its email. Replaces the whole config; a stale
  * `expected_version` is a `409` so a stale tab can't erase newer edits.
  */
 export const updateFeatureFlagController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -44,8 +46,10 @@ export const updateFeatureFlagController = async (event: unknown): Promise<APIGa
 
   const { flag_key: flagKey } = parsedParams.data;
   try {
-    const user = await requireAdminUser(parsedEvent.data);
-    const flag = await updateFeatureFlag(flagKey, parsedBody.data, user.user_id);
+    const updatedBy = isAgentCaller(parsedEvent.data)
+      ? (parsedEvent.data.requestContext.authorizer?.jwt.claims.email ?? "unknown")
+      : (await requireAdminUser(parsedEvent.data)).user_id;
+    const flag = await updateFeatureFlag(flagKey, parsedBody.data, updatedBy);
     const response = jsonResponse(200, flag);
     logInfo("UpdateFeatureFlagControllerCompleted", { response });
     return response;

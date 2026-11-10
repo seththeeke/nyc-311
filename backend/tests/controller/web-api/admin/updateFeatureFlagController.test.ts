@@ -41,6 +41,18 @@ describe("updateFeatureFlagController", () => {
     expect(mockedUpdate).toHaveBeenCalledWith("COST_MODEL", { expected_version: 1, ...flagInput }, "01ADMIN");
   });
 
+  it("records the Software Engineer agent by its email, without resolving an admin user", async () => {
+    mockedUpdate.mockResolvedValue({ ...flag, version: 2 });
+    const agentEvent = event("COST_MODEL", validBody) as { requestContext: { authorizer: { jwt: { claims: Record<string, string> } } } };
+    agentEvent.requestContext.authorizer.jwt.claims = { sub: "s", email: "gen-purpose-dev@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_ENGINEERING]" };
+    expect((await updateFeatureFlagController(agentEvent)).statusCode).toBe(200);
+    expect(mockedUpdate).toHaveBeenCalledWith("COST_MODEL", { expected_version: 1, ...flagInput }, "gen-purpose-dev@agents.boroughsim.com");
+    expect(mockedRequireAdminUser).not.toHaveBeenCalled();
+    agentEvent.requestContext.authorizer.jwt.claims = { sub: "s", "cognito:groups": "[BOROUGH_SIM_ENGINEERING]" };
+    await updateFeatureFlagController(agentEvent);
+    expect(mockedUpdate).toHaveBeenLastCalledWith("COST_MODEL", { expected_version: 1, ...flagInput }, "unknown");
+  });
+
   it("returns 400 for a malformed event, key, JSON, or body", async () => {
     expect((await updateFeatureFlagController({})).statusCode).toBe(400);
     expect((await updateFeatureFlagController(event(undefined, validBody))).statusCode).toBe(400);

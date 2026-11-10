@@ -10,6 +10,8 @@ describe("isAgentCaller", () => {
   it("is true only for an agent group without ADMIN", () => {
     expect(isAgentCaller(event("[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]"))).toBe(true);
     expect(isAgentCaller(event("[BOROUGH_SIM_TEAM BOROUGH_SIM_OPERATIONS]"))).toBe(true);
+    expect(isAgentCaller(event("[BOROUGH_SIM_TEAM BOROUGH_SIM_ENGINEERING]"))).toBe(true);
+    expect(isAgentCaller(event("[ADMIN BOROUGH_SIM_ENGINEERING]"))).toBe(false);
     expect(isAgentCaller(event("[ADMIN BOROUGH_SIM_PRODUCT]"))).toBe(false);
     expect(isAgentCaller(event("[BOROUGH_SIM_TEAM]"))).toBe(false);
     expect(isAgentCaller(event())).toBe(false);

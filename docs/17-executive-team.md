@@ -1263,7 +1263,7 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 
 ## 22. The Software Engineer agent
 
-**Status:** designing, 2026-11-09. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
+**Status:** building K1, 2026-11-09: K1.1 built, not deployed. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
 `gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves with a success metric measured before and after that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 

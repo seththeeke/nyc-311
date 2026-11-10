@@ -4,6 +4,9 @@ import * as opsServer from "../../../controller/mcp/boroughSimOpsMcpServer";
 import { BOROUGH_SIM_OPS_TOOLS } from "../../../controller/mcp/boroughSimOpsTools";
 import * as productServer from "../../../controller/mcp/boroughSimProductMcpServer";
 import { BOROUGH_SIM_PRODUCT_TOOLS } from "../../../controller/mcp/boroughSimProductTools";
+import * as engineeringServer from "../../../controller/mcp/boroughSimEngineeringMcpServer";
+import { BOROUGH_SIM_ENGINEERING_TOOLS } from "../../../controller/mcp/boroughSimEngineeringTools";
+import type { BoroughSimEngineeringClient } from "../../../service/engineeringClient/boroughSimEngineeringClient";
 import type { BoroughSimProductClient } from "../../../service/productClient/boroughSimProductClient";
 import { defineTool, isEntryPoint, runTool, type McpTool } from "../../../controller/mcp/mcpTool";
 import * as chatServer from "../../../controller/mcp/teamChatMcpServer";
@@ -101,6 +104,23 @@ describe("boroughsim-product tools", () => {
   });
 });
 
+describe("boroughsim-engineering tools", () => {
+  it("map each tool's arguments onto the client, with no capacity or contact tool", async () => {
+    const client = fake(["runQuery", "getFlag"]);
+    const c = client as unknown as BoroughSimEngineeringClient;
+    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "run_query").run(c, { sql: "SELECT 1" });
+    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "get_flag").run(c, { flag_key: "BACKEND_FLAG_READS" });
+    expect(client.runQuery).toHaveBeenCalledWith("SELECT 1");
+    expect(client.getFlag).toHaveBeenCalledWith("BACKEND_FLAG_READS");
+    expect(BOROUGH_SIM_ENGINEERING_TOOLS.map((t) => t.name).some((name) => /capacity|recruit|release|contact/.test(name))).toBe(false);
+  });
+
+  it("refuses a flag key that isn't ALL_CAPS", () => {
+    const getFlag = z.object(byName(BOROUGH_SIM_ENGINEERING_TOOLS, "get_flag").inputSchema);
+    expect(getFlag.safeParse({ flag_key: "../admin" }).success).toBe(false);
+  });
+});
+
 describe("runTool", () => {
   const listTool = defineTool<{ list: () => Promise<{ status: number; body: unknown }> }>()({ name: "list", description: "d", inputSchema: {}, run: (client) => client.list() });
 
@@ -123,6 +143,7 @@ describe.each([
   ["team-chat", chatServer, CHAT_ENV, "teamChatMcpServer.ts", 9, () => chatServer.createTeamChatMcpServer(fake(["listChannels"]) as unknown as TeamChatClient)],
   ["boroughsim-ops", opsServer, OPS_ENV, "boroughSimOpsMcpServer.ts", 3, () => opsServer.createBoroughSimOpsMcpServer(fake(["getCapacitySnapshot"]) as unknown as BoroughSimOpsClient)],
   ["boroughsim-product", productServer, OPS_ENV, "boroughSimProductMcpServer.ts", 5, () => productServer.createBoroughSimProductMcpServer(fake(["listContacts"]) as unknown as BoroughSimProductClient)],
+  ["boroughsim-engineering", engineeringServer, OPS_ENV, "boroughSimEngineeringMcpServer.ts", 2, () => engineeringServer.createBoroughSimEngineeringMcpServer(fake(["runQuery"]) as unknown as BoroughSimEngineeringClient)],
 ] as const)("the %s server", (_name, server, env, file, toolCount, create) => {
   it("registers every tool, each running its tool", async () => {
     const created = create() as unknown as { registerTool: ReturnType<typeof vi.fn> };

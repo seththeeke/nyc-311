@@ -128,6 +128,20 @@ describe("adminApiRouter", () => {
     expect((await adminApiRouter(eventFor("PATCH /admin/contacts/{contact_id}", operations))).statusCode).toBe(403);
   });
 
+  it("lets the engineering group query the warehouse and update a flag, and nothing else", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(runAdHocQueryController).mockResolvedValue({ statusCode: 200, body: "{}" });
+    vi.mocked(updateFeatureFlagController).mockResolvedValue({ statusCode: 200, body: "{}" });
+    const engineering = { sub: "s", email: "gen-purpose-dev@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_ENGINEERING]" };
+    expect((await adminApiRouter(eventFor("POST /admin/warehouse/query", engineering))).statusCode).toBe(200);
+    expect((await adminApiRouter(eventFor("PUT /admin/feature-flags/{flag_key}", engineering))).statusCode).toBe(200);
+    for (const routeKey of ["POST /admin/feature-flags", "DELETE /admin/feature-flags/{flag_key}", "PATCH /admin/contacts/{contact_id}", "POST /capacity", "GET /admin/warehouse/job-runs"]) {
+      expect((await adminApiRouter(eventFor(routeKey, engineering))).statusCode).toBe(403);
+    }
+    const product = { sub: "s", email: "cpo-agent@agents.boroughsim.com", "cognito:groups": "[BOROUGH_SIM_TEAM BOROUGH_SIM_PRODUCT]" };
+    expect((await adminApiRouter(eventFor("PUT /admin/feature-flags/{flag_key}", product))).statusCode).toBe(403);
+  });
+
   it("returns 403 when the caller holds no groups at all", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const response = await adminApiRouter(eventFor("GET /admin/whoami", { sub: "s", email: "agent@example.com" }));
