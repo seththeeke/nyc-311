@@ -1,7 +1,8 @@
-import { CfnOutput, Stack, StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, Stack, StackProps } from "aws-cdk-lib";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as pipelines from "aws-cdk-lib/pipelines";
@@ -278,6 +279,24 @@ export class Nyc311PipelineStack extends Stack {
      * `pipeline.pipeline.pipelineArn` for IAM scoping.
      */
     pipeline.buildPipeline();
+
+    /*
+     * #192 — the auto-created artifact bucket above had no lifecycle
+     * rule: each execution's objects are only needed for the few minutes
+     * it runs, but nothing expired them (640MB in August to 8.25GB by
+     * Nov 2026, accelerating). Added to the existing bucket in place — no
+     * new bucket, no replacement, no pipeline behavior change.
+     * `expiration` (versioned bucket, so this becomes a delete marker)
+     * clears current objects after 14 days; `noncurrentVersionExpiration`
+     * then removes what that leaves behind.
+     */
+    (pipeline.pipeline.artifactBucket as s3.Bucket).addLifecycleRule({
+      id: "ExpireOldPipelineArtifacts",
+      enabled: true,
+      expiration: Duration.days(14),
+      noncurrentVersionExpiration: Duration.days(1),
+      abortIncompleteMultipartUploadAfter: Duration.days(7),
+    });
 
     /*
      * #112 — CI is 70% of the monthly AWS bill, and every push ran the
