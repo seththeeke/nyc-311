@@ -1435,7 +1435,9 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 - [ ] **Mac mini: add the `project` scope to `gh`.** Run `gh auth refresh -h github.com -s project` on the Mac mini, then check that `gh auth status` lists `project`. The agents use the Mac mini's own `gh` login, which is separate from the MacBook's (done on the MacBook 2026-11-09).
 - [ ] Set the board's In Development column limit to 5.
 - [x] GitHub label `cpo-approved` (2026-11-09; `cto-approved` already existed, used on PRs).
-- [ ] After K1.1 deploys: `scripts/agent-credentials.py create gen-purpose-dev TEST --group BOROUGH_SIM_ENGINEERING` and `… PROD`, then copy `~/.nyc-311/credentials` to the Mac mini.
+- [x] Cognito login in Prod, `BOROUGH_SIM_TEAM` + `BOROUGH_SIM_ENGINEERING` (2026-11-09; sign-in, `run_query` and `get_flag` verified as him). No Test login: he runs against Prod. Copy `~/.nyc-311/credentials` to the Mac mini.
+- [x] IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` deployed (2026-11-09).
+- [x] `agent-team.sh` includes him (2026-11-09), so `scripts/agent-team.sh restart` installs his schedule.
 - [ ] AWS: the pipeline stack creates IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` (`cdk/agents/EngineerAgentRole.ts`, read-only, secrets denied). Then by hand: create the user's access key in the IAM console; on the Mac mini add `[gen-purpose-dev-key]` to `~/.aws/credentials` and `[profile nyc311-gen-purpose-dev]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311EngineerAgentRole gen-purpose-dev`; check `aws --profile nyc311-gen-purpose-dev sts get-caller-identity` ends in `assumed-role/Nyc311EngineerAgentRole/gen-purpose-dev`.
 - [ ] Mac mini: `git pull`, then a hand run against Test chat once a card is in Assigned: `AGENT_CHAT_ENV=TEST AGENT_MANUAL=1 scripts/agent-scheduled-run.sh gen-purpose-dev`.
 - [ ] Mac mini: `scripts/agent-schedule-install.sh install gen-purpose-dev`.
