@@ -108,7 +108,8 @@ Track these with TodoWrite.
 
 The ticket must have:
 - the **success-metric block** (§22.2): Metric, Query, Target, Window,
-  Guardrails, Flag and Dial-up;
+  Guardrails, Flag and Dial-up, in the body or, for a ticket Celestine
+  didn't file, in her newest comment starting `<!-- cpo-agent:metric -->`;
 - both approvals: the `cpo-approved` and `cto-approved` labels.
 
 Missing either → park and say exactly what's missing.

@@ -4,7 +4,9 @@
 # through the agent's frontmatter. Celestine never changes code: Write and
 # Edit only her memory file, her saved queries (queries/<name>.sql, §17.11),
 # her reports (agent-reports/, §21.3) or /tmp, no git writes, no PRs, no AWS, and gh writes only on her own
-# cpo-agent issues. Exit 2 blocks.
+# cpo-agent issues, plus a comment or her cpo-approved label on any card on
+# Kid Kestrel's board (§22.2.1), whose cards she moves only through
+# scripts/agent-board.sh cpo-agent. Exit 2 blocks.
 
 input=$(cat)
 printf '%s' "$input" | CPO_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}" python3 -c '
@@ -51,6 +53,23 @@ def own_issue(number):
         return False
     return out.stdout.strip() == "true"
 
+def on_board(number):
+    board = os.path.join(os.environ["CPO_PROJECT_DIR"], "scripts", "agent-board.sh")
+    try:
+        out = subprocess.run([board, "cpo-agent", "show", number], capture_output=True, text=True, timeout=60)
+    except Exception:
+        return False
+    return out.returncode == 0 and out.stdout.strip() not in ("", "none")
+
+def approval_only(words):
+    rest = [w for w in words if not re.fullmatch(r"#?\d+", w)]
+    while rest:
+        if rest[:2] == ["--repo", REPO] or rest[:2] in (["--add-label", "cpo-approved"], ["--remove-label", "cpo-approved"]):
+            rest = rest[2:]
+            continue
+        return False
+    return True
+
 for segment in re.split(r"\|\||&&|;|\||\n", cmd):
     try:
         words = shlex.split(segment)
@@ -61,6 +80,10 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
     if not words:
         continue
     head, rest = words[0], words[1:]
+    if os.path.basename(head) == "agent-board.sh":
+        if rest[:1] != ["cpo-agent"]:
+            deny("agent-board.sh runs only as cpo-agent.")
+        continue
     if head in {"aws", "cdk", "npx", "npm", "node", "tsx", "curl", "wget", "security", "rm", "mv", "cp", "tee", "chmod"}:
         deny(f"{head} is blocked.")
     if head == "git" and (not rest or rest[0] not in {"log", "show", "diff", "status", "grep", "ls-files", "rev-parse", "blame"}):
@@ -83,11 +106,17 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
             continue
         if action in {"comment", "edit", "close", "reopen"}:
             number = next((a for a in rest[2:] if re.fullmatch(r"#?\d+", a)), None)
-            if number is None or not own_issue(number.lstrip("#")):
-                deny("she may only change her own cpo-agent issues.")
-            if action == "edit" and any(a in ("--remove-label", "--add-assignee", "--milestone") for a in rest):
-                deny("that issue edit is blocked.")
-            continue
+            if number is None:
+                deny("name the issue number.")
+            number = number.lstrip("#")
+            approval = action == "edit" and approval_only(rest[2:])
+            if own_issue(number):
+                if action == "edit" and not approval and any(a in ("--remove-label", "--add-assignee", "--milestone") for a in rest):
+                    deny("that issue edit is blocked.")
+                continue
+            if (action == "comment" or approval) and on_board(number):
+                continue
+            deny("she may only change her own cpo-agent issues, or comment and set cpo-approved on a board card.")
         deny(f"gh issue {action} is blocked.")
 sys.exit(0)
 '

@@ -41,7 +41,9 @@
       "Bash(echo *)",
       "Bash(mktemp *)",
       "mcp__team-chat",
-      "mcp__boroughsim-product"
+      "mcp__boroughsim-product",
+      "Bash(scripts/agent-board.sh cpo-agent *)",
+      "Bash(*/scripts/agent-board.sh cpo-agent *)"
     ],
     "deny": [
       "NotebookEdit",
