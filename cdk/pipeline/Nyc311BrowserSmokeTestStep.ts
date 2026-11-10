@@ -1,7 +1,6 @@
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import { DOMAIN_CONFIG } from "../stack/Nyc311Stack";
-import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
 
 export interface BrowserSmokeTestStepProps {
   /** Step id, e.g. "BrowserSmokeTestsTest" — must be unique within the pipeline. */
@@ -13,6 +12,14 @@ export interface BrowserSmokeTestStepProps {
 /** Node expression printing the @playwright/test version web-app's lockfile pins; run from the repo root. */
 export const PLAYWRIGHT_LOCKED_VERSION = "require('./web-app/package-lock.json').packages['node_modules/@playwright/test'].version";
 
+/*
+ * #215: no Node 22 download (~20s on DeployTest's critical path). This step
+ * runs only Playwright (engine node >=20) against the deployed site, so the
+ * image's default Node 24 does. The grep logs the version and fails the step
+ * if a future image default drops below 20.
+ */
+export const PLAYWRIGHT_NODE_CHECK = "node --version | grep -E '^v(2[0-9]|[3-9][0-9])[.]'";
+
 /**
  * A post-deploy step (docs/14-maps-refactor.md §4.8) that runs web-app's
  * Playwright smoke tests in headless Chromium against the live Test
@@ -23,7 +30,7 @@ export function createBrowserSmokeTestStep(props: BrowserSmokeTestStepProps): pi
   const baseUrl = `https://${DOMAIN_CONFIG.TEST.siteDomain}`;
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
-    installCommands: NODE_22_INSTALL_COMMANDS,
+    installCommands: [PLAYWRIGHT_NODE_CHECK],
     /*
      * The smoke specs import only @playwright/test, so install just that (web-app's
      * locked version) at the repo root instead of web-app's ~550-package npm ci
