@@ -65,7 +65,7 @@ launchd (4 a day, Opus 5.5)
 
 ### Starting, stopping and restarting the team
 
-`scripts/agent-team.sh {start|stop|restart|status|check} [agent ...]` acts on
+`scripts/agent-team.sh {start|stop|restart|status|check|list} [agent ...]` acts on
 every scheduled agent, Kid Kestrel (`gen-purpose-dev`) included,
 or only the agents named. It always works on the scheduler clone
 `~/agents/nyc-311`, whichever checkout it's run from.
@@ -74,8 +74,32 @@ or only the agents named. It always works on the scheduler clone
   `origin/main`, fast-forwarding it (and running `npm ci` where a lockfile
   changed) or refusing if it can't, then installs each schedule.
 - `stop` unloads each schedule and kills any run in progress.
-- `restart` runs the check, then stop, then start. `status` and `check` change
-  nothing.
+- `restart` runs the check, then stop, then start. `status`, `check` and
+  `list` change nothing.
+- With no agent named, `start` and `restart` also install the
+  **schedule-sync** job, and `stop` removes it (below).
+
+### Schedule changes apply themselves
+
+`scripts/agent-schedule-sync.sh` runs from launchd every 15 minutes as its own
+job (`com.nyc311.schedule-sync`); it never starts `claude`. Each time, it
+brings the scheduler clone to `origin/main` (the same check as `start`), then:
+
+- reinstalls any team agent whose installed plist differs from what
+  `agent-schedule-install.sh render <agent>` gives: a merged `SCHEDULE`
+  change, or a new agent;
+- leaves alone an agent whose plist exists but isn't loaded (stopped by hand
+  with `agent-team.sh stop <agent>`);
+- defers an agent whose run is in progress to the next sync, since reloading
+  a launchd job kills its running process;
+- uninstalls an agent whose schedule file is gone from `main`.
+
+It logs only what it changes, and failures, to
+`~/Library/Logs/nyc311-agents/schedule-sync/sync.log`. Everything else an
+agent reads (prompt, settings, the rest of its `.env`) already comes from
+`origin/main` on each run, so **merging is the whole job**: a schedule change
+reaches the Mac mini within 15 minutes. `agent-team.sh status` shows the job's
+state; `agent-schedule-sync.sh run` syncs now.
 
 ### Seeing what happened
 
@@ -264,8 +288,9 @@ primary checkout fast-forwarding.
    and `MAX_CARDS_PER_RUN` (§22).
 4. On the Mac mini: `scripts/agent-schedule-install.sh install <agent>`.
 
-Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run
-`install` on the machine (the only change that needs a machine-side step).
+Changing an existing agent's schedule: edit `SCHEDULE` and merge. The
+schedule-sync job reinstalls it on the Mac mini within 15 minutes; a new
+agent is installed the same way.
 
 ### Schedule slots
 

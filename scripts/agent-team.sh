@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# agent-team.sh {start|stop|restart|status|check} [agent ...]
+# agent-team.sh {start|stop|restart|status|check|list} [agent ...]
 #
 # Starts, stops or restarts the scheduled agents on the Mac mini in one go.
 # With no agent named it acts on the whole team: every agent with a
@@ -15,6 +15,12 @@
 #   restart  stop, then start
 #   status   one line per agent: loaded or not, script path, running or not
 #   check    only the latest-code check that start and restart run first
+#   list     the team's agents, one per line
+#
+# start and restart also install the schedule-sync job
+# (scripts/agent-schedule-sync.sh), which re-applies merged SCHEDULE changes
+# every 15 minutes; stop with no agent named removes it, so a stopped team
+# stays stopped.
 #
 # It always works on the scheduler clone (AGENT_SCHEDULER_CLONE, default
 # ~/agents/nyc-311), wherever it's run from: launchd can't read ~/Documents,
@@ -34,7 +40,7 @@ die() { printf 'agent-team: %s\n' "$*" >&2; exit 1; }
 say() { printf 'agent-team: %s\n' "$*"; }
 
 sub=${1:-}
-usage="usage: agent-team.sh {start|stop|restart|status|check} [agent ...]"
+usage="usage: agent-team.sh {start|stop|restart|status|check|list} [agent ...]"
 [ -n "$sub" ] || die "$usage"
 shift
 
@@ -129,6 +135,21 @@ start_agent() {
   fi
 }
 
+# The schedule-sync job, on a whole-team start or restart. Not when the sync job
+# itself calls start: reloading it would kill the run that called.
+start_sync() {
+  [ -z "$named" ] || return 0
+  [ -z "${AGENT_TEAM_FROM_SYNC:-}" ] || return 0
+  out=$(/bin/sh "$CLONE/scripts/agent-schedule-sync.sh" install 2>&1) || die "schedule-sync: install failed: $out"
+  say "schedule-sync: ${out#installed }"
+}
+
+stop_sync() {
+  [ -z "$named" ] || return 0
+  /bin/sh "$CLONE/scripts/agent-schedule-sync.sh" uninstall >/dev/null 2>&1 || true
+  say "schedule-sync: removed"
+}
+
 status_agent() {
   if launchctl print "$domain/com.nyc311.agent.$1" >/dev/null 2>&1; then loaded=loaded; else loaded="not loaded"; fi
   path=$(plutil -extract ProgramArguments.1 raw -o - "$HOME/Library/LaunchAgents/com.nyc311.agent.$1.plist" 2>/dev/null || echo "no plist")
@@ -140,19 +161,27 @@ case "$sub" in
   start)
     ensure_latest
     resolve_agents
-    for a in $agents; do start_agent "$a"; done ;;
+    for a in $agents; do start_agent "$a"; done
+    start_sync ;;
   stop)
     resolve_agents
+    stop_sync
     for a in $agents; do stop_agent "$a"; done ;;
   restart)
     # Check first, so a stale clone never leaves the team stopped.
     ensure_latest
     resolve_agents
+    stop_sync
     for a in $agents; do stop_agent "$a"; done
-    for a in $agents; do start_agent "$a"; done ;;
+    for a in $agents; do start_agent "$a"; done
+    start_sync ;;
   status)
     resolve_agents
-    for a in $agents; do status_agent "$a"; done ;;
+    for a in $agents; do status_agent "$a"; done
+    if launchctl print "$domain/com.nyc311.schedule-sync" >/dev/null 2>&1; then sync_state=loaded; else sync_state="not loaded"; fi
+    printf '%-26s %s\n' "schedule-sync" "$sync_state" ;;
+  list)
+    team ;;
   check)
     ensure_latest ;;
   *) die "$usage" ;;

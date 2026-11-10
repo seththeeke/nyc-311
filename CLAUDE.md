@@ -873,5 +873,7 @@ are doing, or to start one now, `agent-web-app/` (§5.5) is the monitor.
 
 **Scheduled runs.** On the Mac mini, launchd runs agents on a cadence via
 `scripts/agent-scheduled-run.sh <agent>` (NEW vs REVISE mode by open-PR
-count; run logs stay local on the host, never on GitHub). Setup, config,
-and adding an agent: `docs/agent-automation-setup.md`.
+count; run logs stay local on the host, never on GitHub). A merged
+`SCHEDULE` change, new agent or removed one is applied on the Mac mini
+within 15 minutes by `scripts/agent-schedule-sync.sh`; no hand restart.
+Setup, config, and adding an agent: `docs/agent-automation-setup.md`.
