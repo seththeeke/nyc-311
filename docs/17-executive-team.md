@@ -1399,7 +1399,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 
 - `adminRouteGroups.ts` adds the group to the query route and the flag update route. Flag create and delete stay `ADMIN` only; the CEO creates a project's flag rows (the `create-feature-flag` skill asks for confirmation).
 - The API lets the group change any flag. Narrowing it to spec flags happens in the MCP client, the way the chat word cap does (§21.2).
-- He also has his settings (`.claude/agent-settings/gen-purpose-dev.json`) and guard (`gen-purpose-dev-guard.sh`), `scripts/agent-board.sh` and `scripts/agent-spec-commit.sh` (raw `gh project`, `gh api graphql` and `agent-commit-to-main.sh` are blocked), the team-chat tools posting to `#tech-team` (tag `KESTREL_SPEC`), and a read-only AWS role per Appendix B.4.
+- He also has his settings (`.claude/agent-settings/gen-purpose-dev.json`) and guard (`gen-purpose-dev-guard.sh`), `scripts/agent-board.sh` and `scripts/agent-spec-commit.sh` (raw `gh project`, `gh api graphql` and `agent-commit-to-main.sh` are blocked), the team-chat tools posting to `#tech-team` (tag `KESTREL_SPEC`), and a read-only AWS role, `Nyc311EngineerAgentRole` through profile `nyc311-gen-purpose-dev`, for verifying his work through logs and resource state.
 
 ### 22.10 What the CEO does
 
@@ -1432,7 +1432,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 - [ ] Set the board's In Development column limit to 5.
 - [x] GitHub label `cpo-approved` (2026-11-09; `cto-approved` already existed, used on PRs).
 - [ ] After K1.1 deploys: `scripts/agent-credentials.py create gen-purpose-dev TEST --group BOROUGH_SIM_ENGINEERING` and `… PROD`, then copy `~/.nyc-311/credentials` to the Mac mini.
-- [ ] AWS read-only role and access key (Appendix B.4 step 6). Not needed for K1: specs use only the engineering MCP tools.
+- [ ] AWS: the pipeline stack creates IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` (`cdk/agents/EngineerAgentRole.ts`, read-only, secrets denied). Then by hand: create the user's access key in the IAM console; on the Mac mini add `[gen-purpose-dev-key]` to `~/.aws/credentials` and `[profile nyc311-gen-purpose-dev]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311EngineerAgentRole gen-purpose-dev`; check `aws --profile nyc311-gen-purpose-dev sts get-caller-identity` ends in `assumed-role/Nyc311EngineerAgentRole/gen-purpose-dev`.
 - [ ] Mac mini: `git pull`, then a hand run against Test chat once a card is in Assigned: `AGENT_CHAT_ENV=TEST AGENT_MANUAL=1 scripts/agent-scheduled-run.sh gen-purpose-dev`.
 - [ ] Mac mini: `scripts/agent-schedule-install.sh install gen-purpose-dev`.
 
@@ -1506,7 +1506,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
 | `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | 03:30 daily (05:30 CT), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Mon and Thu 21:30 (23:30 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
-| `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | Not yet | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `BUILD=0` |
+| `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | IAM user `gen-purpose-dev` → role `Nyc311EngineerAgentRole`, the same access as `devx-agent`, for verifying through logs and resource state | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `BUILD=0` |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 
 The `@agents.boroughsim.com` addresses need no inbox. No mail is ever sent to them.

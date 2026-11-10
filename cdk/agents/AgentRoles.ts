@@ -1,10 +1,11 @@
 import { Construct } from "constructs";
 import { AgentReportsBucket } from "./AgentReportsBucket";
-import { AWS_COST_AGENT, CTO_AGENT, DEVX_AGENT, SOFTWARE_ANALYZER_AGENT } from "./agentIdentities";
+import { AWS_COST_AGENT, CTO_AGENT, DEVX_AGENT, GEN_PURPOSE_DEV, SOFTWARE_ANALYZER_AGENT } from "./agentIdentities";
 import { AgentUser } from "./AgentUser";
 import { CostAgentRole } from "./CostAgentRole";
 import { CtoAgentRole } from "./CtoAgentRole";
 import { DevxAgentRole } from "./DevxAgentRole";
+import { EngineerAgentRole } from "./EngineerAgentRole";
 import { SoftwareAnalyzerAgentRole } from "./SoftwareAnalyzerAgentRole";
 
 /**
@@ -20,6 +21,8 @@ export class AgentRoles extends Construct {
   public readonly ctoAgentRole: CtoAgentRole;
   public readonly costAgentUser: AgentUser;
   public readonly costAgentRole: CostAgentRole;
+  public readonly engineerAgentUser: AgentUser;
+  public readonly engineerAgentRole: EngineerAgentRole;
   public readonly reportsBucket: AgentReportsBucket;
   public readonly softwareAnalyzerAgentUser: AgentUser;
   public readonly softwareAnalyzerAgentRole: SoftwareAnalyzerAgentRole;
@@ -35,6 +38,9 @@ export class AgentRoles extends Construct {
     this.costAgentUser = new AgentUser(this, "CostAgentUser", AWS_COST_AGENT);
     this.costAgentRole = new CostAgentRole(this, "CostAgentRole", { agentUser: this.costAgentUser });
     this.costAgentUser.allowAssume(this.costAgentRole);
+    this.engineerAgentUser = new AgentUser(this, "EngineerAgentUser", GEN_PURPOSE_DEV);
+    this.engineerAgentRole = new EngineerAgentRole(this, "EngineerAgentRole", { agentUser: this.engineerAgentUser });
+    this.engineerAgentUser.allowAssume(this.engineerAgentRole);
     this.reportsBucket = new AgentReportsBucket(this, "AgentReportsBucket");
     this.softwareAnalyzerAgentUser = new AgentUser(this, "SoftwareAnalyzerAgentUser", SOFTWARE_ANALYZER_AGENT);
     this.softwareAnalyzerAgentRole = new SoftwareAnalyzerAgentRole(this, "SoftwareAnalyzerAgentRole", { agentUser: this.softwareAnalyzerAgentUser, reportsBucket: this.reportsBucket });

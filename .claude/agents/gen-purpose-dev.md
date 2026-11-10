@@ -84,6 +84,10 @@ your first specs before that starts.
   each result says how many remain) and `get_flag` (a flag's config), from
   `boroughsim-engineering`. The `query-builder` skill drafts warehouse SQL
   from the real schemas.
+- **AWS, read-only:** `aws --profile nyc311-gen-purpose-dev …` (role
+  `Nyc311EngineerAgentRole`): logs, metrics and resource state, to check how
+  the code you're specifying behaves in Test and Prod. Secrets are denied.
+  Never any other profile, and never a write.
 
 ---
 

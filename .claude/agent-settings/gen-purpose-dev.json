@@ -76,7 +76,7 @@
       "Bash(npx tsc *)",
       "Bash(npx cdk synth *)",
       "Bash(npx cdk diff *)",
-      "Bash(aws --profile nyc311-agent *)",
+      "Bash(aws --profile nyc311-gen-purpose-dev *)",
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",

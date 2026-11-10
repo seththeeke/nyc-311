@@ -148,7 +148,7 @@ Each agent that needs AWS gets its own IAM user, holding its own access key, and
 | `devx-agent` (user) | `devx-agent`'s IAM user. It holds no permissions beyond assuming `Nyc311DevxAgentRole`. Its access key is created by hand, never in CDK. |
 | `Nyc311DevxAgentRole` | `devx-agent`'s role: AWS `ReadOnlyAccess` for Test and Prod (one account), with Secrets Manager values, SSM parameters and KMS decrypts denied. Assumable only by the `devx-agent` user with source identity `devx-agent`, so CloudTrail attributes every call. One-hour sessions. |
 
-`gen-purpose-dev` has no user or role yet. Its allowlist names `nyc311-agent`, which doesn't exist, so it runs without AWS. `coo-agent` needs no AWS role: everything it does goes through Cognito.
+`gen-purpose-dev` (Kid Kestrel) has user `gen-purpose-dev` and `Nyc311EngineerAgentRole`, read-only like `devx-agent`'s, through profile `nyc311-gen-purpose-dev`. `coo-agent` needs no AWS role: everything it does goes through Cognito.
 
 Team Chat needs no AWS credentials either. The sign-in reads the agent client ids from `scripts/agent-schedules/team-chat.env`.
 

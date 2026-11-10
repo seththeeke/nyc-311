@@ -16,6 +16,7 @@ const AGENTS = [
   { name: "devx-agent", roleName: "Nyc311DevxAgentRole", userId: "DevxAgentUser", roleId: "DevxAgentRole" },
   { name: "cto-agent", roleName: "Nyc311CtoAgentRole", userId: "CtoAgentUser", roleId: "CtoAgentRole" },
   { name: "aws-cost-agent", roleName: "Nyc311CostAgentRole", userId: "CostAgentUser", roleId: "CostAgentRole" },
+  { name: "gen-purpose-dev", roleName: "Nyc311EngineerAgentRole", userId: "EngineerAgentUser", roleId: "EngineerAgentRole" },
 ];
 
 const SABLE = { name: "software-analyzer-agent", roleName: "Nyc311SoftwareAnalyzerAgentRole", userId: "SoftwareAnalyzerAgentUser", roleId: "SoftwareAnalyzerAgentRole" };
