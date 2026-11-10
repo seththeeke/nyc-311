@@ -1,14 +1,26 @@
-import type { ComponentType } from "react";
+import { lazy, type ComponentType } from "react";
 import { matchPath } from "react-router-dom";
-import { ContactDetailPanel } from "../contacts/ContactDetailPanel";
 import { CONTACTS_PATH } from "../contacts/contactRoutes";
 import { CONTACT_PARAM } from "../../hooks/useContactSelection";
-import { PersonaPanel } from "../residents/PersonaPanel";
-import { ResidentDetailPanel } from "../residents/ResidentDetailPanel";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../residents/residentRoutes";
-import { ChatSidePanel } from "../team/chat/ChatSidePanel";
-import { ContributionsPanel } from "../team/ContributionsPanel";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../team/teamRoutes";
+
+/*
+ * Each panel is lazy, like the pages in AppRoutes: the shell imports this file
+ * on every route, so a static import put every panel (and Team Chat's
+ * react-markdown) in the entry chunk, pushing it past 500 kB (#207).
+ */
+const PersonaPanel = lazy(() => import("../residents/PersonaPanel").then((m) => ({ default: m.PersonaPanel })));
+const ContactDetailPanel = lazy(() =>
+  import("../contacts/ContactDetailPanel").then((m) => ({ default: m.ContactDetailPanel }))
+);
+const ResidentDetailPanel = lazy(() =>
+  import("../residents/ResidentDetailPanel").then((m) => ({ default: m.ResidentDetailPanel }))
+);
+const ContributionsPanel = lazy(() =>
+  import("../team/ContributionsPanel").then((m) => ({ default: m.ContributionsPanel }))
+);
+const ChatSidePanel = lazy(() => import("../team/chat/ChatSidePanel").then((m) => ({ default: m.ChatSidePanel })));
 
 /*
  * Routes that drive the secondary workspace with their own content

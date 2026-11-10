@@ -39,14 +39,14 @@ function renderPanel(ids?: readonly WidgetId[], onCollapse = vi.fn(), path = "/"
 }
 
 describe("SecondaryWorkspace — route content", () => {
-  it("shows the residents instead of the tiles on /residents, and the resident on an Idea Detail view", () => {
+  it("shows the residents instead of the tiles on /residents, and the resident on an Idea Detail view", async () => {
     renderPanel(undefined, vi.fn(), "/residents/hawthorn/ideas/01K7IDEA0014");
-    expect(screen.getByRole("region", { name: "Resident details" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Resident details" })).toBeInTheDocument();
   });
 
-  it("shows the residents instead of the tiles on /residents", () => {
+  it("shows the residents instead of the tiles on /residents", async () => {
     renderPanel(undefined, vi.fn(), "/residents");
-    expect(screen.getByRole("region", { name: "Residents" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Residents" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Capacity" })).not.toBeInTheDocument();
   });
 

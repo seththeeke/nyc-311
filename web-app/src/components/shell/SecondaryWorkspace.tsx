@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { Suspense, type ReactElement } from "react";
 import { useLocation } from "react-router-dom";
 import { useWorkspace } from "../../hooks/useWorkspace";
 import { WidgetSlot } from "../widgets/WidgetSlot";
@@ -33,7 +33,10 @@ export function SecondaryWorkspace({ onCollapse }: SecondaryWorkspaceProps): Rea
       </div>
       {RouteContent ? (
         <div className="flex-1 overflow-y-auto">
-          <RouteContent />
+          {/* Route panels are lazy chunks (secondaryContent.tsx); nothing shows for the moment one loads. */}
+          <Suspense fallback={null}>
+            <RouteContent />
+          </Suspense>
         </div>
       ) : (
         <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto px-3 pb-3">
