@@ -8,27 +8,31 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
   11-07 (1/2 replies used). 31 contacts (11-10: Sassafras, start/end notices).
-  Track all status-visibility asks here. NOT yet on board: backfill next run
-  (add metric block to body, then `add`).
+  Track all status-visibility asks here. NOT yet on board: backfill next
+  audit (add metric block to body, then `add`).
 - **#170 (11-07):** event-driven dispatch. 1/2 Rex replies used. 11-10: metric
   block added (idle share on non-empty-backlog days <5%, gap <2 min; flag via
-  #202; C→100%), on board, cpo-approved, awaiting Rex.
+  #202; C→100%), on board, cpo-approved, awaiting Rex's cto-approved (still
+  awaiting as of 11-10 10:00 conversation check).
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-10 comment: no fix
   on main; Nov 10 ingested 10,000 (vs 2,000/day Nov 7–9) but newest read Nov 5
   15:25, lag p50 84.5→98.8→111.6→122.0 h. Told Brogan in thread (he released
   2, 21→19, 11-10 10:01). #72 (token) still open.
 - **#194 (11-09):** nearest idle operator. 1/2 used. Spec final. 11-10: metric
-  block (≤5.5 mi from 8.69, driving ≤15%), on board, cpo-approved.
+  block (≤5.5 mi from 8.69, driving ≤15%), on board, cpo-approved, awaiting
+  Rex's cto-approved.
 - **#213 (11-10, measurement):** WBR: paid fleet hours, idle/transit/working
   hours, fleet_cost, cost per resolved order, optional accepted-cohort cost.
-  On board, cpo-approved. Asked Rex: split idle at week boundaries?
+  On board, cpo-approved, awaiting Rex's cto-approved. Asked Rex: split idle
+  at week boundaries?
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
 - #202 (Seth's backend flag read): cpo-approved 11-10, moved to Refined.
   #170/#194 depend on it for their flags.
-- Intake awaiting Rex: #170, #194, #213.
+- Intake awaiting Rex's cto-approved (checked 11-10 10:00, still waiting):
+  #170, #194, #213.
 
 ## Declines (reuse the reasoning)
 
@@ -36,7 +40,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Hazard flagging, photo upload, direct reporting: point to 311/911 (Dogwood).
 - Accessibility audits / non-street civic issues: out of scope, use 311.
 - Self-service mark-complete / feedback / live chat: crew-verified
-  (Sassafras repeats; some go to #166).
+  (Sassafras repeats; some go to #166). 11-10: Ginkgo asked for a
+  resident-rated repair-quality feedback loop — same reasoning, declined.
 - Direct phone/email support: none exists.
 - Auto-categorise/prioritise: already exists. Single-order escalations,
   maintenance cadence: not features.
@@ -92,3 +97,6 @@ file"). Rebuild from these shapes:
 - Athena 20 s limit: self-joins over 7 days of operator_events time out.
 - `gh issue view --comments` and `--json` are exclusive; use
   `--json comments -q '.comments[-3:][]...'`.
+- `--jq`/`-q` with a shell `for n in ...; do ... "$n" ...; done` loop in the
+  Bash tool errors ("Contains simple_expansion"); run one `gh` call per
+  issue number instead.
