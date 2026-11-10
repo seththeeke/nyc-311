@@ -212,7 +212,7 @@ describe("Nyc311PipelineStack", () => {
     expect(runOrder("ProdDiff")).toBe(runOrder("IntegrationTestsTest"));
   });
 
-  it("skips a doc-only push via a V2 trigger filter, rather than running the full pipeline on every push (#112)", () => {
+  it("skips a doc-only or agent-tooling-only push via a V2 trigger filter, rather than running the full pipeline on every push (#112, #211)", () => {
     template.hasResourceProperties("AWS::CodePipeline::Pipeline", {
       Stages: Match.arrayWith([
         Match.objectLike({
@@ -231,7 +231,17 @@ describe("Nyc311PipelineStack", () => {
             Push: Match.arrayWith([
               Match.objectLike({
                 Branches: { Includes: ["main"] },
-                FilePaths: { Excludes: ["docs/**", "agent-web-app/**", "agent-reports/**", ".claude/**"] },
+                FilePaths: {
+                  Excludes: [
+                    "docs/**",
+                    "agent-web-app/**",
+                    "agent-reports/**",
+                    ".claude/**",
+                    "scripts/agent-*.sh",
+                    "scripts/agent-*.py",
+                    "scripts/agent-schedules/**",
+                  ],
+                },
               }),
             ]),
           }),

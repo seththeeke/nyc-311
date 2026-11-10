@@ -289,12 +289,34 @@ export class Nyc311PipelineStack extends Stack {
      * branch. If this misconfigures, the
      * pipeline stack is the one stack `nyc311` can still deploy directly.
      */
+    /*
+     * #211 — the Mac-mini agent-automation scripts (`scripts/agent-*.sh`/
+     * `.py`, `scripts/agent-schedules/**`) are read only on the Mac mini,
+     * never by backend/cdk/web-app/customer build, test or deploy (every
+     * non-scripts/ hit for "scripts/agent-" is a doc-comment mention, not
+     * an import). `scripts/publish-coverage.js`, the one file under
+     * scripts/ the pipeline actually runs (Nyc311CoveragePublishStep),
+     * stays included.
+     */
     const sourceAction = pipeline.pipeline.stage("Source").actions[0];
     pipeline.pipeline.addTrigger({
       providerType: codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION,
       gitConfiguration: {
         sourceAction,
-        pushFilter: [{ branchesIncludes: [GITHUB_BRANCH], filePathsExcludes: ["docs/**", "agent-web-app/**", "agent-reports/**", ".claude/**"] }],
+        pushFilter: [
+          {
+            branchesIncludes: [GITHUB_BRANCH],
+            filePathsExcludes: [
+              "docs/**",
+              "agent-web-app/**",
+              "agent-reports/**",
+              ".claude/**",
+              "scripts/agent-*.sh",
+              "scripts/agent-*.py",
+              "scripts/agent-schedules/**",
+            ],
+          },
+        ],
       },
     });
 
