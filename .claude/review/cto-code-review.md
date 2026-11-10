@@ -46,6 +46,28 @@ prompt only links to it.
 - tests that mock the thing under test, or assert on implementation details;
 - a dependency added for something a few lines would do.
 
+## Kid Kestrel's PRs (`gen-purpose-dev/`): the stricter bar
+
+His work reaches residents behind flags, so "approve by default" doesn't
+apply. Approve only when you have checked each of these yourself, and block
+on any that fails:
+
+1. **No code smells.** Every smell in the list above is blocking on his PRs,
+   not just a name.
+2. **No bugs.** Read every changed path, including error, empty and
+   boundary cases, and each caller of a changed function.
+3. **Nothing existing breaks.**
+   - With the flag at `C`, behaviour is exactly what it was: the old path is
+     untouched or provably equivalent.
+   - No existing test is removed, skipped or weakened (a looser assertion,
+     a wider mock).
+   - Tests cover both treatments, `C` and `T1`.
+4. **It's the leg the spec says.** The PR matches its leg's row in
+   `docs/kid-kestral/<issue>-<slug>.md`: nothing from a later leg, nothing
+   left out.
+
+The 3-comment cap and rounds still apply.
+
 ## Writing a comment
 
 - Point at the line. Say what's wrong, why it matters and what would fix it,

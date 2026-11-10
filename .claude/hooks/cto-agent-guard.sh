@@ -5,11 +5,12 @@
 # writes, no branch checkouts (Pip may have the branch), and GitHub writes only
 # to a PR's reviews, comments, labels and commit statuses, plus one merge: a
 # squash merge, pinned to the head SHA, of an open, cto-approved devx/ PR
-# (§16.2). Exit 2 blocks.
+# (§16.2). On Kid Kestrel's board (§22.2.1) he may run agent-board.sh as
+# cto-agent and add or remove cto-approved on a board card. Exit 2 blocks.
 
 input=$(cat)
-printf '%s' "$input" | python3 -c '
-import json, re, shlex, subprocess, sys
+printf '%s' "$input" | CTO_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}" python3 -c '
+import json, os, re, shlex, subprocess, sys
 
 try:
     cmd = json.load(sys.stdin).get("tool_input", {}).get("command", "")
@@ -24,6 +25,14 @@ def analyzer_issue(number):
     except Exception:
         return False
     return out.stdout.strip() == "true"
+
+def on_board(number):
+    board = os.path.join(os.environ.get("CTO_PROJECT_DIR", "."), "scripts", "agent-board.sh")
+    try:
+        out = subprocess.run([board, "cto-agent", "show", number], capture_output=True, text=True, timeout=60)
+    except Exception:
+        return False
+    return out.returncode == 0 and out.stdout.strip() not in ("", "none")
 
 def deny(why):
     print(f"cto-agent guard: {why} Rex reviews and merges only: leave the change to Pip.", file=sys.stderr)
@@ -69,6 +78,10 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
     if not words:
         continue
     tool, args = words[0], words[1:]
+    if os.path.basename(tool) == "agent-board.sh":
+        if args[:1] != ["cto-agent"]:
+            deny("agent-board.sh runs only as cto-agent.")
+        continue
     if tool == "git" and args:
         sub = args[0]
         if sub in {"push", "commit", "merge", "rebase", "reset", "switch", "branch", "cherry-pick", "revert", "tag", "am", "apply", "stash", "worktree", "clean"}:
@@ -90,7 +103,11 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
                 number = next((a for a in rest if re.fullmatch(r"#?\d+", a)), None)
                 if labels == ["wont-fix"] and all(f in {"--add-label", "--repo", "-R"} for f in flags) and number and analyzer_issue(number.lstrip("#")):
                     continue
-            deny(f"gh issue {action} is blocked; Rex only reads, comments on and escalates issues, and declines Sable\x27s with wont-fix.")
+                removed = [rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--remove-label"]
+                approval = (labels, removed) in ((["cto-approved"], []), ([], ["cto-approved"]))
+                if approval and all(f in {"--add-label", "--remove-label", "--repo", "-R"} for f in flags) and number and on_board(number.lstrip("#")):
+                    continue
+            deny(f"gh issue {action} is blocked; Rex only reads, comments on and escalates issues, declines Sable\x27s with wont-fix, and sets cto-approved on board cards.")
         if sub in {"issue", "repo", "release", "label", "workflow", "run", "secret", "variable", "auth"} and args[:2] != ["auth", "status"]:
             deny(f"gh {sub} is blocked.")
         if sub == "pr" and len(args) > 1:

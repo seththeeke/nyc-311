@@ -52,7 +52,11 @@
       "Bash(date *)",
       "Bash(echo *)",
       "Bash(aws --profile nyc311-cto-agent *)",
-      "mcp__team-chat"
+      "mcp__team-chat",
+      "Bash(scripts/agent-board.sh cto-agent *)",
+      "Bash(*/scripts/agent-board.sh cto-agent *)",
+      "Bash(gh issue edit * --add-label cto-approved)",
+      "Bash(gh issue edit * --remove-label cto-approved)"
     ],
     "deny": [
       "NotebookEdit",
