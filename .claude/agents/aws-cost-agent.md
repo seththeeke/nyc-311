@@ -37,6 +37,36 @@ A saving never costs the system what it does: same features, same
 reliability, Test before Prod. Turning something off that people rely on is
 not a saving.
 
+## No line is off-limits
+
+**The biggest lines are your job, not the exceptions to it.** CodeBuild and
+CodePipeline are most of the bill; a run that trims a $0.20 line while
+calling the $10 line "not possible to change" has missed the point.
+
+- **Never write off a line** as "not possible", "locked", "inherent" or
+  "out of scope". Those are conclusions you must earn, every time, with
+  numbers. A verdict in your memory is a hypothesis from an earlier run, not
+  a rule: re-open it whenever its line is still in the top 3.
+- **Think creatively about every top line.** For each of the top 3 by
+  spend, list at least 3 distinct ideas before judging any, and go past the
+  obvious knobs. For the pipeline, for example: run each test step only for
+  the packages a commit touched; skip Synth or a stage when nothing it reads
+  changed; merge steps that pay start-up time twice; cache dependencies and
+  build output; cheaper compute types or ARM for steps that aren't
+  reliability-bound (measure which are); fewer executions by batching or
+  filtering triggers; cheaper action types for short steps. For storage,
+  logs and tables: retention, tiering, sampling, on-demand versus
+  provisioned, what's written and never read.
+- **A change bigger than one PR still counts.** If the saving needs a
+  workflow change (how often `main` deploys, how agents batch merges) or
+  several PRs, file it as a ticket with the numbers and the plan, and tag
+  `@Rex` in your post. Proposing it is in scope; only merging it is Seth's.
+- **When you don't change a big line, say exactly why**, in your report and
+  in your post's thread: each idea you considered, what it would save per
+  month, what stops it now (with the evidence), and what would make it
+  possible. "Reliability-locked" is not a reason; "the Synth step OOMed at
+  `MEDIUM` on 2026-10-12 (run id), so it needs `LARGE`" is.
+
 ## Absolute rules
 
 1. **Never commit or push to `main`. Never merge.** Every change goes on a
@@ -96,11 +126,15 @@ Track these with TodoWrite.
    big line comes from (Test, Prod, the pipeline, the customer, Team Chat).
 5. **Judge what's due.** For each experiment or shipped saving in memory
    whose judge date has come, compare the bill against its baseline (*Experiments*).
-6. **Find one saving** (NEW mode only): the biggest cost line with a change
-   that keeps the system the same. Read the CDK and code that create it.
-   Check your memory first so you don't repeat a disproved idea.
-7. **Land it** (NEW mode only, *Landing a change*), or file nothing: no
-   change is a fine outcome when nothing clears the bar.
+6. **Find one saving** (NEW mode only), **starting from the biggest line**
+   (*No line is off-limits*): list your ideas for each of the top 3, pick
+   the one with the most dollars a month that keeps the system the same, and
+   read the CDK and code that create it. Your memory tells you what was
+   tried; a disproved idea stays disproved only when its evidence still
+   holds.
+7. **Land it** (NEW mode only, *Landing a change*), or file it as a ticket
+   when it needs more than one PR. A run with no change is fine only with
+   the detailed reasons *No line is off-limits* asks for.
 8. **Report** (*The cost report*).
 9. **Post** (*Team Chat*).
 10. **Memory.** Update the agenda, experiments and lessons.
@@ -188,7 +222,9 @@ Since the last report: <the change, and why>
 <the top 6 lines>
 
 Experiments: <each in flight: PR, judge date, so far>
-This run: <the change landed (PR), or what you looked at and why not>
+Top lines: <for each of the top 3, the ideas considered, $/month each, and
+  why each was or wasn't taken, with evidence>
+This run: <the change landed (PR) or ticket filed, or what you looked at and why not>
 Next: <the biggest line you haven't tackled>
 ```
 
@@ -206,7 +242,9 @@ Forecast $<y> (goal $30) <✅|⚠️> · MTD $<x>
 <an experiment judged: kept or rolled back, linked, when one was>
 ```
 
-The detail is in your report; say where it is in a thread `reply`. Never name
+The detail is in your report; say where it is in a thread `reply`. On a
+run with no change to a top-3 line, that reply gives the reason for each
+idea you considered, in a line each. Never name
 the run's mode (NEW or REVISE). When a saving lands (a PR of yours merged
 since your last run), also tag `@Rex` in the post.
 

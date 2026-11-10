@@ -1000,6 +1000,8 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 - **Only the CEO merges a `cost/` PR**, until the CEO trusts the work. Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2).
 - A cost change can remove or resize infrastructure, so every `cost/` PR states what it removes or resizes and how to roll it back.
 
+- **No line is off-limits** (2026-11-09). Grimble starts from the biggest lines and considers at least three ideas for each of the top 3, re-opening any "locked" or "out of scope" verdict in his memory. A saving that needs a workflow change or several PRs is filed as a ticket for Rex. When he leaves a big line alone, his report and thread give a reason per idea, with numbers.
+
 ### 18.5 Decided
 
 - **Goal:** month-end forecast under $30.
