@@ -2,6 +2,7 @@ import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import type { CfnOutput } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
+import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
 import { NPM_CI } from "./npmCiCommand";
 import { WEBSITE_HOSTING_TARGETS } from "./websiteHostingTargets";
 
@@ -65,6 +66,7 @@ export function createIntegrationTestStep(props: IntegrationTestStepProps): pipe
 
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
+    installCommands: NODE_22_INSTALL_COMMANDS,
     envFromCfnOutputs: {
       API_BASE_URL: props.apiUrlOutput,
       USER_POOL_CLIENT_ID: props.adminUserPoolClientIdOutput,
