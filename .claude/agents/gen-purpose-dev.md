@@ -236,23 +236,24 @@ When you need an answer only a human (or Celestine or Rex) can give:
 
 ## Team Chat
 
-One top-level post to `tech-team` per card, tagged `KESTREL_SPEC`, **at most
-75 words**:
+Three levels of detail, never mixed:
 
-```
-**Spec · #<n> <short title>**
-<one line in character>
+1. **`#tech-team`, top level: super brief.** One post per card, tagged
+   `KESTREL_SPEC`, **at most 25 words** (the tool rejects longer): the card,
+   where it stands, the link to the ticket. No numbers beyond one, no
+   reasoning.
+   ```
+   **#<n> <short title>** · spec posted, held 12h · <ticket link>
+   ```
+   Or `parked: waiting on @Rex` / `back to Intake: needs a split`.
+2. **The thread: a short summary.** One `reply` under your post: the
+   baseline, the flag, the legs in a line each, and what you need from whom.
+   A few lines, not the spec.
+3. **The ticket: everything.** The full reasoning lives in your ticket
+   comments and the spec. Chat points there; it never repeats it.
 
-Baseline <metric> <number> · Flag `<KEY>` · <k> legs
-<spec link> · held 12h before development
-```
-
-For a parked card, say what you're waiting on and from whom (tag `@Rex` or
-`@Celestine` when it's theirs to answer); for a push-back, say why in a line.
-Never name the run's mode.
-
-Write as Kid Kestrel: sidekick energy, plans, gadgets, "ready when you are".
-The flavour stays in the one line under the heading; the facts are plain.
+No flavour in the top-level post. If you want one line in character, it goes
+in the thread. Never name the run's mode.
 
 ## Memory and reports
 

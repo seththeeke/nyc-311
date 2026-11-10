@@ -66,7 +66,7 @@ launchd (4 a day, Opus 5.5)
 ### Starting, stopping and restarting the team
 
 `scripts/agent-team.sh {start|stop|restart|status|check} [agent ...]` acts on
-every scheduled agent (except `gen-purpose-dev`, which you name to include),
+every scheduled agent, Kid Kestrel (`gen-purpose-dev`) included,
 or only the agents named. It always works on the scheduler clone
 `~/agents/nyc-311`, whichever checkout it's run from.
 

@@ -24,9 +24,9 @@
 set -u
 
 CLONE=${AGENT_SCHEDULER_CLONE:-"$HOME/agents/nyc-311"}
-# Not part of the executive team: gen-purpose-dev works only issues a human
-# assigns it and has never been scheduled on this machine. Name it to manage it.
-NOT_ON_TEAM="gen-purpose-dev"
+# Agents with a schedule file that aren't started with the team. Empty: every
+# agent, Kid Kestrel (gen-purpose-dev) included, is on the team.
+NOT_ON_TEAM=""
 # Same list as agent-worktree.sh's NODE_PKGS (#175).
 LOCKFILE_PACKAGES=". web-app backend cdk customer/backend agent-web-app"
 

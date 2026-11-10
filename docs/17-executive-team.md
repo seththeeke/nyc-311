@@ -1360,6 +1360,8 @@ He updates it every run that changes anything. **Spec updates are committed stra
 
 **4 runs a day, on Opus 5.5** (`MODEL=claude-opus-5-5`): 09:00, 15:00, 22:00, 04:00 (07:00, 13:00, 20:00, 02:00). Each is one of Pip's slots (§21.4), so Rex's run an hour later reviews Kestrel's PRs too. `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1`.
 
+**Chat: super brief.** One `#tech-team` post per card, at most 25 words (`CHAT_POST_WORDS=25`): the card, where it stands, the ticket link. A short summary goes in its thread, and the full detail in the ticket and the spec.
+
 **One session per card, each in its own worktree.** The scheduler lists the cards that need him, in the order below, and runs a separate `claude` session for each in a separate worktree (`agent-worktree.sh`), one after another, so two projects never share a branch, a working tree or a context. `MAX_CARDS_PER_RUN` caps how many a run takes. A run with nothing to do doesn't start `claude` (§20.2).
 
 The order protects Prod first:
