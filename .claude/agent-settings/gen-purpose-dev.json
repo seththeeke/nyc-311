@@ -40,8 +40,6 @@
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews --paginate)",
       "Bash(gh api --method PATCH repos/seththeeke/nyc-311/issues/comments/*)",
-      "Bash(scripts/agent-issue-state.sh gen-purpose-dev *)",
-      "Bash(*/scripts/agent-issue-state.sh gen-purpose-dev *)",
       "Bash(cat *)",
       "Bash(head *)",
       "Bash(tail *)",
@@ -82,7 +80,22 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:docs.aws.amazon.com)"
+      "WebFetch(domain:docs.aws.amazon.com)",
+      "Read",
+      "Grep",
+      "Glob",
+      "TodoWrite",
+      "Skill(query-builder)",
+      "Skill(create-feature-flag)",
+      "Bash(scripts/agent-board.sh gen-purpose-dev *)",
+      "Bash(*/scripts/agent-board.sh gen-purpose-dev *)",
+      "Bash(scripts/agent-spec-commit.sh *)",
+      "Bash(*/scripts/agent-spec-commit.sh *)",
+      "Bash(git ls-tree *)",
+      "Bash(git grep *)",
+      "Bash(git ls-files *)",
+      "mcp__team-chat",
+      "mcp__boroughsim-engineering"
     ],
     "deny": [
       "Bash(gh pr merge *)",
@@ -104,7 +117,31 @@
       "Bash(npm run deploy)",
       "Bash(aws --profile nyc311 *)",
       "Bash(aws * --profile nyc311 *)",
-      "Bash(aws * --profile nyc311)"
+      "Bash(aws * --profile nyc311)",
+      "Bash(gh project *)",
+      "Bash(scripts/agent-commit-to-main.sh *)",
+      "Bash(*/scripts/agent-commit-to-main.sh *)",
+      "Bash(gh api graphql *)",
+      "Bash(aws cognito-idp *)",
+      "Bash(security *)",
+      "mcp__boroughsim-ops",
+      "mcp__boroughsim-product",
+      "Read(**/nyc311-team-chat-*/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.nyc-311/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/team-chat-guard.sh"
+          }
+        ]
+      }
     ]
   }
 }

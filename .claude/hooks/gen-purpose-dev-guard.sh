@@ -11,6 +11,9 @@
 #   - `gh pr merge` / `gh pr close` / `gh issue close` — a human lands and closes
 #   - `gh pr create` without `--draft`
 #   - any deploy / destroy / bootstrap
+#   - raw `gh project` calls and agent-commit-to-main.sh: the board moves only
+#     through scripts/agent-board.sh, and only a spec reaches main, through
+#     scripts/agent-spec-commit.sh (docs/17-executive-team.md §22)
 # The allowlist (.claude/agent-settings/gen-purpose-dev.json) denies most of
 # these too; the guard is the half that still holds when the agent is started
 # without that file (e.g. as a subagent of an interactive session).
@@ -81,6 +84,14 @@ fi
 if matches '(^|[^[:alnum:]_-])cdk[[:space:]]+(deploy|destroy|bootstrap)'"${END}" \
   || matches 'npm[[:space:]]+run[[:space:]]+deploy'"${END}"; then
   deny "changing real infrastructure is out of scope — describe it on the issue for a human instead."
+fi
+
+if matches '(^|[^[:alnum:]_-])gh[[:space:]]+(project|api[[:space:]]+graphql)'"${END}"; then
+  deny "move cards only with scripts/agent-board.sh gen-purpose-dev move <issue> <column>."
+fi
+
+if matches 'agent-commit-to-main\.sh'; then
+  deny "only your spec goes straight to main, with scripts/agent-spec-commit.sh <issue>."
 fi
 
 exit 0

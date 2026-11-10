@@ -3,7 +3,7 @@ import type { ScheduleSlot } from "../../shared/models/scheduleSlot.ts";
 
 const ASSIGNMENT = /^([A-Z_][A-Z0-9_]*)=(.*)$/;
 const SLOT = /^(?:(Sun|Mon|Tue|Wed|Thu|Fri|Sat)@)?(\d{1,2}):(\d{2})(?:=([A-Z][A-Z0-9_]*))?$/;
-const FLAG_KEYS = ["OPS_TOOLS", "PRODUCT_TOOLS", "MEMORY", "REPORTS", "USAGE_SUMMARY"];
+const FLAG_KEYS = ["OPS_TOOLS", "PRODUCT_TOOLS", "ENGINEERING_TOOLS", "MEMORY", "REPORTS", "USAGE_SUMMARY"];
 
 /**
  * Reads `KEY=value` lines from a schedule `.env` without sourcing it (its

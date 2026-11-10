@@ -2,7 +2,7 @@ import { z } from "zod";
 import { scheduleSlotSchema } from "./scheduleSlot.ts";
 
 /** How the runner picks a mode for an agent: `KIND` in its schedule `.env`, as ALL_CAPS. */
-export const agentKindSchema = z.enum(["PR_LIMIT", "ASSIGNED_ISSUE", "OPERATIONS"]);
+export const agentKindSchema = z.enum(["PR_LIMIT", "BOARD", "OPERATIONS"]);
 export type AgentKind = z.infer<typeof agentKindSchema>;
 
 /** One agent's schedule config, read from `scripts/agent-schedules/<agent>.env` in the scheduler clone. */

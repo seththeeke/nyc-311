@@ -14,18 +14,17 @@
 #      PROMPT_CONVERSE; MODEL_<MODE> or MODEL picks the model):
 #      pr-limit (default, devx-agent) — count the agent's open PRs (head branch
 #        starts with BRANCH_PREFIX): below MAX_OPEN_PRS → NEW mode, else REVISE
-#      assigned-issue (gen-purpose-dev) — poll for ONE issue carrying the label
-#        named after the agent, in priority order: RESUME (parked, and a human
-#        replied) → REVISE (its PR has unaddressed feedback or a conflict) →
-#        NEW (assigned, unclaimed; skipped at MAX_OPEN_PRS). Claim it via
-#        agent-issue-state.sh. Nothing to do → IDLE, `claude` is never started.
-#   3. `agent-worktree.sh run <agent> "<prompt>"`
+#      board (gen-purpose-dev, docs/17-executive-team.md §22.6) — list the
+#        agent's cards on the project board (agent-board.sh): SPEC for each
+#        card in Assigned that isn't parked, oldest first, at most
+#        MAX_CARDS_PER_RUN. Nothing to do → IDLE, `claude` is never started.
+#   3. `agent-worktree.sh run <agent> "<prompt>"` — for board, once per card,
+#      each in its own worktree
 #   4. prune logs > 30 days and this agent's kept worktrees > 7 days
 #
-# A pr-limit run posts nothing to GitHub itself. An assigned-issue run moves
-# labels (the claim, and `agent-done` on closed issues) and, when a run dies
-# without reaching review or parking, parks the issue with a comment — fail
-# closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
+# A pr-limit run posts nothing to GitHub itself. A board run, when a card's
+# session ends without moving the card on or parking it, parks it with a
+# comment — fail closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
 # ~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log (AGENT_LOG_ROOT overrides).
 #
 # A manual run (the agent monitor's Run button, agent-web-app/SPEC.md §5.1)
@@ -124,10 +123,10 @@ AGENT_CHAT_POST_WORDS=${CHAT_POST_WORDS:-}
 export AGENT_CHAT_POST_WORDS
 case "$KIND" in
   pr-limit) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" ;;
-  assigned-issue) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" "${PROMPT_RESUME:?}" ;;
+  board) : "${PROMPT_SPEC:?}" "${MAX_CARDS_PER_RUN:?}" ;;
   # An operating agent (docs/17-executive-team.md §12.4): every fire is one run, of PROMPT_<MODE> for its slot's mode (§21.6) or else PROMPT_NEW, with no PRs or issues to count.
   operations) : ;;
-  *) die "unknown KIND '$KIND' in $agent.env (pr-limit | assigned-issue | operations)" ;;
+  *) die "unknown KIND '$KIND' in $agent.env (pr-limit | board | operations)" ;;
 esac
 # The boroughsim-ops MCP server rides along with team-chat for agents that act on operations.
 AGENT_OPS_TOOLS=${OPS_TOOLS:-}
@@ -220,105 +219,49 @@ open_prs() {
     --jq "[.[] | select(.headRefName | startswith(\"$BRANCH_PREFIX\")) | .number] | map(\"#\" + tostring) | join(\" \")"
 }
 
-# ---- assigned-issue helpers (KIND=assigned-issue) ----------------------------
+# ---- board helpers (KIND=board, docs/17-executive-team.md §22) --------------
 
-# The agent posts as the repo owner, so authorship can't tell its comments from
-# a human's; every comment it (or this script) posts starts with this marker.
-MARKER="<!-- $agent -->"
+# The agent posts as the repo owner; a card whose newest comment starts with
+# this marker is parked, and any later comment from someone else resumes it.
+PARKED_MARKER="<!-- $agent:parked -->"
 
-issue_state() { "$script_dir/agent-issue-state.sh" "$agent" "$@"; }
+board() { "$script_dir/agent-board.sh" "$agent" "$@"; }
 
-# Closed issues this agent worked → agent-done.
-sweep_done() {
-  gh issue list --repo "$REPO" --state closed --label "$agent" --limit 100 --json number,labels \
-    --jq '.[] | [.labels[].name] as $l
-          | select(($l | index("agent-done") | not)
-              and any($l[]; . == "agent-planning" or . == "agent-in-progress"
-                            or . == "agent-pr-review" or . == "agent-blocked"))
-          | .number' |
-    while IFS= read -r n; do
-      [ -n "$n" ] || continue
-      log "$(issue_state "$n" done 2>&1)"
-    done
+is_parked() {
+  gh issue view "$1" --repo "$REPO" --json comments --jq '.comments[-1].body // ""' | grep -qF -- "$PARKED_MARKER"
 }
 
-# An open issue still in planning/in-progress while no run holds the lock means
-# a run died mid-flight. Park it (fail closed); a human reply resumes it.
-park_orphans() {
-  gh issue list --repo "$REPO" --state open --label "$agent" --limit 100 --json number,labels \
-    --jq '.[] | select(any(.labels[]; .name == "agent-planning" or .name == "agent-in-progress")) | .number' |
-    while IFS= read -r n; do
-      [ -n "$n" ] || continue
-      log "parking #$n: $1"
-      issue_state "$n" blocked >/dev/null || { log "WARN: could not park #$n"; continue; }
-      gh issue comment "$n" --repo "$REPO" --body "$MARKER
-**Parked (\`agent-blocked\`).** $1 Nothing was merged or closed. Any work that was pushed is on the issue's \`${BRANCH_PREFIX}$n-*\` branch.
-
-Reply on this issue to have the next scheduled run pick it back up, or remove the \`$agent\` label to take it back." \
-        >/dev/null || log "WARN: could not comment on #$n"
-    done
+# The cards in <column> that aren't parked, oldest first, at most MAX_CARDS_PER_RUN.
+pick_cards() {
+  listed=$(board list "$1") || return 1
+  picked=0
+  printf '%s\n' "$listed" | cut -f1 | sort -n | while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    [ "$picked" -lt "$MAX_CARDS_PER_RUN" ] || break
+    if is_parked "$n"; then
+      log "#$n is parked — skipping" >&2
+      continue
+    fi
+    printf '%s\n' "$n"
+    picked=$((picked + 1))
+  done
 }
 
-# Oldest parked issue whose newest comment is a human's (no marker).
-pick_resume() {
-  gh issue list --repo "$REPO" --state open --label "$agent" --label agent-blocked --limit 100 \
-    --json number,comments |
-    jq -r --arg m "$MARKER" '[.[] | select((.comments | length) > 0
-          and (.comments[-1].body | startswith($m) | not))]
-        | sort_by(.number) | .[0].number // empty'
-}
-
-# Exit 0 when PR $1 has a merge conflict or review feedback newer than the
-# agent's last marked comment. A conflict the agent already gave up on (its
-# last marked comment says `conflict-unresolved`) doesn't count again until a
-# human comments — otherwise every fire would re-run the same failed merge.
-pr_needs_tending() {
-  verdict=$(gh pr view "$1" --repo "$REPO" --json mergeable,comments,reviews |
-    jq -r --arg m "$MARKER" '
-      ([.comments[] | {b: .body, t: .createdAt}]
-        + [.reviews[] | select(.body != "") | {b: .body, t: .submittedAt}] | sort_by(.t)) as $all
-      | [$all[] | select(.b | startswith($m))] as $mine
-      | ($mine | last | .t // "") as $last
-      | ($mine | last | .b // "" | contains("conflict-unresolved")) as $gaveUp
-      | ((.mergeable == "CONFLICTING" and ($gaveUp | not))
-          or any($all[]; (.b | startswith($m) | not) and .t > $last)) as $needs
-      | "\($needs) \($last)"') || return 1
-  [ "${verdict%% *}" = "true" ] && return 0
-  last=${verdict#* }
-  gh api "repos/$REPO/pulls/$1/comments" --paginate |
-    jq -r --arg last "$last" 'any(.[]; .created_at > $last)' | grep -q true
-}
-
-# First open agent PR that needs tending, as "<pr> <issue>".
-pick_revise() {
-  gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName \
-    --jq ".[] | select(.headRefName | startswith(\"$BRANCH_PREFIX\")) | \"\(.number) \(.headRefName)\"" |
-    while read -r pr head; do
-      [ -n "$pr" ] || continue
-      n=${head#"$BRANCH_PREFIX"}
-      n=${n%%-*}
-      case "$n" in '' | *[!0-9]*) continue ;; esac
-      if pr_needs_tending "$pr"; then
-        printf '%s %s\n' "$pr" "$n"
-        break
-      fi
-    done
-}
-
-# Oldest assigned issue no run has claimed yet (assignment label, no state label).
-pick_new() {
-  gh issue list --repo "$REPO" --state open --label "$agent" --limit 100 --json number,labels \
-    --jq '[.[] | select(any(.labels[]; .name == "agent-planning" or .name == "agent-in-progress"
-              or .name == "agent-pr-review" or .name == "agent-blocked"
-              or .name == "agent-done" or .name == "needs-info") | not)]
-          | sort_by(.number) | .[0].number // empty'
+# A card still in <column> after its session, and not parked, means the
+# session died mid-flight. Park it (fail closed); a reply resumes it.
+park_if_stuck() {
+  [ "$(board show "$1" 2>/dev/null)" = "$2" ] || return 0
+  is_parked "$1" && return 0
+  log "parking #$1: its session ended (exit $3) with the card still in $2"
+  gh issue comment "$1" --repo "$REPO" --body "$PARKED_MARKER
+**Parked.** A scheduled run's session for this card ended (exit $3) without moving it on or parking it. Nothing was merged. Reply here to have the next run pick it back up." \
+    >/dev/null || log "WARN: could not comment on #$1"
 }
 
 # ---- 2. pick the mode --------------------------------------------------------
 
-issue=""
-pr=""
-if [ "$KIND" = "operations" ]; then
+cards=""
+if [ "$KIND" = "operations" ] || [ "$KIND" = "board" ]; then
   prs_before=""
   count=0
 else
@@ -335,37 +278,18 @@ if [ "$KIND" = "operations" ]; then
     mode=$SLOT_MODE
   fi
   log "operations run → $mode${AGENT_MODEL:+ (model $AGENT_MODEL)}"
-elif [ "$KIND" = "assigned-issue" ]; then
+elif [ "$KIND" = "board" ]; then
   command -v jq >/dev/null 2>&1 || die "'jq' not on PATH"
-  issue_state ensure-labels || die "could not ensure the agent labels exist"
-  sweep_done
-  park_orphans "A previous run ended without reaching review or parking itself."
-
-  mode=IDLE
-  issue=$(pick_resume) || die "could not list parked issues"
-  if [ -n "$issue" ]; then
-    mode=RESUME
-    prompt="$PROMPT_RESUME #$issue"
-    issue_state "$issue" in-progress >/dev/null || die "could not claim #$issue"
+  # K1 (docs/17 §22.11): only specs. BUILD=1 will add the later stages.
+  cards=$(pick_cards assigned) || die "could not read the board"
+  cards=$(printf '%s' "$cards" | tr '\n' ' ' | sed 's/ *$//')
+  if [ -n "$cards" ]; then
+    mode=SPEC
+    prompt="$PROMPT_SPEC"
   else
-    revise=$(pick_revise) || die "could not list PRs to revise"
-    if [ -n "$revise" ]; then
-      mode=REVISE
-      pr=${revise%% *}
-      issue=${revise#* }
-      prompt="$PROMPT_REVISE PR #$pr (issue #$issue)"
-    elif [ "$count" -ge "$MAX_OPEN_PRS" ]; then
-      log "open PR limit reached — not claiming a new issue"
-    else
-      issue=$(pick_new) || die "could not list assigned issues"
-      if [ -n "$issue" ]; then
-        mode=NEW
-        prompt="$PROMPT_NEW #$issue"
-        issue_state "$issue" planning >/dev/null || die "could not claim #$issue"
-      fi
-    fi
+    mode=IDLE
   fi
-  log "open ${BRANCH_PREFIX}* PRs: $count (${prs_before:-none}), limit $MAX_OPEN_PRS → $mode${issue:+ #$issue}${pr:+ (PR #$pr)}"
+  log "board: assigned cards ${cards:+#}$(printf '%s' "$cards" | sed 's/ / #/g') (max $MAX_CARDS_PER_RUN, BUILD=${BUILD:-0}) → $mode"
 elif [ "$count" -ge "$MAX_OPEN_PRS" ]; then
   mode=REVISE
   prompt="$PROMPT_REVISE $prs_before"
@@ -422,35 +346,40 @@ status=0
 if [ "$mode" = "IDLE" ]; then
   log "nothing assigned to $agent needs work — not starting claude"
 else
-  report="${AGENT_SCHED_LOG%.log}.report.md"
-  started=$(date +%s)
-  "$script_dir/agent-worktree.sh" run "$agent" "$prompt" >"$report"
-  status=$?
-  elapsed=$(( $(date +%s) - started ))
-  log "agent exited $status after $((elapsed / 60))m$((elapsed % 60))s — final report:"
-  cat "$report"
-  printf '\n'
+  # One session per card for a board run (docs/17 §22.6), each in its own worktree; one session otherwise.
+  for card in ${cards:-_}; do
+    session_prompt=$prompt
+    report="${AGENT_SCHED_LOG%.log}.report.md"
+    if [ "$card" != "_" ]; then
+      session_prompt="$prompt
 
-  # The agent reports its Team Chat post (docs/17-executive-team.md §11.4); the script never posts itself.
-  if [ -n "${AGENT_TEAM_CHAT_ENV:-}" ]; then
-    chat_line=$(grep -m1 'Chat post:' "$report" || true)
-    if [ -n "$chat_line" ]; then log "team-chat: ${chat_line#*Chat post:}"; else log "WARN: no chat post reported"; fi
-  fi
+Your card: #$card"
+      report="${AGENT_SCHED_LOG%.log}.$card.report.md"
+      log "--- card #$card"
+    fi
+    started=$(date +%s)
+    "$script_dir/agent-worktree.sh" run "$agent" "$session_prompt" >"$report"
+    session_status=$?
+    [ "$session_status" -eq 0 ] || status=$session_status
+    elapsed=$(( $(date +%s) - started ))
+    log "agent exited $session_status after $((elapsed / 60))m$((elapsed % 60))s — final report:"
+    cat "$report"
+    printf '\n'
 
-  if [ "$KIND" != "operations" ]; then
+    # The agent reports its Team Chat post (docs/17-executive-team.md §11.4); the script never posts itself.
+    if [ -n "${AGENT_TEAM_CHAT_ENV:-}" ]; then
+      chat_line=$(grep -m1 'Chat post:' "$report" || true)
+      if [ -n "$chat_line" ]; then log "team-chat: ${chat_line#*Chat post:}"; else log "WARN: no chat post reported"; fi
+    fi
+
+    [ "$card" = "_" ] || park_if_stuck "$card" assigned "$session_status"
+  done
+
+  if [ "$KIND" != "operations" ] && [ "$KIND" != "board" ]; then
     prs_after=$(open_prs || echo "?")
     log "open ${BRANCH_PREFIX}* PRs after run: ${prs_after:-none}"
   fi
 
-  if [ "$KIND" = "assigned-issue" ]; then
-    park_orphans "The run exited with status $status without reaching review or parking itself."
-    if [ "$mode" = "REVISE" ] && pr_needs_tending "$pr"; then
-      log "PR #$pr still needs tending after the run — leaving it for a human"
-      gh pr comment "$pr" --repo "$REPO" --body "$MARKER
-**Revision run ended without resolving this PR** (exit $status; conflict-unresolved). Nothing was merged, closed, or force-pushed. A new comment here has the next scheduled run try again." \
-        >/dev/null || log "WARN: could not comment on PR #$pr"
-    fi
-  fi
 fi
 
 # Published reports (docs/17 §19.6): copy this agent's committed reports to the website's bucket.

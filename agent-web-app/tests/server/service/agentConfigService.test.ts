@@ -31,6 +31,7 @@ describe("agentConfigService", () => {
     });
     expect(toAgentConfig("b", 'BRANCH_PREFIX="devx/"\nMAX_OPEN_PRS=3', null)).toMatchObject({ kind: "PR_LIMIT", branchPrefix: "devx/", maxOpenPrs: 3 });
     expect(toAgentConfig("c", "KIND=weird\nMAX_OPEN_PRS=x", null)).toMatchObject({ kind: "PR_LIMIT", maxOpenPrs: null });
-    expect(toAgentConfig("d", 'KIND="assigned-issue"', null).kind).toBe("ASSIGNED_ISSUE");
+    expect(toAgentConfig("d", 'KIND="board"', null).kind).toBe("BOARD");
+    expect(toAgentConfig("e", "KIND=board\nENGINEERING_TOOLS=1\nMEMORY=1", null).flags).toEqual(["ENGINEERING_TOOLS", "MEMORY"]);
   });
 });

@@ -4,7 +4,7 @@
 > view of everything below. It may take over scheduling in a later phase;
 > until then this launchd setup is the scheduler.
 
-How the repo's autonomous agents (today: `devx-agent` and `gen-purpose-dev`)
+How the repo's autonomous agents (`devx-agent`, `gen-purpose-dev` and the rest of the team)
 run unattended on a cadence, on the dedicated Mac mini. Builds on the worktree isolation in
 `autonomous-agent-plan.md` / `CLAUDE.md` §9.
 
@@ -33,24 +33,20 @@ launchd (06:00, 18:00)
        4. prune host logs > 30 days, kept worktrees > 7 days
 ```
 
-`gen-purpose-dev` — works only issues you assign it (`KIND="assigned-issue"`):
+`gen-purpose-dev` (Kid Kestrel) — works the cards on the Kid Kestral project
+board (`KIND="board"`, `docs/17-executive-team.md` §22):
 
 ```
-launchd (every 2h, 07:00–21:00)
+launchd (4 a day, Opus 5.5)
   └─ scripts/agent-scheduled-run.sh gen-purpose-dev
        1. as above
-       2. closed issues it worked → agent-done; issues a dead run left in
-          planning/in-progress → agent-blocked + a comment (fail closed)
-          then pick exactly ONE, in this order:
-            RESUME  a parked issue whose newest comment is a human's
-            REVISE  an open gen-purpose-dev/* PR with unaddressed review
-                    feedback or a merge conflict
-            NEW     the oldest issue carrying `gen-purpose-dev` and no state
-                    label (skipped while ≥ 3 of its PRs are open)
+       2. list its cards with scripts/agent-board.sh; K1 (BUILD=0):
+            SPEC    each card in Assigned that isn't parked, oldest first,
+                    at most MAX_CARDS_PER_RUN
             IDLE    nothing to do → stop here; `claude` is never started
-          and claim it (NEW → agent-planning, RESUME → agent-in-progress)
-       3. scripts/agent-worktree.sh run gen-purpose-dev "<mode prompt> #<issue>"
-          afterwards: still planning/in-progress → agent-blocked + a comment
+       3. per card, its own session and worktree:
+          scripts/agent-worktree.sh run gen-purpose-dev "<PROMPT_SPEC> Your card: #<n>"
+          afterwards: card still in Assigned and not parked → a parked comment
        4. as above
 ```
 
@@ -58,7 +54,8 @@ launchd (every 2h, 07:00–21:00)
 |---|---|
 | Schedule, kind, PR limit, branch prefix, mode prompts | `scripts/agent-schedules/<agent>.env` |
 | Scheduled-run logic | `scripts/agent-scheduled-run.sh` |
-| Issue label state machine (assigned-issue agents) | `scripts/agent-issue-state.sh` |
+| Project board reads and moves, per agent (board agents, Celestine, Rex) | `scripts/agent-board.sh` |
+| A spec straight to `main` (`gen-purpose-dev`) | `scripts/agent-spec-commit.sh` |
 | Per-agent `main`/merge/deploy guard hook | `.claude/hooks/<agent>-guard.sh` |
 | launchd install / uninstall / status / kick (one agent) | `scripts/agent-schedule-install.sh` |
 | Start / stop / restart the whole team, latest code checked first | `scripts/agent-team.sh` |
@@ -108,80 +105,39 @@ The same marker identifies requests: a backlog-issue comment mentioning
 `devx-agent` without the marker asks the agent to pick that issue up, and NEW
 mode prioritizes it over self-found work.
 
-## gen-purpose-dev — assigning it work
+## gen-purpose-dev — the project board
 
-`gen-purpose-dev` (`.claude/agents/gen-purpose-dev.md`) is the counterpart to
-`devx-agent`: same rails, but it works the tickets it's given and never finds
-its own.
+`gen-purpose-dev` (`.claude/agents/gen-purpose-dev.md`) is Kid Kestrel, the
+Software Engineer. He works projects from the **Kid Kestral** project board
+([projects/3](https://github.com/users/seththeeke/projects/3)); the board, not
+labels, is his state. The full design is `docs/17-executive-team.md` §22.
 
-**To assign an issue, add the `gen-purpose-dev` label.** That label *is* the
-assignment — named after the agent so each future agent gets its own. Remove
-the label at any point to take the issue back; the agent won't touch an issue
-without it. To run one immediately instead of waiting for the next poll:
+**To assign a card, move it from Refined to Assigned** on the board. Celestine
+files tickets to Intake; Celestine and Rex approve them into Refined.
 
-```
-scripts/agent-worktree.sh run gen-purpose-dev "Work issue #<n>"
-```
+**In K1 he writes specs only** (`BUILD=0`): for each Assigned card he measures
+the ticket's success metric, writes `docs/kid-kestral/<n>-<slug>.md`, commits
+it to `main` with `scripts/agent-spec-commit.sh`, links it on the ticket and
+moves the card to Spec Created. A ticket he can't ship behind a flag, or
+measure, goes back to Intake with a proposed split.
 
-### What you'll see on the issue
-
-| Stage | Label(s) | What happened |
-|---|---|---|
-| todo | `gen-purpose-dev` only | assigned, not yet picked up |
-| planning | `agent-planning` | claimed; reading the issue and code |
-| in-progress | `agent-in-progress` | **plan comment posted** (approach, files, acceptance-criteria checkboxes it ticks as it goes); code under way |
-| pr-review | `agent-pr-review` | draft PR open from `gen-purpose-dev/<n>-<slug>`; closing comment links it |
-| needs-info | `agent-blocked` + `needs-info` | it asked a question and stopped |
-| blocked | `agent-blocked` | a run failed or died; details in the comment |
-| done | `agent-done` | you merged the PR and the issue closed |
-
-The stage labels are shared by every assigned-issue agent; the agent-name
-label says whose issue it is. All moves go through
-`scripts/agent-issue-state.sh <agent> <issue> <state>`, which refuses an
-unassigned issue and any transition outside its table (documented in the
-script header). `… <issue> show` prints the current state; the labels are
-created on first use.
-
-### Questions: park, don't block
-
-The agent sorts each unknown into *proceed with a documented assumption*
-(listed in the plan) or *park and ask*. When it parks it pushes any work in
-progress to its branch, posts one **Parked** comment — the question(s), with
-options and its own pick, plus a *State* block (stage, branch + SHA, done so
-far, what's next) — sets `needs-info`, and exits.
-
-**Reply on the issue to resume it.** The next poll sees a human comment newer
-than the agent's and runs it in RESUME mode; it re-reads the whole thread and
-its *State* block first, so it doesn't re-ask. There is no timeout: a parked
-issue stays parked until someone replies, and nothing is ever auto-closed,
-auto-merged, or assumed from silence.
-
-The parked state lives **on the ticket** (the *State* block) and on the pushed
-branch, not in a file on the host: the run's worktree is deleted when it
-exits, and the ticket is the one place both the next run and a human can read.
-
-### Review
-
-The PR is a **draft**; mark it ready and merge it yourself — the agent can't
-(denied in its allowlist and blocked by its guard hook). Comment on the PR to
-request changes: the next poll runs REVISE mode, pushes new commits on top
-(never a rebase or force-push), and replies. If it can't resolve a conflict or
-get the loop green it says so with the token `conflict-unresolved` and waits
-for your next comment rather than retrying every poll.
+**Parking.** When he needs an answer he posts a comment starting
+`<!-- gen-purpose-dev:parked -->` and leaves the card where it is; the
+scheduler skips it until someone else comments. **Reply on the issue to
+resume it.** A session that dies with its card still in Assigned is parked
+the same way (fail closed).
 
 ### Safety rails
 
 | Rail | Where | What it stops |
 |---|---|---|
-| Agent rules | `.claude/agents/gen-purpose-dev.md` *Absolute rules* | unassigned work, scope creep, `main`, merging/closing, infra mutation |
-| Allowlist + denies | `.claude/agent-settings/gen-purpose-dev.json` | everything not listed (headless runs deny, never prompt); explicit denies for merge/close, force-push, `reset --hard`, deploy, and the admin `nyc311` AWS profile |
-| Guard hook | `.claude/hooks/gen-purpose-dev-guard.sh` | commit on / push to `main`, force-push, `reset --hard`, `gh pr merge`/`close`, `gh issue close`, non-draft `gh pr create`, deploy — holds even when the agent is started without the allowlist; fails closed |
-| Worktree | `scripts/agent-worktree.sh` | touching your checkout or another run's |
-| Wrapper | `scripts/agent-scheduled-run.sh` | two runs at once (lock), a dead run silently retrying (parks it) |
-
-Not yet covered: a per-run wall-clock cap and a cost circuit breaker
-(`agent-web-app/SPEC.md` Phase 3). A run's trace is its host log, which
-`agent-web-app/` shows in a UI.
+| Agent rules | `.claude/agents/gen-purpose-dev.md` *Absolute rules* | other cards, unflagged work, `main` beyond his spec, merging/closing, infra and flag changes |
+| Board script | `scripts/agent-board.sh` | any move outside his row (Assigned → Spec Created, back to Intake); Spec Created without the spec on `main` |
+| Spec commit | `scripts/agent-spec-commit.sh` | anything but one `docs/kid-kestral/<issue>-<slug>.md` reaching `main` |
+| Allowlist + denies | `.claude/agent-settings/gen-purpose-dev.json` | everything not listed; raw `gh project`, `agent-commit-to-main.sh`, merge/close, force-push, deploy, the admin AWS profile, other agents' MCP servers |
+| Guard hook | `.claude/hooks/gen-purpose-dev-guard.sh` | commit on / push to `main`, force-push, `reset --hard`, merge/close, non-draft PRs, deploy, raw `gh project` / `gh api graphql`, `agent-commit-to-main.sh`; fails closed |
+| Worktree | `scripts/agent-worktree.sh` | touching your checkout, another run's, or another card's |
+| Wrapper | `scripts/agent-scheduled-run.sh` | two runs at once (lock), a dead session silently retrying (parks its card) |
 
 ### AWS access — one role per agent
 
@@ -278,7 +234,8 @@ Then, from that clone:
    scripts/agent-schedule-install.sh install gen-purpose-dev
    ```
    `gen-purpose-dev`'s wrapper also needs `jq` (`brew install jq` — the
-   committer-stamp hook already requires it).
+   committer-stamp hook already requires it) and `gh` with the `project`
+   scope (`gh auth refresh -h github.com -s project`).
    To force a mode by hand:
    `AGENT_MAX_OPEN_PRS=0 scripts/agent-scheduled-run.sh devx-agent` (REVISE)
    or `=99` (NEW).
@@ -302,9 +259,9 @@ primary checkout fast-forwarding.
 2. `.claude/agent-settings/<agent>.json` — its complete permission allowlist
    (a headless run silently denies anything not listed).
 3. `scripts/agent-schedules/<agent>.env` — `SCHEDULE`, `BRANCH_PREFIX`,
-   `MAX_OPEN_PRS`, `PROMPT_NEW`, `PROMPT_REVISE`; for an agent that works
-   assigned issues, also `KIND="assigned-issue"` and `PROMPT_RESUME` (its
-   assignment label is its own name — nothing else to configure).
+   `MAX_OPEN_PRS`, `PROMPT_NEW`, `PROMPT_REVISE`; an operating agent sets
+   `KIND="operations"`, and a board agent `KIND="board"` with `PROMPT_SPEC`
+   and `MAX_CARDS_PER_RUN` (§22).
 4. On the Mac mini: `scripts/agent-schedule-install.sh install <agent>`.
 
 Changing an existing agent's schedule: edit `SCHEDULE`, merge, then re-run

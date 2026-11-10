@@ -44,14 +44,15 @@ dashboard; this section describes the shape, not the current values, which
 change often.
 
 - **`KIND`** picks the mode: `pr-limit` (default; NEW or REVISE by the count
-  of open `BRANCH_PREFIX` PRs against `MAX_OPEN_PRS`), `assigned-issue`
-  (RESUME, REVISE, NEW or IDLE from the agent's labelled issues) or
+  of open `BRANCH_PREFIX` PRs against `MAX_OPEN_PRS`), `board`
+  (SPEC or IDLE from the agent's cards on the project board, one session per
+  card; `docs/17-executive-team.md` §22.6) or
   `operations` (one run per fire).
 - **`SCHEDULE`** is space-separated slots, `[Day@]HH:MM[=MODE]`: `Day` is
   Sun..Sat (omitted = daily) and `MODE` an ALL_CAPS slot mode (e.g.
   `05:00=AUDIT 08:00=CONVERSE`) that picks `PROMPT_<MODE>` and
   `MODEL_<MODE>`.
-- **Flags**: `MODEL`, `TEAM_CHAT_ENV`, `OPS_TOOLS`, `PRODUCT_TOOLS`,
+- **Flags**: `MODEL`, `TEAM_CHAT_ENV`, `OPS_TOOLS`, `PRODUCT_TOOLS`, `ENGINEERING_TOOLS`,
   `MEMORY`, `REPORTS`, `USAGE_SUMMARY`.
 
 The run path:
@@ -92,7 +93,8 @@ primary fast-forwarded <sha>..<sha>
 lockfile changed in <pkg> — npm ci
 WARN: <anything>
 config + prompts from origin/main @ <sha>
-open devx/* PRs: 2 (#158 #160), limit 3 → NEW mode       (pr-limit / assigned-issue)
+open devx/* PRs: 2 (#158 #160), limit 3 → NEW mode       (pr-limit)
+board: assigned cards #202 (max 3, BUILD=0) → SPEC       (board; one "--- card #n" block per session)
 nothing assigned to <agent> needs work — not starting claude (IDLE)
 operations run → RUN (model opus)                          (operations; slot mode or RUN, model optional)
 another <agent> run (pid N) is in progress — skipping

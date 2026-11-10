@@ -827,10 +827,12 @@ copied in.
   (branch off `origin/main`, run the Operational Loop, `gh issue/pr create`,
   `Write`/`Edit` — but never `gh pr merge`, never main).
 - **Two agents run this way today.** `devx-agent` finds its own repo-health
-  work. `gen-purpose-dev` works only issues a human assigns it by adding the
-  `gen-purpose-dev` label, tracking each through the label state machine in
-  `scripts/agent-issue-state.sh` and landing it as a draft PR from a
-  `gen-purpose-dev/<issue>-<slug>` branch.
+  work. `gen-purpose-dev` (Kid Kestrel, `17-executive-team.md` §22) works
+  the cards a human moves to Assigned on the Kid Kestral project board,
+  one session and worktree per card, moving them only through
+  `scripts/agent-board.sh`; in K1 he writes each card's spec to
+  `docs/kid-kestral/` (`scripts/agent-spec-commit.sh`) and stops at Spec
+  Created.
   `coo-agent` (`17-executive-team.md` §12) is an operating agent
   (`KIND=operations`): no code, no PRs. It changes the Prod fleet only
   through the `boroughsim-ops` MCP tools and posts to Team Chat.

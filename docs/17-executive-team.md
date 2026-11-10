@@ -1263,7 +1263,7 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 
 ## 22. The Software Engineer agent
 
-**Status:** building K1, 2026-11-09: K1.1 built, not deployed. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
+**Status:** building K1, 2026-11-09: K1.1 pushed; K1.2 built. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
 `gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves with a success metric measured before and after that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 
@@ -1271,7 +1271,9 @@ What sets him apart from Pip (§11) and Grimble (§18): they each land one self-
 
 ### 22.1 The board
 
-His work is tracked on the GitHub project **Kid Kestral** ([projects/3](https://github.com/users/seththeeke/projects/3)), one card per ticket, moved through its `Status` field. **The board is his only state machine**: he doesn't use the `agent-*` labels of `scripts/agent-issue-state.sh`.
+His work is tracked on the GitHub project **Kid Kestral** ([projects/3](https://github.com/users/seththeeke/projects/3)), one card per ticket, moved through its `Status` field. **The board is his only state machine**; the `agent-*` label machine he used before is gone.
+
+**Agents read and move cards only through `scripts/agent-board.sh <agent>`** (`list`, `show`, `add`, `move`). It holds each agent's allowed moves, so a prompt can't make a move the table below doesn't give it, and it checks the entry rules it can: both approval labels before Refined, the spec on `main` before Spec Created. The CEO moves cards by hand.
 
 | Column | Entry rule | Moved by |
 |---|---|---|
@@ -1318,7 +1320,7 @@ A ticket needs two approvals to enter Refined, one from each of Celestine and Re
 - **Whoever approves second moves the card to Refined.** Each checks the other's label before moving it, so the move happens exactly once.
 - An approval is withdrawn by removing its label, with a comment saying why. A ticket that loses one goes back to Intake.
 - Neither approves a ticket without the success-metric block. Either can ask for changes on the ticket instead, within their usual caps (§17.7).
-- Their guards gain `gh project item-add` (Celestine, to Intake) and `gh project item-edit` (both, to Refined only) on project 3, and `gh issue edit` to add or remove their own approval label.
+- They move cards with `scripts/agent-board.sh`: Celestine may `add` a ticket (to Intake), and both may move Intake → Refined and Refined → Intake. Their guards gain that script and `gh issue edit` to add or remove their own approval label.
 
 ### 22.3 The spec
 
@@ -1333,7 +1335,7 @@ One file per project, `docs/kid-kestral/<issue>-<slug>.md`, in the shape of the 
 7. **Outcome:** target met or missed, and what happens to the flag.
 8. **Appendix:** decisions, changes of plan and why.
 
-He updates it every run that changes anything. **Spec updates are committed straight to `main` after the run**, like memory and reports (§17.6, §21.3): `scripts/agent-commit-to-main.sh` builds the commit on `origin/main` from his spec files only, so a run that ends on a leg's branch never pushes it. The leg's code still goes through its PR. A push touching only `docs/` starts no pipeline run.
+He updates it every run that changes anything. **Spec updates are committed straight to `main` during the session, before he links them**: `scripts/agent-spec-commit.sh <issue>` accepts exactly one changed `docs/kid-kestral/<issue>-<slug>.md` and builds the commit on `origin/main` with `scripts/agent-commit-to-main.sh`, as memory and reports are (§17.6, §21.3), so a session on a leg's branch never pushes that branch. The leg's code still goes through its PR. A push touching only `docs/` starts no pipeline run.
 
 ### 22.4 Feature flags, always
 
@@ -1397,7 +1399,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 
 - `adminRouteGroups.ts` adds the group to the query route and the flag update route. Flag create and delete stay `ADMIN` only; the CEO creates a project's flag rows (the `create-feature-flag` skill asks for confirmation).
 - The API lets the group change any flag. Narrowing it to spec flags happens in the MCP client, the way the chat word cap does (§21.2).
-- He also keeps today's tools: his settings (`.claude/agent-settings/gen-purpose-dev.json`) and guard (`gen-purpose-dev-guard.sh`), plus `gh project item-list`, `item-edit` and `field-list` on project 3 only, `scripts/agent-worktree.sh`, the team-chat tools posting to `#tech-team`, and a read-only AWS role per Appendix B.4.
+- He also has his settings (`.claude/agent-settings/gen-purpose-dev.json`) and guard (`gen-purpose-dev-guard.sh`), `scripts/agent-board.sh` and `scripts/agent-spec-commit.sh` (raw `gh project`, `gh api graphql` and `agent-commit-to-main.sh` are blocked), the team-chat tools posting to `#tech-team` (tag `KESTREL_SPEC`), and a read-only AWS role per Appendix B.4.
 
 ### 22.10 What the CEO does
 
@@ -1419,7 +1421,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 | Leg | What |
 |---|---|
 | **K1.1** | `BOROUGH_SIM_ENGINEERING` group and both its routes (query and flag update, granted now so the route change deploys once), and the `boroughsim-engineering` MCP server with `run_query` and `get_flag`; `set_flag` comes in K3. |
-| **K1.2** | Kestrel's prompt rewritten for the board and the spec; schedule (4 slots, Opus 5.5, `BUILD=0`); scheduler support for one session and one worktree per card; settings and guard. |
+| **K1.2** | Kestrel's prompt rewritten for the board and the spec; schedule (4 slots, Opus 5.5, `BUILD=0`, `MAX_CARDS_PER_RUN=3`); `KIND=board` in the scheduler, one session and one worktree per card, replacing `assigned-issue` and `agent-issue-state.sh`; `agent-board.sh` and `agent-spec-commit.sh`; settings and guard; the agent monitor's `BOARD` kind. |
 | **K1.3** | Celestine: files **every** feature ticket to Intake, and backfills her open `cpo-agent` feature tickets there; gives CPO approval; moves to Refined. Her guard. The CEO decides what reaches Kestrel. |
 | **K1.4** | Rex: gives CTO approval, moves to Refined; the Kestrel section in his rubric. His guard. |
 | **K1.5** | Team Chat seat and `@Kestrel`; roster stays Work in progress. |
@@ -1503,7 +1505,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
 | `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | 03:30 daily (05:30 CT), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Mon and Thu 21:30 (23:30 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
-| `gen-purpose-dev` | Kid Kestrel, Software Engineer | Not yet | — | Not yet | Assigned issues |
+| `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | Not yet | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `BUILD=0` |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 
 The `@agents.boroughsim.com` addresses need no inbox. No mail is ever sent to them.
