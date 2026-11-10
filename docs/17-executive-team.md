@@ -1263,7 +1263,7 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 
 ## 22. The Software Engineer agent
 
-**Status:** building K1, 2026-11-09: K1.1 to K1.4 pushed; K1.5 next. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
+**Status:** K1 built and pushed, 2026-11-09; setup on the Mac mini next (§22.12). Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
 `gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves with a success metric measured before and after that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 
@@ -1424,15 +1424,16 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 | **K1.2** | Kestrel's prompt rewritten for the board and the spec; schedule (4 slots, Opus 5.5, `BUILD=0`, `MAX_CARDS_PER_RUN=3`); `KIND=board` in the scheduler, one session and one worktree per card, replacing `assigned-issue` and `agent-issue-state.sh`; `agent-board.sh` and `agent-spec-commit.sh`; settings and guard; the agent monitor's `BOARD` kind. |
 | **K1.3** | Celestine: files **every** feature ticket to Intake, and backfills her open `cpo-agent` feature tickets there; gives CPO approval; moves to Refined. Her guard. The CEO decides what reaches Kestrel. |
 | **K1.4** | Rex: gives CTO approval, moves to Refined; the Kestrel section in his rubric. His guard. |
-| **K1.5** | Team Chat seat and `@Kestrel`; roster stays Work in progress. |
+| **K1.5** | Team Chat seat and `@Kestrel`: already in place (`gen-dev` in `#tech-team` since Team Chat L2); tag `KESTREL_SPEC` needs no change, tags are free-form. Roster stays Work in progress. |
 
 ### 22.12 Setup TODO
 
 - [ ] **Mac mini: add the `project` scope to `gh`.** Run `gh auth refresh -h github.com -s project` on the Mac mini, then check that `gh auth status` lists `project`. The agents use the Mac mini's own `gh` login, which is separate from the MacBook's (done on the MacBook 2026-11-09).
 - [ ] Set the board's In Development column limit to 5.
-- [ ] GitHub label `cpo-approved` (`cto-approved` already exists, used on PRs).
+- [x] GitHub label `cpo-approved` (2026-11-09; `cto-approved` already existed, used on PRs).
 - [ ] After K1.1 deploys: `scripts/agent-credentials.py create gen-purpose-dev TEST --group BOROUGH_SIM_ENGINEERING` and `… PROD`, then copy `~/.nyc-311/credentials` to the Mac mini.
-- [ ] AWS read-only role and access key (Appendix B.4 step 6).
+- [ ] AWS read-only role and access key (Appendix B.4 step 6). Not needed for K1: specs use only the engineering MCP tools.
+- [ ] Mac mini: `git pull`, then a hand run against Test chat once a card is in Assigned: `AGENT_CHAT_ENV=TEST AGENT_MANUAL=1 scripts/agent-scheduled-run.sh gen-purpose-dev`.
 - [ ] Mac mini: `scripts/agent-schedule-install.sh install gen-purpose-dev`.
 
 ---
