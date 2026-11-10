@@ -10,7 +10,7 @@
   - the Chief of Staff agent (§15), posting a morning brief to `#executive-assistant` daily at 8:00 CT;
   - the CTO agent (§16), reviewing and merging Pip's PRs four times a day and summarizing in `#executive-team`.
 - **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
-- **Not built yet:** the Software Engineer, AWS Cost Efficiency Engineer and Software Analyzer agents. They show a **Work in progress** tag.
+- **Installed on the Mac mini, K1 (specs only):** the Software Engineer, Kid Kestrel (§22). His roster card still shows **Work in progress**.
 - **Next:** these three run for a few days before the next executive is designed (§9).
 - **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
 - **Setting up an agent:** Appendix B.
@@ -1265,7 +1265,7 @@ v2 roughly triples the daily runs, about 30 a day plus 2 a week against about 15
 
 ## 22. The Software Engineer agent
 
-**Status:** K1 built and pushed, 2026-11-09; setup on the Mac mini next (§22.12). Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
+**Status:** K1 installed on the Mac mini, 2026-11-09: writing specs (`BUILD=0`), waiting for his first scheduled run and his first Assigned card. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
 `gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves with a success metric measured before and after that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 
@@ -1440,7 +1440,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 - [x] `agent-team.sh` includes him (2026-11-09), so `scripts/agent-team.sh restart` installs his schedule.
 - [ ] AWS: the pipeline stack creates IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` (`cdk/agents/EngineerAgentRole.ts`, read-only, secrets denied). Then by hand: create the user's access key in the IAM console; on the Mac mini add `[gen-purpose-dev-key]` to `~/.aws/credentials` and `[profile nyc311-gen-purpose-dev]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311EngineerAgentRole gen-purpose-dev`; check `aws --profile nyc311-gen-purpose-dev sts get-caller-identity` ends in `assumed-role/Nyc311EngineerAgentRole/gen-purpose-dev`.
 - [ ] Mac mini: `git pull`, then a hand run against Test chat once a card is in Assigned: `AGENT_CHAT_ENV=TEST AGENT_MANUAL=1 scripts/agent-scheduled-run.sh gen-purpose-dev`.
-- [ ] Mac mini: `scripts/agent-schedule-install.sh install gen-purpose-dev`.
+- [x] Mac mini: schedule installed (2026-11-09).
 
 ---
 
