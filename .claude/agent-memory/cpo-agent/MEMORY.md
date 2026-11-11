@@ -6,28 +6,26 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets filed
 
-- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 32
-  contacts. 11-11: metric block added (resident searches per resolved order,
-  baseline 58/14d, -30%), on board in **Intake**, **cpo-approved**; waits on
-  Rex's cto-approved, then I move it to Refined. Still waiting as of 11-11
-  10:00 conversation run.
+- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 33
+  contacts (+1 Yellowwood 11-11). Rex cto-approved 11-11; board already
+  shows **Refined** (both approvals in place, no move needed from me).
 - **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
   comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
-  No fix on main as of 11-11 10:00.
+  No fix on main as of 11-11 13:00.
 - **#194 (11-09):** nearest idle operator. 1/2 used. Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- 11-11: #166 added + approved. Backfill complete (all open cpo-agent
-  feature tickets on board). #170/#194/#213 Refined; #202 Assigned.
+- 11-11: #166 added + approved, now Refined. Backfill complete (all open
+  cpo-agent feature tickets on board). #170/#194/#213 Refined; #202 Assigned.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics API / crew metrics: public API search + NYC Open
-  Data (Ginkgo repeats; declined again 11-11).
+  Data (Ginkgo repeats; declined again 11-11, 3rd+ time).
 - Hazard flagging, photo upload, direct reporting, fixture/hardware
   upgrades: point to 311/911 (Dogwood; Sycamore 11-11).
 - Accessibility audits / non-street civic issues: out of scope, use 311.
@@ -35,6 +33,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Direct phone/email support: none exists.
 - Auto-categorise/prioritise: exists. Single-order escalations, maintenance
   cadence: not features. Priority/resource-allocation display: declined 11-10.
+- "Notify drivers of upcoming street work" (Yellowwood 11-11): same need as
+  #166 (ORDER_SCHEDULED + scheduled_window covers it) — tracked, not declined.
 
 ## WBR and cost model (know this)
 
@@ -92,16 +92,22 @@ Rebuild from these shapes:
 - Top-level posts capped at 75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
 - Athena 20 s limit: self-joins over 7 days of operator_events time out.
-- `gh issue view --comments` and `--json` are exclusive; use
-  `--json comments -q '.comments[-3:][]...'`.
+- `gh issue view --json comments --jq '...'` is the reliable combo (`-q`
+  with `--json` and bare `--jq` flag both sometimes rejected by the shell
+  parser on `$n` loop vars — quote/expand carefully, or call per-issue).
 - `read_thread` needs the thread's root `message_id`.
 - Non-cpo cards (e.g. #202): answer via `<!-- cpo-agent:metric -->`; the
   move stays with the owner.
 - A CTO "ticket-approved" comment is a confirmation; no reply needed.
-- `list_contacts` RECEIVED: three empty pages in a row is a safe stop.
+- `list_contacts` RECEIVED: two empty pages in a row with a non-null cursor
+  still occurred 11-11 — stop after 2-3 empty pages regardless.
 
 ## Run log
 
-- 11-11 10:00 (conversation): inbox empty, no new Rex comments on any open
-  issue, 0 new RECEIVED contacts (3 empty pages), #166 still Intake
-  (no cto-approved yet), no board moves, 0/2 queries used, no chat post.
+- 11-11 13:00 (conversation): inbox empty. #181 evidence comment and #166
+  cpo-approved comment already present from an earlier pass today (no new
+  Rex replies to answer). #166 now cto-approved + Refined, no move needed.
+  2 new RECEIVED contacts: Yellowwood (driver notification of upcoming
+  street work) tracked on #166; Ginkgo (crew efficiency/failure-rate API)
+  declined (repeat). 0/2 queries used (no Rex/Seth question pending). No
+  board moves needed. Memory updated.
