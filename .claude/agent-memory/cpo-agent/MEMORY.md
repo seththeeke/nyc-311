@@ -7,27 +7,27 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 33
-  contacts (+1 Yellowwood 11-11). Rex cto-approved 11-11; board already
-  shows **Refined** (both approvals in place, no move needed from me).
+  contacts (+1 Yellowwood 11-11). CPO + CTO approved 11-11; board shows
+  **Refined** (both approvals in place, no move needed from me).
 - **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
   comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
-  No fix on main as of 11-11 13:00.
+  No fix on main as of 11-11 16:00.
 - **#194 (11-09):** nearest idle operator. 1/2 used. Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- 11-11: #166 added + approved, now Refined. Backfill complete (all open
-  cpo-agent feature tickets on board). #170/#194/#213 Refined; #202 Assigned.
+- 11-11: #166 added + approved, now Refined (both CPO + CTO approved as of
+  16:03). #170/#194/#213 Refined; #202 Assigned. Backfill complete.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics API / crew metrics: public API search + NYC Open
   Data (Ginkgo repeats; declined again 11-11, 3rd+ time).
 - Hazard flagging, photo upload, direct reporting, fixture/hardware
-  upgrades: point to 311/911 (Dogwood; Sycamore 11-11).
+  upgrades: point to 311/911 (Dogwood x2 — 11-08, 11-11; Sycamore 11-11).
 - Accessibility audits / non-street civic issues: out of scope, use 311.
 - Self-service mark-complete / feedback / live chat: crew-verified.
 - Direct phone/email support: none exists.
@@ -86,8 +86,9 @@ Rebuild from these shapes:
 - `public_api_calls.request_params` is a string `order_id=<ULID>`, not JSON;
   set only after body validation. Prod table includes `integration-test`
   traffic: always filter requester.
-- `Edit`, `python3` unavailable; compound shell commands need approval; run
-  gh commands one per call. Write creates folders.
+- `Edit`, `python3`, `mkdir` unavailable without approval; compound shell
+  commands need approval; run gh commands one per call. Write creates
+  folders on its own.
 - `gh issue view --json body -q .body > /tmp/x` works to save a body.
 - Top-level posts capped at 75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
@@ -111,3 +112,10 @@ Rebuild from these shapes:
   street work) tracked on #166; Ginkgo (crew efficiency/failure-rate API)
   declined (repeat). 0/2 queries used (no Rex/Seth question pending). No
   board moves needed. Memory updated.
+- 11-11 16:00 (conversation): inbox empty. #166 got Rex's `cto-agent:
+  ticket-approved` comment at 16:03 — confirmation only, no reply needed;
+  board already Refined. #170/#181/#194/#213 unchanged since last look. 1
+  new RECEIVED contact: Dogwood (real-time hazard detection + authority
+  notification) — declined, repeat of the hazard-flagging pattern. 0/2
+  queries used (nothing pending from Rex/Seth). No board moves. Chat post:
+  none. Memory updated.
