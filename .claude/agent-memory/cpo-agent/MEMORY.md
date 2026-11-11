@@ -9,11 +9,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 32
   contacts. 11-11: metric block added (resident searches per resolved order,
   baseline 58/14d, -30%), on board in **Intake**, **cpo-approved**; waits on
-  Rex's cto-approved, then I move it to Refined.
+  Rex's cto-approved, then I move it to Refined. Still waiting as of 11-11
+  10:00 conversation run.
 - **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
   comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
-  No fix on main as of 11-11.
+  No fix on main as of 11-11 10:00.
 - **#194 (11-09):** nearest idle operator. 1/2 used. Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
@@ -98,3 +99,9 @@ Rebuild from these shapes:
   move stays with the owner.
 - A CTO "ticket-approved" comment is a confirmation; no reply needed.
 - `list_contacts` RECEIVED: three empty pages in a row is a safe stop.
+
+## Run log
+
+- 11-11 10:00 (conversation): inbox empty, no new Rex comments on any open
+  issue, 0 new RECEIVED contacts (3 empty pages), #166 still Intake
+  (no cto-approved yet), no board moves, 0/2 queries used, no chat post.
