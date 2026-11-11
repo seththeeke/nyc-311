@@ -6,109 +6,95 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets filed
 
-- **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
-  11-07 (1/2 replies used). 32 contacts (last added 11-10 19:00). NOT yet on
-  board: backfill next audit (add metric block to body, then `add`).
-- **#170 (11-07):** event-driven dispatch. 1/2 Rex replies used. Both labels,
-  **Refined** (confirmed 11-10 13:00, 16:00, 19:00 — no new comments). Flag
-  via #202.
-- **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. No new Rex activity
-  as of 11-10 19:00 check; no fix on main yet.
-- **#194 (11-09):** nearest idle operator. 1/2 used. Both labels, **Refined**
-  (confirmed 11-10 13:00, 16:00, 19:00 — no new comments). Flag via #202.
-- **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 Rex replies used.
-  cto+cpo approved, **Refined** (confirmed 16:00, 19:00). Job build is
-  Rex/Kid Kestrel's from here.
+- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 32
+  contacts. 11-11: metric block added (resident searches per resolved order,
+  baseline 58/14d, -30%), on board in **Intake**, **cpo-approved**; waits on
+  Rex's cto-approved, then I move it to Refined.
+- **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
+- **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
+  comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
+  No fix on main as of 11-11.
+- **#194 (11-09):** nearest idle operator. 1/2 used. Refined.
+- **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- **#202** (Seth's, backend flag read): still in Intake as of 11-10 16:00 —
-  his move once his spec doc is written, not mine. All three of Kid
-  Kestrel's questions answered 11-10 13:00.
-- #170, #194, #213 all confirmed in Refined as of 11-10 19:00 (no move
-  needed). Intake empty as of 19:00 — nothing new to approve.
+- 11-11: #166 added + approved. Backfill complete (all open cpo-agent
+  feature tickets on board). #170/#194/#213 Refined; #202 Assigned.
 
 ## Declines (reuse the reasoning)
 
-- Data export / analytics API: public API `POST /v1/requests/search` (Ginkgo).
-- Hazard flagging, photo upload, direct reporting: point to 311/911
-  (Dogwood repeats this; declined again 11-10).
+- Data export / analytics API / crew metrics: public API search + NYC Open
+  Data (Ginkgo repeats; declined again 11-11).
+- Hazard flagging, photo upload, direct reporting, fixture/hardware
+  upgrades: point to 311/911 (Dogwood; Sycamore 11-11).
 - Accessibility audits / non-street civic issues: out of scope, use 311.
-- Self-service mark-complete / feedback / live chat: crew-verified
-  (Sassafras repeats; some go to #166).
+- Self-service mark-complete / feedback / live chat: crew-verified.
 - Direct phone/email support: none exists.
-- Auto-categorise/prioritise: already exists. Single-order escalations,
-  maintenance cadence: not features.
-- Priority/severity + resource-allocation display (Sassafras, 11-10): we
-  use priority internally to schedule crews but have no plan to publish it
-  or how resources are allocated; not tied to either goal metric, declined.
+- Auto-categorise/prioritise: exists. Single-order escalations, maintenance
+  cadence: not features. Priority/resource-allocation display: declined 11-10.
 
 ## WBR and cost model (know this)
 
 - Goal metric = `total_cost / orders_accepted` (same week). Oct 12/19/26:
-  $299/$357/$327. Nov 2: $2,093. Nov 9 partial (11-10): $119,349/7 = $17,050.
-- Steady-state ~$540 per resolved order, ~80% materials (descriptor const ×
-  U[1,2)). <$25 unreachable under this cost model; flagged to Seth 11-07.
-- WBR labor = SCHEDULED→RESOLVED (transit in, idle out). Verified 11-10: paid
-  fleet cost − idle = WBR labor within 1% (week Nov 2: 104.9k − 20.0k vs 84.1k).
-- ~$45 per paid operator-hour. TTR starts at ORDER_CREATED (hides 311 lag).
-- location_unresolved_rate ~0.53–0.59 every week.
-- Fleet: 21 Nov 8–10, released to 19 on Nov 10 (backlog 40→41, most idle).
+  $299/$357/$327. Nov 2: $2,093. Nov 9 partial (11-11): $190,089/207 = $918.
+- Steady-state ~$540 per resolved order, ~80% materials. <$25 unreachable
+  under this cost model; flagged to Seth 11-07.
+- WBR labor = SCHEDULED→RESOLVED (transit in, idle out); paid − idle ≈ WBR
+  labor within 1%. ~$45 per paid operator-hour.
+- TTR starts at ORDER_CREATED, hides 311 lag (see research).
+- location_unresolved_rate 0.46–0.59.
+- Fleet: 21 Nov 8–10, 19 from Nov 10 (Brogan released 2 into empty backlog).
 
 ## Research agenda
 
-- **Proven → #170:** hourly dispatch. Idle 18.0–20.2% every day Nov 1–9.
-- **Proven → #181:** intake stall (see ticket line).
-- **Proven → #194:** nearest-operator. Transit 19–24% of paid h.
-- **Proven → #213:** WBR omits idle and mixes cohorts. Now settled with Rex
-  (idle intervals split at week boundaries); job build is Rex/Kid Kestrel's.
-- **Proven → #69 (comment):** 62% of Street Condition lack BBL.
-- **Measuring:** idle after backlog empties: 37.6% on Nov 10. Idea: bursty
-  intake (stall catch-up waves) makes fleet sizing chase noise; revisit after
-  #181 lands.
+- **Proven → #170, #181, #194, #213, #69** (see tickets).
+- **Proven (on #181, 11-11): resident wait is mostly pre-order.** Nov 10/11
+  resolves: queue p50 4.6 h, created→resolved 6–7 h, 311→resolved 136/89 h,
+  311 lag 81–101 h. Pre-stall 311 lag ~46 h. Next: once #181 lands, check
+  whether the ~46 h structural lag is NYC publication or poller cadence
+  (6 h runs); a WBR "311→resolved" column could be a measurement ticket.
+- **Measuring: bursty intake.** Ingest 2,000/d Nov 7–9, 30,000 Nov 10,
+  13,779 by 07:00 Nov 11 (blocks of 1,000). Idle 18–20% Nov 1–9, 33.5%
+  Nov 10, ~20% Nov 11. Revisit after #181.
+- **Disproved (11-11):** "40% of status searches fail" — all 139 failed or
+  empty searches/14 d are requester `integration-test`; residents 58/58 found.
 - **Idea:** materials estimate biased ~33% low. Low priority.
-- No queries run this conversation run (0/2) — nothing from Rex/Seth needed
-  checking, and no ticket-dependent number was in question.
 
-## Saved queries (folder writes BLOCKED 11-07 through 11-10)
+## Saved queries (folder writes BLOCKED 11-07 through 11-11)
 
-Writing `.claude/agent-memory/cpo-agent/queries/*.sql` fails ("sensitive
-file"). Rebuild from these shapes:
-- intake-daily: requests STREAM, dt>=9d; per request_id MIN ingested/created,
-  MAX complaint_type; per ingest day: count, SC, p50/p90 lag, MAX(created).
-- fleet-time-budget-daily: DISTINCT operator_events (dt>=30d), LEAD next
-  occurred_at (or now); class by opening event (TRANSIT_STARTED, WORK_STARTED,
-  ADDED/COMPLETED/ABORTED/REMOVAL_REQUESTED→IDLE, else unpaid); join latest
-  snapshot rate; sum h and h×rate by start day, last 10 d. ~3 s.
-- nearest-operator-bounds (weekly): 3 days only (7 timed out); TRANSIT_STARTED
-  loc + LEAD WORK_STARTED loc; self-join on hour tick; haversine.
-- street-condition-no-bbl: latest request row, SC, 28d, raw_payload
-  address_type.
+Rebuild from these shapes:
+- intake-daily: requests, dt>=9d; per request_id MIN ingested/created, MAX
+  complaint_type; per ingest day: count, SC, p50/p90 lag, MAX(created).
+- fleet-time-budget-daily: DISTINCT operator_events (30d), LEAD next
+  occurred_at (or now); class by opening event (TRANSIT_STARTED,
+  WORK_STARTED, ADDED/COMPLETED/ABORTED/REMOVAL_REQUESTED→IDLE, else unpaid);
+  join latest snapshot rate; by start day. Today's row overcounts
+  (future-stamped events?), ignore partial day.
+- resident-wait-breakdown: order_events 45d MIN created/accepted, MAX
+  scheduled/resolved; snapshot request_id → requests created_at; p50 per
+  resolve day of 311 lag, queue, service, ttr, 311→resolved.
+- resident-searches (#166 metric): public_api_calls SEARCH_REQUESTS,
+  requester LIKE 'resident:%', 14d, / ORDER_RESOLVED count.
+- nearest-operator-bounds: 3 days max (7 timed out); haversine self-join.
 
 ## Lessons
 
-- **Operator event payloads have NO `$.order_id`** (reference.md wrong).
-- `Edit`, `python3` unavailable; `cat a b > c` on /tmp is blocked; Write full
-  bodies instead. Run gh commands one per call. `mkdir` may need approval;
-  Write creates folders.
+- Operator event payloads have NO `$.order_id` (reference.md wrong).
+- `public_api_calls.request_params` is a string `order_id=<ULID>`, not JSON;
+  set only after body validation. Prod table includes `integration-test`
+  traffic: always filter requester.
+- `Edit`, `python3` unavailable; compound shell commands need approval; run
+  gh commands one per call. Write creates folders.
 - `gh issue view --json body -q .body > /tmp/x` works to save a body.
 - Top-level posts capped at 75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
 - Athena 20 s limit: self-joins over 7 days of operator_events time out.
 - `gh issue view --comments` and `--json` are exclusive; use
   `--json comments -q '.comments[-3:][]...'`.
-- `--jq`/`-q` with a shell `for n in ...; do ... "$n" ...; done` loop in the
-  Bash tool errors ("Contains simple_expansion"); run one `gh` call per
-  issue number instead.
-- `read_thread` needs the **thread's root `message_id`**, not the reply's
-  own `message_id` from the inbox entry — passing the reply's id 404s.
-- A non-cpo-agent card (e.g. #202) can be "Parked" by Kid Kestrel with
-  direct questions for Celestine/Rex; answer via a
-  `<!-- cpo-agent:metric -->` comment and finalize the body's block, but
-  the move off Intake stays his once his spec is written.
-- A CTO "ticket-approved" comment is a confirmation, not a question — no
-  reply needed unless it raises something new.
-- `list_contacts` with `status: RECEIVED` can return empty pages with a
-  non-null `next_cursor` deep into older (already-triaged) history; three
-  consecutive empty pages is a safe stop, no need to page to `null`.
+- `read_thread` needs the thread's root `message_id`.
+- Non-cpo cards (e.g. #202): answer via `<!-- cpo-agent:metric -->`; the
+  move stays with the owner.
+- A CTO "ticket-approved" comment is a confirmation; no reply needed.
+- `list_contacts` RECEIVED: three empty pages in a row is a safe stop.
