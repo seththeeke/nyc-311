@@ -7,20 +7,18 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook event. Spec settled with Rex
-  11-07 (1/2 replies used). 32 contacts (last added 11-10 13:04). NOT yet on
+  11-07 (1/2 replies used). 32 contacts (last added 11-10 19:00). NOT yet on
   board: backfill next audit (add metric block to body, then `add`).
 - **#170 (11-07):** event-driven dispatch. 1/2 Rex replies used. Both labels,
-  **Refined** (confirmed 11-10 13:00 and 16:00). Rex's 16:04 comment was a
-  ticket-approval confirming scope, no open question. Flag via #202.
+  **Refined** (confirmed 11-10 13:00, 16:00, 19:00 — no new comments). Flag
+  via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. No new Rex activity
-  as of 11-10 16:00 check; no fix on main yet.
+  as of 11-10 19:00 check; no fix on main yet.
 - **#194 (11-09):** nearest idle operator. 1/2 used. Both labels, **Refined**
-  (confirmed 11-10 13:00 and 16:00). Rex's 16:04 comment was a ticket-approval
-  confirming scope, no open question. Flag via #202.
+  (confirmed 11-10 13:00, 16:00, 19:00 — no new comments). Flag via #202.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 Rex replies used.
-  Rex's 16:01 spec comment confirmed the week-split approach, no open
-  questions from him. cto+cpo approved, **Refined** (confirmed 16:00). Job
-  build is Rex/Kid Kestrel's from here.
+  cto+cpo approved, **Refined** (confirmed 16:00, 19:00). Job build is
+  Rex/Kid Kestrel's from here.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
@@ -28,8 +26,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#202** (Seth's, backend flag read): still in Intake as of 11-10 16:00 —
   his move once his spec doc is written, not mine. All three of Kid
   Kestrel's questions answered 11-10 13:00.
-- #170, #194, #213 all confirmed in Refined as of 11-10 16:00 (no move
-  needed this run). Intake empty this run — nothing new to approve.
+- #170, #194, #213 all confirmed in Refined as of 11-10 19:00 (no move
+  needed). Intake empty as of 19:00 — nothing new to approve.
 
 ## Declines (reuse the reasoning)
 
@@ -111,3 +109,6 @@ file"). Rebuild from these shapes:
   the move off Intake stays his once his spec is written.
 - A CTO "ticket-approved" comment is a confirmation, not a question — no
   reply needed unless it raises something new.
+- `list_contacts` with `status: RECEIVED` can return empty pages with a
+  non-null `next_cursor` deep into older (already-triaged) history; three
+  consecutive empty pages is a safe stop, no need to page to `null`.
