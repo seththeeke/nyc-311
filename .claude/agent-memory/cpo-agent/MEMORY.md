@@ -12,7 +12,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-12: catch-up
   done; not fixed on main; open question re: 44 h floor (NYC's or poller's)
-  still unanswered by Rex as of 11-12 13:00.
+  still unanswered by Rex as of 11-12 16:00.
 - **#194 (11-09):** nearest idle operator. 2/2 used. Fully approved, Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Fully
   approved, Refined (Rex: split idle intervals at week boundaries).
@@ -20,7 +20,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Board
 
-- 11-12 13:00: no Intake cards; nothing to approve. #166/#170/#194/#213
+- 11-12 16:00: no Intake cards; nothing to approve. #166/#170/#194/#213
   Refined; #202 Assigned.
 
 ## Declines (reuse the reasoning)
@@ -28,9 +28,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Data export / analytics API / research escalation (Ginkgo, 4th+ time
   11-12): public API search + NYC Open Data; no per-requester fast track.
 - Hazard flagging/detection, photo upload, direct reporting, hardware: point
-  to 311/911 (Dogwood x5, Sycamore, Sassafras). If the ask also says "alert
-  when fixed"/real-time status, track that part on #166 instead (Dogwood
-  11-12 13:00 did both — tracked on #166).
+  to 311/911 (Dogwood x5, Sycamore, Sassafras, Yellowwood 11-12 16:00
+  faded-crosswalk detection). If the ask also says "alert when fixed"/
+  real-time status, track that part on #166 instead (Dogwood 11-12 13:00
+  did both — tracked on #166).
 - Mark urgent / priority display (Sycamore 11-10, 11-12): priority is
   already set automatically; file a 311 report per problem.
 - Accessibility audits / non-street civic issues: out of scope, use 311.
@@ -62,7 +63,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   No separate ticket: 3–4 h gap is small vs ~45 h NYC lag.
 - **Measuring: is the 44 h 311 lag floor NYC's or ours?** Waiting on Rex's
   SODA `max(created_date)` check (#181, asked 11-12, no answer yet as of
-  13:00).
+  16:00).
 - **Measuring: idle share.** 19% Nov 4–9; 33.5% Nov 10, 36.6% Nov 11, ~49%
   Nov 12 partial (fleet oversized post-drain, now being trimmed again).
   $7k/day. Feeds #213.
@@ -121,3 +122,7 @@ Shapes (full SQL is in the 11-12 07:00 report run; rebuild from these):
   All 5 tickets checked, no new Rex comments. 1 new contact (Dogwood,
   real-time hazard updates) tracked → #166 (now 38). No Intake cards.
   0 queries. Chat post: none.
+- 11-12 16:00 (conv.): inbox empty. All 5 open tickets checked, no new
+  Rex comments (still waiting on #181's SODA-lag question). 1 new
+  contact (Yellowwood, faded-crosswalk detection) declined. No Intake
+  cards. 0 queries. Chat post: none.
