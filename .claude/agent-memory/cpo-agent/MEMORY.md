@@ -6,125 +6,113 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets filed
 
-- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 34
-  contacts (+1 Yellowwood 11-11, +1 Sassafras 11-11 — "notification on
-  completion" cluster). CPO + CTO approved 11-11; board shows **Refined**
-  (both approvals in place, no move needed from me).
+- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 37
+  contacts (+3 on 11-12: Sassafras delay updates, Dogwood alert-when-fixed,
+  Yellowwood street-work info). Refined.
 - **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
-- **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
-  comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
-  No fix on main as of 11-11 16:00.
+  11-12 baseline comment: 0 orders scheduled in the hour they're accepted;
+  queue p50 4.6 h (Nov 10–11) and 2.7 h (Nov 12).
+- **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-12 comment:
+  catch-up done (min lag 44–45 h = pre-stall); not fixed on main; asked
+  whether the 44 h floor is NYC's or the poller's (a SODA max(created_date)
+  check).
 - **#194 (11-09):** nearest idle operator. 1/2 used. Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- 11-11: #166 added + approved, now Refined (both CPO + CTO approved as of
-  16:03). #170/#194/#213 Refined; #202 Assigned. Backfill complete.
+- 11-12: no Intake cards. #166/#170/#194/#213 Refined; #202 Assigned.
+  Backfill complete.
 
 ## Declines (reuse the reasoning)
 
-- Data export / analytics API / crew metrics: public API search + NYC Open
-  Data (Ginkgo repeats; declined again 11-11, 3rd+ time).
-- Hazard flagging, photo upload, direct reporting, fixture/hardware
-  upgrades: point to 311/911 (Dogwood x3 — 11-08, 11-11, 11-11; Sycamore
-  11-11).
+- Data export / analytics API / research escalation (Ginkgo, 4th+ time
+  11-12): public API search + NYC Open Data; no per-requester fast track.
+- Hazard flagging/detection, photo upload, direct reporting, hardware: point
+  to 311/911 (Dogwood x4, Sycamore). If the ask also says "alert when
+  fixed", track that part on #166 instead.
+- Mark urgent / priority display (Sycamore 11-10, 11-12): priority is
+  already set automatically; file a 311 report per problem.
 - Accessibility audits / non-street civic issues: out of scope, use 311.
 - Self-service mark-complete / feedback / live chat: crew-verified.
 - Direct phone/email support: none exists.
-- Auto-categorise/prioritise: exists. Single-order escalations, maintenance
-  cadence: not features. Priority/resource-allocation display: declined 11-10.
-- "Notify drivers of upcoming street work" (Yellowwood 11-11), "notify when
-  order completed/verified" (Sassafras 11-11): same need as #166
-  (ORDER_SCHEDULED + ORDER_ACCEPTED/RESOLVED webhook cluster) — tracked,
-  not declined. Note: today's webhook only reaches "the customer" business
-  subscriber, not the resident directly; the resident-facing push/dashboard
-  is explicitly deferred in #166's proposal — contacts stay tracked there
-  so the demand is counted, but the literal ask isn't shipped by #166 alone.
+- Notify/alert/street-work info requests → #166 cluster (tracked). #166
+  ships the business webhook only; resident push is deferred there.
 
 ## WBR and cost model (know this)
 
 - Goal metric = `total_cost / orders_accepted` (same week). Oct 12/19/26:
-  $299/$357/$327. Nov 2: $2,093. Nov 9 partial (11-11): $190,089/207 = $918.
-- Steady-state ~$540 per resolved order, ~80% materials. <$25 unreachable
-  under this cost model; flagged to Seth 11-07.
-- WBR labor = SCHEDULED→RESOLVED (transit in, idle out); paid − idle ≈ WBR
-  labor within 1%. ~$45 per paid operator-hour.
-- TTR starts at ORDER_CREATED, hides 311 lag (see research).
-- location_unresolved_rate 0.46–0.59.
-- Fleet: 21 Nov 8–10, 19 from Nov 10 (Brogan released 2 into empty backlog).
+  $299/$357/$327. Nov 2: $2,093. Nov 9 week as of 11-12: $249,841/273 =
+  $915 (525 resolved; $476/resolved, $382 materials).
+- Materials are a constant per descriptor (streetConditionMaterialsCost
+  Service.ts, $0–$600, default $200). <$25 is unreachable; flagged to
+  Seth 11-07.
+- WBR labor = SCHEDULED→RESOLVED; idle is left out (#213). ~$45/op-hour.
+- Scheduler: hourly (`Nyc311OrderSchedulingSchedule`), max 200
+  orders/run. Poller: every 6 h (`POLL_INTERVAL`).
+- Fleet: 21 Nov 8–10 → 19 (Nov 10) → 17 (Nov 11), backlog 7. Brogan's
+  daily median TTR is 0.2–0.3 d, under his 1–2 d band.
 
 ## Research agenda
 
-- **Proven → #170, #181, #194, #213, #69** (see tickets).
-- **Proven (on #181, 11-11): resident wait is mostly pre-order.** Nov 10/11
-  resolves: queue p50 4.6 h, created→resolved 6–7 h, 311→resolved 136/89 h,
-  311 lag 81–101 h. Pre-stall 311 lag ~46 h. Next: once #181 lands, check
-  whether the ~46 h structural lag is NYC publication or poller cadence
-  (6 h runs); a WBR "311→resolved" column could be a measurement ticket.
-- **Measuring: bursty intake.** Ingest 2,000/d Nov 7–9, 30,000 Nov 10,
-  13,779 by 07:00 Nov 11 (blocks of 1,000). Idle 18–20% Nov 1–9, 33.5%
-  Nov 10, ~20% Nov 11. Revisit after #181.
-- **Disproved (11-11):** "40% of status searches fail" — all 139 failed or
-  empty searches/14 d are requester `integration-test`; residents 58/58 found.
+- **Proven → #170, #181, #194, #213, #69.**
+- **Proven 11-12: bursty arrivals → queue then idle.** Accepted orders
+  arrive in 6-hourly blocks of 15–68 (03/09/15/21 UTC). The next tick
+  schedules 13–18, then 4–10/h, then 3–4 h gaps with nothing scheduled.
+  Evidence on #170. No ticket: 3–4 h is small vs ~45 h NYC lag.
+- **Measuring: is the 44 h 311 lag floor NYC's or ours?** Each poll pulls
+  a ~6 h slice ending ~44 h ago. If SODA is fresher, polling more often or
+  draining fully could save up to ~44 h of resident wait (would be a
+  ticket). Waiting on #181 / Rex's SODA check.
+- **Measuring: idle share.** 19% Nov 4–9 (deep backlog, so the hourly
+  tick is the cause → #170); 33.5% Nov 10, 36.6% Nov 11, ~49% Nov 12
+  partial, as the fleet is oversized after the drain (Brogan's call). $7k/day.
+- **Idea: satisfaction goal has no data** (>80% satisfied). Nothing
+  records resident satisfaction; a possible measurement ticket.
+- **Disproved (11-11):** "40% of status searches fail": all from
+  `integration-test`.
 - **Idea:** materials estimate biased ~33% low. Low priority.
 
-## Saved queries (folder writes BLOCKED 11-07 through 11-11)
+## Saved queries (folder writes STILL BLOCKED 11-07..11-12, sensitive-file)
 
-Rebuild from these shapes:
-- intake-daily: requests, dt>=9d; per request_id MIN ingested/created, MAX
-  complaint_type; per ingest day: count, SC, p50/p90 lag, MAX(created).
-- fleet-time-budget-daily: DISTINCT operator_events (30d), LEAD next
-  occurred_at (or now); class by opening event (TRANSIT_STARTED,
-  WORK_STARTED, ADDED/COMPLETED/ABORTED/REMOVAL_REQUESTED→IDLE, else unpaid);
-  join latest snapshot rate; by start day. Today's row overcounts
-  (future-stamped events?), ignore partial day.
-- resident-wait-breakdown: order_events 45d MIN created/accepted, MAX
-  scheduled/resolved; snapshot request_id → requests created_at; p50 per
-  resolve day of 311 lag, queue, service, ttr, 311→resolved.
+Shapes (full SQL is in the 11-12 report run; rebuild from these):
+- intake-daily (daily): requests dt>=10d; per request_id
+  MIN(warehouse_ingested_at)=ingested, MIN(created_at)=311 created; per
+  ingest day n, SC, distinct ingest hours, p50/p90/min lag, max created.
+  NOTE: `requests.created_at` IS the 311 time, not ingest.
+- fleet-time-budget-daily (daily): DISTINCT operator_events 30d, LEAD next
+  (or now); class by opening event; latest snapshot rate; by start day,
+  8d. Today's row overcounts idle.
+- resident-wait-breakdown (daily): order_events 45d MIN created/accepted,
+  MAX scheduled/resolved; snapshot request_id → requests created_at; p50
+  per resolve day.
+- dispatch-hourly (weekly): order_events 3d, per hour accepted/scheduled/
+  resolved counts.
 - resident-searches (#166 metric): public_api_calls SEARCH_REQUESTS,
-  requester LIKE 'resident:%', 14d, / ORDER_RESOLVED count.
-- nearest-operator-bounds: 3 days max (7 timed out); haversine self-join.
+  requester LIKE 'resident:%', 14d, / ORDER_RESOLVED.
+- nearest-operator-bounds: 3 days max; haversine self-join.
 
 ## Lessons
 
-- Operator event payloads have NO `$.order_id` (reference.md wrong).
-- `public_api_calls.request_params` is a string `order_id=<ULID>`, not JSON;
-  set only after body validation. Prod table includes `integration-test`
-  traffic: always filter requester.
-- `Edit`, `python3`, `mkdir` unavailable without approval; compound shell
-  commands need approval; run gh commands one per call. Write creates
-  folders on its own.
-- `gh issue view --json body -q .body > /tmp/x` works to save a body.
-- Top-level posts capped at 75 words; aim for 65.
+- Operator event payloads have NO `$.order_id` (reference.md is wrong).
+- `public_api_calls.request_params` is a string, not JSON; always filter
+  out requester `integration-test`.
+- No `Edit` tool; rewrite memory in full with `Write`. Compound shell
+  commands (&&) need approval: one command per call. `git fetch` needs
+  approval; `git log origin/main` works.
+- Top-level posts are capped at 75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
-- Athena 20 s limit: self-joins over 7 days of operator_events time out.
-- `gh issue view --json comments --jq '...'` is the reliable combo (`-q`
-  with `--json` and bare `--jq` flag both sometimes rejected by the shell
-  parser on `$n` loop vars — quote/expand carefully, or call per-issue).
-- `read_thread` needs the thread's root `message_id`.
-- Non-cpo cards (e.g. #202): answer via `<!-- cpo-agent:metric -->`; the
-  move stays with the owner.
-- A CTO "ticket-approved" comment is a confirmation; no reply needed.
-- `list_contacts` RECEIVED: two empty pages in a row with a non-null cursor
-  still occurred 11-11 — stop after 2-3 empty pages regardless.
-- This agent session has no `Edit` tool at all (only Read/Write/Bash/Skill/
-  MCP); rewrite memory in full via `Write`, don't assume Edit exists.
+- Athena 20 s: self-joins over 7 d of operator_events time out.
+- `read_thread` needs the root `message_id`.
+- Non-cpo cards: answer via `<!-- cpo-agent:metric -->`.
+- A CTO "ticket-approved" comment needs no reply.
+- `list_contacts`: stop after 1–2 empty pages.
 
 ## Run log
 
-- 11-11 16:00 (conversation): inbox empty. #166 got Rex's `cto-agent:
-  ticket-approved` comment at 16:03 — confirmation only, no reply needed;
-  board already Refined. #170/#181/#194/#213 unchanged since last look. 1
-  new RECEIVED contact: Dogwood (real-time hazard detection + authority
-  notification) — declined, repeat of the hazard-flagging pattern. 0/2
-  queries used (nothing pending from Rex/Seth). No board moves. Chat post:
-  none. Memory updated.
-- 11-11 19:00 (conversation): inbox empty. No new Rex comments on
-  #166/#170/#181/#194/#213 since 16:00 — nothing to answer. No Intake cards
-  waiting. 2 new RECEIVED contacts: Sassafras (notify on order
-  completion/verification) tracked on #166 — same push/alert cluster;
-  Dogwood (real-time hazard detection, 3rd+ repeat) declined, same
-  311/911 reasoning. 0/2 queries used (no Rex/Seth question pending). No
-  board moves. Chat post: none. Memory updated.
+- 11-11 16:00/19:00 (conv.): inbox empty; Sassafras → #166; Dogwood
+  declined x2. 0 queries.
+- 11-12 07:00 (audit): inbox empty; 6 contacts (3 → #166, 3 declined);
+  5/10 queries; comments on #166/#170/#181; no new ticket; CPO_DAILY
+  01M77XRAGTN4N2K6GWGQ864DEK.
