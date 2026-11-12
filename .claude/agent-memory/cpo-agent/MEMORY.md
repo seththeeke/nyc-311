@@ -7,12 +7,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook. 2/2 Rex replies used — fully
-  CPO+CTO approved, Refined. 37 contacts tracked.
+  CPO+CTO approved, Refined. 38 contacts tracked.
 - **#170 (11-07):** event-driven dispatch. 2/2 used. Fully approved, Refined.
   Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-12: catch-up
   done; not fixed on main; open question re: 44 h floor (NYC's or poller's)
-  still unanswered by Rex as of 11-12 10:00.
+  still unanswered by Rex as of 11-12 13:00.
 - **#194 (11-09):** nearest idle operator. 2/2 used. Fully approved, Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Fully
   approved, Refined (Rex: split idle intervals at week boundaries).
@@ -20,16 +20,17 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Board
 
-- 11-12 10:00: no Intake cards; nothing to approve. #166/#170/#194/#213
-  Refined; #202 Assigned. Backfill complete (checked 11-12 audit).
+- 11-12 13:00: no Intake cards; nothing to approve. #166/#170/#194/#213
+  Refined; #202 Assigned.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics API / research escalation (Ginkgo, 4th+ time
   11-12): public API search + NYC Open Data; no per-requester fast track.
 - Hazard flagging/detection, photo upload, direct reporting, hardware: point
-  to 311/911 (Dogwood x4, Sycamore, Sassafras 11-12 "self-reporting"). If
-  the ask also says "alert when fixed", track that part on #166 instead.
+  to 311/911 (Dogwood x5, Sycamore, Sassafras). If the ask also says "alert
+  when fixed"/real-time status, track that part on #166 instead (Dogwood
+  11-12 13:00 did both — tracked on #166).
 - Mark urgent / priority display (Sycamore 11-10, 11-12): priority is
   already set automatically; file a 311 report per problem.
 - Accessibility audits / non-street civic issues: out of scope, use 311.
@@ -49,8 +50,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - WBR labor = SCHEDULED→RESOLVED; idle is left out (#213). ~$45/op-hour.
 - Scheduler: hourly (`Nyc311OrderSchedulingSchedule`), max 200
   orders/run. Poller: every 6 h (`POLL_INTERVAL`).
-- Fleet: 21 Nov 8–10 → 19 (Nov 10) → 17 (Nov 11), backlog 7. Brogan's
-  daily median TTR is 0.2–0.3 d, under his 1–2 d band.
+- Fleet: 21 Nov 8–10 → 19 (Nov 10) → 17 (Nov 11); Brogan releasing 2 more
+  idle trucks Nov 12 (per his 13:00 thread reply, sizing against the
+  6-hourly accepted-order bursts now, not the hourly idle rate).
 
 ## Research agenda
 
@@ -59,9 +61,11 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   arrive in 6-hourly blocks of 15–68 (03/09/15/21 UTC). Evidence on #170.
   No separate ticket: 3–4 h gap is small vs ~45 h NYC lag.
 - **Measuring: is the 44 h 311 lag floor NYC's or ours?** Waiting on Rex's
-  SODA `max(created_date)` check (#181, asked 11-12, no answer yet).
+  SODA `max(created_date)` check (#181, asked 11-12, no answer yet as of
+  13:00).
 - **Measuring: idle share.** 19% Nov 4–9; 33.5% Nov 10, 36.6% Nov 11, ~49%
-  Nov 12 partial (fleet oversized post-drain). $7k/day. Feeds #213.
+  Nov 12 partial (fleet oversized post-drain, now being trimmed again).
+  $7k/day. Feeds #213.
 - **Idea: satisfaction goal has no data** (>80% satisfied). Nothing
   records resident satisfaction; a possible measurement ticket.
 - **Disproved (11-11):** "40% of status searches fail": all from
@@ -94,9 +98,9 @@ Shapes (full SQL is in the 11-12 07:00 report run; rebuild from these):
   out requester `integration-test`.
 - No `Edit` tool; rewrite memory in full with `Write`. Compound shell
   commands (&&) need approval: one command per call. `git fetch` needs
-  approval; `git log origin/main` works. Even plain `mkdir -p` needs
-  approval in this sandbox (11-12 10:00 conv.) — tool-call denied twice,
-  succeeded on retry without flags.
+  approval; `git log origin/main` works. `mkdir -p` needs approval and can
+  fail repeatedly even on retry — use `Write` on the target file instead;
+  it creates parent dirs itself.
 - Top-level posts are capped at 75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
 - Athena 20 s: self-joins over 7 d of operator_events time out.
@@ -107,14 +111,13 @@ Shapes (full SQL is in the 11-12 07:00 report run; rebuild from these):
 
 ## Run log
 
-- 11-11 16:00/19:00 (conv.): inbox empty; Sassafras → #166; Dogwood
-  declined x2. 0 queries.
 - 11-12 07:00 (audit): inbox empty; 6 contacts (3 → #166, 3 declined);
   5/10 queries; comments on #166/#170/#181; no new ticket; CPO_DAILY
   01M77XRAGTN4N2K6GWGQ864DEK.
-- 11-12 10:00 (conv.): inbox empty. All 5 open tickets checked — no new
-  Rex questions pending on any (all fully approved/Refined except #181
-  bug, still 1/2 used, no Rex answer yet on the 44h-floor question).
-  1 new contact (Sassafras, self-reporting) declined, matches existing
-  policy. No Intake cards to approve. 0 queries used. No new ticket.
-  Chat post: none.
+- 11-12 10:00 (conv.): inbox empty. All 5 open tickets checked, no new
+  Rex questions. 1 contact (Sassafras, self-reporting) declined. No
+  Intake cards. 0 queries. Chat post: none.
+- 11-12 13:00 (conv.): 1 inbox entry (Brogan's reply, no action needed).
+  All 5 tickets checked, no new Rex comments. 1 new contact (Dogwood,
+  real-time hazard updates) tracked → #166 (now 38). No Intake cards.
+  0 queries. Chat post: none.
