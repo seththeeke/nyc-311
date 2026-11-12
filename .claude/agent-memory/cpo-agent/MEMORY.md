@@ -6,9 +6,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets filed
 
-- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 33
-  contacts (+1 Yellowwood 11-11). CPO + CTO approved 11-11; board shows
-  **Refined** (both approvals in place, no move needed from me).
+- **#166 (11-06):** `ORDER_SCHEDULED` webhook. 1/2 Rex replies used. 34
+  contacts (+1 Yellowwood 11-11, +1 Sassafras 11-11 — "notification on
+  completion" cluster). CPO + CTO approved 11-11; board shows **Refined**
+  (both approvals in place, no move needed from me).
 - **#170 (11-07):** event-driven dispatch. 1/2 used. Refined. Flag via #202.
 - **#181 (11-08, bug):** NYC 311 intake stall. 1/2 used. 11-11 evidence
   comment (bursts, ~2 d behind, resident wait). Asked what unstuck it Nov 10.
@@ -27,14 +28,20 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Data export / analytics API / crew metrics: public API search + NYC Open
   Data (Ginkgo repeats; declined again 11-11, 3rd+ time).
 - Hazard flagging, photo upload, direct reporting, fixture/hardware
-  upgrades: point to 311/911 (Dogwood x2 — 11-08, 11-11; Sycamore 11-11).
+  upgrades: point to 311/911 (Dogwood x3 — 11-08, 11-11, 11-11; Sycamore
+  11-11).
 - Accessibility audits / non-street civic issues: out of scope, use 311.
 - Self-service mark-complete / feedback / live chat: crew-verified.
 - Direct phone/email support: none exists.
 - Auto-categorise/prioritise: exists. Single-order escalations, maintenance
   cadence: not features. Priority/resource-allocation display: declined 11-10.
-- "Notify drivers of upcoming street work" (Yellowwood 11-11): same need as
-  #166 (ORDER_SCHEDULED + scheduled_window covers it) — tracked, not declined.
+- "Notify drivers of upcoming street work" (Yellowwood 11-11), "notify when
+  order completed/verified" (Sassafras 11-11): same need as #166
+  (ORDER_SCHEDULED + ORDER_ACCEPTED/RESOLVED webhook cluster) — tracked,
+  not declined. Note: today's webhook only reaches "the customer" business
+  subscriber, not the resident directly; the resident-facing push/dashboard
+  is explicitly deferred in #166's proposal — contacts stay tracked there
+  so the demand is counted, but the literal ask isn't shipped by #166 alone.
 
 ## WBR and cost model (know this)
 
@@ -102,16 +109,11 @@ Rebuild from these shapes:
 - A CTO "ticket-approved" comment is a confirmation; no reply needed.
 - `list_contacts` RECEIVED: two empty pages in a row with a non-null cursor
   still occurred 11-11 — stop after 2-3 empty pages regardless.
+- This agent session has no `Edit` tool at all (only Read/Write/Bash/Skill/
+  MCP); rewrite memory in full via `Write`, don't assume Edit exists.
 
 ## Run log
 
-- 11-11 13:00 (conversation): inbox empty. #181 evidence comment and #166
-  cpo-approved comment already present from an earlier pass today (no new
-  Rex replies to answer). #166 now cto-approved + Refined, no move needed.
-  2 new RECEIVED contacts: Yellowwood (driver notification of upcoming
-  street work) tracked on #166; Ginkgo (crew efficiency/failure-rate API)
-  declined (repeat). 0/2 queries used (no Rex/Seth question pending). No
-  board moves needed. Memory updated.
 - 11-11 16:00 (conversation): inbox empty. #166 got Rex's `cto-agent:
   ticket-approved` comment at 16:03 — confirmation only, no reply needed;
   board already Refined. #170/#181/#194/#213 unchanged since last look. 1
@@ -119,3 +121,10 @@ Rebuild from these shapes:
   notification) — declined, repeat of the hazard-flagging pattern. 0/2
   queries used (nothing pending from Rex/Seth). No board moves. Chat post:
   none. Memory updated.
+- 11-11 19:00 (conversation): inbox empty. No new Rex comments on
+  #166/#170/#181/#194/#213 since 16:00 — nothing to answer. No Intake cards
+  waiting. 2 new RECEIVED contacts: Sassafras (notify on order
+  completion/verification) tracked on #166 — same push/alert cluster;
+  Dogwood (real-time hazard detection, 3rd+ repeat) declined, same
+  311/911 reasoning. 0/2 queries used (no Rex/Seth question pending). No
+  board moves. Chat post: none. Memory updated.
