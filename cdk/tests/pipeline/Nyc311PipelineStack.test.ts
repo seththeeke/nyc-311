@@ -86,13 +86,11 @@ describe("Nyc311PipelineStack", () => {
         step: p.Description.split("/").pop() as string,
         spec: JSON.parse(p.Source.BuildSpec as string) as { phases: { install?: Record<string, unknown> & { commands?: string[] } } },
       }));
-    /* BrowserSmokeTestsTest runs only Playwright on the image's Node (#215); its own test file checks that. */
-    const repoSteps = inline.filter(({ step }) => step !== "SelfMutate" && step !== "BrowserSmokeTestsTest");
+    /* BrowserSmokeTestsTest (#215) and PublishCoverage (#222) run on the image's Node; their own test files check that. */
+    const imageNodeSteps = ["SelfMutate", "BrowserSmokeTestsTest", "PublishCoverageTest", "PublishCoverageProd"];
+    const repoSteps = inline.filter(({ step }) => !imageNodeSteps.includes(step));
 
-    expect(repoSteps.map(({ step }) => step).sort()).toEqual([
-      "IntegrationTestsProd", "IntegrationTestsTest", "ProdDiff",
-      "PublishCoverageProd", "PublishCoverageTest", "Synth",
-    ]);
+    expect(repoSteps.map(({ step }) => step).sort()).toEqual(["IntegrationTestsProd", "IntegrationTestsTest", "ProdDiff", "Synth"]);
     for (const { spec } of repoSteps) {
       expect(spec.phases.install).not.toHaveProperty("runtime-versions");
       /* Only CDK's own artifact-link `ln -s` lines may precede it; they need no Node. */
