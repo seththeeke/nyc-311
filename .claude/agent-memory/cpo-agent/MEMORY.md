@@ -7,32 +7,32 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets filed
 
 - **#166 (11-06):** `ORDER_SCHEDULED` webhook. 2/2 Rex replies used. Refined.
-  39 contacts tracked (unchanged 11-13 13:00, no new RECEIVED contacts).
+  39 contacts tracked (unchanged 11-13 16:00, no new RECEIVED contacts for it).
 - **#170 (11-07):** event-driven dispatch. 2/2 used. Refined.
-- **#181 (11-08, bug):** NYC 311 intake stall. **2/2 Rex replies now used**
-  (11-13 13:00). Rex (16:03): not CTO-approved for Kestrel's board — backend
-  doesn't read flags yet (Kestrel's own first project), and a live incident
-  (fleet 100% idle) is a bad fit for a dial-up-over-days ship; recommends
-  routing to Pip as a direct bug fix instead. I replied (comment +
-  thread): agreed on routing, kept `cpo-approved` since problem/metric
-  stand regardless of who builds it; deferred the board-move call to Seth.
-  Still in Intake as of 13:00.
+- **#181 (11-08, bug):** NYC 311 intake stall. **2/2 Rex replies used.**
+  Rex (16:03): not CTO-approved for Kestrel's board — backend doesn't read
+  flags yet, live incident is a bad dial-up-over-days fit; recommends
+  routing to Pip instead. I kept `cpo-approved` (problem/metric stand),
+  deferred board-move to Seth. Rex (20:00) acknowledged, routing is
+  Seth's call, nothing further from him. Still Intake as of 16:00 — no
+  change since 13:00.
 - **#194 (11-09):** nearest idle operator. 2/2 used. Refined.
 - **#213 (11-10, measurement):** WBR idle/fleet hours. 2/2 used. Refined.
 - **#69 (backlog, not mine):** lat/lng location fallback. Commented 11-08.
 
 ## Board
 
-- 11-13 13:00: #181 in Intake (cpo-approved, Rex declined cto-approved —
-  routing issue not metric issue). #166/#170/#194/#213 Refined; #202
-  Assigned. Backfill done as of 10:00.
+- 11-13 16:00: #181 only card in Intake (cpo-approved, Rex declined
+  cto-approved — routing not metric). #166/#170/#194/#213 Refined; #202
+  Assigned. Nothing new to approve/backfill.
 
 ## Declines (reuse the reasoning)
 
 - Data export / analytics API / research escalation (Ginkgo, 6th+ time):
   public API search + NYC Open Data; no per-requester feed.
-- Hazard flagging/detection, photo upload, direct reporting, hardware: point
-  to 311/911.
+- Hazard flagging/detection, photo upload, direct reporting, hardware
+  (incl. "quick pothole reporting app/text", Yellowwood 11-13): point to
+  311/911 — BoroughSim works from NYC 311's feed, not resident submissions.
 - Mark urgent / priority display: priority is already set automatically.
 - Accessibility audits / non-street civic issues: out of scope, use 311.
 - Self-service mark-complete / feedback / live chat: crew-verified.
@@ -44,28 +44,26 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - Goal metric = `total_cost / orders_accepted` (same week). Oct 12/19/26:
   $299/$357/$327. Nov 2: $2,093. Nov 9 wk as of 11-13 07:00: $280,994/346 =
-  $812 (602 resolved; median resolve 9.1 h).
+  $812 (602 resolved; median resolve 9.1 h). No fresh WBR pull this
+  conversation run; next audit refreshes it.
 - Materials are a constant per descriptor ($0–$600, default $200); ~$370/
   resolved order. <$25 is unreachable; flagged to Seth 11-07.
 - WBR labor = SCHEDULED→RESOLVED; idle is left out (#213). ~$45/op-hour.
 - Scheduler: hourly, max 200 orders/run. Poller: every 6 h, runs at
   03/09/15/21 UTC; 10k record cap/run; watermark floored at now-72h.
 - Fleet: 21 → 19 (Nov 10) → 17 (Nov 11) → 15 (Nov 12) → 14 (Nov 13, Brogan
-  released 1 truck after 3 days of near-zero fleet utilization; holding a
-  2nd in reserve for the catch-up burst once #181 unblocks).
+  released 1 truck, holding a 2nd in reserve for the #181 catch-up burst).
 
 ## Research agenda
 
 - **Proven → #170, #181, #194, #213, #69.**
 - **Proven 11-12: bursty arrivals** (6-hourly blocks). Evidence on #170.
-- **Proven 11-13: stall recurs** (#181). 0 orders accepted since Nov 12
-  15:00 UTC (as of 07:00 audit; unconfirmed since — no new query this run,
-  0/2 used).
+- **Proven 11-13: stall recurs** (#181). As of 07:00 audit: 0 orders
+  accepted since Nov 12 15:00 UTC. Not re-checked this run (0/2 queries).
 - **Disproved 11-13: "poller sets the 44 h floor."** A drained run reached
   records 37 h old; the floor is NYC's publication timing.
 - **Measuring: idle share.** 19% Nov 5–9; 33.5% Nov 10; 36.6% Nov 11;
-  60.4% Nov 12 ($13.6k/$22.6k); 100% Nov 13 partial (07:00 audit figure).
-  Feeds #213.
+  60.4% Nov 12; 100% Nov 13 partial (07:00 figure). Feeds #213.
 - **Idea: satisfaction goal has no data.** Public API isn't the pain (150
   calls/7d, 100% success). Outcome signal lives only in the customer's
   records. Next: design a measurement ticket for a resident outcome signal.
@@ -117,17 +115,16 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-12 (audit + 4 conv.): 7 contacts (4 → #166, 3+1 declined); #166/
-  #170/#181 updated; 5/10 queries; no new ticket.
 - 11-13 07:00 (audit): inbox empty; 1 contact (Ginkgo) declined; #181
   recurrence comment, body + metric, board Intake + cpo-approved; 4/10
   queries; no new ticket; CPO_DAILY 01M7AG5HDA64TKB5RA6VR69W9D.
-- 11-13 10:00 (conv.): inbox empty, no new Rex comments; 1 contact
-  (Sycamore) → #166 (39 tracked); #181 waiting on cto-approved; 0/2
+- 11-13 10:00 (conv.): inbox empty; 1 contact (Sycamore) → #166 (39
+  tracked); 0/2 queries; no new ticket; no chat post.
+- 11-13 13:00 (conv.): Rex declined cto-approved on #181 (routing, not
+  metric) — replied on issue + thread, 2/2 Rex replies used on #181.
+  Brogan released 1 truck (14), reserved 1 more. 0 new contacts. 0/2
   queries; no new ticket; no chat post.
-- 11-13 13:00 (conv.): Rex declined cto-approved on #181 (board-fit, not
-  metric) — replied on issue + thread, 2/2 Rex replies now used on #181.
-  Brogan released 1 truck (14), reserved 1 more, citing 3-day near-zero
-  utilization alongside the stall. 0 new RECEIVED contacts (2 empty
-  pages). No new comments on #166/#170/#194/#213. 0/2 queries, nothing
-  needed one. No new ticket; no chat post (nothing to post).
+- 11-13 16:00 (conv.): inbox had only Rex's ack (nothing to answer). All
+  5 open tickets checked, no new comments. 1 contact (Yellowwood, pothole
+  reporting app/text) declined — new decline-reason entry. #181 unchanged
+  in board/Intake. 0/2 queries; no new ticket; no chat post.
