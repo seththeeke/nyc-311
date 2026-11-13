@@ -1,6 +1,7 @@
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as pipelines from "aws-cdk-lib/pipelines";
 import { DOMAIN_CONFIG } from "../stack/Nyc311Stack";
+import { IMAGE_NODE_FLOOR_CHECK } from "./node22InstallCommands";
 
 export interface BrowserSmokeTestStepProps {
   /** Step id, e.g. "BrowserSmokeTestsTest" — must be unique within the pipeline. */
@@ -15,10 +16,9 @@ export const PLAYWRIGHT_LOCKED_VERSION = "require('./web-app/package-lock.json')
 /*
  * #215: no Node 22 download (~20s on DeployTest's critical path). This step
  * runs only Playwright (engine node >=20) against the deployed site, so the
- * image's default Node 24 does. The grep logs the version and fails the step
- * if a future image default drops below 20.
+ * image's default Node 24 does, behind the shared >=20 floor check.
  */
-export const PLAYWRIGHT_NODE_CHECK = "node --version | grep -E '^v(2[0-9]|[3-9][0-9])[.]'";
+export const PLAYWRIGHT_NODE_CHECK = IMAGE_NODE_FLOOR_CHECK;
 
 /**
  * A post-deploy step (docs/14-maps-refactor.md §4.8) that runs web-app's

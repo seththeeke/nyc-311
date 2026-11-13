@@ -1,6 +1,6 @@
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as pipelines from "aws-cdk-lib/pipelines";
-import { NODE_22_INSTALL_COMMANDS } from "./node22InstallCommands";
+import { IMAGE_NODE_FLOOR_CHECK } from "./node22InstallCommands";
 import { NPM_CI } from "./npmCiCommand";
 
 /* hosting-test-coverage.md §2.1/§2.2 — every package's coverage/ output, captured off Synth as additional FileSets. */
@@ -38,7 +38,12 @@ export function createCoveragePublishStep(props: CoveragePublishStepProps): pipe
   return new pipelines.CodeBuildStep(props.id, {
     input: props.source,
     additionalInputs,
-    installCommands: NODE_22_INSTALL_COMMANDS,
+    /*
+     * #222: no Node 22 download (~19-21s per step). This step runs no repo
+     * code under test, only the istanbul merge (deps need node >=10) and the
+     * aws CLI, so the image's default Node 24 does.
+     */
+    installCommands: [IMAGE_NODE_FLOOR_CHECK],
     commands: [
       /* Root-level devDependencies (istanbul-lib-*) back scripts/publish-coverage.js's coverage-map merge — not installed by Synth's per-package `npm ci`s. */
       NPM_CI,

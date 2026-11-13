@@ -1,6 +1,7 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { beforeAll, describe, expect, it } from "vitest";
+import { IMAGE_NODE_FLOOR_CHECK } from "../../pipeline/node22InstallCommands";
 import { Nyc311PipelineStack } from "../../pipeline/Nyc311PipelineStack";
 
 const TEST_ENV = { account: "178280182163", region: "us-east-1" };
@@ -38,6 +39,20 @@ describe("Nyc311CoveragePublishStep", () => {
         ),
       }),
     });
+  });
+
+  /* #222: the Node 22 download cost ~19-21s per step; the istanbul merge needs only node >=10. */
+  it("runs both publish steps on the image's default Node with a >=20 floor check, never downloading Node 22", () => {
+    const projects = Object.values(template.findResources("AWS::CodeBuild::Project"))
+      .map((p) => p.Properties as { Source: { BuildSpec: string } })
+      .filter((p) => typeof p.Source.BuildSpec === "string" && p.Source.BuildSpec.includes("publish-coverage.js"));
+    expect(projects).toHaveLength(2);
+    for (const project of projects) {
+      const install = (JSON.parse(project.Source.BuildSpec) as { phases: { install: Record<string, unknown> & { commands: string[] } } }).phases.install;
+      expect(install).not.toHaveProperty("runtime-versions");
+      expect(install.commands.filter((c) => !c.includes("ln -s --"))).toEqual([IMAGE_NODE_FLOOR_CHECK]);
+      expect(project.Source.BuildSpec).not.toContain("NODE_22_VERSION");
+    }
   });
 
   it("scopes the Test publish role to only /coverage/* on that one bucket, and that one distribution's invalidation", () => {
