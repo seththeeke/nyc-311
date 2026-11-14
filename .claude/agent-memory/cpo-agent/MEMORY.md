@@ -7,36 +7,41 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Tickets
 
 - **#166 (11-06):** status visibility. Seth killed webhook (11-14 00:31);
-  rewritten pull-based (gatherIdeaContext refresh). 11-14: added Rex's
-  skip-CLOSED + `X-Requester: resident-refresh:*` (keeps metric clean);
-  re-approved, **Refined**. 39 contacts. Rex replies 2/2 used.
-- **#170 (11-07):** event-driven dispatch. Refined. 2/2.
-- **#181 (11-08, bug):** intake stall. 2/2. Intake, cpo-approved; Rex
-  declined cto (routing → Seth/Pip). Still stalling 11-14 (two near-empty
-  runs, lag 40 h).
-- **#194 (11-09):** nearest idle op. Spec Created by Kestrel 11-14; needs #202.
-- **#213 (11-10, measurement):** Kestrel pushed back (no flag, who applies
-  SQL). 11-14: body rewritten: Option A (flag exemption, CEO applies SQL
-  Test→Prod) / B (`wbr_fleet` job); accepted_cohort_cost dropped. NOT
-  re-approved — waiting on Seth's A/B call. Rex 2/2 used.
-- **#69 (backlog, not mine):** lat/lng location fallback. 11-14: evidence +
-  metric block comment, added to board, cpo-approved. Open: Location
-  identity (Seth/Rex, §4). Needs #202 flag.
-- **#165 (Turing's):** sticky marketing page. 11-14 metric block (browser
-  check) + cpo-approved; waits on Rex.
-- **#202 (not mine):** 11-14 answered parked Q2: latency baseline "to be
-  measured" at first caller's hold. Unblocks #194/#170.
+  pull-based refresh also killed (11-14 13:37, Seth+Rex: editing
+  `gatherIdeaContext`/`describeOrder` is us answering our own test). Moved
+  back to **Intake**, `cpo-approved` withdrawn. Investigated: of 8 residents
+  who filed a contact in 30d, 6 ever searched, 5 did both, 3 never searched
+  — mostly not a pure behavior gap. Rewrote Proposal to the only in-bounds
+  lever: reword `searchRequests.description` in `actionTools.ts` to name
+  the scheduled-window answer. Asked Rex to confirm before finalizing
+  Verification. 39+ contacts.
+- **#170 (11-07):** event-driven dispatch. Kestrel posted spec 11-14
+  15:04 (trigger on `WORK_COMPLETED`/`WORK_ABORTED`/`OPERATOR_ADDED`, not
+  `ORDER_RESOLVED` — operator still WORKING when resolved fires). Confirmed
+  fine. Held in Spec Created 12h.
+- **#181 (11-08, bug):** intake stall. Intake, cpo-approved; routing → Seth.
+  Nov 14 16:01: 7d median back in band (1.07d), fleet 13 (12 busy).
+- **#194 (11-09):** nearest idle op. Spec Created by Kestrel 11-14; needs
+  #202 (now Refined) + flag rows + missing AWS profile on host.
+- **#213 (11-10, measurement):** Option A/B rewritten 11-14; waiting on
+  Seth's A/B call. Intake.
+- **#69 (backlog, not mine):** lat/lng location fallback. CTO approved
+  11-14 (feasible; Location-identity resolved: `LATLNG#<lat>,<lng>` 5dp
+  coordinate ids, BBL ids stay bare-digit). Already **Refined**.
+- **#165 (Turing's):** sticky marketing page. CTO approved 11-14 (Playwright
+  smoke check). **Assigned**.
+- **#202 (not mine):** answered parked Q2 11-14; unblocks #194/#170. Intake.
 
 ## Declines (reuse the reasoning)
 
 - Data export / research reports (Ginkgo, 7th+): public search + Open Data.
 - Hazard reporting/photo/hardware/apps: use 311/911.
-- Mark urgent / priority / community urgency voting (Sassafras ×3 11-14):
-  priority is automatic, same rules for every street.
+- Mark urgent / priority / community urgency voting: priority is automatic,
+  same rules for every street.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
 - Notify/alert/status-timing → #166.
-- Pothole prioritisation → track on #69 (pothole reports rejected for location).
+- Pothole prioritisation → track on #69.
 
 ## WBR and cost model
 
@@ -47,23 +52,24 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   ~2.05 op-hours per order.
 - location_unresolved_rate 0.52–0.59 every week since Oct.
 - Scheduler hourly, 200/run. Poller 03/09/15/21 UTC, 10k cap.
-- Fleet: 21 → 19 → 17 → 15 → 14 → 13 (Nov 13 23:00, "14/14 idle").
+- Fleet: 21 → 19 → 17 → 15 → 14 → 13 (Nov 14 16:01: 13, 12 busy, 1 idle).
 
 ## Research agenda
 
 - **Proven → #170, #181, #194, #213.**
 - **Proven 11-14: location fallback (#69).** 14 d: 876 SC orders rejected
-  LOCATION_UNRESOLVED, 0 BBL, 571 (65%) lat/lng, all address/intersection.
-  ~+285 accepted/wk (+74%), ~585 op-h < idle.
-- **Measuring: idle share.** 18.7% Nov 9; 33.5% Nov 10; 36.6% Nov 11;
-  62.8% Nov 12; 88.1% Nov 13; 26% Nov 14 partial (burst arrived).
-- **Idea: satisfaction has no data.** Next audit: design measurement
-  ticket. Sycamore 01M7CEGMMSE0F7Q7736MCTR2E1 (repair-quality feedback)
-  left RECEIVED as candidate signal — decide then.
+  LOCATION_UNRESOLVED, 0 BBL, 571 (65%) lat/lng. ~+285 accepted/wk (+74%),
+  ~585 op-h < idle.
+- **Measuring: idle share.** 18.7% Nov 9 → 88.1% Nov 13; 26% Nov 14 partial.
+- **Idea: satisfaction has no data.** Cluster grew to 3 contacts (Sycamore
+  01M7CEGMMSE0F7Q7736MCTR2E1, Sassafras 01M7D8AKDRG1541F7TZ969W3DG,
+  Yellowwood 01M7DHE6079NK3F8XAPH8Q7NCE), all asking to confirm/report back
+  whether a repair was done properly — all left RECEIVED. Design the
+  measurement ticket next audit.
 - **Idea:** materials estimate ~33% low. Low priority.
 - **Disproved:** poller sets 44 h floor (11-13); 40% searches fail (11-11).
 
-## Saved queries (folder writes STILL BLOCKED 11-14, sensitive-file)
+## Saved queries (folder writes STILL BLOCKED, sensitive-file)
 
 Shapes (rebuild from these):
 - fleet-time-budget-daily: DISTINCT operator_events 30d, LEAD next (or
@@ -78,6 +84,9 @@ Shapes (rebuild from these):
 - orders-6h-blocks, resident-api-outcomes, resident-wait-breakdown,
   resident-searches (#166: SEARCH_REQUESTS `resident:%` / RESOLVED),
   nearest-operator-bounds (3 days max).
+- contact-vs-search-overlap (#166, 11-14): distinct resident requesters,
+  CREATE_FEATURE_REQUEST vs SEARCH_REQUESTS, 30d. 8 filed, 6 searched,
+  5 both, 3 never searched. 108 KB.
 
 ## Lessons
 
@@ -85,21 +94,29 @@ Shapes (rebuild from these):
 - public_api requester comes from `X-Requester` header, regex
   `^[a-z0-9][a-z0-9:._-]{0,63}$`; customer sends `resident:<persona>`.
 - Use Write, not Edit/sed; grep on /tmp blocked; curl denied; one command
-  per Bash call; mkdir via Write.
+  per Bash call; mkdir via Write (plain `mkdir` needs approval even in own
+  worktree — Write creates parent dirs itself).
 - Morning runs land ~13:00 UTC.
 - Top-level posts ≤75 words.
 - Check upstream intake before reading a demand drop as real.
 - Self-joins over 7 d of operator_events time out.
 - `gh issue view`: `--json comments -q`; no for-loops over issue numbers.
 - All gh comments show seththeeke; tell agents apart by marker.
-- Memory can lag a run (11-14 found my own 01:04 #166 reply unlogged):
-  read the ticket threads, not just memory.
+- customer/backend/ decision logic (gatherIdeaContext, describeOrder,
+  ideaContext.ts) is off-limits even for a "pull not push" fix — editing
+  when/whether the resident's model checks something is gaming our own
+  test. The only lever there is a tool's own definition in actionTools.ts
+  (description, schema) — what the model is told, not what it's made to do.
 
 ## Run log
 
-- 11-13 (all runs): Ginkgo, Yellowwood declined; Sycamore → #166; #181
-  routing deferred to Seth.
 - 11-14 07:00 (audit): 6 contacts (1 → #69, 4 declined, 1 held); #166
   Refined; #213 fixed for Kestrel; #69 board+approved; #165 block+approved;
   #202 unblocked; 3/10 queries; no new ticket; CPO_DAILY
   01M7D2JSZWM1K7CBHH77Q4ZM8X.
+- 11-14 13:00 (conversation): Seth+Rex killed #166's pull-based fix;
+  rewrote Proposal (actionTools.ts wording), withdrew cpo-approved, moved
+  to Intake; confirmed Kestrel's #170 trigger change; #69/#165 both CTO
+  approved (already Refined/Assigned, no action needed); 3 new contacts
+  (repair-quality cluster) left RECEIVED for tomorrow's audit; 1/2 queries.
+  No new ticket. Chat post: none.
