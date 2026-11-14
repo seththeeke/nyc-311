@@ -4,8 +4,8 @@ import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { RequestDao } from "../../dao/request/requestDao";
+import type { RequestDao } from "../../dao/request/requestDao";
+import { getRequestDao } from "../../dao/request/getRequestDao";
 import type { Request } from "../../models/request";
 import { Nyc311RawRecordSchema } from "../../models/nyc311RawRecord";
 import type { IngestionCursor, IngestionCursorStatus } from "../../models/ingestionCursor";
@@ -15,16 +15,11 @@ import type { RequestStreamRecord } from "../../models/requestStreamEvent";
 import { fetchNyc311Page, toSoqlTimestamp } from "./nyc311Client";
 
 /*
- * Constructed lazily inside each function that needs one, not at module
- * scope — per CLAUDE.md §5.2 (revised 2026-08-22). This file's exports
- * cover two unrelated legs (poller and stream fan-out); a module-scope
- * default here previously required REQUESTS_TABLE_NAME on import even for
- * fanOutRequestRecord, which never touches this DAO — the gap that left
- * the fan-out Lambda crashing on every invocation since it shipped.
+ * The RequestDao is built inside each function that needs one via
+ * getRequestDao(), never at module scope (CLAUDE.md §5.2, revised
+ * 2026-08-22): fanOutRequestRecord never touches it, and a module-scope
+ * default once crashed the fan-out Lambda on every invocation.
  */
-function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
-}
 
 /**
  * No unbounded historical backfill on the very first-ever run (no cursor
@@ -59,7 +54,7 @@ const SAFETY_LAG_HOURS = 72;
 
 /**
  * Dependencies for {@link pollNyc311}. `requestDao` defaults to a freshly
- * constructed `RequestDao` (see {@link getDefaultRequestDao}) — tests
+ * constructed `RequestDao` (see {@link getRequestDao}) — tests
  * override it with a mock; `controller/ingestion/` never passes one, since
  * controllers don't construct or touch a DAO at all (CLAUDE.md §5.2).
  */
@@ -89,7 +84,7 @@ function cappedWatermark(now: Date, windowStartDate: Date, lastCreatedDateSeen: 
  * design (cursor semantics §2, pagination/cap §3, lenient validation §4).
  */
 export async function pollNyc311(deps: PollNyc311Deps = {}): Promise<PollResult> {
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
   const now = deps.now ?? (() => new Date());
   const fetchPage = deps.fetchPage ?? fetchNyc311Page;
 
@@ -215,7 +210,7 @@ export interface RequestDaoDeps {
  * concern.
  */
 export async function recordPollerMetrics(metrics: PollerMetrics, deps: RequestDaoDeps = {}): Promise<void> {
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
   logInfo("RecordPollerMetricsStarted", { metrics });
   await requestDao.putPollerMetrics(metrics);
   logInfo("RecordPollerMetricsCompleted", {});
@@ -228,7 +223,7 @@ export async function recordPollerMetrics(metrics: PollerMetrics, deps: RequestD
  * §8a).
  */
 export async function listPollerMetrics(deps: RequestDaoDeps = {}): Promise<PollerMetrics[]> {
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
   logInfo("ListPollerMetricsStarted", {});
   const metrics = await requestDao.listPollerMetrics();
   logInfo("ListPollerMetricsCompleted", { count: metrics.length });
@@ -256,7 +251,7 @@ export interface GetCursorStatusDeps {
  * cursor item exists yet (no poll has ever completed a run).
  */
 export async function getCursorStatus(deps: GetCursorStatusDeps = {}): Promise<IngestionCursorStatus | null> {
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
   const now = deps.now ?? (() => new Date());
 
   logInfo("GetCursorStatusStarted", {});

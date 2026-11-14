@@ -1,9 +1,10 @@
 import { logInfo, logWarn } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { OrderDao } from "../../dao/order/orderDao";
-import { OperatorDao } from "../../dao/operator/operatorDao";
-import { RequestDao } from "../../dao/request/requestDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
+import type { RequestDao } from "../../dao/request/requestDao";
+import { getRequestDao } from "../../dao/request/getRequestDao";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { DispatchResult } from "../../models/orderExecutionTask";
 import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "../scheduling/transitTimeService";
@@ -11,17 +12,6 @@ import type { ProcessingTimeEstimator } from "../scheduling/processingTimeServic
 import { streetConditionProcessingTimeEstimator } from "../scheduling/streetConditionProcessingTimeService";
 import type { MaterialsCostEstimator } from "../scheduling/materialsCostService";
 import { streetConditionMaterialsCostEstimator } from "../scheduling/streetConditionMaterialsCostService";
-
-/* Constructed lazily inside each exported function, not at module scope — per CLAUDE.md §5.2. */
-function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
-function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
-}
-function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
-}
 
 /**
  * How much faster the simulation runs than real time
@@ -75,9 +65,9 @@ export async function dispatchOrder(
   jobLocation: GpsLocation,
   deps: OrderExecutionDeps = {}
 ): Promise<DispatchResult> {
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
   const transitEstimator = deps.transitEstimator ?? straightLineTransitTimeEstimator;
   const processingEstimator = deps.processingEstimator ?? streetConditionProcessingTimeEstimator;
   const materialsEstimator = deps.materialsEstimator ?? streetConditionMaterialsCostEstimator;
@@ -154,8 +144,8 @@ export async function arriveAtJob(
   jobLocation: GpsLocation,
   deps: OrderExecutionDeps = {}
 ): Promise<void> {
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
 
   logInfo("OrderExecutionArriveStarted", { orderId, operatorId });
   await orderDao.recordArrived(orderId);
@@ -177,8 +167,8 @@ export async function resolveOrder(
   actualMaterialsCost: number | null,
   deps: OrderExecutionDeps = {}
 ): Promise<void> {
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
 
   logInfo("OrderExecutionResolveStarted", { orderId, operatorId, actualMaterialsCost });
   await orderDao.recordResolved(orderId, actualMaterialsCost);
@@ -205,8 +195,8 @@ export async function failExecution(
   reason: string,
   deps: OrderExecutionDeps = {}
 ): Promise<void> {
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
 
   logInfo("OrderExecutionFailStarted", { orderId, operatorId, reason });
 

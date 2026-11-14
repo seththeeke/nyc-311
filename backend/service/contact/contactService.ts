@@ -1,17 +1,11 @@
 import { ulid } from "ulid";
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { ContactDao } from "../../dao/contact/contactDao";
+import type { ContactDao } from "../../dao/contact/contactDao";
+import { getContactDao } from "../../dao/contact/getContactDao";
 import type { Contact, CreateContactInput } from "../../models/contact";
 import type { ContactListItem, ContactListPage, ListContactsQuery } from "../../models/contactList";
 import type { UpdateContactInput } from "../../models/contactUpdate";
 import { NotFoundError, ValidationError } from "../../models/errors";
-
-/* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
-function getContactDao(): ContactDao {
-  return new ContactDao(createDocumentClient(), requireEnv("CONTACTS_TABLE_NAME"));
-}
 
 export interface ContactServiceDeps {
   contactDao?: ContactDao;

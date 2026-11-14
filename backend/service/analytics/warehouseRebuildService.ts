@@ -12,8 +12,8 @@ import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
 import { logInfo, logError } from "../../logger";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import type { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import { getWarehouseJobRunsDao } from "../../dao/analytics/getWarehouseJobRunsDao";
 import type { WarehouseJobRun, WarehouseJobRunStatus } from "../../models/warehouseJobRun";
 import type {
   RebuildSource,
@@ -107,17 +107,13 @@ interface ResolvedDeps {
 }
 
 function resolve(deps: WarehouseRebuildDeps): ResolvedDeps {
-  let dao = deps.jobRunsDao;
   return {
     s3: deps.s3Client ?? new S3Client({}),
     firehose: deps.firehoseClient ?? new FirehoseClient({}),
     bucket: deps.bucket ?? requireEnv("WAREHOUSE_BUCKET_NAME"),
     now: deps.now ?? (() => new Date()),
     sleep: deps.sleep ?? ((ms) => delayMs(ms)),
-    jobRunsDao: () => {
-      dao ??= new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
-      return dao;
-    },
+    jobRunsDao: () => deps.jobRunsDao ?? getWarehouseJobRunsDao(),
   };
 }
 

@@ -1,21 +1,11 @@
 import { logInfo, logWarn } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { RequestDao } from "../../dao/request/requestDao";
-import { LocationDao } from "../../dao/location/locationDao";
-import { OrderDao } from "../../dao/order/orderDao";
+import type { RequestDao } from "../../dao/request/requestDao";
+import { getRequestDao } from "../../dao/request/getRequestDao";
+import type { LocationDao } from "../../dao/location/locationDao";
+import { getLocationDao } from "../../dao/location/getLocationDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
 import type { Request } from "../../models/request";
-
-/* Constructed lazily inside evaluateRequest, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
-function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
-}
-function getDefaultLocationDao(): LocationDao {
-  return new LocationDao(createDocumentClient(), requireEnv("LOCATIONS_TABLE_NAME"));
-}
-function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
 
 /**
  * The outcome contract every filter function in {@link FILTERS} returns
@@ -105,9 +95,9 @@ export interface RequestEvaluationDeps {
  * must never double-process an already-evaluated Request.
  */
 export async function evaluateRequest(request: Request, deps: RequestEvaluationDeps = {}): Promise<void> {
-  const requestDao = deps.requestDao ?? getDefaultRequestDao();
-  const locationDao = deps.locationDao ?? getDefaultLocationDao();
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
+  const locationDao = deps.locationDao ?? getLocationDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
   const now = deps.now ?? (() => new Date());
   const filters = deps.filters ?? FILTERS;
 

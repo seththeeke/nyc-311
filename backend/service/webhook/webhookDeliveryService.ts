@@ -1,7 +1,6 @@
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
 import { logError, logInfo, logWarn } from "../../logger";
-import { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import type { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import { getWebhookSubscriptionDao } from "../../dao/webhookSubscription/getWebhookSubscriptionDao";
 import type { WebhookDeliveryTask } from "../../models/webhookDeliveryTask";
 import { WebhookSecretStore } from "./webhookSecretStore";
 import { buildWebhookHeaders } from "./webhookSignature";
@@ -9,10 +8,6 @@ import { buildWebhookHeaders } from "./webhookSignature";
 /* A subscriber that hasn't answered in this long counts as a failed attempt. */
 export const WEBHOOK_DELIVERY_TIMEOUT_MS = 10_000;
 
-/* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getWebhookSubscriptionDao(): WebhookSubscriptionDao {
-  return new WebhookSubscriptionDao(createDocumentClient(), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
-}
 
 export interface WebhookDeliveryDeps {
   webhookSubscriptionDao?: WebhookSubscriptionDao;

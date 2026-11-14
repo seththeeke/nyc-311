@@ -9,8 +9,8 @@ import {
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import type { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import { getWarehouseJobRunsDao } from "../../dao/analytics/getWarehouseJobRunsDao";
 import { NotFoundError } from "../../models/errors";
 import { MAX_JOB_RETRIES, type WarehouseJobRun, type WarehouseJobRunTrigger } from "../../models/warehouseJobRun";
 import type { JobResult, JobResultColumn } from "../../models/jobResult";
@@ -43,8 +43,7 @@ interface ResolvedDeps {
 
 function resolve(deps: WarehouseJobRunnerDeps): ResolvedDeps {
   return {
-    jobRunsDao:
-      deps.jobRunsDao ?? new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME")),
+    jobRunsDao: deps.jobRunsDao ?? getWarehouseJobRunsDao(),
     athenaClient: deps.athenaClient ?? new AthenaClient({}),
     s3Client: deps.s3Client ?? new S3Client({}),
     resultsBucket: deps.resultsBucket ?? requireEnv("JOB_RESULTS_BUCKET"),

@@ -1,10 +1,12 @@
 import { logInfo, logWarn } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { OrderDao } from "../../dao/order/orderDao";
-import { RequestDao } from "../../dao/request/requestDao";
-import { LocationDao } from "../../dao/location/locationDao";
-import { OperatorDao } from "../../dao/operator/operatorDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
+import type { RequestDao } from "../../dao/request/requestDao";
+import { getRequestDao } from "../../dao/request/getRequestDao";
+import type { LocationDao } from "../../dao/location/locationDao";
+import { getLocationDao } from "../../dao/location/getLocationDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
 import type { Order } from "../../models/order";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import { straightLineTransitTimeEstimator, type TransitTimeEstimator } from "./transitTimeService";
@@ -16,19 +18,6 @@ import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "
 import { failExecution } from "../execution/orderExecutionService";
 import { ConflictError } from "../../models/errors";
 
-/* Constructed lazily inside scheduleOrders, not at module scope — per CLAUDE.md §5.2. */
-function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
-function getDefaultRequestDao(): RequestDao {
-  return new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
-}
-function getDefaultLocationDao(): LocationDao {
-  return new LocationDao(createDocumentClient(), requireEnv("LOCATIONS_TABLE_NAME"));
-}
-function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
-}
 
 /*
  * Defensive bound on Lambda runtime, not a real volume constraint at this
@@ -204,10 +193,10 @@ async function dispatchOneOrder(
  */
 export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<SchedulingRunSummary> {
   const resolvedDeps = {
-    orderDao: deps.orderDao ?? getDefaultOrderDao(),
-    requestDao: deps.requestDao ?? getDefaultRequestDao(),
-    locationDao: deps.locationDao ?? getDefaultLocationDao(),
-    operatorDao: deps.operatorDao ?? getDefaultOperatorDao(),
+    orderDao: deps.orderDao ?? getOrderDao(),
+    requestDao: deps.requestDao ?? getRequestDao(),
+    locationDao: deps.locationDao ?? getLocationDao(),
+    operatorDao: deps.operatorDao ?? getOperatorDao(),
     transitEstimator: deps.transitEstimator ?? straightLineTransitTimeEstimator,
     processingEstimator: deps.processingEstimator ?? streetConditionProcessingTimeEstimator,
     materialsEstimator: deps.materialsEstimator ?? streetConditionMaterialsCostEstimator,

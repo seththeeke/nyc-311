@@ -1,14 +1,8 @@
 import { ulid } from "ulid";
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { UserDao } from "../../dao/user/userDao";
+import type { UserDao } from "../../dao/user/userDao";
+import { getUserDao } from "../../dao/user/getUserDao";
 import type { User } from "../../models/user";
-
-/* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
-function getDefaultUserDao(): UserDao {
-  return new UserDao(createDocumentClient(), requireEnv("USERS_TABLE_NAME"));
-}
 
 /** Dependencies for {@link getOrCreateUser} — defaults to this module's own singleton; tests override it with a mock. */
 export interface GetOrCreateUserDeps {
@@ -27,7 +21,7 @@ export async function getOrCreateUser(
   email: string,
   deps: GetOrCreateUserDeps = {}
 ): Promise<User> {
-  const userDao = deps.userDao ?? getDefaultUserDao();
+  const userDao = deps.userDao ?? getUserDao();
   const now = new Date().toISOString();
 
   const existing = await userDao.getUserByCognitoSub(cognitoSub);

@@ -1,10 +1,12 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { logInfo, logWarn } from "../../logger";
-import { requireEnv } from "../../env";
 import { createDocumentClient } from "../../dynamoClient";
-import { OperatorDao } from "../../dao/operator/operatorDao";
-import { OrderDao } from "../../dao/order/orderDao";
-import { LocationDao } from "../../dao/location/locationDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
+import type { LocationDao } from "../../dao/location/locationDao";
+import { getLocationDao } from "../../dao/location/getLocationDao";
 import type { FleetLocations, FleetCurrentOrder } from "../../models/fleetLocation";
 import { HOME_DEPOT_LOCATION, type GpsLocation } from "../../models/gpsLocation";
 import type { Location } from "../../models/location";
@@ -62,9 +64,9 @@ export async function getFleetLocations(deps: GetFleetLocationsDeps = {}): Promi
   let client: DynamoDBDocumentClient | undefined;
   const sharedClient = (): DynamoDBDocumentClient => (client ??= createDocumentClient());
   try {
-    const operatorDao = deps.operatorDao ?? new OperatorDao(sharedClient(), requireEnv("OPERATORS_TABLE_NAME"));
-    const orderDao = deps.orderDao ?? new OrderDao(sharedClient(), requireEnv("ORDERS_TABLE_NAME"));
-    const locationDao = deps.locationDao ?? new LocationDao(sharedClient(), requireEnv("LOCATIONS_TABLE_NAME"));
+    const operatorDao = deps.operatorDao ?? getOperatorDao(sharedClient());
+    const orderDao = deps.orderDao ?? getOrderDao(sharedClient());
+    const locationDao = deps.locationDao ?? getLocationDao(sharedClient());
     logInfo("GetFleetLocationsStarted", {});
 
     const roster = await operatorDao.listActiveRoster();

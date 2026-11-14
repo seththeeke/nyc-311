@@ -1,13 +1,7 @@
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { LocationDao } from "../../dao/location/locationDao";
+import type { LocationDao } from "../../dao/location/locationDao";
+import { getLocationDao } from "../../dao/location/getLocationDao";
 import type { Location } from "../../models/location";
-
-/* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
-function getLocationDao(): LocationDao {
-  return new LocationDao(createDocumentClient(), requireEnv("LOCATIONS_TABLE_NAME"));
-}
 
 export interface LocationServiceDeps {
   locationDao?: LocationDao;

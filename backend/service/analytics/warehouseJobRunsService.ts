@@ -1,12 +1,7 @@
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import type { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import { getWarehouseJobRunsDao } from "../../dao/analytics/getWarehouseJobRunsDao";
 import type { WarehouseJobRunListResponse } from "../../models/warehouseJobRun";
-
-function getDefaultJobRunsDao(): WarehouseJobRunsDao {
-  return new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
-}
 
 /* A page big enough to be useful on /data without ever needing pagination at 1 run/day. */
 const DEFAULT_LIMIT = 100;
@@ -20,7 +15,7 @@ export interface ListWarehouseJobRunsDeps {
 export async function listWarehouseJobRuns(
   deps: ListWarehouseJobRunsDeps = {}
 ): Promise<WarehouseJobRunListResponse> {
-  const jobRunsDao = deps.jobRunsDao ?? getDefaultJobRunsDao();
+  const jobRunsDao = deps.jobRunsDao ?? getWarehouseJobRunsDao();
   const limit = deps.limit ?? DEFAULT_LIMIT;
 
   logInfo("ListWarehouseJobRunsStarted", { limit });
