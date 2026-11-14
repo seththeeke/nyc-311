@@ -5,7 +5,8 @@
 # Edit only her memory file, her saved queries (queries/<name>.sql, §17.11),
 # her reports (agent-reports/, §21.3) or /tmp, no git writes, no PRs, no AWS, and gh writes only on her own
 # cpo-agent issues, plus a comment or her cpo-approved label on any card on
-# Kid Kestrel's board (§22.2.1), whose cards she moves only through
+# Kid Kestrel's board (§22.2.1), or a comment on any ticket where Seth tagged
+# her (@Celestine); she moves board cards only through
 # scripts/agent-board.sh cpo-agent. Exit 2 blocks.
 
 input=$(cat)
@@ -61,6 +62,14 @@ def on_board(number):
         return False
     return out.returncode == 0 and out.stdout.strip() not in ("", "none")
 
+def mentions_her(number):
+    """Seth tagged her on this ticket: a comment mentions @Celestine (her prompt, When Seth tags you)."""
+    try:
+        out = subprocess.run(["gh", "issue", "view", number, "--repo", REPO, "--json", "comments", "--jq", "any(.comments[]; .body | test(\"@Celestine\"; \"i\"))"], capture_output=True, text=True, timeout=30)
+    except Exception:
+        return False
+    return out.stdout.strip() == "true"
+
 def approval_only(words):
     rest = [w for w in words if not re.fullmatch(r"#?\d+", w)]
     while rest:
@@ -115,6 +124,8 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
                     deny("that issue edit is blocked.")
                 continue
             if (action == "comment" or approval) and on_board(number):
+                continue
+            if action == "comment" and mentions_her(number):
                 continue
             deny("she may only change her own cpo-agent issues, or comment and set cpo-approved on a board card.")
         deny(f"gh issue {action} is blocked.")

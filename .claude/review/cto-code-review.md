@@ -68,6 +68,23 @@ on any that fails:
 
 The 3-comment cap and rounds still apply.
 
+## Wild ideas (`wild-idea`): Grimble's boldest
+
+Grimble labels a saving `wild-idea` when it changes how something works, not
+just its size. Review it harder than any other PR:
+
+1. **Prove the system still does the same job.** Trace what the change
+   removes or skips through to every consumer, alarm, test gate and the
+   Test-before-Prod order. "Probably fine" is a block.
+2. **The saving is real.** The before number comes from the bill, and the
+   mechanism by which the after number drops is spelled out.
+3. **It can be undone in one revert**, and the PR says how to tell within a
+   day that it should be.
+4. **Smells and bugs block**, as on Kid Kestrel's PRs.
+
+Approve and merge only when all four hold. A wild idea that's right but too
+risky in one step gets a comment proposing a smaller first step.
+
 ## Writing a comment
 
 - Point at the line. Say what's wrong, why it matters and what would fix it,

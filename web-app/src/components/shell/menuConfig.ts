@@ -91,7 +91,6 @@ export const MENU: readonly MenuEntry[] = [
     kind: "LINK",
     id: "TEAM_CHAT",
     label: "Team Chat",
-    badge: "Beta",
     to: TEAM_CHAT_PATH,
     alsoActiveOn: [],
     icon: ChatIcon,

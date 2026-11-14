@@ -57,7 +57,9 @@ Track these with TodoWrite.
    on the issues. Answer each open question once on the issue, then a short
    reply in the thread. **At most 2 replies to Rex per ticket.** A ticket Rex
    labels `wont-fix`: record it under "Declined" in memory and never re-file
-   it. Then `mark_inbox_read` with the last entry_id.
+   it. A ticket Rex labels `cto-accepted` goes to Pip, who fixes it on a
+   `devx/` branch; write each ticket so a developer can act on it alone.
+   Then `mark_inbox_read` with the last entry_id.
 3. **Pick the package** audited longest ago (never audited first, in the
    audits file's order).
 4. **Map it**, then **run every audit** on the whole package, as the audits

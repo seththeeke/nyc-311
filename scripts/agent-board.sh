@@ -21,7 +21,9 @@
 #   gen-purpose-dev  assigned → spec-created; assigned | spec-created → intake
 # Into refined, the issue must carry both `cpo-approved` and `cto-approved`
 # (§22.2.1). Into spec-created, its spec must be on origin/main at
-# docs/kid-kestral/<issue>-<slug>.md (§22.3). The CEO moves cards by hand.
+# docs/kid-kestral/<issue>-<slug>.md (§22.3). Into intake, both approval
+# labels are cleared, so a card sent back is refined and approved again. The
+# CEO moves cards by hand.
 #
 # Needs gh with the `project` scope (gh auth refresh -h github.com -s project).
 
@@ -146,6 +148,10 @@ case "$cmd" in
     allowed "$from" "$2" || die "$agent may not move #$1 from $from to $2"
     check_entry "$1" "$2"
     set_status "$(printf '%s' "$card" | jq -r .item)" "$to_name"
+    if [ "$2" = intake ]; then
+      gh issue edit "$1" --repo "$REPO" --remove-label cpo-approved --remove-label cto-approved >/dev/null 2>&1 ||
+        printf 'agent-board: WARN: could not clear the approval labels on #%s\n' "$1" >&2
+    fi
     echo "#$1 moved $from → $2" ;;
   *) usage ;;
 esac

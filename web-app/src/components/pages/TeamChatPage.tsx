@@ -24,10 +24,7 @@ export function TeamChatPage(): ReactElement {
       <h1 className="sr-only">Team Chat</h1>
       <div className="grid h-full min-h-[32rem] md:grid-cols-[15rem_minmax(0,1fr)]">
         <nav aria-label="Channels" className="border-b border-line px-4 py-5 md:border-r md:border-b-0">
-          <p className="flex items-center gap-2 font-semibold text-fg">
-            BoroughSim HQ
-            <span className="rounded-full bg-violet-500/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-hue-violet">Beta</span>
-          </p>
+          <p className="font-semibold text-fg">BoroughSim HQ</p>
           <p className="mt-5 text-xs font-medium uppercase tracking-wide text-fg-subtle">Channels</p>
           {channels.isLoading && <p role="status" className="mt-2 text-xs text-fg-muted">Loading channels…</p>}
           {channels.error && <p role="alert" className="mt-2 text-xs text-danger">Couldn&apos;t load channels: {channels.error.message}</p>}

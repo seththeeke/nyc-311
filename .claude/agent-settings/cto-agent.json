@@ -56,7 +56,9 @@
       "Bash(scripts/agent-board.sh cto-agent *)",
       "Bash(*/scripts/agent-board.sh cto-agent *)",
       "Bash(gh issue edit * --add-label cto-approved)",
-      "Bash(gh issue edit * --remove-label cto-approved)"
+      "Bash(gh issue edit * --remove-label cto-approved)",
+      "Bash(gh issue edit * --add-label cto-accepted)",
+      "Bash(gh issue edit * --add-label wont-fix)"
     ],
     "deny": [
       "NotebookEdit",

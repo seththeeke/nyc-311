@@ -31,7 +31,7 @@ fi
 
 if printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_-])gh[[:space:]]+pr[[:space:]]+(merge|close)([^[:alnum:]_-]|$)' \
   || printf '%s' "$cmd" | grep -qE 'pulls/[0-9]+/merge'; then
-  deny "merging or closing a PR is blocked. Seth merges cost/ PRs."
+  deny "merging or closing a PR is blocked. Rex merges cost/ PRs he approves."
 fi
 
 if printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_-])git[[:space:]]+add([^[:alnum:]_-]|$)'; then

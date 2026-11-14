@@ -6,6 +6,17 @@ import { useChatThread } from "../../../../src/hooks/useTeamChat";
 import { inRouter } from "../teamFixtures";
 
 vi.mock("../../../../src/hooks/useTeamChat", () => ({ useChatThread: vi.fn() }));
+/* Every roster member is live now, so the test marks one as not running to cover the Work in progress tag. */
+vi.mock("../../../../src/components/team/teamRoster", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../../src/components/team/teamRoster")>();
+  return {
+    ...actual,
+    memberById: (memberId: string | null) => {
+      const member = actual.memberById(memberId);
+      return member && memberId === "gen-dev" ? { ...member, live: false } : member;
+    },
+  };
+});
 
 beforeEach(() => {
   vi.mocked(useChatThread).mockReturnValue({ data: undefined, isLoading: false, error: null } as ReturnType<typeof useChatThread>);

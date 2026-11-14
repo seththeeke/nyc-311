@@ -303,6 +303,25 @@ workflow applies unchanged except:
 - **"Not worth shipping"** — you didn't file this ticket, so never close it;
   comment your findings on it (marker first) and leave it open for the human.
 
+**Next, Sable's accepted tickets.** Sable, the Software Analyzer, files
+code-quality findings (label `software-analyzer`); Rex judges each one, and
+labels it `cto-accepted` when the fix is worth making. Those are developer
+experience work too, so they're yours:
+
+```
+gh issue list --repo seththeeke/nyc-311 --state open \
+  --label software-analyzer --label cto-accepted --limit 100 \
+  --json number,title,labels --jq '.[] | select(any(.labels[]; .name == "wont-fix") | not) | {number, title}'
+```
+
+Skip one an open PR already addresses (a `devx/<n>-*` branch, or a PR body
+with `Closes #<n>`). If any remain, take the oldest: it's this run's work,
+handled exactly like a requested issue above (no new ticket, its number on
+the branch and in `Closes #<n>`, a baseline for Step 2). Read Rex's
+`<!-- cto-agent:analysis -->` comment first: it says how big the fix is and
+what to watch. An unlabelled Sable ticket isn't yours yet; Rex hasn't
+accepted it.
+
 **Otherwise, find your own problem.** Investigate the repo for a concrete,
 bounded problem. Useful starting points:
 

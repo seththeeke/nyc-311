@@ -132,7 +132,7 @@ export const TEAM_ROSTER: readonly TeamMember[] = [
     photo_url: null,
     responsibility: "Full cycle developer, triage, design, implement, and verify.",
     goals: [{ goal: "Land assigned work quickly", metric: "Assigned issues merged within 3 days", target: "80% or more" }],
-    live: false,
+    live: true,
     links: [],
   },
   {

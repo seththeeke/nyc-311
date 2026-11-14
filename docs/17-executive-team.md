@@ -782,7 +782,7 @@ He squash-merges with `gh api -X PUT repos/seththeeke/nyc-311/pulls/<n>/merge -f
 
 If the PR is `CONFLICTING`, Rex does not resolve the conflict. He leaves the conflict comment, and Pip merges `main` in on his next run (§16.5). The resolution is a new revision, so Rex's next run reviews it, checking that only the conflict resolution changed, and merges it.
 
-A merge to `main` is a release: the pipeline deploys it to Test and then Prod. The Software Engineer's PRs, and every other PR, are still merged by the CEO. Removing `cto-escalated` puts a PR back in Rex's queue.
+A merge to `main` is a release: the pipeline deploys it to Test and then Prod. Rex merges Pip's `devx/` and Grimble's `cost/` PRs; the Software Engineer's PRs, and every other PR, are still merged by the CEO. Removing `cto-escalated` puts a PR back in Rex's queue.
 
 ### 16.3 The rubric
 
@@ -996,8 +996,9 @@ Cost Explorer charges about $0.01 per API request, so each run makes **at most 8
 ### 18.4 Experiments, Rex's review, and no merge
 
 - **Experiments.** Grimble may try a change whose saving isn't certain. The PR is labelled `cost-experiment` and states the baseline cost, the expected saving, the date it will be judged and the exact rollback. On the judge date he reads the bill; a saving is kept, anything else gets a rollback PR (a revert of the experiment's merge).
-- Rex reviews every `cost/` PR, experiments and rollbacks included, with the same marks, rounds and rubric as Pip's (§16). His approval comment says "Ready for Seth to merge".
-- **Only the CEO merges a `cost/` PR**, until the CEO trusts the work. Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2).
+- Rex reviews every `cost/` PR, experiments and rollbacks included, with the same marks, rounds and rubric as Pip's (§16).
+- **Rex merges the `cost/` PRs he approves** (since 2026-11-13; the CEO merged them before), the same way as Pip's: pinned to the approved SHA, enforced in `cto-agent-guard.sh` (§16.2).
+- **Wild ideas.** Grimble attacks the top 3 cost lines, build compute first, and proposes bold changes too. He labels each `wild-idea`, on the ticket and the PR, with a `🌶️ Wild idea:` first line. Rex reviews a `wild-idea` PR on a stricter bar (the rubric's *Wild ideas*: the system provably does the same job, the saving is real, one revert undoes it, no smells or bugs), and answers a `wild-idea` ticket with accept, `wont-fix` or a question.
 - A cost change can remove or resize infrastructure, so every `cost/` PR states what it removes or resizes and how to roll it back.
 
 - **No line is off-limits** (2026-11-09). Grimble starts from the biggest lines and considers at least three ideas for each of the top 3, re-opening any "locked" or "out of scope" verdict in his memory. A saving that needs a workflow change or several PRs is filed as a ticket for Rex. When he leaves a big line alone, his report and thread give a reason per idea, with numbers.
@@ -1071,6 +1072,7 @@ Once a week, Tuesday at 23:30 CT (§21.10), on Opus.
 ### 19.5 Rex on his tickets
 
 Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a formal comment on whether the finding is right and worth fixing, a short reply in the thread, at most 2 per issue, then escalation to the CEO. Rex may label a finding `wont-fix` with his reason; Sable records it in memory and doesn't re-file it.
+- **Accepted tickets go to Pip** (since 2026-11-13). Rex labels an accepted ticket `cto-accepted`; Pip takes the oldest open `software-analyzer` + `cto-accepted` ticket that no PR addresses, after any ticket the CEO asked him for, as developer-experience work on a `devx/` branch.
 
 ### 19.6 The Code Quality page
 
@@ -1272,6 +1274,7 @@ Kid Kestrel's 4 Opus runs a day (§22.6) are paid for by running four agents les
 | Grimble (AWS cost) | Daily | **Monday and Wednesday** at 05:30 (03:30) |
 | Sable (Software Analyzer) | Monday and Thursday | **Tuesday** at 23:30 (21:30) |
 
+- **Pip's open-PR limit is 5** (was 3, 2026-11-13), now that he also fixes Sable's accepted tickets (§19.5).
 - Rex keeps his 8 runs (§21.4). Pip's two slots and all four of Kestrel's are each followed by one of them.
 - Brogan's daily limits (2 recruits, 2 releases) are unchanged; two runs can still use them.
 
@@ -1281,7 +1284,7 @@ Kid Kestrel's 4 Opus runs a day (§22.6) are paid for by running four agents les
 
 **Status:** K1 installed on the Mac mini, 2026-11-09: writing specs (`BUILD=0`), waiting for his first scheduled run and his first Assigned card. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
-`gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves with a success metric measured before and after that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
+`gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves, with checks taken before and after, that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 
 What sets him apart from Pip (§11) and Grimble (§18): they each land one self-contained PR per run. Kestrel's work spans many runs and several PRs, reaches Prod users, and is not done until its metric is verified.
 
@@ -1293,36 +1296,40 @@ His work is tracked on the GitHub project **Kid Kestral** ([projects/3](https://
 
 | Column | Entry rule | Moved by |
 |---|---|---|
-| **Intake** | Any ticket. Celestine files her feature tickets here. Also where Kestrel sends work back that can't be flagged or measured (§22.4). | Anyone |
-| **Refined** | Has the success-metric block (§22.2), **CPO Approved** and **CTO Approved** (§22.2.1). | Whichever of Celestine or Rex gives the second approval |
+| **Intake** | Any ticket. Celestine files her feature tickets here. Also where Kestrel sends any Assigned card he can't turn into a spec (§22.4). | Anyone |
+| **Refined** | Has the verification block (§22.2), **CPO Approved** and **CTO Approved** (§22.2.1). | Whichever of Celestine or Rex gives the second approval |
 | **Assigned** | Given to Kestrel. | The CEO |
 | **Spec Created** | Kestrel's spec (§22.3) is committed and linked on the ticket. **Held here for at least 12 hours** before development starts, so anyone can stop or reshape it. | Kestrel |
 | **In Development** | 12 hours since the spec was posted, and fewer than 5 cards in this column. | Kestrel |
 | **Verified in Test Environment** | Every leg merged, the flag on (`T1`) in Test, the spec's Test checks passed and recorded. | Kestrel |
-| **Verified in Production Environment** | Dialed up to its final allocation in Prod and the success metric post-verified (§22.5). | Kestrel |
+| **Verified in Production Environment** | Dialed up to its final allocation in Prod and its verification repeated (§22.5). | Kestrel |
 | **Verified by Team** | Celestine (the metric) and Rex (the code) agree the project is done. The ticket closes. | Celestine and Rex |
 
 - **In Development is the only column with a limit: 5 cards.** It is set on the board, and Kestrel also reads it from his schedule file (`WIP_LIMIT=5`) and checks it before he moves a card in, since the board's limit is only a warning.
 - A card moves back as well as forward. A failed verification in Prod sends it back to In Development (§22.5).
-- **Parking.** When Kestrel needs an answer, he posts one comment starting `<!-- gen-purpose-dev:parked -->` with his questions and the project's state, and the card stays in its column. The scheduler skips a card whose newest comment is his parked comment. Any later comment from someone else resumes it.
+- **Back to Intake, never stuck in Assigned.** When Kestrel can't get from Assigned to a spec, for any reason (a missing block or approval, no way to verify it, no way to flag it, too big, a question), he comments with what's missing and his suggestion, tagging Celestine or Rex, and moves the card to Intake. **Any move into Intake clears both approval labels** (`agent-board.sh`), so the card goes through refinement again: that's the feedback loop with Celestine and Rex. The CEO reassigns it once it's back in Refined.
+- **Parking** is left only for the scheduler: a session that dies mid-run leaves a `<!-- gen-purpose-dev:parked -->` comment, the scheduler skips the card, and any later comment resumes it.
 
-### 22.2 The Refined bar: a success metric
+### 22.2 The Refined bar: a way to verify it
 
 A ticket enters Refined only with this block in its body, written by Celestine. For a ticket she didn't file, she posts the block in a comment starting `<!-- cpo-agent:metric -->`, which stands in for the body's:
 
 ```
-## Success metric
-- Metric: <one number, e.g. cost per accepted order>
-- Query: <a saved query, a WBR line, or the exact SQL>
-- Target: <the change expected, e.g. -5% within 14 days at 100%>
-- Window: <how long to measure, before and after>
+## Verification
+- Goal: <what is true once it ships>
+- How: <an existing metric and its query; a metric this change creates; or
+  a direct check in Test and Prod: a request, a page, a log line>
+- Target: <the result that proves it works: a number, or what is observed>
+- Window: <how long to watch, before and after>
 - Guardrails: <metrics that must not get worse, with a threshold>
 - Flag: <how it can be dialed up: page, route, operator, order>
 - Dial-up: <the steps, how long each holds, and what is checked at each (§22.5)>
 ```
 
-- **Pre-verify.** When he writes the spec, Kestrel runs the query and records the baseline. A query that won't run, or a metric he can't measure, means he parks the card (§22.1), not that he guesses.
-- **Post-verify.** After the full dial-up and the window, he runs the same query and records the result against the target (§22.5).
+- **No existing metric is required.** A net-new feature may have none; it can be verified by a direct check, or by a metric the change itself creates. What's required is a result that would prove the change works.
+- **Kestrel proposes his own ways to verify**, in the spec, and doesn't rely only on the ticket's: an existing metric's baseline, a metric the change creates, direct checks in Test and Prod (including read-only logs and metrics through his AWS role), and tests for both treatments. He says which one decides the outcome.
+- **Before:** when he writes the spec, he records the "before" for each check: a baseline number, a log query's result, or what's absent today.
+- **After:** after the full dial-up and the window, he repeats each check and records the result against the target (§22.5).
 
 #### 22.2.1 CPO and CTO approval
 
@@ -1330,12 +1337,12 @@ A ticket needs two approvals to enter Refined, one from each of Celestine and Re
 
 | Approval | Who | Means | Form |
 |---|---|---|---|
-| **CPO Approved** | Celestine | The problem is worth solving and the success metric is the right one, measurable, with sound guardrails. | A comment starting `<!-- cpo-agent:approved -->` and **✅ CPO Approved by Celestine**, and the label `cpo-approved` |
-| **CTO Approved** | Rex | It is feasible, can be flagged, the dial-up plan fits how that part of the system runs, and it is small enough to build as a project. | A comment starting `<!-- cto-agent:ticket-approved -->` and **✅ CTO Approved by Rex**, and the label `cto-approved` |
+| **CPO Approved** | Celestine | The problem is worth solving and its verification is sound, with a result that would prove it works and sound guardrails. | A comment starting `<!-- cpo-agent:approved -->` and **✅ CPO Approved by Celestine**, and the label `cpo-approved` |
+| **CTO Approved** | Rex | It is feasible, can be flagged, its verification would really show it works, the dial-up plan fits how that part of the system runs, and it is small enough to build as a project. | A comment starting `<!-- cto-agent:ticket-approved -->` and **✅ CTO Approved by Rex**, and the label `cto-approved` |
 
 - **Whoever approves second moves the card to Refined.** Each checks the other's label before moving it, so the move happens exactly once.
 - An approval is withdrawn by removing its label, with a comment saying why. A ticket that loses one goes back to Intake.
-- Neither approves a ticket without the success-metric block. Either can ask for changes on the ticket instead, within their usual caps (§17.7).
+- Neither approves a ticket without the verification block. Either can ask for changes on the ticket instead, within their usual caps (§17.7).
 - They move cards with `scripts/agent-board.sh`: Celestine may `add` a ticket (to Intake), and both may move Intake → Refined and Refined → Intake. Their guards gain that script and `gh issue edit` to add or remove their own approval label.
 
 ### 22.3 The spec
@@ -1343,7 +1350,7 @@ A ticket needs two approvals to enter Refined, one from each of Celestine and Re
 One file per project, `docs/kid-kestral/<issue>-<slug>.md`, in the shape of the numbered design docs, linked from the ticket. It starts as the plan and becomes the record:
 
 1. **Ticket:** the link, and the problem in a few lines.
-2. **Success metric:** the block from §22.2, with the **baseline** Kestrel measured, its date and the query.
+2. **Verification:** the block from §22.2 plus Kestrel's own proposals, each with its "before" and its date, and which check decides the outcome.
 3. **Flag:** key, treatments, what `C` and `T1` do, and where it's read.
 4. **Legs:** a table with one row per leg: what it changes, its PR, its state, and how it's verified. Each leg ships dark (flag `C` in Prod) and is merged before the next leg starts.
 5. **Dial-up plan:** the steps (§22.5), each with its hold and its abort rule.
@@ -1356,16 +1363,16 @@ He updates it every run that changes anything. **Spec updates are committed stra
 ### 22.4 Feature flags, always
 
 - **Every user-visible or behavioural change ships behind a flag**, `C` in `FeatureFlags-Prod` and `T1` in `FeatureFlags-Test`, using the `create-feature-flag` skill.
-- **If a project can't be rolled out as an experiment**, because it can't be flagged, can't be dialed up gradually, or can't be measured, Kestrel moves it **back to Intake** with a comment proposing smaller, flaggable pieces. He doesn't build it unflagged.
+- **If a project can't be rolled out as an experiment**, because it can't be flagged, dialed up gradually or verified, Kestrel moves it **back to Intake** with a comment proposing smaller, flaggable pieces. He doesn't build it unflagged.
 - **He changes only the flags his specs name.** That keeps assignment stable enough: no one else's flag moves under a running experiment. The engineering MCP client enforces it (§22.9).
 - Each flag gets its cleanup issue (the skill files it). It is removed after the project reaches Verified by Team.
 - **The backend doesn't read flags yet.** Only the web-app does; `backend/service/featureFlag/treatmentEvaluator.ts` exists, but no service calls it. Backend flag reads are filed as a backlog item and are Kestrel's first project once he builds (§22.11).
 
 ### 22.5 Dialing up
 
-**There is no fixed dial-up.** Each ticket's plan is set during refinement, in its success-metric block's `Dial-up` line (§22.2): Celestine sets what is measured and how long it takes to see, and Rex checks that the steps fit how that part of the system runs. The plan follows how quickly the work can be verified. A low-volume order path needs longer holds than a page with many viewers, and some changes are verifiable in one run.
+**There is no fixed dial-up.** Each ticket's plan is set during refinement, in its verification block's `Dial-up` line (§22.2): Celestine sets what is measured and how long it takes to see, and Rex checks that the steps fit how that part of the system runs. The plan follows how quickly the work can be verified. A low-volume order path needs longer holds than a page with many viewers, and some changes are verifiable in one run.
 
-- **For now, every project dials up `C` → 100% `T1`** in one step, until a ticket makes the case for something finer. Kestrel checks the guardrails on each run after the step, and post-verifies the metric after its window.
+- **For now, every project dials up `C` → 100% `T1`** in one step, until a ticket makes the case for something finer. Kestrel checks the guardrails on each run after the step, and repeats his verification checks after the window.
 - **Kestrel dials up himself**, to 100% included. The CEO's approval is not needed.
 - He copies the ticket's plan into the spec (§22.3) and follows it. He never skips a step it names.
 - **Abort:** if a guardrail breaks its threshold at any step, he sets the flag back to `C` on that run, records why in the verification log, and moves the card back to In Development.
@@ -1430,7 +1437,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 
 | Iteration | What runs | Kestrel stops at |
 |---|---|---|
-| **K1. Intake to spec** | Celestine files feature tickets to Intake with the success-metric block. Celestine and Rex approve; the second moves the card to Refined. The CEO assigns. Kestrel pre-verifies the metric with `run_query`, writes the spec and moves the card to Spec Created. | **Spec Created.** He moves nothing to In Development (`BUILD=0` in his schedule file) until the CEO has reviewed a few specs. |
+| **K1. Intake to spec** | Celestine files feature tickets to Intake with the verification block. Celestine and Rex approve; the second moves the card to Refined. The CEO assigns. Kestrel plans the verification, records the "before", writes the spec and moves the card to Spec Created, or sends it back to Intake. | **Spec Created.** He moves nothing to In Development (`BUILD=0` in his schedule file) until the CEO has reviewed a few specs. |
 | **K2. Build** | Kestrel builds legs behind flags, Rex reviews with the stricter bar, and the CEO merges. His first project is backend flag reads. | Verified in Test Environment |
 | **K3. Dial-up** | `set_flag`, the dial-up steps (§22.5) and post-verification. | Verified by Team |
 
@@ -1460,6 +1467,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 
 ## Appendix: decisions and history
 
+- **Team adjustments (2026-11-13).** Pip took over Sable's accepted tickets (Rex labels them `cto-accepted`), with his open-PR limit raised to 5. Rex now merges Grimble's PRs. Grimble attacks the top 3 lines, build compute first, and labels bold proposals `wild-idea` for Rex's stricter review. Kestrel's tickets need a way to verify the work, not an existing metric, so he can take net-new features, and he proposes his own checks; a card he can't spec goes back to Intake with his suggestion, clearing both approvals. Celestine answers when the CEO tags her in a ticket comment.
 - **Kid Kestrel's project workflow (2026-11-09).** The CEO set up a project board for him and four rules: a success metric on everything in Refined, flags on every change (or back to Intake to be split), a spec held 12 hours in Spec Created as a rate limiter, and a WIP limit of 5 on In Development only. Refinement became two signed approvals, CPO and CTO, with whoever approves second moving the card, so neither waits on the other. Specs go straight to `main` because they change on runs that open no PR, such as dial-up steps. He was first planned at 8 Opus runs a day, then cut to 4 to protect usage; they sit in Pip's slots so Rex's runs review both. He may work several cards a run, but each in its own session and worktree so projects never mix. Rex approves his PRs on a stricter bar than Pip's (no smells, no bugs, nothing existing broken) but the CEO merges, as with Grimble's. The board replaced the label state machine. Flag changes and warehouse queries come through a new engineering role and MCP server; he touches only his specs' flags, which keeps assignment stable without sticky bucketing. It is built in iterations: K1 stops at Spec Created until the CEO has reviewed a few specs. The dial-up is set per ticket by Celestine and Rex, from how the system runs and how fast the work can be verified, not by a fixed ladder; until a ticket argues otherwise it is `C` → 100%, and Kestrel goes to 100% without the CEO.
 
 - **v2 launch rules (2026-11-07).** The CEO kept the Mac mini on Pacific time ("deal with it"), so schedules are written in Pacific. Posts drop run types and keep to 75 words, with detail in threads, memory and reports; the cap is enforced in the MCP client only, not the data model, with Penny exempt for now. Reports went to one shared, committed folder so Penny and the website can read them. Usage tracking became part of Penny's job. Grimble runs daily to get the bill under control, with a 3-PR cap of his own; the CEO merges his PRs until confident. Sable is adversarial, audits one whole package per run to keep broad context, and his reports are synced to one Prod-account S3 bucket for the website.

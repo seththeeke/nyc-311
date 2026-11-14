@@ -4,8 +4,8 @@
 # through the agent's frontmatter. Rex reviews and never changes code: no git
 # writes, no branch checkouts (Pip may have the branch), and GitHub writes only
 # to a PR's reviews, comments, labels and commit statuses, plus one merge: a
-# squash merge, pinned to the head SHA, of an open, cto-approved devx/ PR
-# (§16.2). On Kid Kestrel's board (§22.2.1) he may run agent-board.sh as
+# squash merge, pinned to the head SHA, of an open, cto-approved devx/ or
+# cost/ PR (§16.2, §18.4). On Kid Kestrel's board (§22.2.1) he may run agent-board.sh as
 # cto-agent and add or remove cto-approved on a board card. Exit 2 blocks.
 
 input=$(cat)
@@ -20,8 +20,9 @@ if not cmd:
     sys.exit(0)
 
 def analyzer_issue(number):
+    """A Sable ticket, or a wild idea of Grimble\x27s: both get Rex\x27s verdict labels."""
     try:
-        out = subprocess.run(["gh", "issue", "view", number, "--repo", "seththeeke/nyc-311", "--json", "labels", "--jq", "[.labels[].name] | index(\"software-analyzer\") != null"], capture_output=True, text=True, timeout=30)
+        out = subprocess.run(["gh", "issue", "view", number, "--repo", "seththeeke/nyc-311", "--json", "labels", "--jq", "[.labels[].name] | (index(\"software-analyzer\") != null or index(\"wild-idea\") != null)"], capture_output=True, text=True, timeout=30)
     except Exception:
         return False
     return out.stdout.strip() == "true"
@@ -59,8 +60,8 @@ def check_merge(number, fields, used_input):
     except Exception:
         deny(f"could not look up PR #{number} to check the merge.")
     labels = {l.get("name") for l in pr.get("labels", [])}
-    if not str(pr.get("headRefName", "")).startswith("devx/"):
-        deny("Rex merges only Pip\x27s devx/ PRs.")
+    if not str(pr.get("headRefName", "")).startswith(("devx/", "cost/")):
+        deny("Rex merges only Pip\x27s devx/ and Grimble\x27s cost/ PRs.")
     if pr.get("state") != "OPEN" or pr.get("isDraft"):
         deny("Rex merges only open, non-draft PRs.")
     if "cto-approved" not in labels or "cto-escalated" in labels:
@@ -101,7 +102,7 @@ for segment in re.split(r"\|\||&&|;|\||\n", cmd):
                 if labels == ["cto-escalated"] and all(f in {"--add-label", "--repo", "-R"} for f in flags):
                     continue
                 number = next((a for a in rest if re.fullmatch(r"#?\d+", a)), None)
-                if labels == ["wont-fix"] and all(f in {"--add-label", "--repo", "-R"} for f in flags) and number and analyzer_issue(number.lstrip("#")):
+                if labels in (["wont-fix"], ["cto-accepted"]) and all(f in {"--add-label", "--repo", "-R"} for f in flags) and number and analyzer_issue(number.lstrip("#")):
                     continue
                 removed = [rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--remove-label"]
                 approval = (labels, removed) in ((["cto-approved"], []), ([], ["cto-approved"]))
