@@ -1,9 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { ulid } from "ulid";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
-import { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import type { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import { getWebhookSubscriptionDao } from "../../dao/webhookSubscription/getWebhookSubscriptionDao";
 import { ConflictError, UnauthorizedError, ValidationError } from "../../models/errors";
 import {
   MAX_WEBHOOK_SUBSCRIPTIONS,
@@ -14,11 +14,7 @@ import {
 } from "../../models/webhookSubscription";
 import { WebhookSecretStore } from "./webhookSecretStore";
 
-/* Both constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getWebhookSubscriptionDao(): WebhookSubscriptionDao {
-  return new WebhookSubscriptionDao(createDocumentClient(), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
-}
-
+/* Constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
 function getSecretStore(): WebhookSecretStore {
   return new WebhookSecretStore();
 }

@@ -1,9 +1,10 @@
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
-import { LiveWorkspaceMetricsDao } from "../../dao/analytics/liveWorkspaceMetricsDao";
-import { OperatorDao } from "../../dao/operator/operatorDao";
-import { OrderDao } from "../../dao/order/orderDao";
+import type { LiveWorkspaceMetricsDao } from "../../dao/analytics/liveWorkspaceMetricsDao";
+import { getLiveWorkspaceMetricsDao } from "../../dao/analytics/getLiveWorkspaceMetricsDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
 import { ValidationError } from "../../models/errors";
 import type { LiveMetricsDayBucket } from "../../models/liveWorkspaceMetrics";
 import type { OrderEvent } from "../../models/order";
@@ -11,19 +12,6 @@ import type { WorkspaceMetricId, WorkspaceMetrics, WorkspaceMetricValue } from "
 import { addDays, newYorkDate, weekStartOf, weekToDateDays } from "./newYorkWeek";
 
 const SECONDS_PER_HOUR = 3600;
-
-/* All three constructed lazily, per function that needs one (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getLiveWorkspaceMetricsDao(): LiveWorkspaceMetricsDao {
-  return new LiveWorkspaceMetricsDao(createDocumentClient(), requireEnv("LIVE_WORKSPACE_METRICS_TABLE_NAME"));
-}
-
-function getOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
-
-function getOperatorDao(): OperatorDao {
-  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
-}
 
 export interface LiveWorkspaceMetricsDeps {
   liveWorkspaceMetricsDao?: LiveWorkspaceMetricsDao;

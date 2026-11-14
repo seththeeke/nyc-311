@@ -3,17 +3,13 @@ import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { OrderDao } from "../../dao/order/orderDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
 import { createCase } from "../case/caseService";
 import type { Order, OrderEvent, OrderRejectionReasonCode } from "../../models/order";
 import type { OrderStreamRecord } from "../../models/orderStreamEvent";
 import { MockOrderPriorityAssigner, type OrderPriorityAssigner } from "./orderPriorityService";
 
-/* Constructed lazily inside evaluateOrder, not at module scope — per CLAUDE.md §5.2 (revised 2026-08-22). */
-function getDefaultOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
 
 /**
  * Dependencies for {@link fanOutOrdersStreamRecord}. All default to a
@@ -197,7 +193,7 @@ export interface OrderEvaluationDeps {
  * unchanged, so idempotency also requires `case_id === null`.
  */
 export async function evaluateOrder(orderEvent: OrderEvent, deps: OrderEvaluationDeps = {}): Promise<void> {
-  const orderDao = deps.orderDao ?? getDefaultOrderDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
   const rule = deps.rule ?? new StreetConditionOnlyRule();
   const priorityAssigner = deps.priorityAssigner ?? new MockOrderPriorityAssigner();
   const createCaseFn = deps.createCaseFn ?? createCase;

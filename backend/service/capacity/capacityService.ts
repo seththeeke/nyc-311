@@ -1,7 +1,6 @@
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { OperatorDao } from "../../dao/operator/operatorDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
 import type { Operator } from "../../models/operator";
 import type { CapacityStatus } from "../../models/capacityStatus";
 import { ADMIN_CAPACITY_CHANGE, type CapacityChange } from "../../models/capacityChange";
@@ -9,10 +8,6 @@ import type { CapacityLimits } from "../../models/capacitySnapshot";
 import { ConflictError, NotFoundError, ValidationError } from "../../models/errors";
 import { addDays, newYorkDate } from "../analytics/newYorkWeek";
 
-/* Constructed lazily inside each exported function, not at module scope — per CLAUDE.md §5.2. */
-function getDefaultOperatorDao(): OperatorDao {
-  return new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
-}
 
 /**
  * Placeholder business input, same spirit as `MOCK_TRANSIT_MINUTES` etc.
@@ -37,7 +32,7 @@ export interface CapacityLimitsDeps {
  * racing could both pass; the COO runs one at a time.
  */
 export async function getCapacityLimits(deps: CapacityLimitsDeps = {}): Promise<CapacityLimits> {
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
   const now = deps.now ? deps.now() : new Date();
   const day = newYorkDate(now);
   const roster = await operatorDao.listRoster();
@@ -81,7 +76,7 @@ export async function addCapacity(
   deps: AddCapacityDeps = {},
   change: CapacityChange = ADMIN_CAPACITY_CHANGE
 ): Promise<Operator> {
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
   const rate = ratePerHour ?? DEFAULT_OPERATOR_RATE_PER_HOUR;
 
   logInfo("AddCapacityStarted", { name, ratePerHour: rate, change });
@@ -106,7 +101,7 @@ export interface RemoveCapacityDeps {
  * @throws {@link ValidationError} if the Operator is already retired.
  */
 export async function removeCapacity(operatorId: string, deps: RemoveCapacityDeps = {}, change: CapacityChange = ADMIN_CAPACITY_CHANGE): Promise<Operator> {
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
   logInfo("RemoveCapacityStarted", { operatorId, change });
 
   const operator = await operatorDao.getOperator(operatorId);
@@ -142,7 +137,7 @@ export interface GetCapacityStatusDeps {
 
 /** `GET /capacity` (§2.1/§2.3) — live stats computed from the active roster query only, not folded event history. */
 export async function getCapacityStatus(deps: GetCapacityStatusDeps = {}): Promise<CapacityStatus> {
-  const operatorDao = deps.operatorDao ?? getDefaultOperatorDao();
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
   logInfo("GetCapacityStatusStarted", {});
 
   const roster = await operatorDao.listActiveRoster();

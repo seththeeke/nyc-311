@@ -1,8 +1,7 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { logError, logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import type { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
+import { getWarehouseJobRunsDao } from "../../dao/analytics/getWarehouseJobRunsDao";
 import { JobResultSchema, type JobResult } from "../../models/jobResult";
 import type { JobRunResultItem } from "../../models/jobRunResults";
 
@@ -37,9 +36,7 @@ async function fetchResultEnvelope(resultLocation: string, s3Client: S3Client): 
  * the others.
  */
 export async function getJobRunResults(jobRunIds: string[], deps: GetJobResultDeps = {}): Promise<JobRunResultItem[]> {
-  const jobRunsDao =
-    deps.jobRunsDao ??
-    new WarehouseJobRunsDao(createDocumentClient(), requireEnv("WAREHOUSE_JOB_RUNS_TABLE_NAME"));
+  const jobRunsDao = deps.jobRunsDao ?? getWarehouseJobRunsDao();
   const s3Client = deps.s3Client ?? new S3Client({});
 
   logInfo("GetJobRunResultsStarted", { jobRunIds });

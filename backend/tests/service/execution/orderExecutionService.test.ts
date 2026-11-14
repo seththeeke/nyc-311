@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as OrderExecutionService from "../../../service/execution/orderExecutionService";
 import type { OrderDao } from "../../../dao/order/orderDao";
 import type { OperatorDao } from "../../../dao/operator/operatorDao";
@@ -122,6 +122,11 @@ let resolveOrder: typeof OrderExecutionService.resolveOrder;
 beforeAll(async () => {
   vi.resetModules();
   ({ arriveAtJob, dispatchOrder, failExecution, resolveOrder } = await import("../../../service/execution/orderExecutionService.js"));
+});
+
+/* Evict what the import above cached (e.g. dao/request/getRequestDao bound to the stub RequestDao) so later files in this worker load the real DAOs. */
+afterAll(() => {
+  vi.resetModules();
 });
 
 describe("dispatchOrder", () => {

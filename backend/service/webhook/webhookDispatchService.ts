@@ -1,10 +1,12 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
-import { OrderDao } from "../../dao/order/orderDao";
-import { RequestDao } from "../../dao/request/requestDao";
-import { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
+import type { RequestDao } from "../../dao/request/requestDao";
+import { getRequestDao } from "../../dao/request/getRequestDao";
+import type { WebhookSubscriptionDao } from "../../dao/webhookSubscription/webhookSubscriptionDao";
+import { getWebhookSubscriptionDao } from "../../dao/webhookSubscription/getWebhookSubscriptionDao";
 import { TerminalError } from "../../models/errors";
 import type { OrderEvent } from "../../models/order";
 import type { WebhookDeliveryTask } from "../../models/webhookDeliveryTask";
@@ -56,8 +58,8 @@ async function acceptedAtFor(orderEvent: OrderEvent, orderDao: OrderDao): Promis
  * @throws {@link TerminalError} if the Order or its Request is missing.
  */
 async function buildWebhookEvent(orderEvent: OrderEvent, eventType: WebhookEventType, deps: WebhookDispatchDeps): Promise<WebhookEvent | null> {
-  const orderDao = deps.orderDao ?? new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-  const requestDao = deps.requestDao ?? new RequestDao(createDocumentClient(), requireEnv("REQUESTS_TABLE_NAME"));
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const requestDao = deps.requestDao ?? getRequestDao();
 
   const order = await orderDao.getOrder(orderEvent.order_id);
   if (!order) {
@@ -107,8 +109,7 @@ export async function dispatchWebhookEvent(orderEvent: OrderEvent, deps: Webhook
     return 0;
   }
 
-  const subscriptionDao =
-    deps.webhookSubscriptionDao ?? new WebhookSubscriptionDao(createDocumentClient(), requireEnv("WEBHOOK_SUBSCRIPTIONS_TABLE_NAME"));
+  const subscriptionDao = deps.webhookSubscriptionDao ?? getWebhookSubscriptionDao();
   const subscriptions = await subscriptionDao.listSubscriptions();
   const targets = subscriptions.filter((subscription) => subscription.status === "ACTIVE" && subscription.event_types.includes(eventType));
   logInfo("WebhookDispatchTargetsResolved", {

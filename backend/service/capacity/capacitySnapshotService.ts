@@ -1,9 +1,10 @@
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
 import { logInfo } from "../../logger";
-import { LiveWorkspaceMetricsDao } from "../../dao/analytics/liveWorkspaceMetricsDao";
-import { OperatorDao } from "../../dao/operator/operatorDao";
-import { OrderDao } from "../../dao/order/orderDao";
+import type { LiveWorkspaceMetricsDao } from "../../dao/analytics/liveWorkspaceMetricsDao";
+import { getLiveWorkspaceMetricsDao } from "../../dao/analytics/getLiveWorkspaceMetricsDao";
+import type { OperatorDao } from "../../dao/operator/operatorDao";
+import { getOperatorDao } from "../../dao/operator/getOperatorDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
 import type { CapacitySnapshot } from "../../models/capacitySnapshot";
 import { addDays, newYorkDate } from "../analytics/newYorkWeek";
 import { getCapacityLimits } from "./capacityService";
@@ -37,9 +38,9 @@ const toDays = (seconds: number | null): number | null => (seconds === null ? nu
  * recommends nothing; the COO decides.
  */
 export async function getCapacitySnapshot(deps: CapacitySnapshotDeps = {}): Promise<CapacitySnapshot> {
-  const operatorDao = deps.operatorDao ?? new OperatorDao(createDocumentClient(), requireEnv("OPERATORS_TABLE_NAME"));
-  const orderDao = deps.orderDao ?? new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-  const metricsDao = deps.metricsDao ?? new LiveWorkspaceMetricsDao(createDocumentClient(), requireEnv("LIVE_WORKSPACE_METRICS_TABLE_NAME"));
+  const operatorDao = deps.operatorDao ?? getOperatorDao();
+  const orderDao = deps.orderDao ?? getOrderDao();
+  const metricsDao = deps.metricsDao ?? getLiveWorkspaceMetricsDao();
   const now = deps.now ? deps.now() : new Date();
   logInfo("GetCapacitySnapshotStarted", { at: now.toISOString() });
 

@@ -1,7 +1,6 @@
 import { logInfo, logWarn } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { FeatureFlagDao } from "../../dao/featureFlag/featureFlagDao";
+import type { FeatureFlagDao } from "../../dao/featureFlag/featureFlagDao";
+import { getFeatureFlagDao } from "../../dao/featureFlag/getFeatureFlagDao";
 import { NotFoundError } from "../../models/errors";
 import type {
   CreateFeatureFlagRequest,
@@ -10,11 +9,6 @@ import type {
   UpdateFeatureFlagRequest,
 } from "../../models/featureFlag";
 import { evaluateTreatment } from "./treatmentEvaluator";
-
-/* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
-function getFeatureFlagDao(): FeatureFlagDao {
-  return new FeatureFlagDao(createDocumentClient(), requireEnv("FEATURE_FLAGS_TABLE_NAME"));
-}
 
 export interface FeatureFlagServiceDeps {
   featureFlagDao?: FeatureFlagDao;

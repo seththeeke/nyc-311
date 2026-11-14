@@ -1,7 +1,7 @@
 import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
 import { logInfo, logWarn } from "../../logger";
-import { WebhookSinkDeliveryDao } from "../../dao/webhookSinkDelivery/webhookSinkDeliveryDao";
+import type { WebhookSinkDeliveryDao } from "../../dao/webhookSinkDelivery/webhookSinkDeliveryDao";
+import { getWebhookSinkDeliveryDao } from "../../dao/webhookSinkDelivery/getWebhookSinkDeliveryDao";
 import { ValidationError } from "../../models/errors";
 import type { WebhookSinkDelivery } from "../../models/webhookSinkDelivery";
 import { WebhookSecretStore } from "./webhookSecretStore";
@@ -12,10 +12,6 @@ const SINK_RECORD_TTL_SECONDS = 7 * 24 * 60 * 60;
 /* The most records `GET /webhook-sink/deliveries` returns. */
 export const SINK_LIST_LIMIT = 50;
 
-/* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getWebhookSinkDeliveryDao(): WebhookSinkDeliveryDao {
-  return new WebhookSinkDeliveryDao(createDocumentClient(), requireEnv("WEBHOOK_SINK_DELIVERIES_TABLE_NAME"));
-}
 
 export interface WebhookSinkDeps {
   webhookSinkDeliveryDao?: WebhookSinkDeliveryDao;

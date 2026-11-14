@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 import { ulid } from "ulid";
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
 import { logInfo } from "../../logger";
-import { TeamChatDao } from "../../dao/teamChat/teamChatDao";
+import type { TeamChatDao } from "../../dao/teamChat/teamChatDao";
+import { getTeamChatDao } from "../../dao/teamChat/getTeamChatDao";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../models/errors";
 import type { TeamChatChannel } from "../../models/teamChatChannel";
 import type { TeamChatInboxEntry } from "../../models/teamChatInboxEntry";
@@ -35,7 +34,7 @@ export interface TeamChatThread {
 
 /* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
 function getDao(deps: TeamChatServiceDeps): TeamChatDao {
-  return deps.dao ?? new TeamChatDao(createDocumentClient(), requireEnv("TEAM_CHAT_TABLE_NAME"));
+  return deps.dao ?? getTeamChatDao();
 }
 
 function nowOf(deps: TeamChatServiceDeps): Date {

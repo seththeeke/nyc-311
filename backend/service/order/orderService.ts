@@ -1,14 +1,8 @@
 import { logInfo } from "../../logger";
-import { requireEnv } from "../../env";
-import { createDocumentClient } from "../../dynamoClient";
-import { OrderDao } from "../../dao/order/orderDao";
+import type { OrderDao } from "../../dao/order/orderDao";
+import { getOrderDao } from "../../dao/order/getOrderDao";
 import type { Order, OrderRejectionReasonCode } from "../../models/order";
 import { ORDER_REJECTION_REASON_CODES } from "../../models/order";
-
-/* Lazily constructed per CLAUDE.md §5.2 — never a module-scope singleton. */
-function getOrderDao(): OrderDao {
-  return new OrderDao(createDocumentClient(), requireEnv("ORDERS_TABLE_NAME"));
-}
 
 export interface OrderServiceDeps {
   orderDao?: OrderDao;
