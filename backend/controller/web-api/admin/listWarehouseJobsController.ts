@@ -4,6 +4,7 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { listWarehouseJobs } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —
@@ -27,6 +28,6 @@ export const listWarehouseJobsController = async (event: unknown): Promise<APIGa
     return jsonResponse(200, { jobs });
   } catch (err) {
     logError("ListWarehouseJobsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to list jobs" });
+    return errorResponse(err, "Failed to list jobs");
   }
 };

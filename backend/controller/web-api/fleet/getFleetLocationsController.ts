@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { getFleetLocations } from "../../../service/fleet/fleetLocationService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /fleet/locations` (`10-capacity-modeling-and-integration.md` §6.1)
@@ -25,6 +26,6 @@ export const getFleetLocationsController = async (event: unknown): Promise<APIGa
     return jsonResponse(200, locations);
   } catch (err) {
     logError("GetFleetLocationsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to fetch fleet locations" });
+    return errorResponse(err, "Failed to fetch fleet locations");
   }
 };

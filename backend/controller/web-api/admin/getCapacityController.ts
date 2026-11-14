@@ -1,10 +1,10 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { getCapacityStatus } from "../../../service/capacity/capacityService";
 import { requireCapacityReader } from "./capacityCaller";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —
@@ -29,7 +29,6 @@ export const getCapacityController = async (event: unknown): Promise<APIGatewayP
     return jsonResponse(200, status);
   } catch (err) {
     logError("GetCapacityControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to fetch capacity status" });
+    return errorResponse(err, "Failed to fetch capacity status");
   }
 };

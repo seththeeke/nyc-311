@@ -2,10 +2,11 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { UpdateWarehouseJobRequestSchema, WarehouseJobNameParamsSchema } from "../../../models/warehouseJobRequest";
-import { NotFoundError, TerminalError, ValidationError } from "../../../models/errors";
+import { TerminalError } from "../../../models/errors";
 import { updateWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `PUT /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b's
@@ -52,9 +53,7 @@ export const updateWarehouseJobController = async (event: unknown): Promise<APIG
     return jsonResponse(200, definition);
   } catch (err) {
     logError("UpdateWarehouseJobControllerFailed", { jobName: name, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof TerminalError) return jsonResponse(409, { message: err.message });
-    return jsonResponse(500, { message: "Failed to update job" });
+    /* Kept from before #172: the job service surfaces its failed conditional writes as TerminalError. */
+    return errorResponse(err, "Failed to update job", [{ type: TerminalError, status: 409 }]);
   }
 };

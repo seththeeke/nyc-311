@@ -2,11 +2,11 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { JobRunResultsRequestSchema } from "../../../models/warehouseJobRunResultsRequest";
-import { ValidationError } from "../../../models/errors";
 import { getJobRunResults } from "../../../service/analytics/jobResultService";
 import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /admin/warehouse/job-runs/results` (`7-data-warehousing.md` §12b's
@@ -47,9 +47,6 @@ export const postJobRunResultsController = async (event: unknown): Promise<APIGa
     return jsonResponse(200, { results });
   } catch (err) {
     logError("PostJobRunResultsControllerFailed", { error: err instanceof Error ? err.message : err });
-    if (err instanceof ValidationError) {
-      return jsonResponse(400, { message: err.message });
-    }
-    return jsonResponse(500, { message: err instanceof Error ? err.message : "Failed to load job run results" });
+    return errorResponse(err, err instanceof Error ? err.message : "Failed to load job run results");
   }
 };

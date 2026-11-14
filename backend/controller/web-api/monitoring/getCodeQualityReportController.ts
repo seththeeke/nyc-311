@@ -2,9 +2,9 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { CodeQualityReportParamsSchema } from "../../../models/codeQualityReport";
-import { NotFoundError } from "../../../models/errors";
 import { getCodeQualityReport } from "../../../service/monitoring/codeQualityReportService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `GET /monitoring/code-quality/reports/{date}/{time}`: one of Sable's reports, in full (docs/17-executive-team.md §19.6). Public. */
 export const getCodeQualityReportController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -29,7 +29,6 @@ export const getCodeQualityReportController = async (event: unknown): Promise<AP
     return jsonResponse(200, report);
   } catch (err) {
     logError("GetCodeQualityReportControllerFailed", { date, time, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: "No report for that date and time" });
-    return jsonResponse(500, { message: "Failed to load the code quality report" });
+    return errorResponse(err, "Failed to load the code quality report");
   }
 };

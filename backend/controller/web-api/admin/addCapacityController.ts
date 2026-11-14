@@ -2,10 +2,10 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { AddCapacityRequestSchema } from "../../../models/capacityRequest";
-import { ConflictError, ValidationError } from "../../../models/errors";
 import { addCapacity } from "../../../service/capacity/capacityService";
 import { capacityChangeOf } from "./capacityCaller";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /capacity` (`10-capacity-modeling-and-integration.md` §2.1) —
@@ -45,8 +45,6 @@ export const addCapacityController = async (event: unknown): Promise<APIGatewayP
   } catch (err) {
     logError("AddCapacityControllerFailed", { error: err instanceof Error ? err.message : err });
     /* The COO reads these messages: a 409 names the daily cap it hit (docs/17-executive-team.md §12.3). */
-    if (err instanceof ConflictError) return jsonResponse(409, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    return jsonResponse(500, { message: "Failed to add capacity" });
+    return errorResponse(err, "Failed to add capacity");
   }
 };

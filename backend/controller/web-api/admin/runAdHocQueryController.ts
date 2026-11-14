@@ -2,11 +2,11 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { AdHocQueryRequestSchema } from "../../../models/adHocQueryRequest";
-import { ValidationError } from "../../../models/errors";
 import { runAdHocQuery } from "../../../service/analytics/adHocQueryService";
 import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /admin/warehouse/query` (`7-data-warehousing.md` §12a, Leg 7) —
@@ -48,9 +48,6 @@ export const runAdHocQueryController = async (event: unknown): Promise<APIGatewa
     return jsonResponse(200, result);
   } catch (err) {
     logError("RunAdHocQueryControllerFailed", { error: err instanceof Error ? err.message : err });
-    if (err instanceof ValidationError) {
-      return jsonResponse(400, { message: err.message });
-    }
-    return jsonResponse(500, { message: err instanceof Error ? err.message : "Failed to run query" });
+    return errorResponse(err, err instanceof Error ? err.message : "Failed to run query");
   }
 };

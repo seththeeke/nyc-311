@@ -2,10 +2,11 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { CreateWarehouseJobRequestSchema } from "../../../models/warehouseJobRequest";
-import { TerminalError, ValidationError } from "../../../models/errors";
+import { TerminalError } from "../../../models/errors";
 import { createWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /admin/warehouse/jobs` (`7-data-warehousing.md` §12b, Leg 8) —
@@ -46,8 +47,7 @@ export const createWarehouseJobController = async (event: unknown): Promise<APIG
     return jsonResponse(201, definition);
   } catch (err) {
     logError("CreateWarehouseJobControllerFailed", { error: err instanceof Error ? err.message : err });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof TerminalError) return jsonResponse(409, { message: err.message });
-    return jsonResponse(500, { message: "Failed to create job" });
+    /* The DAO's conditional create surfaces a duplicate job name as TerminalError. */
+    return errorResponse(err, "Failed to create job", [{ type: TerminalError, status: 409 }]);
   }
 };

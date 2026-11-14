@@ -1,9 +1,9 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { receiveSinkDelivery } from "../../../service/webhook/webhookSinkService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /webhook-sink` — the Test-only sink subscriber
@@ -26,7 +26,6 @@ export const receiveWebhookSinkController = async (event: unknown): Promise<APIG
     return response;
   } catch (err) {
     logError("ReceiveWebhookSinkControllerFailed", { error: err instanceof Error ? err.message : err });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    return jsonResponse(500, { message: "Failed to record webhook delivery" });
+    return errorResponse(err, "Failed to record webhook delivery");
   }
 };

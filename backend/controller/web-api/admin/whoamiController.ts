@@ -1,9 +1,9 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /admin/whoami` (`9-admin-auth-integration.md` §8) — the one
@@ -26,7 +26,6 @@ export const whoamiController = async (event: unknown): Promise<APIGatewayProxyS
     return jsonResponse(200, user);
   } catch (err) {
     logError("WhoamiControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to resolve current user" });
+    return errorResponse(err, "Failed to resolve current user");
   }
 };

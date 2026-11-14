@@ -1,10 +1,11 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema, type ApiGatewayHttpEvent } from "../../../models/apiGatewayHttpEvent";
-import { ConflictError, TerminalError, UnauthorizedError, ValidationError } from "../../../models/errors";
+import { TerminalError } from "../../../models/errors";
 import { RegisterWebhookSubscriptionRequestSchema } from "../../../models/webhookSubscription";
 import { registerWebhookSubscription } from "../../../service/webhook/webhookSubscriptionService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 const API_KEY_HEADER = "x-api-key";
 const REDACTED = "[REDACTED]";
@@ -61,9 +62,7 @@ export const registerWebhookSubscriptionController = async (event: unknown): Pro
     return response;
   } catch (err) {
     logError("RegisterWebhookSubscriptionControllerFailed", { error: err instanceof Error ? err.message : err });
-    if (err instanceof UnauthorizedError) return jsonResponse(401, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof ConflictError || err instanceof TerminalError) return jsonResponse(409, { message: err.message });
-    return jsonResponse(500, { message: "Failed to register webhook subscription" });
+    /* Kept from before #172: the subscription DAO's conditional writes surface as TerminalError. */
+    return errorResponse(err, "Failed to register webhook subscription", [{ type: TerminalError, status: 409 }]);
   }
 };

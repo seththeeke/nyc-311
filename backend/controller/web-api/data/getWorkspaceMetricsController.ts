@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { getLiveWorkspaceMetrics } from "../../../service/analytics/liveWorkspaceMetricsService";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /workspace/metrics` — the secondary workspace's metric tiles: this
@@ -25,6 +26,6 @@ export const getWorkspaceMetricsController = async (event: unknown): Promise<API
     return response;
   } catch (err) {
     logError("GetWorkspaceMetricsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to fetch workspace metrics" });
+    return errorResponse(err, "Failed to fetch workspace metrics");
   }
 };

@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { listSinkDeliveries } from "../../../service/webhook/webhookSinkService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /webhook-sink/deliveries` — the Test-only sink's most recent
@@ -25,6 +26,6 @@ export const getWebhookSinkDeliveriesController = async (event: unknown): Promis
     return response;
   } catch (err) {
     logError("GetWebhookSinkDeliveriesControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to list webhook sink deliveries" });
+    return errorResponse(err, "Failed to list webhook sink deliveries");
   }
 };

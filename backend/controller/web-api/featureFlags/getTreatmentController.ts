@@ -1,10 +1,10 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { NotFoundError } from "../../../models/errors";
 import { FlagKeyParamsSchema, TreatmentRequestSchema, type TreatmentResponse } from "../../../models/featureFlag";
 import { evaluateFeatureFlag } from "../../../service/featureFlag/featureFlagService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `POST /feature-flags/{flag_key}/treatment` (`11-street-condition-implementation.md`
@@ -50,7 +50,6 @@ export const getTreatmentController = async (event: unknown): Promise<APIGateway
     return response;
   } catch (err) {
     logError("GetTreatmentControllerFailed", { flagKey, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    return jsonResponse(500, { message: "Failed to evaluate treatment" });
+    return errorResponse(err, "Failed to evaluate treatment");
   }
 };

@@ -2,10 +2,10 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { WarehouseJobNameParamsSchema } from "../../../models/warehouseJobRequest";
-import { NotFoundError, ValidationError } from "../../../models/errors";
 import { deleteWarehouseJob } from "../../../service/analytics/warehouseJobDefinitionService";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `DELETE /admin/warehouse/jobs/{name}` (`7-data-warehousing.md` §12b,
@@ -38,7 +38,6 @@ export const deleteWarehouseJobController = async (event: unknown): Promise<APIG
       jobName: parsedParams.data.name,
       error: err instanceof Error ? err.message : err,
     });
-    const statusCode = err instanceof NotFoundError ? 404 : err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to delete job" });
+    return errorResponse(err, "Failed to delete job");
   }
 };

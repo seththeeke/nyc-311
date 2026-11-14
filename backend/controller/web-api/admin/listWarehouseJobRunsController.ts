@@ -2,10 +2,10 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { listWarehouseJobRuns } from "../../../service/analytics/warehouseJobRunsService";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /admin/warehouse/job-runs` — most-recent-first warehouse job run
@@ -28,7 +28,6 @@ export const listWarehouseJobRunsController = async (event: unknown): Promise<AP
     return jsonResponse(200, response);
   } catch (err) {
     logError("ListWarehouseJobRunsControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to fetch warehouse job runs" });
+    return errorResponse(err, "Failed to fetch warehouse job runs");
   }
 };

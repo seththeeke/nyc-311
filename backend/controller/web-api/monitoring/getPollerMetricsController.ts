@@ -2,8 +2,8 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { getCursorStatus, listPollerMetrics } from "../../../service/ingestion/nyc311RequestService";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /ingestion/metrics` entry point (1-data-ingestion.md §8a, cursor
@@ -28,7 +28,6 @@ export const getPollerMetricsController = async (event: unknown): Promise<APIGat
     return jsonResponse(200, { metrics, cursor });
   } catch (err) {
     logError("GetPollerMetricsControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to fetch ingestion metrics" });
+    return errorResponse(err, "Failed to fetch ingestion metrics");
   }
 };

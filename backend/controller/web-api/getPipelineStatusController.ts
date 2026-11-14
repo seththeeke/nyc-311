@@ -2,8 +2,8 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../logger";
 import { getPipelineStatus } from "../../service/pipeline/pipelineStatusService";
 import { ApiGatewayHttpEventSchema } from "../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../models/errors";
 import { jsonResponse } from "./shared/jsonResponse";
+import { errorResponse } from "./shared/errorResponse";
 
 /**
  * Entry point for `GET /pipeline/status` — a read-only mirror of
@@ -32,7 +32,6 @@ export const getPipelineStatusController = async (event: unknown): Promise<APIGa
     return jsonResponse(200, status);
   } catch (err) {
     logError("GetPipelineStatusControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to fetch pipeline status" });
+    return errorResponse(err, "Failed to fetch pipeline status");
   }
 };
