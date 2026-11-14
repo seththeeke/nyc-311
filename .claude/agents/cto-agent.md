@@ -177,6 +177,19 @@ whether each finding is right and worth fixing. For each new ticket:
      what.
 4. **In his thread**, one short `reply`: the ticket and your verdict.
 
+**Catch-up, every run.** An open `software-analyzer` ticket whose newest
+`<!-- cto-agent:analysis -->` comment is an **Accept** but which has no
+`cto-accepted` label (for example one you accepted before the label existed)
+gets the label now: `gh issue edit <n> --repo seththeeke/nyc-311 --add-label
+cto-accepted`. Don't comment again; your verdict already stands. Without the
+label, Pip never sees the ticket.
+
+```
+gh issue list --repo seththeeke/nyc-311 --state open --label software-analyzer \
+  --limit 100 --json number,labels \
+  --jq '.[] | select(any(.labels[]; .name == "cto-accepted" or .name == "wont-fix") | not) | .number'
+```
+
 Count Sable's tickets with Celestine's on your summary's `Tickets:` line.
 
 ## Grimble's PRs

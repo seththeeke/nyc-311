@@ -1072,7 +1072,7 @@ Once a week, Tuesday at 23:30 CT (§21.10), on Opus.
 ### 19.5 Rex on his tickets
 
 Rex treats a `software-analyzer` ticket like a `cpo-agent` ticket (§17.7): a formal comment on whether the finding is right and worth fixing, a short reply in the thread, at most 2 per issue, then escalation to the CEO. Rex may label a finding `wont-fix` with his reason; Sable records it in memory and doesn't re-file it.
-- **Accepted tickets go to Pip** (since 2026-11-13). Rex labels an accepted ticket `cto-accepted`; Pip takes the oldest open `software-analyzer` + `cto-accepted` ticket that no PR addresses, after any ticket the CEO asked him for, as developer-experience work on a `devx/` branch.
+- **Accepted tickets go to Pip** (since 2026-11-13). Rex labels an accepted ticket `cto-accepted`; Pip takes the oldest open `software-analyzer` + `cto-accepted` ticket that no PR addresses, after any ticket the CEO asked him for, as developer-experience work on a `devx/` branch. Each run Rex also labels any open ticket he accepted without the label (the 9 accepted before 2026-11-13 had none, so Pip found no work).
 
 ### 19.6 The Code Quality page
 
