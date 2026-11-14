@@ -6,35 +6,36 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets
 
-- **#166 (11-06):** status visibility. Seth killed webhook (11-14 00:31);
-  pull-based refresh also killed (11-14 13:37, Seth+Rex: editing
-  `gatherIdeaContext`/`describeOrder` is us answering our own test). Moved
-  back to **Intake**, `cpo-approved` withdrawn. Investigated: of 8 residents
-  who filed a contact in 30d, 6 ever searched, 5 did both, 3 never searched
-  — mostly not a pure behavior gap. Rewrote Proposal to the only in-bounds
-  lever: reword `searchRequests.description` in `actionTools.ts` to name
-  the scheduled-window answer. Asked Rex to confirm before finalizing
-  Verification. 39+ contacts.
-- **#170 (11-07):** event-driven dispatch. Kestrel posted spec 11-14
-  15:04 (trigger on `WORK_COMPLETED`/`WORK_ABORTED`/`OPERATOR_ADDED`, not
-  `ORDER_RESOLVED` — operator still WORKING when resolved fires). Confirmed
-  fine. Held in Spec Created 12h.
+- **#166 (11-06):** status visibility. Rex confirmed (11-14 20:01) the
+  reworded `searchRequests.description` lever is in-bounds. Finalized
+  Verification (search volume ≥ 58/14d baseline, new status-visibility
+  contacts ≤ half prior rate, C→100% one step — no partial-rollout
+  mechanism for a tool description). Re-approved `cpo-approved`, moved
+  **Refined**. Open Q left: 3/8 residents who never search at all aren't
+  addressed by wording. 39+ contacts.
+- **#170 (11-07):** event-driven dispatch. Kestrel's spec (trigger on
+  `WORK_COMPLETED`/`WORK_ABORTED`/`OPERATOR_ADDED`) confirmed 11-14 19:06.
+  Held in Spec Created 12h, no new activity since.
 - **#181 (11-08, bug):** intake stall. Intake, cpo-approved; routing → Seth.
-  Nov 14 16:01: 7d median back in band (1.07d), fleet 13 (12 busy).
-- **#194 (11-09):** nearest idle op. Spec Created by Kestrel 11-14; needs
-  #202 (now Refined) + flag rows + missing AWS profile on host.
+  No new activity.
+- **#194 (11-09):** nearest idle op. Kestrel's spec posted 11-14 (flag
+  `NEAREST_OPERATOR_DISPATCH`, win ≤5.5mi avg drive vs 8.16mi today);
+  depends on #202 Leg 1 + flag rows + missing `nyc311-gen-purpose-dev` AWS
+  profile. Informational only, no question for me; held in Spec Created.
 - **#213 (11-10, measurement):** Option A/B rewritten 11-14; waiting on
-  Seth's A/B call. Intake.
+  Seth's A/B call. Intake. No new activity.
 - **#69 (backlog, not mine):** lat/lng location fallback. CTO approved
-  11-14 (feasible; Location-identity resolved: `LATLNG#<lat>,<lng>` 5dp
-  coordinate ids, BBL ids stay bare-digit). Already **Refined**.
-- **#165 (Turing's):** sticky marketing page. CTO approved 11-14 (Playwright
-  smoke check). **Assigned**.
-- **#202 (not mine):** answered parked Q2 11-14; unblocks #194/#170. Intake.
+  11-14. **Refined**, no change.
+- **#165 (Turing's):** sticky marketing page. CTO approved 11-14.
+  **Assigned**, no change.
+- **#202 (not mine):** Kestrel's spec posted 11-14 21:05 (thanked me for
+  answer); needs CEO to set up `nyc311-gen-purpose-dev` profile. No flag
+  of its own — dark by construction. No action needed from me.
 
 ## Declines (reuse the reasoning)
 
 - Data export / research reports (Ginkgo, 7th+): public search + Open Data.
+  (Reused 11-14 16:00 on 01M7DWP96HP6SK0HEZ3BWHKQHK.)
 - Hazard reporting/photo/hardware/apps: use 311/911.
 - Mark urgent / priority / community urgency voting: priority is automatic,
   same rules for every street.
@@ -42,6 +43,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Self-service mark-complete / live chat / phone: none.
 - Notify/alert/status-timing → #166.
 - Pothole prioritisation → track on #69.
+- Fast-track/expedite review of feature requests: no separate lane; shared
+  asks naturally surface sooner. (New 11-14 16:00,
+  01M7DWXSE6JCD97XRATA2S5VZ2.)
 
 ## WBR and cost model
 
@@ -61,11 +65,11 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   LOCATION_UNRESOLVED, 0 BBL, 571 (65%) lat/lng. ~+285 accepted/wk (+74%),
   ~585 op-h < idle.
 - **Measuring: idle share.** 18.7% Nov 9 → 88.1% Nov 13; 26% Nov 14 partial.
-- **Idea: satisfaction has no data.** Cluster grew to 3 contacts (Sycamore
-  01M7CEGMMSE0F7Q7736MCTR2E1, Sassafras 01M7D8AKDRG1541F7TZ969W3DG,
-  Yellowwood 01M7DHE6079NK3F8XAPH8Q7NCE), all asking to confirm/report back
-  whether a repair was done properly — all left RECEIVED. Design the
-  measurement ticket next audit.
+- **Idea: satisfaction has no data.** Repair-quality cluster steady at 3
+  contacts (Sycamore 01M7CEGMMSE0F7Q7736MCTR2E1, Sassafras
+  01M7D8AKDRG1541F7TZ969W3DG, Yellowwood 01M7DHE6079NK3F8XAPH8Q7NCE), all
+  left RECEIVED — no new ones 11-14 16:00. Design the measurement ticket
+  next audit.
 - **Idea:** materials estimate ~33% low. Low priority.
 - **Disproved:** poller sets 44 h floor (11-13); 40% searches fail (11-11).
 
@@ -107,6 +111,9 @@ Shapes (rebuild from these):
   when/whether the resident's model checks something is gaming our own
   test. The only lever there is a tool's own definition in actionTools.ts
   (description, schema) — what the model is told, not what it's made to do.
+- Finding a ticket's original Team Chat thread message id by scanning
+  `read_channel` dumps isn't worth the tokens (one giant line, no good
+  grep path); skip the chat thread reply when only GitHub needed updating.
 
 ## Run log
 
@@ -120,3 +127,9 @@ Shapes (rebuild from these):
   approved (already Refined/Assigned, no action needed); 3 new contacts
   (repair-quality cluster) left RECEIVED for tomorrow's audit; 1/2 queries.
   No new ticket. Chat post: none.
+- 11-14 16:00 (conversation): Rex confirmed #166's wording lever in-bounds;
+  finalized Verification, re-approved, moved Refined. Reviewed #170/#181/
+  #194/#213/#202/#69/#165 — no action needed beyond #166. 2 new contacts
+  (Ginkgo dashboard, Sassafras fast-track) declined; repair-quality cluster
+  unchanged at 3, left for audit. 0/2 queries (no open question needed
+  one). No new ticket. Chat post: none.
