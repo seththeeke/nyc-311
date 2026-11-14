@@ -3,7 +3,7 @@
 ## Projects
 | Issue | Title | State | Spec | Flag |
 |---|---|---|---|---|
-| #202 | backend: read feature flags in services | In Intake on 2026-11-13. Was parked 2026-11-10: the AWS profile was missing, so there was no Logs Insights baseline | none yet (planned `docs/kid-kestral/202-backend-read-feature-flags-in-services.md`) | none (ships with no caller; first caller #170/#194 is its dial-up) |
+| #202 | backend: read feature flags in services | Spec Created 2026-11-14 (commit b414bed). The latency baseline is "to be measured" (Celestine, 11-14). One leg: `getTreatment` never throws, takes a `treatments` option, logs `FeatureFlagRead`; plus `grantFlagRead` and the `FeatureFlagReadMetricFilters` construct | `docs/kid-kestral/202-backend-read-feature-flags-in-services-so-backend-changes-can-ship-dark.md` | none (ships with no caller; first caller #170/#194 is its dial-up) |
 | #213 | WBR: paid fleet hours, idle, fleet cost | Back to Intake 2026-11-13: "Flag: none needed", and the `wbr` job is applied by hand. I proposed A (Seth exempts additive warehouse-job SQL; the CEO applies Test→Prod) or B (separate `wbr_fleet` job + a flagged reader) | none | none |
 | #194 | Dispatch the nearest idle operator | Spec Created 2026-11-13 (commit 6d19f8e) | `docs/kid-kestral/194-dispatch-the-nearest-idle-operator-to-each-order-not-whichever-the-index-returns-first.md` | `NEAREST_OPERATOR_DISPATCH` (rows not created yet). Leg 1 depends on #202 |
 | #170 | Event-driven dispatch | Spec Created 2026-11-14 (commit 282fd1c). Asked Celestine/Rex to confirm `WORK_COMPLETED` instead of `ORDER_RESOLVED` | `docs/kid-kestral/170-dispatch-the-next-order-the-moment-an-operator-frees-up-not-only-on-the-hourly-scheduling-run.md` | `EVENT_DRIVEN_DISPATCH`. Leg 1 (claim race) has no dependency; Leg 2 depends on #202 |
@@ -38,4 +38,6 @@
 - Scheduler: `Nyc311OrderScheduling-<Env>` (cdk/lambda/Nyc311OrderSchedulingLambda.ts). It has no FeatureFlags grant today.
 - `get_flag` reads Prod (`TEAM_CHAT_ENV=PROD` → api.boroughsim.com). Always `get_flag` a ticket's named flag: `MARKETING_PAGE` was T1 in Prod while the ticket said it was off. If an existing flag is already on in Prod, use a new flag so the change ships dark.
 - Front-end tickets with no analytics: the deciding check is a Playwright smoke spec in `web-app/tests/smoke/`. Its "before" is which steps fail on the code in `main`.
+- #202 read API for callers: `getTreatment(key, ctx, {fallback:"C", treatments:["C","T1"]})`. Each caller's leg also calls `featureFlagsTable.grantFlagRead(fn)`, sets `FEATURE_FLAGS_TABLE_NAME` and attaches `FeatureFlagReadMetricFilters` to its log group. Revise #194/#170 legs to match when building.
+- The AWS profile was still missing on 2026-11-14.
 - Team Chat: one top-level post per card. On a re-park, reply in the existing thread.
