@@ -8,9 +8,13 @@
 | #194 | Dispatch the nearest idle operator | Spec Created 2026-11-13 (commit 6d19f8e) | `docs/kid-kestral/194-dispatch-the-nearest-idle-operator-to-each-order-not-whichever-the-index-returns-first.md` | `NEAREST_OPERATOR_DISPATCH` (rows not created yet). Leg 1 depends on #202 |
 | #170 | Event-driven dispatch | Spec Created 2026-11-14 (commit 282fd1c). Asked Celestine/Rex to confirm `WORK_COMPLETED` instead of `ORDER_RESOLVED` | `docs/kid-kestral/170-dispatch-the-next-order-the-moment-an-operator-frees-up-not-only-on-the-hourly-scheduling-run.md` | `EVENT_DRIVEN_DISPATCH`. Leg 1 (claim race) has no dependency; Leg 2 depends on #202 |
 
+| #165 | Sticky marketing page | Spec Created 2026-11-14 (commit c1dd79f). One web-app leg | `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md` | `MARKETING_STICKY_ENTRY` (rows not created yet) |
+
 ## Flags I own
 - `NEAREST_OPERATOR_DISPATCH` (#194): C = first-available, T1 = nearest. Read once per scheduling run with empty context.
 - `EVENT_DRIVEN_DISPATCH` (#170): C = ignore the event, T1 = run `scheduleOrders` on it. Read per event in a new `eventDrivenSchedulingService.ts`.
+
+- `MARKETING_STICKY_ENTRY` (#165): C = per-tab `sessionStorage` gate, T1 = `localStorage` entry with a sliding 7-day expiry plus an About "Back to the intro" button. Both need `MARKETING_PAGE`=T1.
 
 ## Baselines taken
 - #194, 2026-11-13: drive distance 8.16 mi actual / 8.69 all-pairs / 3.22 nearest (Nov 10-12, 396 jobs). Median resolve 173.72 h and 69.1% late (resolved Nov 6-12). Drive share by day, Nov 6-12: 21.2 to 11.0%.
@@ -32,4 +36,6 @@
 - Bash rejects `$(...)` substitution and heredocs. For a comment body: `mktemp`, Read the empty file, Write it, then `--body-file`.
 - #202 code facts: `featureFlagService.getTreatment(flagKey, ctx, {fallback})` has no callers. It rethrows DynamoDB errors. `TreatmentContext` is `{operator_id?}`, strict. The env var is `FEATURE_FLAGS_TABLE_NAME`; the table construct is `cdk/data/FeatureFlagsTable.ts`.
 - Scheduler: `Nyc311OrderScheduling-<Env>` (cdk/lambda/Nyc311OrderSchedulingLambda.ts). It has no FeatureFlags grant today.
+- `get_flag` reads Prod (`TEAM_CHAT_ENV=PROD` → api.boroughsim.com). Always `get_flag` a ticket's named flag: `MARKETING_PAGE` was T1 in Prod while the ticket said it was off. If an existing flag is already on in Prod, use a new flag so the change ships dark.
+- Front-end tickets with no analytics: the deciding check is a Playwright smoke spec in `web-app/tests/smoke/`. Its "before" is which steps fail on the code in `main`.
 - Team Chat: one top-level post per card. On a re-park, reply in the existing thread.
