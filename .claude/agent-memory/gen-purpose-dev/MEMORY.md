@@ -3,16 +3,21 @@
 ## Projects
 | Issue | Title | State | Spec | Flag |
 |---|---|---|---|---|
-| #202 | backend: read feature flags in services | Parked again 2026-11-10 (Assigned). Bar now met (Celestine's `cpo-agent:metric` comment answered dial-up, baseline and query). Blocked: the `nyc311-gen-purpose-dev` AWS profile is missing on the host, so no Logs Insights baseline | none yet (planned `docs/kid-kestral/202-backend-read-feature-flags-in-services.md`) | none (ships with no caller; first caller #170/#194 is its dial-up) |
+| #202 | backend: read feature flags in services | In Intake on 2026-11-13. Was parked 2026-11-10: the AWS profile was missing, so there was no Logs Insights baseline | none yet (planned `docs/kid-kestral/202-backend-read-feature-flags-in-services.md`) | none (ships with no caller; first caller #170/#194 is its dial-up) |
+| #194 | Dispatch the nearest idle operator | Spec Created 2026-11-13 (commit 6d19f8e) | `docs/kid-kestral/194-dispatch-the-nearest-idle-operator-to-each-order-not-whichever-the-index-returns-first.md` | `NEAREST_OPERATOR_DISPATCH` (rows not created yet). Leg 1 depends on #202 |
 
 ## Flags I own
-None yet.
+- `NEAREST_OPERATOR_DISPATCH` (#194): C = first-available, T1 = nearest. Read once per scheduling run with empty context.
+
+## Baselines taken
+- #194, 2026-11-13: drive distance 8.16 mi actual / 8.69 all-pairs / 3.22 nearest (Nov 10-12, 396 jobs). Median resolve 173.72 h and 69.1% late (resolved Nov 6-12). Drive share by day, Nov 6-12: 21.2 to 11.0%.
 
 ## Lessons
 - Check the §22.2 block line by line: a ticket can carry both approval labels and still lack `Dial-up:`. Drafts in the body count only if every line is there.
-- `run_query` is warehouse SQL only. The warehouse tables are locations, operator_events, operator_snapshots, order_events, order_snapshots, public_api_calls and requests, with no Lambda metrics. A metric defined on CloudWatch needs the read-only AWS profile.
-- The AWS profile `nyc311-gen-purpose-dev` didn't exist on 2026-11-10 (`config profile ... could not be found`). Check it early in a run (`aws --profile nyc311-gen-purpose-dev sts get-caller-identity`) before promising a CloudWatch baseline. `aws configure list-profiles` needs approval.
-- Bash rejects `$(...)` substitution. Run `date +%s` first, then use literal epoch numbers.
-- #202 code facts: `featureFlagService.getTreatment(flagKey, ctx, {fallback})` exists with no callers. It falls back on NotFound but rethrows DynamoDB errors and doesn't check for an unknown treatment. The DAO is `dao/featureFlag/featureFlagDao.ts` (getItem is zod-validated). The env var is `FEATURE_FLAGS_TABLE_NAME`. The table construct is `cdk/data/FeatureFlagsTable.ts` (TableV2, `.grant(fn, actions)`). Today's read path is `Nyc311FeatureFlagsApi-<Env>` (`TreatmentEvaluated` log; grants Scan+GetItem).
-- Bash rejects heredocs ("shell syntax"). For a comment body, `mktemp`, then Read the empty file, then Write it, then `--body-file`. `rm` of /var/folders needs approval, so leave the file.
-- Team Chat: one top-level post per card. On a re-park, reply in the card's existing thread rather than posting again.
+- `run_query` is warehouse SQL only. The budget is small: 3 queries left 4, then 2. Plan the queries before the first one. Operator payloads carry `$.location.lat/lng`.
+- The AWS profile `nyc311-gen-purpose-dev` was still missing on 2026-11-13. Check it early (`aws --profile nyc311-gen-purpose-dev sts get-caller-identity`). When the deciding metric is in the warehouse, proceed and list the profile under Needs the CEO. Pipes to `sed` need approval.
+- Share-of-paid-hours metrics move with demand (idle rose sharply from Nov 10). Prefer per-job metrics as the deciding measure.
+- Bash rejects `$(...)` substitution and heredocs. For a comment body: `mktemp`, Read the empty file, Write it, then `--body-file`.
+- #202 code facts: `featureFlagService.getTreatment(flagKey, ctx, {fallback})` has no callers. It rethrows DynamoDB errors. `TreatmentContext` is `{operator_id?}`, strict. The env var is `FEATURE_FLAGS_TABLE_NAME`; the table construct is `cdk/data/FeatureFlagsTable.ts`.
+- Scheduler: `Nyc311OrderScheduling-<Env>` (cdk/lambda/Nyc311OrderSchedulingLambda.ts). It has no FeatureFlags grant today.
+- Team Chat: one top-level post per card. On a re-park, reply in the existing thread.
