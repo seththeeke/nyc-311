@@ -99,14 +99,26 @@ export class Nyc311PipelineStack extends Stack {
      * deploys to both real environments), and PIPELINE_API_BASE_URL (§9's
      * singleton value, homed here now that web-app/.env is git-ignored).
      */
+    /*
+     * #220 - backend/ and customer/backend/'s lint+test (~14s/~7s) ran
+     * serially before web-app/'s own build (~64s, longest; stays
+     * foreground since cdk's synth reads web-app/dist). Backgrounding the
+     * two short packages (no cd ../.. needed, each its own subshell) lets
+     * them finish during web-app's run, same gate via wait. cdk/'s step
+     * stays serial last - pairing it with web-app's own Vitest would
+     * reintroduce the contention that forced Synth from MEDIUM to LARGE
+     * (2026-08-28).
+     */
     const synth = new pipelines.ShellStep("Synth", {
       input: source,
       installCommands: NODE_22_INSTALL_COMMANDS,
       commands: [
-        `cd backend && ${NPM_CI} && npm run lint && npm run test:coverage && cd ..`,
-        /* The fourth package (13-customer-simulation.md). `cd ../..` — the shell persists across commands. */
-        `cd customer/backend && ${NPM_CI} && npm run lint && npm run test:coverage && cd ../..`,
-        `cd web-app && ${NPM_CI} && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build && cd ..`,
+        `(cd backend && ${NPM_CI} && npm run lint && npm run test:coverage) & BACKEND_PID=$!`,
+        `(cd customer/backend && ${NPM_CI} && npm run lint && npm run test:coverage) & CUSTOMER_PID=$!`,
+        `cd web-app && ${NPM_CI} && npm run lint && npm run test:coverage && VITE_DATA_MODE=live VITE_PIPELINE_API_BASE_URL=${PIPELINE_STATUS_API_URL} npm run build; WEBAPP_STATUS=$?; cd ..`,
+        "wait $BACKEND_PID; BACKEND_STATUS=$?",
+        "wait $CUSTOMER_PID; CUSTOMER_STATUS=$?",
+        '[ "$WEBAPP_STATUS" -eq 0 ] && [ "$BACKEND_STATUS" -eq 0 ] && [ "$CUSTOMER_STATUS" -eq 0 ]',
         /*
          * test:coverage:ci (not the plain test:coverage every other
          * package/local dev uses) — cdk/scripts/test-coverage-sharded.sh

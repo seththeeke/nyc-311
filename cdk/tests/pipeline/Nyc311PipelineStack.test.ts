@@ -324,12 +324,27 @@ describe("Nyc311PipelineStack", () => {
     }
   });
 
-  it("lints and tests the customer package in Synth, returning to the repo root afterwards", () => {
+  it("lints and tests the customer package in Synth, in its own background subshell (#220)", () => {
     const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
       JSON.stringify(project.Properties.Source.BuildSpec)
     );
     const synthSpec = buildSpecs.find((spec) => spec.includes("npm run test:coverage:ci"));
-    expect(synthSpec).toContain("cd customer/backend && npm ci --no-audit --no-fund && npm run lint && npm run test:coverage && cd ../..");
+    expect(synthSpec).toContain("(cd customer/backend && npm ci --no-audit --no-fund && npm run lint && npm run test:coverage) & CUSTOMER_PID=$!");
+  });
+
+  it("backgrounds backend/'s and customer/backend/'s Synth lint+test alongside web-app/'s, and gates on all three (#220)", () => {
+    const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
+      JSON.stringify(project.Properties.Source.BuildSpec)
+    );
+    const synthSpec = buildSpecs.find((spec) => spec.includes("npm run test:coverage:ci"));
+    expect(synthSpec).toContain("(cd backend && npm ci --no-audit --no-fund && npm run lint && npm run test:coverage) & BACKEND_PID=$!");
+    expect(synthSpec).toContain("WEBAPP_STATUS=$?");
+    expect(synthSpec).toContain("wait $BACKEND_PID; BACKEND_STATUS=$?");
+    expect(synthSpec).toContain("wait $CUSTOMER_PID; CUSTOMER_STATUS=$?");
+    /* synthSpec is JSON.stringify-ed twice over (CDK's buildspec, then this test's own dump); strip backslashes to compare the literal command text. */
+    expect(synthSpec?.replace(/\\/g, "")).toContain(
+      '[ "$WEBAPP_STATUS" -eq 0 ] && [ "$BACKEND_STATUS" -eq 0 ] && [ "$CUSTOMER_STATUS" -eq 0 ]',
+    );
   });
 
   it("skips npm's built-in audit on every npm ci in every CodeBuild step (#200)", () => {
