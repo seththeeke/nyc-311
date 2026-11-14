@@ -347,6 +347,22 @@ describe("Nyc311PipelineStack", () => {
     );
   });
 
+  it("starts, waits on and gates the parallel Synth packages in ONE command, since CodeBuild runs each entry in a new shell (#220)", () => {
+    const synth = Object.values(template.findResources("AWS::CodeBuild::Project"))
+      .map((project) => project.Properties.Source.BuildSpec as string)
+      .filter((spec) => spec.trimStart().startsWith("{"))
+      .map((spec) => JSON.parse(spec) as { phases: { build?: { commands?: string[] } } })
+      .find((spec) => (spec.phases.build?.commands ?? []).some((command) => command.includes("npm run test:coverage:ci")));
+    const commands = synth?.phases.build?.commands ?? [];
+    const parallel = commands.filter((command) => /BACKEND_PID|CUSTOMER_PID|WEBAPP_STATUS/.test(command));
+    expect(parallel).toHaveLength(1);
+    const [block] = parallel;
+    for (const part of ["& BACKEND_PID=$!", "& CUSTOMER_PID=$!", "wait $BACKEND_PID", "wait $CUSTOMER_PID", '[ "$WEBAPP_STATUS" -eq 0 ]']) {
+      expect(block).toContain(part);
+    }
+    expect(block.indexOf("& BACKEND_PID=$!")).toBeLessThan(block.indexOf("wait $BACKEND_PID"));
+  });
+
   it("skips npm's built-in audit on every npm ci in every CodeBuild step (#200)", () => {
     const buildSpecs = Object.values(template.findResources("AWS::CodeBuild::Project")).map((project) =>
       JSON.stringify(project.Properties.Source.BuildSpec)
