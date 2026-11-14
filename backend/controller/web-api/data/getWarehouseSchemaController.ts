@@ -2,8 +2,8 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { getWarehouseSchema } from "../../../service/analytics/warehouseSchemaService";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { ValidationError } from "../../../models/errors";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `GET /data/schema` (`7-data-warehousing.md` §12) — live Glue Data
@@ -25,7 +25,6 @@ export const getWarehouseSchemaController = async (event: unknown): Promise<APIG
     return jsonResponse(200, schema);
   } catch (err) {
     logError("GetWarehouseSchemaControllerFailed", { error: err instanceof Error ? err.message : err });
-    const statusCode = err instanceof ValidationError ? 400 : 500;
-    return jsonResponse(statusCode, { message: "Failed to fetch warehouse schema" });
+    return errorResponse(err, "Failed to fetch warehouse schema");
   }
 };

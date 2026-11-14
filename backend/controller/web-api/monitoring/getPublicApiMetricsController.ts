@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { getPublicApiMetrics } from "../../../service/monitoring/publicApiMetricsService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `GET /public-api/metrics` — the Public API page's Health section (16-resident-action-models.md §6.2). Internal, not a /v1/ route. */
 export const getPublicApiMetricsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -20,6 +21,6 @@ export const getPublicApiMetricsController = async (event: unknown): Promise<API
     return jsonResponse(200, metrics);
   } catch (err) {
     logError("GetPublicApiMetricsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to fetch public API metrics" });
+    return errorResponse(err, "Failed to fetch public API metrics");
   }
 };

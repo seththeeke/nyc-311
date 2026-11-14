@@ -1,10 +1,10 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { NotFoundError } from "../../../models/errors";
 import { FlagKeyParamsSchema } from "../../../models/featureFlag";
 import { getFeatureFlag } from "../../../service/featureFlag/featureFlagService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `GET /feature-flags/{flag_key}` (`11-street-condition-implementation.md` §4.2) — public. */
 export const getFeatureFlagController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -30,7 +30,6 @@ export const getFeatureFlagController = async (event: unknown): Promise<APIGatew
     return response;
   } catch (err) {
     logError("GetFeatureFlagControllerFailed", { flagKey, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    return jsonResponse(500, { message: "Failed to fetch feature flag" });
+    return errorResponse(err, "Failed to fetch feature flag");
   }
 };

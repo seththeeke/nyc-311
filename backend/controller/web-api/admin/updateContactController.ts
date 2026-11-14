@@ -2,9 +2,9 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { UpdateContactInputSchema, UpdateContactParamsSchema } from "../../../models/contactUpdate";
-import { ConflictError, NotFoundError, ValidationError } from "../../../models/errors";
 import { toContactListItem, updateContact } from "../../../service/contact/contactService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `PATCH /admin/contacts/{contact_id}` (17-executive-team.md §17.3): ADMIN or BOROUGH_SIM_PRODUCT (the CPO). */
 export const updateContactController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -40,9 +40,6 @@ export const updateContactController = async (event: unknown): Promise<APIGatewa
     return jsonResponse(200, toContactListItem(contact));
   } catch (err) {
     logError("UpdateContactControllerFailed", { contactId: params.data.contact_id, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof ConflictError) return jsonResponse(409, { message: err.message });
-    return jsonResponse(500, { message: "Failed to update contact" });
+    return errorResponse(err, "Failed to update contact");
   }
 };

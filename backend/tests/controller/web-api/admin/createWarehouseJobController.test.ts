@@ -114,6 +114,16 @@ describe("createWarehouseJobController", () => {
     expect(mockedCreateWarehouseJob).not.toHaveBeenCalled();
   });
 
+  it("returns 400 for a request with no body", async () => {
+    const response = await createWarehouseJobController({
+      rawPath: "/admin/warehouse/jobs",
+      requestContext: { http: { method: "POST" } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockedCreateWarehouseJob).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when the body fails schema validation", async () => {
     const response = await createWarehouseJobController(eventWithBody({ name: "Bad-Name" }));
 

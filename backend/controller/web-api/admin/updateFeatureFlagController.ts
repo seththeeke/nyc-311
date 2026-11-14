@@ -1,12 +1,13 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
-import { NotFoundError, TerminalError, ValidationError } from "../../../models/errors";
+import { TerminalError } from "../../../models/errors";
 import { FlagKeyParamsSchema, UpdateFeatureFlagRequestSchema } from "../../../models/featureFlag";
 import { updateFeatureFlag } from "../../../service/featureFlag/featureFlagService";
 import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `PUT /admin/feature-flags/{flag_key}` (`11-street-condition-implementation.md`
@@ -55,11 +56,9 @@ export const updateFeatureFlagController = async (event: unknown): Promise<APIGa
     return response;
   } catch (err) {
     logError("UpdateFeatureFlagControllerFailed", { flagKey, error: err instanceof Error ? err.message : err });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    if (err instanceof TerminalError) {
-      return jsonResponse(409, { message: `Feature flag ${flagKey} changed since version ${parsedBody.data.expected_version} — reload and retry` });
-    }
-    return jsonResponse(500, { message: "Failed to update feature flag" });
+    /* The DAO's version-checked write surfaces a stale version as TerminalError. */
+    return errorResponse(err, "Failed to update feature flag", [
+      { type: TerminalError, status: 409, message: `Feature flag ${flagKey} changed since version ${parsedBody.data.expected_version} — reload and retry` },
+    ]);
   }
 };

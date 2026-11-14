@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { getCapacitySnapshot } from "../../../service/capacity/capacitySnapshotService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 import { requireCapacityReader } from "./capacityCaller";
 
 /**
@@ -24,6 +25,6 @@ export const getCapacitySnapshotController = async (event: unknown): Promise<API
     return jsonResponse(200, snapshot);
   } catch (err) {
     logError("GetCapacitySnapshotControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to build the capacity snapshot" });
+    return errorResponse(err, "Failed to build the capacity snapshot");
   }
 };

@@ -2,9 +2,9 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { ListContactsQuerySchema } from "../../../models/contactList";
-import { ValidationError } from "../../../models/errors";
 import { listContacts } from "../../../service/contact/contactService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `GET /contacts` (17-executive-team.md §17.3), public: one page of Contacts by type, optionally by status. */
 export const listContactsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -27,11 +27,7 @@ export const listContactsController = async (event: unknown): Promise<APIGateway
     logInfo("ListContactsControllerCompleted", { status: 200, count: page.contacts.length });
     return response;
   } catch (err) {
-    if (err instanceof ValidationError) {
-      logError("ListContactsControllerBadCursor", { error: err.message });
-      return jsonResponse(400, { message: err.message });
-    }
     logError("ListContactsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to list contacts" });
+    return errorResponse(err, "Failed to list contacts");
   }
 };

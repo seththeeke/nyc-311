@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLambdaHealth } from "../../../../service/monitoring/lambdaMetricsService";
 import { getLambdaMetricsController } from "../../../../controller/web-api/monitoring/getLambdaMetricsController";
-import { ValidationError } from "../../../../models/errors";
+import { NotFoundError, ValidationError } from "../../../../models/errors";
 import type { LambdaHealth } from "../../../../models/lambdaMetrics";
 
 vi.mock("../../../../service/monitoring/lambdaMetricsService", () => ({
@@ -58,6 +58,15 @@ describe("getLambdaMetricsController", () => {
     const result = await getLambdaMetricsController(validEvent);
 
     expect(result.statusCode).toBe(400);
+  });
+
+  it("returns 404 with the error's message for a NotFoundError (500 before #172)", async () => {
+    mockedGetLambdaHealth.mockRejectedValue(new NotFoundError("No such Lambda"));
+
+    const result = await getLambdaMetricsController(validEvent);
+
+    expect(result.statusCode).toBe(404);
+    expect(JSON.parse(result.body as string)).toEqual({ message: "No such Lambda" });
   });
 
   it("returns 500 for any other failure", async () => {

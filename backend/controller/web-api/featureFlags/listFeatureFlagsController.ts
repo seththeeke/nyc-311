@@ -3,6 +3,7 @@ import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { listFeatureFlags } from "../../../service/featureFlag/featureFlagService";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /** `GET /feature-flags` (`11-street-condition-implementation.md` §4.2) — public. */
 export const listFeatureFlagsController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -21,6 +22,6 @@ export const listFeatureFlagsController = async (event: unknown): Promise<APIGat
     return response;
   } catch (err) {
     logError("ListFeatureFlagsControllerFailed", { error: err instanceof Error ? err.message : err });
-    return jsonResponse(500, { message: "Failed to list feature flags" });
+    return errorResponse(err, "Failed to list feature flags");
   }
 };

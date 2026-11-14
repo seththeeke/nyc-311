@@ -2,10 +2,10 @@ import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { logError, logInfo } from "../../../logger";
 import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { RemoveCapacityBodySchema, RemoveCapacityParamsSchema } from "../../../models/capacityRequest";
-import { ConflictError, NotFoundError, ValidationError } from "../../../models/errors";
 import { removeCapacity } from "../../../service/capacity/capacityService";
 import { capacityChangeOf } from "./capacityCaller";
 import { jsonResponse } from "../shared/jsonResponse";
+import { errorResponse } from "../shared/errorResponse";
 
 /**
  * `DELETE /capacity/{operator_id}` (`10-capacity-modeling-and-integration.md`
@@ -49,9 +49,6 @@ export const removeCapacityController = async (event: unknown): Promise<APIGatew
       operatorId: parsedParams.data.operator_id,
       error: err instanceof Error ? err.message : err,
     });
-    if (err instanceof NotFoundError) return jsonResponse(404, { message: "Failed to remove capacity" });
-    if (err instanceof ConflictError) return jsonResponse(409, { message: err.message });
-    if (err instanceof ValidationError) return jsonResponse(400, { message: err.message });
-    return jsonResponse(500, { message: "Failed to remove capacity" });
+    return errorResponse(err, "Failed to remove capacity");
   }
 };
