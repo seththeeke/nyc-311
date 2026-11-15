@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactElement } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AboutOverlay } from "../about/AboutOverlay";
+import { BackToIntroButton } from "../about/BackToIntroButton";
 import { ROW_BASE_CLASSES, rowStateClasses } from "./SidebarLink";
 import { InfoIcon, SignOutIcon } from "./shellIcons";
 import { ThemeToggle } from "./ThemeToggle";
@@ -63,7 +64,7 @@ export function SidebarFooter({ collapsed }: SidebarFooterProps): ReactElement {
           </button>
         </div>
       )}
-      {aboutOpen && <AboutOverlay onClose={closeAbout} />}
+      {aboutOpen && <AboutOverlay onClose={closeAbout} footer={<BackToIntroButton />} />}
     </div>
   );
 }

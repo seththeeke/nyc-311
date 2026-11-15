@@ -109,6 +109,12 @@ describe("AboutOverlay", () => {
     expect(ABOUT_SECTIONS[ABOUT_SECTIONS.length - 1]?.id).toBe("frontend");
   });
 
+  it("renders an optional footer after the sections", () => {
+    render(<AboutOverlay onClose={vi.fn()} footer={<button type="button">Extra</button>} />);
+
+    expect(screen.getByRole("button", { name: "Extra" })).toBeInTheDocument();
+  });
+
   it("focuses the close button on open", () => {
     render(<AboutOverlay onClose={vi.fn()} />);
 

@@ -10,6 +10,7 @@ vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
 }));
 import { ThemeProvider } from "../../../src/components/shell/ThemeProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
+import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
 import { THEME_STORAGE_KEY } from "../../../src/models/theme";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
@@ -35,6 +36,7 @@ afterEach(() => {
   window.localStorage.clear();
   document.documentElement.removeAttribute("data-theme");
   vi.unstubAllGlobals();
+  vi.mocked(useFeatureEnabled).mockReturnValue(false);
 });
 
 describe("SidebarFooter — About", () => {
@@ -87,6 +89,23 @@ describe("SidebarFooter — About", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Close About" }));
     expect(screen.getByTestId("path")).toHaveTextContent(/^\/$/);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("hides Back to the intro in the drawer while the marketing flags are off", async () => {
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter("/data");
+    await userEvent.setup().click(screen.getByRole("button", { name: "About" }));
+    expect(screen.queryByRole("button", { name: "Back to the intro" })).not.toBeInTheDocument();
+  });
+
+  it("shows Back to the intro in the drawer when both marketing flags are on, and it goes to /", async () => {
+    vi.mocked(useFeatureEnabled).mockReturnValue(true);
+    mockedUseAuth.mockReturnValue(authResult());
+    renderFooter("/data");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "About" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back to the intro" }));
+    expect(screen.getByTestId("path")).toHaveTextContent(/^\/$/);
   });
 
   it("collapsed: About stays reachable by its accessible name, without visible text", () => {

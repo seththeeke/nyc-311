@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ABOUT_OVERVIEW, ABOUT_SECTIONS } from "./aboutSections";
 import { AboutSectionItem } from "./AboutSectionItem";
 
 export interface AboutOverlayProps {
   onClose: () => void;
+  /** Rendered after the sections, e.g. the "Back to the intro" button; the drawer itself stays router- and flag-free. */
+  footer?: ReactNode;
 }
 
 /**
@@ -13,7 +15,7 @@ export interface AboutOverlayProps {
  * on Escape or the close button, restoring focus to the opener. Portaled to
  * `document.body` so it isn't clipped by the sidebar it's opened from.
  */
-export function AboutOverlay({ onClose }: AboutOverlayProps): ReactElement {
+export function AboutOverlay({ onClose, footer }: AboutOverlayProps): ReactElement {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -87,6 +89,7 @@ export function AboutOverlay({ onClose }: AboutOverlayProps): ReactElement {
               />
             ))}
           </div>
+          {footer}
         </article>
       </div>
     </div>,
