@@ -14,6 +14,7 @@ import { logInfo, logError } from "../../logger";
 import { requireEnv } from "../../env";
 import type { WarehouseJobRunsDao } from "../../dao/analytics/warehouseJobRunsDao";
 import { getWarehouseJobRunsDao } from "../../dao/analytics/getWarehouseJobRunsDao";
+import { eventSourcedItemKind } from "../../dao/eventSourcedItemKind";
 import type { WarehouseJobRun, WarehouseJobRunStatus } from "../../models/warehouseJobRun";
 import type {
   RebuildSource,
@@ -45,12 +46,12 @@ const SOURCE_TARGETS: Record<RebuildSource, RebuildTarget[]> = {
     {
       table: "order_snapshots",
       firehoseEnv: "ORDER_SNAPSHOTS_FIREHOSE_NAME",
-      relevant: (item) => item["sk"] === "#METADATA",
+      relevant: (item) => eventSourcedItemKind(item["sk"]) === "PROJECTION",
     },
     {
       table: "order_events",
       firehoseEnv: "ORDER_EVENTS_FIREHOSE_NAME",
-      relevant: (item) => typeof item["sk"] === "string" && (item["sk"] as string).startsWith("EVENT#"),
+      relevant: (item) => eventSourcedItemKind(item["sk"]) === "EVENT",
     },
   ],
   requests: [

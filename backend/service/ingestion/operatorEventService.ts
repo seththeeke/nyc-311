@@ -4,6 +4,7 @@ import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { logInfo } from "../../logger";
 import { requireEnv } from "../../env";
 import type { OperatorStreamRecord } from "../../models/operatorStreamEvent";
+import { eventSourcedStreamRecordKind } from "../../dao/eventSourcedStreamRecordKind";
 
 /**
  * Dependencies for {@link fanOutOperatorRecord}. All default to a freshly
@@ -13,32 +14,6 @@ export interface OperatorFanOutDeps {
   snsClient?: SNSClient;
   eventsTopicArn?: string;
   projectionsTopicArn?: string;
-}
-
-/** Extracts a string `sk` from a stream record's `NewImage`, or `null`. */
-function newImageSk(record: OperatorStreamRecord): string | null {
-  const sk = record.dynamodb.NewImage?.["sk"];
-  if (typeof sk === "object" && sk !== null && "S" in sk && typeof (sk as { S: unknown }).S === "string") {
-    return (sk as { S: string }).S;
-  }
-  return null;
-}
-
-/**
- * True only for an appended `OperatorEvent` — an `INSERT` whose `sk`
- * starts with `EVENT#` (`10-capacity-modeling-and-integration.md` §1.1).
- * Immutable, append-only, so a `MODIFY` never applies here.
- */
-function isOperatorEventRecord(record: OperatorStreamRecord): boolean {
-  return record.eventName === "INSERT" && (newImageSk(record)?.startsWith("EVENT#") ?? false);
-}
-
-/**
- * True for a change to the `#METADATA` projection row — an `INSERT`
- * (Operator added) or a `MODIFY` (every later state transition).
- */
-function isOperatorProjectionRecord(record: OperatorStreamRecord): boolean {
-  return (record.eventName === "INSERT" || record.eventName === "MODIFY") && newImageSk(record) === "#METADATA";
 }
 
 /**
@@ -55,8 +30,9 @@ export async function fanOutOperatorRecord(
   deps: OperatorFanOutDeps = {}
 ): Promise<void> {
   const snsClient = deps.snsClient ?? new SNSClient({});
+  const kind = eventSourcedStreamRecordKind(record);
 
-  if (isOperatorEventRecord(record)) {
+  if (kind === "EVENT") {
     const eventsTopicArn = deps.eventsTopicArn ?? requireEnv("OPERATOR_EVENTS_TOPIC_ARN");
     const operatorEvent = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
     const eventType = typeof operatorEvent["event_type"] === "string" ? operatorEvent["event_type"] : "UNKNOWN";
@@ -82,7 +58,7 @@ export async function fanOutOperatorRecord(
     return;
   }
 
-  if (isOperatorProjectionRecord(record)) {
+  if (kind === "PROJECTION") {
     const projectionsTopicArn = deps.projectionsTopicArn ?? requireEnv("OPERATOR_PROJECTIONS_TOPIC_ARN");
     const projection = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
     logInfo("OperatorStreamRecordUnmarshalled", {

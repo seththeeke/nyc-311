@@ -6,6 +6,8 @@ import { TerminalError, ValidationError } from "../models/errors";
 
 /* Exported so DAOs needing a raw Scan/Query (e.g. OrderDao.listOrders) can filter to projection-only items. */
 export const PROJECTION_SORT_KEY = "#METADATA";
+/* Every appended event's sort key is this prefix plus its sequence number. */
+export const EVENT_SORT_KEY_PREFIX = "EVENT#";
 
 /* DynamoDB's hard per-request key limit for BatchGetItem. */
 const BATCH_GET_MAX_KEYS = 100;
@@ -309,7 +311,7 @@ export abstract class EventSourcedDao<
             {
               Put: {
                 TableName: this.tableName,
-                Item: { [this.partitionKeyName]: partitionKeyValue, sk: `EVENT#${nextSequence}`, ...event },
+                Item: { [this.partitionKeyName]: partitionKeyValue, sk: `${EVENT_SORT_KEY_PREFIX}${nextSequence}`, ...event },
                 ConditionExpression: "attribute_not_exists(sk)",
               },
             },

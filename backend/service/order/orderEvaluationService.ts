@@ -5,6 +5,7 @@ import { logInfo, logWarn } from "../../logger";
 import { requireEnv } from "../../env";
 import type { OrderDao } from "../../dao/order/orderDao";
 import { getOrderDao } from "../../dao/order/getOrderDao";
+import { eventSourcedStreamRecordKind } from "../../dao/eventSourcedStreamRecordKind";
 import { createCase } from "../case/caseService";
 import type { Order, OrderEvent, OrderRejectionReasonCode } from "../../models/order";
 import type { OrderStreamRecord } from "../../models/orderStreamEvent";
@@ -22,53 +23,23 @@ export interface OrdersStreamFanOutDeps {
   projectionsTopicArn?: string;
 }
 
-/** Extracts a string `sk` from a stream record's `NewImage`, or `null`. */
-function newImageSk(record: OrderStreamRecord): string | null {
-  const sk = record.dynamodb.NewImage?.["sk"];
-  if (typeof sk === "object" && sk !== null && "S" in sk && typeof (sk as { S: unknown }).S === "string") {
-    return (sk as { S: string }).S;
-  }
-  return null;
-}
-
-/**
- * True only for an appended `OrderEvent` — an `INSERT` whose `sk` starts
- * with `EVENT#` (`5-order-evaluation.md` §3). Immutable, append-only, so a
- * `MODIFY` never applies here.
- */
-function isOrderEventRecord(record: OrderStreamRecord): boolean {
-  return record.eventName === "INSERT" && (newImageSk(record)?.startsWith("EVENT#") ?? false);
-}
-
-/**
- * True for a change to the `#METADATA` projection row — an `INSERT` (order
- * creation) or a `MODIFY` (every later state transition). Only the
- * warehouse consumes this stream (`7-data-warehousing.md` §4), for
- * `order_snapshots`; the operational Order-evaluation pipeline reads
- * `Nyc311OrderEventsTopic` instead.
- */
-function isOrderProjectionRecord(record: OrderStreamRecord): boolean {
-  return (
-    (record.eventName === "INSERT" || record.eventName === "MODIFY") && newImageSk(record) === "#METADATA"
-  );
-}
-
 /**
  * Routes one `Orders`-table stream record: an `EVENT#` item onto
  * `Nyc311OrderEventsTopic` (tagged `event_type`, unchanged from
  * `5-order-evaluation.md` §3), a `#METADATA` change onto
- * `Nyc311OrderProjectionsTopic` (tagged `event_name`), everything else a
- * no-op (`7-data-warehousing.md` §4). One stream reader, two outbound
- * topics — pure plumbing, no DAO calls, an irrelevant record never a
- * `batchItemFailure`.
+ * `Nyc311OrderProjectionsTopic` (tagged `event_name`, read only by the
+ * warehouse), everything else a no-op (`7-data-warehousing.md` §4). One
+ * stream reader, two outbound topics — pure plumbing, no DAO calls, an
+ * irrelevant record never a `batchItemFailure`.
  */
 export async function fanOutOrdersStreamRecord(
   record: OrderStreamRecord,
   deps: OrdersStreamFanOutDeps = {}
 ): Promise<void> {
   const snsClient = deps.snsClient ?? new SNSClient({});
+  const kind = eventSourcedStreamRecordKind(record);
 
-  if (isOrderEventRecord(record)) {
+  if (kind === "EVENT") {
     const eventsTopicArn = deps.eventsTopicArn ?? requireEnv("ORDER_EVENTS_TOPIC_ARN");
     const orderEvent = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
     const eventType = typeof orderEvent["event_type"] === "string" ? orderEvent["event_type"] : "UNKNOWN";
@@ -94,7 +65,7 @@ export async function fanOutOrdersStreamRecord(
     return;
   }
 
-  if (isOrderProjectionRecord(record)) {
+  if (kind === "PROJECTION") {
     const projectionsTopicArn = deps.projectionsTopicArn ?? requireEnv("ORDER_PROJECTIONS_TOPIC_ARN");
     const projection = unmarshall(record.dynamodb.NewImage as Record<string, AttributeValue>);
     logInfo("OrderStreamRecordUnmarshalled", {
