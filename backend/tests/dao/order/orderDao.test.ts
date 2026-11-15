@@ -222,6 +222,57 @@ describe("OrderDao.recordCaseCreated", () => {
   });
 });
 
+/*
+ * Every append replaces the projection item, so each write must re-derive
+ * the GSI keys from the new projection. These cover the paths that used to
+ * pass no index attributes at all (#174).
+ */
+describe("OrderDao index keys are derived on every write", () => {
+  const ASSIGNED_ORDER = makeOrderItem({
+    current_stage: "EXECUTE",
+    status: "ACTIVE",
+    sla_deadline: "2026-08-29T00:00:00.000Z",
+    assigned_operator_id: "01OPERATOR",
+    last_event_sequence: 2,
+  });
+
+  function projectionPutItem(): Record<string, unknown> {
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    return transactInput.TransactItems?.[1]?.Put?.Item as Record<string, unknown>;
+  }
+
+  it("createOrder writes no index keys — sla_deadline and assigned_operator_id are both still null", async () => {
+    await orderDao.createOrder({ request_id: "01REQUEST", location_id: null, complaint_type: null });
+
+    const item = projectionPutItem();
+    expect(item.gsi1pk).toBeUndefined();
+    expect(item.gsi2pk).toBeUndefined();
+  });
+
+  it("recordCaseCreated on an assigned Order keeps it in both indexes", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: ASSIGNED_ORDER });
+
+    const order = await orderDao.recordCaseCreated("01ORDER", "unmanageable");
+
+    expect(projectionPutItem()).toMatchObject({
+      gsi1pk: "STAGE#EXECUTE",
+      gsi1sk: "2026-08-29T00:00:00.000Z",
+      gsi2pk: "01OPERATOR",
+      gsi2sk: order.updated_at,
+    });
+  });
+
+  it("rejectOrder removes an Order from both indexes, so a REJECTED Order is never scheduled", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: ASSIGNED_ORDER });
+
+    await orderDao.rejectOrder("01ORDER", "SERVICE_NOT_SUPPORTED", "reason");
+
+    const item = projectionPutItem();
+    expect(item.gsi1pk).toBeUndefined();
+    expect(item.gsi2pk).toBeUndefined();
+  });
+});
+
 describe("OrderDao.scheduleOrder", () => {
   const SCHEDULED_INPUT = {
     scheduledStart: "2026-08-28T12:00:00.000Z",
