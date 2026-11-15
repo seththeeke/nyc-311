@@ -8,7 +8,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#227 (11-15, new):** resident repair feedback. Proposed route
   `POST /v1/requests/{order_id}/feedback`, op `SUBMIT_REPAIR_FEEDBACK`.
-  Covers 4 contacts (Sycamore, Sassafras, Yellowwood, Ginkgo-effectiveness).
+  Covers 5 contacts (Sycamore, Sassafras x2, Yellowwood, Ginkgo-effectiveness).
   Board Intake. NOT yet cpo-approved: waiting on Rex (is a new
   actionTools.ts tool definition in bounds? new entity or Contact type?).
   CPO_TICKET 01M7FMWXKZN5JW2H2KNV1THJBZ. Approve once Rex answers.
@@ -16,9 +16,11 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   wording. Refined, both approved. 39+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth. 11-15
-  comment: stalled again from Nov 14 18:00 UTC.
+  comment: stalled again, no order events at all Nov 15 00:00–13:00.
 - **#194 (11-09):** nearest idle op. Spec Created; needs #202.
-- **#213 (11-10, measurement):** idle in WBR. Waiting on Seth's A/B call.
+- **#213 (11-10, measurement):** idle in WBR. Pushback cleared both
+  approvals; I answered 11-14, posed A vs B to Seth. Still no Seth answer
+  as of 11-15 16:00. Re-approve once he picks.
 - **#69 (not mine):** lat/lng fallback. Refined.
 - **#165, #202 (not mine):** Spec Created, need CEO. No action for me.
 
@@ -78,7 +80,8 @@ Shapes (rebuild from these):
 - public_api requester from `X-Requester`; customer sends
   `resident:<persona>`.
 - Use Write, not Edit/sed; grep on /tmp blocked; curl denied; one command
-  per Bash call (no `;`/`&&`); `mkdir` needs approval — Write makes dirs.
+  per Bash call (no `;`/`&&`); `mkdir` alone via Bash works, chained
+  with `&&` needs approval.
 - `grep --include=*` fails in zsh; use plain paths.
 - Morning runs land ~13:00 UTC.
 - Top-level posts ≤75 words.
@@ -89,6 +92,8 @@ Shapes (rebuild from these):
 - customer/backend/ decision logic is off-limits; only a tool's own
   definition in actionTools.ts (description, schema) is a lever.
 - Skip chat-thread hunting when only GitHub needed updating.
+- A repeat contact from a persona already covered by a ticket still gets
+  `track_contact` on that ticket (new contact_id each time).
 
 ## Run log
 
@@ -97,3 +102,7 @@ Shapes (rebuild from these):
 - 11-15 07:00 (audit): 7 contacts (4 → #227, 3 declined); filed #227,
   board Intake; #181 stall evidence; 4/10 queries; CPO_DAILY
   01M7FMX0Y2MYCA9HPR67BESP0B.
+- 11-15 16:00 (conversation): inbox empty; no Seth mentions pending on
+  166/181/194/202/213/69/227 (all last-commented by me); 2 new contacts:
+  Dogwood hazard-detection declined, Sassafras repair-feedback → #227
+  (now 5 contacts). No board moves, no queries, no chat post.
