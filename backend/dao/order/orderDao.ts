@@ -3,7 +3,7 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { EventSourcedDao } from "../dao";
 import { logInfo } from "../../logger";
-import type { CostModel, Order, OrderEvent, OrderRejectionReasonCode, OrderStage } from "../../models/order";
+import type { CostModel, Order, OrderEvent, OrderEventType, OrderRejectionReasonCode, OrderStage } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
 import type { OrderListResult } from "../../models/orderListResult";
 import { ValidationError } from "../../models/errors";
@@ -49,15 +49,24 @@ function stageSlaPartitionKey(stage: OrderStage): string {
 /* gsi2pk = assigned_operator_id, gsi2sk = updated_at, per ddb-design.md — "Orders currently assigned to a given Operator". */
 const ASSIGNED_OPERATOR_INDEX = "gsi2-assigned-operator";
 /*
- * Every `additionalProjectionAttributes` Put fully replaces the item, so
- * gsi2pk/gsi2sk must be re-stamped on every write from scheduleOrder
- * onward, not just scheduleOrder's own — otherwise the very next
- * execution event (dispatched/arrived/processing/resolved) silently
- * drops them, since none of those touch gsi2 on their own.
+ * The one place an Order's GSI keys come from. Every append fully replaces
+ * the projection item, so the keys are derived from the new projection on
+ * every write (via appendOrderEvent) rather than per method; a method that
+ * forgot them used to silently drop the Order from both indexes. Both
+ * indexes are sparse: gsi1 needs sla_deadline (set from acceptOrder on),
+ * gsi2 an assigned operator. A REJECTED Order is in neither, so it can
+ * never be picked off the scheduling queue.
  */
-function assignedOperatorAttributes(projection: Order): Record<string, unknown> {
-  if (!projection.assigned_operator_id) return {};
-  return { gsi2pk: projection.assigned_operator_id, gsi2sk: projection.updated_at };
+function orderIndexAttributes(projection: Order): Record<string, unknown> {
+  if (projection.status === "REJECTED") return {};
+  return {
+    ...(projection.sla_deadline
+      ? { gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline }
+      : {}),
+    ...(projection.assigned_operator_id
+      ? { gsi2pk: projection.assigned_operator_id, gsi2sk: projection.updated_at }
+      : {}),
+  };
 }
 /*
  * Over-fetches past RECENT_JOBS_LIMIT (11-street-condition-implementation.md
@@ -95,23 +104,11 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    */
   async createOrder(input: CreateOrderInput): Promise<Order> {
     const orderId = ulid();
-    const now = new Date().toISOString();
-
-    return this.appendEvent(
+    return this.appendOrderEvent(
       orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "ORDER_CREATED",
-        stage: null,
-        payload: {
-          request_id: input.request_id,
-          location_id: input.location_id,
-          complaint_type: input.complaint_type,
-        },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
+      "ORDER_CREATED",
+      null,
+      { request_id: input.request_id, location_id: input.location_id, complaint_type: input.complaint_type },
       (_previous, event) => ({
         order_id: orderId,
         request_id: input.request_id,
@@ -127,8 +124,8 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         assigned_operator_id: null,
         reassignment_count: 0,
         case_id: null,
-        created_at: now,
-        updated_at: now,
+        created_at: event.occurred_at,
+        updated_at: event.occurred_at,
         last_event_sequence: event.sequence_number,
       })
     );
@@ -152,36 +149,18 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * `orderId` — this outcome only ever follows a real `OrderCreated`.
    */
   async acceptOrder(orderId: string, input: AcceptOrderInput): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
+    /* First point sla_deadline is non-null, so the Order enters gsi1-stage-sla here (6-order-scheduling.md §2). */
+    return this.appendToExistingOrder(
       orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "ORDER_ACCEPTED",
-        stage: null,
-        payload: { priority_tier: input.priorityTier, sla_deadline: input.slaDeadline },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return {
-          ...base,
-          current_stage: "SCHEDULE",
-          status: "ACTIVE",
-          priority_tier: input.priorityTier,
-          sla_deadline: input.slaDeadline,
-          updated_at: now,
-          last_event_sequence: event.sequence_number,
-        };
-      },
-      /*
-       * First point sla_deadline becomes non-null, so the first point this
-       * item can appear in gsi1-stage-sla at all — DynamoDB requires both
-       * halves of a sparse GSI's key present (6-order-scheduling.md §2).
-       */
-      (projection) => ({ gsi1pk: stageSlaPartitionKey(projection.current_stage), gsi1sk: projection.sla_deadline })
+      "ORDER_ACCEPTED",
+      null,
+      { priority_tier: input.priorityTier, sla_deadline: input.slaDeadline },
+      () => ({
+        current_stage: "SCHEDULE",
+        status: "ACTIVE",
+        priority_tier: input.priorityTier,
+        sla_deadline: input.slaDeadline,
+      })
     );
   }
 
@@ -193,23 +172,9 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * funnel (v1-prod-deployment.md Q2).
    */
   async rejectOrder(orderId: string, reasonCode: OrderRejectionReasonCode, reason: string): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
-      orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "ORDER_REJECTED",
-        stage: null,
-        payload: { reason_code: reasonCode, reason },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return { ...base, status: "REJECTED", updated_at: now, last_event_sequence: event.sequence_number };
-      }
-    );
+    return this.appendToExistingOrder(orderId, "ORDER_REJECTED", null, { reason_code: reasonCode, reason }, () => ({
+      status: "REJECTED",
+    }));
   }
 
   /**
@@ -221,23 +186,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * `current_stage` stay put — a Case is an orthogonal signal, not a status.
    */
   async recordCaseCreated(orderId: string, reason: string): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
-      orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "CASE_CREATED",
-        stage: null,
-        payload: { reason },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return { ...base, updated_at: now, last_event_sequence: event.sequence_number };
-      }
-    );
+    return this.appendToExistingOrder(orderId, "CASE_CREATED", null, { reason }, () => ({}));
   }
 
   /**
@@ -250,49 +199,25 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * reserved for a genuine future reassignment.
    */
   async scheduleOrder(orderId: string, input: ScheduleOrderInput): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
+    /* First point assigned_operator_id is non-null, so the Order enters gsi2-assigned-operator here (11-street-condition-implementation.md §7). */
+    return this.appendToExistingOrder(
       orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "ORDER_SCHEDULED",
-        stage: "SCHEDULE",
-        payload: {
-          scheduled_start: input.scheduledStart,
-          scheduled_end: input.scheduledEnd,
-          operator_id: input.operatorId,
-          materials_cost_estimate: input.materialsCostEstimate,
-          cost_model: input.costModel,
-        },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return {
-          ...base,
-          current_stage: "EXECUTE",
-          scheduled_start: input.scheduledStart,
-          scheduled_end: input.scheduledEnd,
-          assigned_operator_id: input.operatorId,
-          estimated_materials_cost: input.materialsCostEstimate,
-          cost_model_used: input.costModel,
-          updated_at: now,
-          last_event_sequence: event.sequence_number,
-        };
+      "ORDER_SCHEDULED",
+      "SCHEDULE",
+      {
+        scheduled_start: input.scheduledStart,
+        scheduled_end: input.scheduledEnd,
+        operator_id: input.operatorId,
+        materials_cost_estimate: input.materialsCostEstimate,
+        cost_model: input.costModel,
       },
-      /*
-       * Keeps the item in gsi1-stage-sla under its new stage — same index
-       * also answers "how many Orders in stage X" (ddb-design.md). Also
-       * (11-street-condition-implementation.md §7) stamps gsi2-assigned-
-       * operator, first set here since this is where assigned_operator_id
-       * first becomes non-null.
-       */
-      (projection) => ({
-        gsi1pk: stageSlaPartitionKey(projection.current_stage),
-        gsi1sk: projection.sla_deadline,
-        ...assignedOperatorAttributes(projection),
+      () => ({
+        current_stage: "EXECUTE",
+        scheduled_start: input.scheduledStart,
+        scheduled_end: input.scheduledEnd,
+        assigned_operator_id: input.operatorId,
+        estimated_materials_cost: input.materialsCostEstimate,
+        cost_model_used: input.costModel,
       })
     );
   }
@@ -321,40 +246,16 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * cleared; re-scheduling re-estimates them.
    */
   async recordExecutionFailed(orderId: string, operatorId: string, reason: string): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
-      orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "STAGE_FAILED",
-        stage: "EXECUTE",
-        payload: { operator_id: operatorId, reason },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return {
-          ...base,
-          current_stage: "SCHEDULE",
-          retry_counts: { ...base.retry_counts, EXECUTE: (base.retry_counts.EXECUTE ?? 0) + 1 },
-          scheduled_start: null,
-          scheduled_end: null,
-          assigned_operator_id: null,
-          estimated_materials_cost: null,
-          cost_model_used: null,
-          updated_at: now,
-          last_event_sequence: event.sequence_number,
-        };
-      },
-      /* Back in gsi1-stage-sla under SCHEDULE at its original deadline; gsi2 drops with the cleared assignment. */
-      (projection) => ({
-        gsi1pk: stageSlaPartitionKey(projection.current_stage),
-        gsi1sk: projection.sla_deadline,
-        ...assignedOperatorAttributes(projection),
-      })
-    );
+    /* Back in gsi1-stage-sla under SCHEDULE at its original deadline; gsi2 drops with the cleared assignment. */
+    return this.appendToExistingOrder(orderId, "STAGE_FAILED", "EXECUTE", { operator_id: operatorId, reason }, (base) => ({
+      current_stage: "SCHEDULE",
+      retry_counts: { ...base.retry_counts, EXECUTE: (base.retry_counts.EXECUTE ?? 0) + 1 },
+      scheduled_start: null,
+      scheduled_end: null,
+      assigned_operator_id: null,
+      estimated_materials_cost: null,
+      cost_model_used: null,
+    }));
   }
 
   /**
@@ -363,38 +264,32 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
    * is null for an execution dispatched before materials cost existed.
    */
   async recordResolved(orderId: string, actualMaterialsCost: number | null): Promise<Order> {
-    const now = new Date().toISOString();
-    return this.appendEvent(
+    return this.appendToExistingOrder(
       orderId,
-      (nextSequence) => ({
-        order_id: orderId,
-        sequence_number: nextSequence,
-        event_type: "ORDER_RESOLVED",
-        stage: "EXECUTE",
-        payload: { materials_cost_actual: actualMaterialsCost },
-        occurred_at: now,
-        actor: "SYSTEM",
-      }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return {
-          ...base,
-          current_stage: "RESOLVE",
-          actual_materials_cost: actualMaterialsCost,
-          updated_at: now,
-          last_event_sequence: event.sequence_number,
-        };
-      },
-      (projection) => ({
-        gsi1pk: stageSlaPartitionKey(projection.current_stage),
-        gsi1sk: projection.sla_deadline,
-        ...assignedOperatorAttributes(projection),
-      })
+      "ORDER_RESOLVED",
+      "EXECUTE",
+      { materials_cost_actual: actualMaterialsCost },
+      () => ({ current_stage: "RESOLVE", actual_materials_cost: actualMaterialsCost })
     );
   }
 
   /** Shared shape for the `EXECUTE`-stage narrative events that don't change `current_stage` or carry a payload (§3.1's `Dispatch`/`Arrive`/`Process` steps). */
   private async appendExecutionEvent(orderId: string, eventType: "ORDER_DISPATCHED" | "ORDER_ARRIVED" | "ORDER_PROCESSING"): Promise<Order> {
+    return this.appendToExistingOrder(orderId, eventType, "EXECUTE", {}, () => ({}));
+  }
+
+  /**
+   * The only path to `appendEvent`: builds the `SYSTEM` event envelope and
+   * always stamps {@link orderIndexAttributes}, so no write method can skip
+   * the GSI keys.
+   */
+  private async appendOrderEvent(
+    orderId: string,
+    eventType: OrderEventType,
+    stage: OrderStage | null,
+    payload: Record<string, unknown>,
+    foldProjection: (previous: Order | null, event: OrderEvent) => Order
+  ): Promise<Order> {
     const now = new Date().toISOString();
     return this.appendEvent(
       orderId,
@@ -402,21 +297,32 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         order_id: orderId,
         sequence_number: nextSequence,
         event_type: eventType,
-        stage: "EXECUTE",
-        payload: {},
+        stage,
+        payload,
         occurred_at: now,
         actor: "SYSTEM",
       }),
-      (previous, event) => {
-        const base = this.requirePreviousProjection(orderId, previous);
-        return { ...base, updated_at: now, last_event_sequence: event.sequence_number };
-      },
-      (projection) => ({
-        gsi1pk: stageSlaPartitionKey(projection.current_stage),
-        gsi1sk: projection.sla_deadline,
-        ...assignedOperatorAttributes(projection),
-      })
+      foldProjection,
+      orderIndexAttributes
     );
+  }
+
+  /**
+   * {@link appendOrderEvent} for every event after `ORDER_CREATED`: requires
+   * an existing projection, applies `changes`, and stamps `updated_at` /
+   * `last_event_sequence` from the event.
+   */
+  private async appendToExistingOrder(
+    orderId: string,
+    eventType: OrderEventType,
+    stage: OrderStage | null,
+    payload: Record<string, unknown>,
+    changes: (base: Order) => Partial<Order>
+  ): Promise<Order> {
+    return this.appendOrderEvent(orderId, eventType, stage, payload, (previous, event) => {
+      const base = this.requirePreviousProjection(orderId, previous);
+      return { ...base, ...changes(base), updated_at: event.occurred_at, last_event_sequence: event.sequence_number };
+    });
   }
 
   /**
