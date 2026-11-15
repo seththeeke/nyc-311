@@ -8,7 +8,7 @@
 | #194 | Dispatch the nearest idle operator | Spec Created 2026-11-13 (commit 6d19f8e) | `docs/kid-kestral/194-dispatch-the-nearest-idle-operator-to-each-order-not-whichever-the-index-returns-first.md` | `NEAREST_OPERATOR_DISPATCH` (rows not created yet). Leg 1 depends on #202 |
 | #170 | Event-driven dispatch | Spec Created 2026-11-14 (commit 282fd1c). Asked Celestine/Rex to confirm `WORK_COMPLETED` instead of `ORDER_RESOLVED` | `docs/kid-kestral/170-dispatch-the-next-order-the-moment-an-operator-frees-up-not-only-on-the-hourly-scheduling-run.md` | `EVENT_DRIVEN_DISPATCH`. Leg 1 (claim race) has no dependency; Leg 2 depends on #202 |
 
-| #165 | Sticky marketing page | Spec Created 2026-11-14 (commit c1dd79f). One web-app leg | `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md` | `MARKETING_STICKY_ENTRY` (rows not created yet) |
+| #165 | Sticky marketing page | In Development 2026-11-15. Leg 1 PR #229 (branch `gen-purpose-dev/165-leg1-sticky-marketing-entry`) is in review. Spec commit 007842e. Next: retry the Test flag row, then wait for Rex/Seth | `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md` | `MARKETING_STICKY_ENTRY`: Prod `C` (v1, 11-15); **Test missing** (no Test sign-in) |
 
 ## Flags I own
 - `NEAREST_OPERATOR_DISPATCH` (#194): C = first-available, T1 = nearest. Read once per scheduling run with empty context.
@@ -40,4 +40,7 @@
 - Front-end tickets with no analytics: the deciding check is a Playwright smoke spec in `web-app/tests/smoke/`. Its "before" is which steps fail on the code in `main`.
 - #202 read API for callers: `getTreatment(key, ctx, {fallback:"C", treatments:["C","T1"]})`. Each caller's leg also calls `featureFlagsTable.grantFlagRead(fn)`, sets `FEATURE_FLAGS_TABLE_NAME` and attaches `FeatureFlagReadMetricFilters` to its log group. Revise #194/#170 legs to match when building.
 - The AWS profile was still missing on 2026-11-14.
+- 2026-11-15: the flag tools returned 503 "This run has no TEST sign-in" for TEST, while PROD worked. Retry each run. A smoke spec that needs the Test row blocks the merge until the row exists.
+- `gh issue create` isn't on my allowlist. File a flag-cleanup issue only after the Prod check, or ask in the ticket. Running build/test from `web-app/` works with `cd web-app && npm run …`, but `npm --prefix` and redirects need approval.
+- Web-app gate pattern: pass flag-gated UI into a router- and flag-free component as a prop (`AboutOverlay footer`), so that component's tests stay untouched.
 - Team Chat: one top-level post per card. On a re-park, reply in the existing thread.
