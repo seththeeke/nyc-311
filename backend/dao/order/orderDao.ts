@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { EventSourcedDao } from "../dao";
+import { EventSourcedDao, EVENT_SORT_KEY_PREFIX } from "../dao";
 import { logInfo } from "../../logger";
 import type { CostModel, Order, OrderEvent, OrderEventType, OrderRejectionReasonCode, OrderStage } from "../../models/order";
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
@@ -393,7 +393,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         new QueryCommand({
           TableName: this.tableName,
           KeyConditionExpression: "order_id = :orderId AND begins_with(sk, :eventPrefix)",
-          ExpressionAttributeValues: { ":orderId": orderId, ":eventPrefix": "EVENT#" },
+          ExpressionAttributeValues: { ":orderId": orderId, ":eventPrefix": EVENT_SORT_KEY_PREFIX },
           ConsistentRead: true,
           ExclusiveStartKey: exclusiveStartKey,
         })
