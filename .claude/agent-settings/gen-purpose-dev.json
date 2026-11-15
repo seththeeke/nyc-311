@@ -40,6 +40,8 @@
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews)",
       "Bash(gh api repos/seththeeke/nyc-311/pulls/*/reviews --paginate)",
       "Bash(gh api --method PATCH repos/seththeeke/nyc-311/issues/comments/*)",
+      "Bash(gh api repos/seththeeke/nyc-311/commits/*/status *)",
+      "Bash(gh api repos/seththeeke/nyc-311/commits/*/status)",
       "Bash(cat *)",
       "Bash(head *)",
       "Bash(tail *)",

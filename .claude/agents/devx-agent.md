@@ -15,6 +15,8 @@ hooks:
       hooks:
         - type: command
           command: "$CLAUDE_PROJECT_DIR/.claude/hooks/devx-agent-guard.sh"
+        - type: command
+          command: "$CLAUDE_PROJECT_DIR/.claude/hooks/ceo-approval-guard.sh"
 ---
 
 # devx-agent

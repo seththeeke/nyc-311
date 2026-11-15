@@ -13,17 +13,23 @@
 #   agent-board.sh <agent> move <issue> <column>
 #
 # Columns, by key: intake, refined, assigned, spec-created, in-development,
-# verified-test, verified-prod, verified-team.
+# verified-test, verified-prod, verified-team, ceo-intervention.
 #
 # Moves each agent may make (anything else is refused; same column → no-op):
 #   cpo-agent        add (→ intake); intake → refined; refined → intake
 #   cto-agent        intake → refined; refined → intake
-#   gen-purpose-dev  assigned → spec-created; assigned | spec-created → intake
+#   gen-purpose-dev  assigned → spec-created; assigned | spec-created → intake;
+#                    spec-created → in-development → verified-test → verified-prod;
+#                    in-development | verified-test | verified-prod → ceo-intervention
 # Into refined, the issue must carry both `cpo-approved` and `cto-approved`
 # (§22.2.1). Into spec-created, its spec must be on origin/main at
-# docs/kid-kestral/<issue>-<slug>.md (§22.3). Into intake, both approval
-# labels are cleared, so a card sent back is refined and approved again. The
-# CEO moves cards by hand.
+# docs/kid-kestral/<issue>-<slug>.md (§22.3). Every gen-purpose-dev move out
+# of spec-created onward needs the CEO's `ceo-approved` label (§22.1), and an
+# approved card never goes back to intake: its way out is ceo-intervention.
+# Into in-development from spec-created, the column must hold fewer than
+# WIP_LIMIT cards (default 5). Into intake, every approval label is cleared,
+# so a card sent back is refined and approved again. The CEO moves cards by
+# hand, including every move out of ceo-intervention.
 #
 # Needs gh with the `project` scope (gh auth refresh -h github.com -s project).
 
@@ -33,6 +39,7 @@ REPO=${AGENT_REPO:-seththeeke/nyc-311}
 OWNER=${AGENT_BOARD_OWNER:-seththeeke}
 NUMBER=${AGENT_BOARD_NUMBER:-3}
 SPEC_DIR=docs/kid-kestral
+WIP_LIMIT=${WIP_LIMIT:-5}
 
 die() { printf 'agent-board: %s\n' "$*" >&2; exit 1; }
 usage() { die "usage: agent-board.sh <agent> {list [<column>] | show <issue> | add <issue> | move <issue> <column>}"; }
@@ -52,7 +59,8 @@ column_name() {
     verified-test) echo "Verified in Test Environment" ;;
     verified-prod) echo "Verified in Production Environment" ;;
     verified-team) echo "Verified by Team" ;;
-    *) die "unknown column '$1' (intake | refined | assigned | spec-created | in-development | verified-test | verified-prod | verified-team)" ;;
+    ceo-intervention) echo "Requires CEO Intervention" ;;
+    *) die "unknown column '$1' (intake | refined | assigned | spec-created | in-development | verified-test | verified-prod | verified-team | ceo-intervention)" ;;
   esac
 }
 
@@ -66,6 +74,7 @@ column_key() {
     "Verified in Test Environment") echo verified-test ;;
     "Verified in Production Environment") echo verified-prod ;;
     "Verified by Team") echo verified-team ;;
+    "Requires CEO Intervention") echo ceo-intervention ;;
     "") echo none ;;
     *) echo unknown ;;
   esac
@@ -89,6 +98,10 @@ allowed() {
     cto-agent:intake:refined | cto-agent:refined:intake) return 0 ;;
     gen-purpose-dev:assigned:spec-created) return 0 ;;
     gen-purpose-dev:assigned:intake | gen-purpose-dev:spec-created:intake) return 0 ;;
+    gen-purpose-dev:spec-created:in-development | gen-purpose-dev:in-development:verified-test) return 0 ;;
+    gen-purpose-dev:verified-test:verified-prod) return 0 ;;
+    gen-purpose-dev:in-development:ceo-intervention | gen-purpose-dev:verified-test:ceo-intervention) return 0 ;;
+    gen-purpose-dev:verified-prod:ceo-intervention) return 0 ;;
   esac
   return 1
 }
@@ -103,14 +116,37 @@ set_status() {
   gh project item-edit --id "$1" --project-id "$project_id" --field-id "$field_id" --single-select-option-id "$option_id" >/dev/null
 }
 
+labels_of() { gh issue view "$1" --repo "$REPO" --json labels --jq '[.labels[].name] | join(" ")'; }
+
+has_label() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }
+
+# The CEO's go-ahead (§22.1): Kestrel moves an approved card only with it, and never back to intake.
+check_ceo_approval() {
+  [ "$agent" = gen-purpose-dev ] || return 0
+  labels=$(labels_of "$1") || die "could not read #$1's labels"
+  case "$2:$3" in
+    *:intake)
+      ! has_label "$labels" ceo-approved ||
+        die "#$1 is ceo-approved: it can't go back to intake; move it to ceo-intervention with a comment instead" ;;
+    spec-created:* | in-development:* | verified-test:* | verified-prod:*)
+      has_label "$labels" ceo-approved ||
+        die "#$1 needs the CEO's ceo-approved label before it moves past Spec Created" ;;
+  esac
+}
+
 check_entry() {
   issue=$1
   case "$2" in
     refined)
-      labels=$(gh issue view "$issue" --repo "$REPO" --json labels --jq '[.labels[].name] | join(" ")')
+      labels=$(labels_of "$issue")
       for need in cpo-approved cto-approved; do
-        case " $labels " in *" $need "*) : ;; *) die "#$issue needs both cpo-approved and cto-approved to enter Refined (missing $need)" ;; esac
+        has_label "$labels" "$need" || die "#$issue needs both cpo-approved and cto-approved to enter Refined (missing $need)"
       done ;;
+    in-development)
+      [ "${3:-}" = spec-created ] || return 0
+      wip=$(cards | jq -s '[.[] | select(.status == "In Development")] | length')
+      [ "$wip" -lt "$WIP_LIMIT" ] ||
+        die "In Development already holds $wip cards (limit $WIP_LIMIT); #$issue waits in Spec Created" ;;
     spec-created)
       git fetch -q origin main 2>/dev/null || die "could not fetch origin/main to check the spec"
       git ls-tree --name-only origin/main "$SPEC_DIR/" | grep -q "^$SPEC_DIR/$issue-[a-z0-9-]*\.md$" ||
@@ -146,10 +182,11 @@ case "$cmd" in
     from=$(column_key "$(printf '%s' "$card" | jq -r .status)")
     [ "$from" != "$2" ] || { echo "#$1 is already in $2"; exit 0; }
     allowed "$from" "$2" || die "$agent may not move #$1 from $from to $2"
-    check_entry "$1" "$2"
+    check_ceo_approval "$1" "$from" "$2"
+    check_entry "$1" "$2" "$from"
     set_status "$(printf '%s' "$card" | jq -r .item)" "$to_name"
     if [ "$2" = intake ]; then
-      gh issue edit "$1" --repo "$REPO" --remove-label cpo-approved --remove-label cto-approved >/dev/null 2>&1 ||
+      gh issue edit "$1" --repo "$REPO" --remove-label cpo-approved --remove-label cto-approved --remove-label ceo-approved >/dev/null 2>&1 ||
         printf 'agent-board: WARN: could not clear the approval labels on #%s\n' "$1" >&2
     fi
     echo "#$1 moved $from → $2" ;;

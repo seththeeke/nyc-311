@@ -23,6 +23,8 @@ hooks:
       hooks:
         - type: command
           command: "$CLAUDE_PROJECT_DIR/.claude/hooks/cto-agent-guard.sh"
+        - type: command
+          command: "$CLAUDE_PROJECT_DIR/.claude/hooks/ceo-approval-guard.sh"
 ---
 
 # cto-agent
@@ -263,7 +265,7 @@ Intake card without `cto-approved` or `cto-escalated`:
 
 **New specs.** For each card in Spec Created whose spec you haven't read,
 read it (the link is in Kestrel's `<!-- gen-purpose-dev:spec -->` comment).
-It's held 12 hours so you can stop it. Comment only if a leg is unsafe, the
+It waits there until Seth adds `ceo-approved`, so this is the time to stop it; after that its design is fixed. Comment only if a leg is unsafe, the
 flag can't do what the spec says, or the dial-up won't show the metric;
 otherwise say nothing. These count toward your 2 per issue.
 

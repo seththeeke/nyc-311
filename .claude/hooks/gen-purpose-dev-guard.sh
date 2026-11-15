@@ -9,7 +9,7 @@
 #   - any `git push` that targets main (explicit ref, or a bare push from main)
 #   - force-pushes and `git reset --hard`
 #   - `gh pr merge` / `gh pr close` / `gh issue close` — a human lands and closes
-#   - `gh pr create` without `--draft`
+#   - `gh pr create --draft`: a leg's PR opens ready, for Rex to review and Seth to merge
 #   - any deploy / destroy / bootstrap
 #   - raw `gh project` calls and agent-commit-to-main.sh: the board moves only
 #     through scripts/agent-board.sh, and only a spec reaches main, through
@@ -47,7 +47,7 @@ matches() { printf '%s' "$cmd" | grep -qE -- "$1"; }
 # `git`, optionally followed by global flags (`-C <path>`, `--no-pager`, ...).
 GIT='(^|[^[:alnum:]_-])git([[:space:]]+-C[[:space:]]+[^[:space:]]+|[[:space:]]+-[A-Za-z-]+)*[[:space:]]+'
 END='([^[:alnum:]_-]|$)'
-BRANCH_HINT="Work on a gen-purpose-dev/<issue-number>-<slug> branch and open a draft PR for human review instead."
+BRANCH_HINT="Work on a gen-purpose-dev/<issue-number>-<slug> branch and open a PR for Rex to review and Seth to merge instead."
 
 if matches "${GIT}push${END}"; then
   if matches '(:|[[:space:]]|refs/heads/)main([[:space:]]|$|["'"'"';&|])'; then
@@ -77,8 +77,8 @@ if matches '(^|[^[:alnum:]_-])gh[[:space:]]+issue[[:space:]]+close'"${END}"; the
   deny "closing an issue is blocked — it closes when a human merges the PR."
 fi
 
-if matches '(^|[^[:alnum:]_-])gh[[:space:]]+pr[[:space:]]+create'"${END}" && ! matches '[[:space:]]--draft([[:space:]=]|$)'; then
-  deny "PRs must be opened as drafts — add --draft."
+if matches '(^|[^[:alnum:]_-])gh[[:space:]]+pr[[:space:]]+create'"${END}" && matches '[[:space:]]--draft([[:space:]=]|$)'; then
+  deny "open a leg's PR ready for review, not as a draft: Rex reviews it and Seth merges it (docs/17 §22.8)."
 fi
 
 if matches '(^|[^[:alnum:]_-])cdk[[:space:]]+(deploy|destroy|bootstrap)'"${END}" \

@@ -19,6 +19,8 @@ hooks:
       hooks:
         - type: command
           command: "$CLAUDE_PROJECT_DIR/.claude/hooks/cpo-agent-guard.sh"
+        - type: command
+          command: "$CLAUDE_PROJECT_DIR/.claude/hooks/ceo-approval-guard.sh"
 ---
 
 # cpo-agent

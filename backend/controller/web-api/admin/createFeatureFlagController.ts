@@ -4,11 +4,16 @@ import { ApiGatewayHttpEventSchema } from "../../../models/apiGatewayHttpEvent";
 import { TerminalError } from "../../../models/errors";
 import { CreateFeatureFlagRequestSchema } from "../../../models/featureFlag";
 import { createFeatureFlag } from "../../../service/featureFlag/featureFlagService";
+import { isAgentCaller } from "./isAgentCaller";
 import { requireAdminUser } from "./requireAdminUser";
 import { jsonResponse } from "../shared/jsonResponse";
 import { errorResponse } from "../shared/errorResponse";
 
-/** `POST /admin/feature-flags` (`11-street-condition-implementation.md` §4.2) — admin-authorized. */
+/**
+ * `POST /admin/feature-flags` (`11-street-condition-implementation.md`
+ * §4.2) — the admin, or the Software Engineer agent
+ * (docs/17-executive-team.md §22.9), recorded by its email.
+ */
 export const createFeatureFlagController = async (event: unknown): Promise<APIGatewayProxyStructuredResultV2> => {
   logInfo("CreateFeatureFlagControllerInvoked", { event });
 
@@ -35,8 +40,10 @@ export const createFeatureFlagController = async (event: unknown): Promise<APIGa
 
   const flagKey = parsedBody.data.flag_key;
   try {
-    const user = await requireAdminUser(parsedEvent.data);
-    const flag = await createFeatureFlag(parsedBody.data, user.user_id);
+    const createdBy = isAgentCaller(parsedEvent.data)
+      ? (parsedEvent.data.requestContext.authorizer?.jwt.claims.email ?? "unknown")
+      : (await requireAdminUser(parsedEvent.data)).user_id;
+    const flag = await createFeatureFlag(parsedBody.data, createdBy);
     const response = jsonResponse(201, flag);
     logInfo("CreateFeatureFlagControllerCompleted", { response });
     return response;

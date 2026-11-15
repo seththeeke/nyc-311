@@ -40,13 +40,19 @@ board (`KIND="board"`, `docs/17-executive-team.md` §22):
 launchd (4 a day, Opus 5.5)
   └─ scripts/agent-scheduled-run.sh gen-purpose-dev
        1. as above
-       2. list its cards with scripts/agent-board.sh; K1 (BUILD=0):
-            SPEC    each card in Assigned that isn't parked, oldest first,
-                    at most MAX_CARDS_PER_RUN
+       2. list its cards with scripts/agent-board.sh, skipping parked ones,
+          in this order, at most MAX_CARDS_PER_RUN in all:
+            DIALUP  Verified in Test, with ceo-approved
+            BUILD   In Development, with ceo-approved, unless its open PR
+                    only waits on Rex or Seth
+            BUILD   Spec Created, with ceo-approved, while In Development
+                    holds fewer than WIP_LIMIT
+            SPEC    Assigned
             IDLE    nothing to do → stop here; `claude` is never started
        3. per card, its own session and worktree:
-          scripts/agent-worktree.sh run gen-purpose-dev "<PROMPT_SPEC> Your card: #<n>"
-          afterwards: card still in Assigned and not parked → a parked comment
+          scripts/agent-worktree.sh run gen-purpose-dev "<PROMPT_<MODE>> Your card: #<n> (<column>)"
+          afterwards: a failed session, or an Assigned card still in
+          Assigned → a parked comment
        4. as above
 ```
 
@@ -139,11 +145,22 @@ labels, is his state. The full design is `docs/17-executive-team.md` §22.
 **To assign a card, move it from Refined to Assigned** on the board. Celestine
 files tickets to Intake; Celestine and Rex approve them into Refined.
 
-**In K1 he writes specs only** (`BUILD=0`): for each Assigned card he measures
-the ticket's success metric, writes `docs/kid-kestral/<n>-<slug>.md`, commits
-it to `main` with `scripts/agent-spec-commit.sh`, links it on the ticket and
-moves the card to Spec Created. A ticket he can't ship behind a flag, or
-measure, goes back to Intake with a proposed split.
+**For each Assigned card he writes a spec:** he plans the verification and
+takes the "before", writes `docs/kid-kestral/<n>-<slug>.md`, commits it to
+`main` with `scripts/agent-spec-commit.sh`, links it on the ticket and moves
+the card to Spec Created. A ticket he can't ship behind a flag, or verify,
+goes back to Intake with a proposed split.
+
+**To let him build, add the label `ceo-approved` to the ticket** once you've
+read the spec and done its *Needs the CEO* list, if any. He creates the
+flag's rows himself, in Test and Prod. He then
+builds the legs as PRs (Rex reviews, you merge), verifies in Test, dials the
+flag up in Prod with `update_flag` and records the outcome, moving the card
+through In Development, Verified in Test Environment and Verified in
+Production Environment. Removing the label pauses him. After approval the
+design is fixed; a real error sends the card to **Requires CEO
+Intervention** with a comment saying why. Answer on the ticket and move the
+card back by hand to resume.
 
 **Parking.** When he needs an answer he posts a comment starting
 `<!-- gen-purpose-dev:parked -->` and leaves the card where it is; the
@@ -155,11 +172,13 @@ the same way (fail closed).
 
 | Rail | Where | What it stops |
 |---|---|---|
-| Agent rules | `.claude/agents/gen-purpose-dev.md` *Absolute rules* | other cards, unflagged work, `main` beyond his spec, merging/closing, infra and flag changes |
-| Board script | `scripts/agent-board.sh` | any move outside his row (Assigned → Spec Created, back to Intake); Spec Created without the spec on `main` |
+| Agent rules | `.claude/agents/gen-purpose-dev.md` *Absolute rules* | other cards, unflagged work, `main` beyond his spec, merging/closing, infra changes, flag changes outside his spec's dial-up |
+| Board script | `scripts/agent-board.sh` | any move outside his row; Spec Created without the spec on `main`; any move past Spec Created without `ceo-approved`; an approved card back to Intake; In Development past its limit |
+| CEO label | `.claude/hooks/ceo-approval-guard.sh`, on every agent with Bash | any agent adding, removing or creating `ceo-approved` |
+| Flag tools | `boroughsim-engineering` client | a stale write (version-checked, 409); an invalid config, refused before sending |
 | Spec commit | `scripts/agent-spec-commit.sh` | anything but one `docs/kid-kestral/<issue>-<slug>.md` reaching `main` |
 | Allowlist + denies | `.claude/agent-settings/gen-purpose-dev.json` | everything not listed; raw `gh project`, `agent-commit-to-main.sh`, merge/close, force-push, deploy, the admin AWS profile, other agents' MCP servers |
-| Guard hook | `.claude/hooks/gen-purpose-dev-guard.sh` | commit on / push to `main`, force-push, `reset --hard`, merge/close, non-draft PRs, deploy, raw `gh project` / `gh api graphql`, `agent-commit-to-main.sh`; fails closed |
+| Guard hook | `.claude/hooks/gen-purpose-dev-guard.sh` | commit on / push to `main`, force-push, `reset --hard`, merge/close, draft PRs (Seth can't merge one), deploy, raw `gh project` / `gh api graphql`, `agent-commit-to-main.sh`; fails closed |
 | Worktree | `scripts/agent-worktree.sh` | touching your checkout, another run's, or another card's |
 | Wrapper | `scripts/agent-scheduled-run.sh` | two runs at once (lock), a dead session silently retrying (parks its card) |
 
@@ -284,8 +303,8 @@ primary checkout fast-forwarding.
    (a headless run silently denies anything not listed).
 3. `scripts/agent-schedules/<agent>.env` — `SCHEDULE`, `BRANCH_PREFIX`,
    `MAX_OPEN_PRS`, `PROMPT_NEW`, `PROMPT_REVISE`; an operating agent sets
-   `KIND="operations"`, and a board agent `KIND="board"` with `PROMPT_SPEC`
-   and `MAX_CARDS_PER_RUN` (§22).
+   `KIND="operations"`, and a board agent `KIND="board"` with `PROMPT_SPEC`,
+   `PROMPT_BUILD`, `PROMPT_DIALUP` and `MAX_CARDS_PER_RUN` (§22).
 4. On the Mac mini: `scripts/agent-schedule-install.sh install <agent>`.
 
 Changing an existing agent's schedule: edit `SCHEDULE` and merge. The

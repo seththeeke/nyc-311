@@ -106,18 +106,29 @@ describe("boroughsim-product tools", () => {
 
 describe("boroughsim-engineering tools", () => {
   it("map each tool's arguments onto the client, with no capacity or contact tool", async () => {
-    const client = fake(["runQuery", "getFlag"]);
+    const client = fake(["runQuery", "getFlag", "createFlag", "updateFlag"]);
     const c = client as unknown as BoroughSimEngineeringClient;
     await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "run_query").run(c, { sql: "SELECT 1" });
-    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "get_flag").run(c, { flag_key: "BACKEND_FLAG_READS" });
+    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "get_flag").run(c, { environment: "TEST", flag_key: "BACKEND_FLAG_READS" });
+    const flag = { flag_key: "BACKEND_FLAG_READS", description: "d", treatments: ["C", "T1"], default_treatment: "T1", overrides: [], allocations: [] };
+    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "create_flag").run(c, { environment: "TEST", ...flag });
+    await byName(BOROUGH_SIM_ENGINEERING_TOOLS, "update_flag").run(c, { environment: "PROD", flag_key: "BACKEND_FLAG_READS", allocations: [{ treatment: "T1", percent: 100 }], description: undefined });
     expect(client.runQuery).toHaveBeenCalledWith("SELECT 1");
-    expect(client.getFlag).toHaveBeenCalledWith("BACKEND_FLAG_READS");
-    expect(BOROUGH_SIM_ENGINEERING_TOOLS.map((t) => t.name).some((name) => /capacity|recruit|release|contact/.test(name))).toBe(false);
+    expect(client.getFlag).toHaveBeenCalledWith("TEST", "BACKEND_FLAG_READS");
+    expect(client.createFlag).toHaveBeenCalledWith("TEST", flag);
+    expect(client.updateFlag).toHaveBeenCalledWith("PROD", "BACKEND_FLAG_READS", { allocations: [{ treatment: "T1", percent: 100 }] });
+    expect(BOROUGH_SIM_ENGINEERING_TOOLS.map((t) => t.name).some((name) => /capacity|recruit|release|contact|delete/.test(name))).toBe(false);
   });
 
-  it("refuses a flag key that isn't ALL_CAPS", () => {
+  it("refuses a bad key, environment or allocation, and defaults a new flag's overrides and allocations to none", () => {
     const getFlag = z.object(byName(BOROUGH_SIM_ENGINEERING_TOOLS, "get_flag").inputSchema);
-    expect(getFlag.safeParse({ flag_key: "../admin" }).success).toBe(false);
+    expect(getFlag.safeParse({ environment: "PROD", flag_key: "../admin" }).success).toBe(false);
+    expect(getFlag.safeParse({ environment: "DEV", flag_key: "A" }).success).toBe(false);
+    const updateFlag = z.object(byName(BOROUGH_SIM_ENGINEERING_TOOLS, "update_flag").inputSchema);
+    expect(updateFlag.safeParse({ environment: "PROD", flag_key: "A", allocations: [{ treatment: "T1", percent: 101 }] }).success).toBe(false);
+    expect(updateFlag.safeParse({ environment: "PROD", flag_key: "A" }).success).toBe(true);
+    const createFlag = z.object(byName(BOROUGH_SIM_ENGINEERING_TOOLS, "create_flag").inputSchema);
+    expect(createFlag.parse({ environment: "TEST", flag_key: "A", description: "", treatments: ["C"], default_treatment: "C" })).toMatchObject({ overrides: [], allocations: [] });
   });
 });
 
@@ -143,7 +154,7 @@ describe.each([
   ["team-chat", chatServer, CHAT_ENV, "teamChatMcpServer.ts", 9, () => chatServer.createTeamChatMcpServer(fake(["listChannels"]) as unknown as TeamChatClient)],
   ["boroughsim-ops", opsServer, OPS_ENV, "boroughSimOpsMcpServer.ts", 3, () => opsServer.createBoroughSimOpsMcpServer(fake(["getCapacitySnapshot"]) as unknown as BoroughSimOpsClient)],
   ["boroughsim-product", productServer, OPS_ENV, "boroughSimProductMcpServer.ts", 5, () => productServer.createBoroughSimProductMcpServer(fake(["listContacts"]) as unknown as BoroughSimProductClient)],
-  ["boroughsim-engineering", engineeringServer, OPS_ENV, "boroughSimEngineeringMcpServer.ts", 2, () => engineeringServer.createBoroughSimEngineeringMcpServer(fake(["runQuery"]) as unknown as BoroughSimEngineeringClient)],
+  ["boroughsim-engineering", engineeringServer, OPS_ENV, "boroughSimEngineeringMcpServer.ts", 4, () => engineeringServer.createBoroughSimEngineeringMcpServer(fake(["runQuery"]) as unknown as BoroughSimEngineeringClient)],
 ] as const)("the %s server", (_name, server, env, file, toolCount, create) => {
   it("registers every tool, each running its tool", async () => {
     const created = create() as unknown as { registerTool: ReturnType<typeof vi.fn> };

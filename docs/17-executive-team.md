@@ -1282,7 +1282,7 @@ Kid Kestrel's 4 Opus runs a day (§22.6) are paid for by running four agents les
 
 ## 22. The Software Engineer agent
 
-**Status:** K1 installed on the Mac mini, 2026-11-09: writing specs (`BUILD=0`), waiting for his first scheduled run and his first Assigned card. Built in three iterations (§22.11); the first runs the board as far as Spec Created. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
+**Status:** K1 installed on the Mac mini, 2026-11-09. From 2026-11-15 the whole board runs, gated per card by the CEO's `ceo-approved` label (§22.1): K2 and K3 (§22.11) start on the first approved card. Decisions marked **[OPEN]** are not settled (CLAUDE.md §4).
 
 `gen-purpose-dev` is Kid Kestrel. He builds features and takes any task assigned to him, and he works each one as a **Project**: one ticket, carried by him from Intake to verification in Prod. A project may need several dependent changes. He plans them as legs, ships each one dark behind a feature flag, dials it up in steps, and proves, with checks taken before and after, that it did what the ticket promised. **His spec is his primary artifact**: the whole story of the project, from the ticket to the final numbers, lives in it.
 
@@ -1299,14 +1299,16 @@ His work is tracked on the GitHub project **Kid Kestral** ([projects/3](https://
 | **Intake** | Any ticket. Celestine files her feature tickets here. Also where Kestrel sends any Assigned card he can't turn into a spec (§22.4). | Anyone |
 | **Refined** | Has the verification block (§22.2), **CPO Approved** and **CTO Approved** (§22.2.1). | Whichever of Celestine or Rex gives the second approval |
 | **Assigned** | Given to Kestrel. | The CEO |
-| **Spec Created** | Kestrel's spec (§22.3) is committed and linked on the ticket. **Held here for at least 12 hours** before development starts, so anyone can stop or reshape it. | Kestrel |
-| **In Development** | 12 hours since the spec was posted, and fewer than 5 cards in this column. | Kestrel |
+| **Spec Created** | Kestrel's spec (§22.3) is committed and linked on the ticket. **Held here until the CEO adds the label `ceo-approved`**, so anyone can stop or reshape it first. | Kestrel |
+| **In Development** | The ticket carries `ceo-approved`, and fewer than 5 cards are in this column. | Kestrel |
 | **Verified in Test Environment** | Every leg merged, the flag on (`T1`) in Test, the spec's Test checks passed and recorded. | Kestrel |
 | **Verified in Production Environment** | Dialed up to its final allocation in Prod and its verification repeated (§22.5). | Kestrel |
 | **Verified by Team** | Celestine (the metric) and Rex (the code) agree the project is done. The ticket closes. | Celestine and Rex |
+| **Requires CEO Intervention** | After `ceo-approved`, Kestrel hit a real error he can't get past within the spec, and commented why (§22.12). | Kestrel in; the CEO out, by hand |
 
-- **In Development is the only column with a limit: 5 cards.** It is set on the board, and Kestrel also reads it from his schedule file (`WIP_LIMIT=5`) and checks it before he moves a card in, since the board's limit is only a warning.
-- A card moves back as well as forward. A failed verification in Prod sends it back to In Development (§22.5).
+- **`ceo-approved` is the CEO's go-ahead, card by card.** Every move Kestrel makes past Spec Created needs it, and `agent-board.sh` checks it. Removing it pauses the project: the scheduler skips the card. No agent may add, remove or create the label (`.claude/hooks/ceo-approval-guard.sh`, on every agent with Bash). Before adding it, the CEO does the spec's *Needs the CEO* list, if it has one.
+- **Once approved, the design is fixed.** The spec's verification, flag, legs and dial-up plan are built as written; only implementation remains. An approved card never goes back to Intake (`agent-board.sh` refuses it); its only way off the plan is Requires CEO Intervention.
+- **In Development is the only column with a limit: 5 cards.** It is set on the board, and `agent-board.sh` checks it (`WIP_LIMIT`) before Kestrel moves a card in, since the board's limit is only a warning.
 - **Back to Intake, never stuck in Assigned.** When Kestrel can't get from Assigned to a spec, for any reason (a missing block or approval, no way to verify it, no way to flag it, too big, a question), he comments with what's missing and his suggestion, tagging Celestine or Rex, and moves the card to Intake. **Any move into Intake clears both approval labels** (`agent-board.sh`), so the card goes through refinement again: that's the feedback loop with Celestine and Rex. The CEO reassigns it once it's back in Refined.
 - **Parking** is left only for the scheduler: a session that dies mid-run leaves a `<!-- gen-purpose-dev:parked -->` comment, the scheduler skips the card, and any later comment resumes it.
 
@@ -1362,9 +1364,9 @@ He updates it every run that changes anything. **Spec updates are committed stra
 
 ### 22.4 Feature flags, always
 
-- **Every user-visible or behavioural change ships behind a flag**, `C` in `FeatureFlags-Prod` and `T1` in `FeatureFlags-Test`, using the `create-feature-flag` skill.
+- **Every user-visible or behavioural change ships behind a flag**, `C` in `FeatureFlags-Prod` and `T1` in `FeatureFlags-Test`. Its code comes from the `create-feature-flag` skill; Kestrel creates its rows himself with `create_flag` when development starts (§22.9).
 - **If a project can't be rolled out as an experiment**, because it can't be flagged, dialed up gradually or verified, Kestrel moves it **back to Intake** with a comment proposing smaller, flaggable pieces. He doesn't build it unflagged.
-- **He changes only the flags his specs name.** That keeps assignment stable enough: no one else's flag moves under a running experiment. The engineering MCP client enforces it (§22.9).
+- **Kestrel manages flags freely**, in Test and Prod, creating and changing them himself. A missing flag is never a blocker. In Prod, a project's flag moves only as its dial-up plan says, or back to `C`.
 - Each flag gets its cleanup issue (the skill files it). It is removed after the project reaches Verified by Team.
 - **The backend doesn't read flags yet.** Only the web-app does; `backend/service/featureFlag/treatmentEvaluator.ts` exists, but no service calls it. Backend flag reads are filed as a backlog item and are Kestrel's first project once he builds (§22.11).
 
@@ -1375,7 +1377,7 @@ He updates it every run that changes anything. **Spec updates are committed stra
 - **For now, every project dials up `C` → 100% `T1`** in one step, until a ticket makes the case for something finer. Kestrel checks the guardrails on each run after the step, and repeats his verification checks after the window.
 - **Kestrel dials up himself**, to 100% included. The CEO's approval is not needed.
 - He copies the ticket's plan into the spec (§22.3) and follows it. He never skips a step it names.
-- **Abort:** if a guardrail breaks its threshold at any step, he sets the flag back to `C` on that run, records why in the verification log, and moves the card back to In Development.
+- **Abort:** if a guardrail breaks its threshold at any step, he sets the flag back to `C` on that run, records why in the verification log, and moves the card to Requires CEO Intervention (§22.12).
 - **Rollback is always allowed** and never waits for a human.
 - **Target missed:** the flag goes back to `C`, and the spec's outcome says so. Celestine decides at Verified by Team whether it is redone, reshaped or dropped.
 
@@ -1389,11 +1391,12 @@ He updates it every run that changes anything. **Spec updates are committed stra
 
 The order protects Prod first:
 
-1. **Dial-ups and verifications due:** check the guardrails of every project with a flag above `C`, then abort, hold or raise one step.
-2. **Review feedback and conflicts** on his open PRs.
-3. **In Development:** the next leg of each project.
-4. **Spec Created older than 12 hours:** move it to In Development if the WIP limit allows.
-5. **Assigned:** pre-verify the metric, write the spec, post it, and move the card to Spec Created.
+1. **Verified in Test Environment** (`PROMPT_DIALUP`): check the guardrails, then abort, hold or raise one step; after the final window, repeat the verification and record the outcome.
+2. **In Development** (`PROMPT_BUILD`): review feedback and conflicts on his open PR, else the next leg, else the Test verification. A card whose open PR only waits on Rex or the CEO is skipped without starting `claude`.
+3. **Spec Created with `ceo-approved`** (`PROMPT_BUILD`): move it to In Development if the WIP limit allows, then start its first leg.
+4. **Assigned** (`PROMPT_SPEC`): pre-verify the metric, write the spec, post it, and move the card to Spec Created.
+
+Cards past Spec Created without `ceo-approved`, and cards in Requires CEO Intervention, are never picked. A session that fails parks its card; an Assigned card still in Assigned after its session is parked too. Later columns may end a session where they started, since they often wait on a review, a deploy or a hold.
 
 ### 22.7 Memory
 
@@ -1409,7 +1412,7 @@ The order protects Prod first:
   - **it breaks nothing existing**: with the flag at `C`, behaviour is unchanged; no existing test is removed or weakened; and the tests cover both treatments.
 
   These live in a Kestrel section of `.claude/review/cto-code-review.md` (§16.3).
-- **Rex doesn't merge them. The CEO does**, as with Grimble's (§18.4), until the flag and dial-up loop has proven itself. Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2).
+- **Rex doesn't merge them. The CEO does**, as with Grimble's (§18.4), until the flag and dial-up loop has proven itself. Kestrel opens them ready for review, never as drafts, so the CEO can merge what Rex approves. Rex's merge rule stays `devx/` only, enforced in `cto-agent-guard.sh` (§16.2).
 - One open PR per project at a time; legs are sequential, not stacked branches.
 
 ### 22.9 The engineering role
@@ -1419,44 +1422,70 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 | Tool | Calls | Limit |
 |---|---|---|
 | `run_query` | `POST /admin/warehouse/query` | `ENGINEERING_QUERY_LIMIT` a run, like Celestine's (§21.4) |
-| `get_flag` | The public flag read | — |
-| `set_flag` | `PUT /admin/feature-flags/{flag_key}` | Only flags named in a spec in `docs/kid-kestral/`; turns a flag on (an allocation step) or off (`C`) |
+| `get_flag` | The public flag read, in `TEST` or `PROD` | — |
+| `create_flag` | `POST /admin/feature-flags`, in `TEST` or `PROD` | — |
+| `update_flag` | `GET /feature-flags/{flag_key}`, then `PUT /admin/feature-flags/{flag_key}` at the version read, in `TEST` or `PROD` | Changes only the fields given; a concurrent change is a 409 |
 
-- `adminRouteGroups.ts` adds the group to the query route and the flag update route. Flag create and delete stay `ADMIN` only; the CEO creates a project's flag rows (the `create-feature-flag` skill asks for confirmation).
-- The API lets the group change any flag. Narrowing it to spec flags happens in the MCP client, the way the chat word cap does (§21.2).
+- `adminRouteGroups.ts` adds the group to the query route and the flag create and update routes, which record him by email. Flag delete stays `ADMIN` only.
+- **Both environments.** Queries run in his own environment (Prod). For flags, the run's MCP config signs him in to the other environment too (`scripts/agent-team-chat-config.sh`, `AGENT_OTHER_*`), from `test_password` in `~/.nyc-311/credentials`. Without it, his flag tools answer 503 for Test and the run log warns.
 - He also has his settings (`.claude/agent-settings/gen-purpose-dev.json`) and guard (`gen-purpose-dev-guard.sh`), `scripts/agent-board.sh` and `scripts/agent-spec-commit.sh` (raw `gh project`, `gh api graphql` and `agent-commit-to-main.sh` are blocked), the team-chat tools posting to `#tech-team` (tag `KESTREL_SPEC`), and a read-only AWS role, `Nyc311EngineerAgentRole` through profile `nyc311-gen-purpose-dev`, for verifying his work through logs and resource state.
 
 ### 22.10 What the CEO does
 
 - Moves cards from **Refined to Assigned**.
+- Reads each spec and adds **`ceo-approved`** to let Kestrel build it.
 - Merges Kestrel's PRs after Rex approves them.
-- Creates each project's flag rows (confirmed per the skill).
-- Decides when each iteration starts (§22.11).
+- Answers each **Requires CEO Intervention** card on its ticket and moves it back by hand.
 
 ### 22.11 Iterations
 
 | Iteration | What runs | Kestrel stops at |
 |---|---|---|
-| **K1. Intake to spec** | Celestine files feature tickets to Intake with the verification block. Celestine and Rex approve; the second moves the card to Refined. The CEO assigns. Kestrel plans the verification, records the "before", writes the spec and moves the card to Spec Created, or sends it back to Intake. | **Spec Created.** He moves nothing to In Development (`BUILD=0` in his schedule file) until the CEO has reviewed a few specs. |
-| **K2. Build** | Kestrel builds legs behind flags, Rex reviews with the stricter bar, and the CEO merges. His first project is backend flag reads. | Verified in Test Environment |
-| **K3. Dial-up** | `set_flag`, the dial-up steps (§22.5) and post-verification. | Verified by Team |
+| **K1. Intake to spec** | Celestine files feature tickets to Intake with the verification block. Celestine and Rex approve; the second moves the card to Refined. The CEO assigns. Kestrel plans the verification, records the "before", writes the spec and moves the card to Spec Created, or sends it back to Intake. | **Spec Created**, until the CEO adds `ceo-approved`. |
+| **K2. Build** | On a `ceo-approved` card: Kestrel builds legs behind flags, Rex reviews with the stricter bar, the CEO merges, and Kestrel verifies in Test. | Verified in Test Environment |
+| **K3. Dial-up** | `update_flag`, the dial-up steps (§22.5) and post-verification. | Verified in Production Environment; Celestine and Rex take it to Verified by Team |
+
+K2 and K3 shipped together on 2026-11-15 (§22.12), replacing `BUILD=0` with the per-card `ceo-approved` gate.
 
 **K1 build plan:**
 
 | Leg | What |
 |---|---|
-| **K1.1** | `BOROUGH_SIM_ENGINEERING` group and both its routes (query and flag update, granted now so the route change deploys once), and the `boroughsim-engineering` MCP server with `run_query` and `get_flag`; `set_flag` comes in K3. |
+| **K1.1** | `BOROUGH_SIM_ENGINEERING` group and both its routes (query and flag update, granted now so the route change deploys once), and the `boroughsim-engineering` MCP server with `run_query` and `get_flag`; flag create and change came with K2 and K3 (§22.12). |
 | **K1.2** | Kestrel's prompt rewritten for the board and the spec; schedule (4 slots, Opus 5.5, `BUILD=0`, `MAX_CARDS_PER_RUN=3`); `KIND=board` in the scheduler, one session and one worktree per card, replacing `assigned-issue` and `agent-issue-state.sh`; `agent-board.sh` and `agent-spec-commit.sh`; settings and guard; the agent monitor's `BOARD` kind. |
 | **K1.3** | Celestine: files **every** feature ticket to Intake, and backfills her open `cpo-agent` feature tickets there; gives CPO approval; moves to Refined. Her guard. The CEO decides what reaches Kestrel. |
 | **K1.4** | Rex: gives CTO approval, moves to Refined; the Kestrel section in his rubric. His guard. |
 | **K1.5** | Team Chat seat and `@Kestrel`: already in place (`gen-dev` in `#tech-team` since Team Chat L2); tag `KESTREL_SPEC` needs no change, tags are free-form. Roster stays Work in progress. |
 
-### 22.12 Setup TODO
+### 22.12 Requires CEO Intervention
+
+After `ceo-approved`, Kestrel's one way off the plan. It should be rare: only a real error he can't get past within the spec.
+
+- **When:** the spec can't be built as written; the Operational Loop won't pass after real effort; a Test check still fails after two fix PRs; a dial-up abort; or something only a human has (a permission, a pipeline failure his merge caused). Never a missing flag: he creates it.
+- **Never for waiting:** a review, a merge, a deploy, a hold or a full In Development column. A PR Rex escalated is already the CEO's.
+- **How:** he rolls the Prod flag back to `C` first if the problem could reach Prod, comments (`<!-- gen-purpose-dev:intervention -->`) with what happened, what he tried, what he needs and what he left (column, PR, branch, flag allocation), moves the card, and tags @Seth in `#tech-team`.
+- **Back out:** the CEO answers on the ticket and moves the card back by hand to the column to resume. The next session reads the answer first.
+
+**Build (2026-11-15):**
+
+| Piece | What |
+|---|---|
+| `agent-board.sh` | The `ceo-intervention` column; Kestrel's moves Spec Created → In Development → Verified in Test → Verified in Production, and from each of the last three to Requires CEO Intervention; `ceo-approved` required on each, an approved card refused back to Intake, the WIP limit checked, and every approval label cleared on a move to Intake. |
+| `agent-scheduled-run.sh` | Picks cards across columns in §22.6's order with `PROMPT_DIALUP`, `PROMPT_BUILD` and `PROMPT_SPEC`; skips a card without the label, and an In Development card whose PR only waits on review or merge. |
+| `gen-purpose-dev.md` | *Building*, *Dialing up* and *Requires CEO Intervention* sections; the fixed-design rule. |
+| Flags | `create_flag` and `update_flag` in the `boroughsim-engineering` MCP server, in Test and Prod; flag create opened to `BOROUGH_SIM_ENGINEERING` (§22.9). |
+| Guards | `ceo-approval-guard.sh` on every agent with Bash; Kestrel's leg PRs open ready, not draft. |
+
+### 22.13 Setup TODO
+
+- [x] GitHub label `ceo-approved` (2026-11-15; the move to Intake removes it, so it must exist).
+- [ ] Cognito login in Test for Kestrel, for his Test flag tools: `scripts/agent-credentials.py create gen-purpose-dev TEST --group BOROUGH_SIM_ENGINEERING`, then copy `~/.nyc-311/credentials` to the Mac mini.
+- [ ] Deploy the flag-create route change (pipeline), before his first approved card.
 
 - [ ] **Mac mini: add the `project` scope to `gh`.** Run `gh auth refresh -h github.com -s project` on the Mac mini, then check that `gh auth status` lists `project`. The agents use the Mac mini's own `gh` login, which is separate from the MacBook's (done on the MacBook 2026-11-09).
 - [ ] Set the board's In Development column limit to 5.
 - [x] GitHub label `cpo-approved` (2026-11-09; `cto-approved` already existed, used on PRs).
-- [x] Cognito login in Prod, `BOROUGH_SIM_TEAM` + `BOROUGH_SIM_ENGINEERING` (2026-11-09; sign-in, `run_query` and `get_flag` verified as him). No Test login: he runs against Prod. Copy `~/.nyc-311/credentials` to the Mac mini.
+- [x] Cognito login in Prod, `BOROUGH_SIM_TEAM` + `BOROUGH_SIM_ENGINEERING` (2026-11-09; sign-in, `run_query` and `get_flag` verified as him). His Test login is the item above. Copy `~/.nyc-311/credentials` to the Mac mini.
 - [x] IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` deployed (2026-11-09).
 - [x] `agent-team.sh` includes him (2026-11-09), so `scripts/agent-team.sh restart` installs his schedule.
 - [ ] AWS: the pipeline stack creates IAM user `gen-purpose-dev` and `Nyc311EngineerAgentRole` (`cdk/agents/EngineerAgentRole.ts`, read-only, secrets denied). Then by hand: create the user's access key in the IAM console; on the Mac mini add `[gen-purpose-dev-key]` to `~/.aws/credentials` and `[profile nyc311-gen-purpose-dev]` with `credential_process = ~/.aws/nyc311-agent-credentials.sh Nyc311EngineerAgentRole gen-purpose-dev`; check `aws --profile nyc311-gen-purpose-dev sts get-caller-identity` ends in `assumed-role/Nyc311EngineerAgentRole/gen-purpose-dev`.
@@ -1467,6 +1496,7 @@ A new Cognito group, **`BOROUGH_SIM_ENGINEERING`**, for Kestrel only, and a new 
 
 ## Appendix: decisions and history
 
+- **The CEO's go-ahead (2026-11-15).** K1 held Kestrel at Spec Created while the CEO tested the flow. The CEO chose a per-card label, `ceo-approved`, over a global switch, so each spec is read before it is built. It replaces the 12-hour hold, which existed so a spec could be stopped; the CEO's explicit approval does that. After approval the design is fixed and only implementation remains, so an approved card can't go back to Intake: a real error goes to a new column, Requires CEO Intervention, with a comment saying why, and the CEO moves it back. A dial-up abort goes there too, rather than back to In Development, since a rollback needs a human decision. The CEO then made flags Kestrel's to manage freely in Test and Prod, so a missing flag row is never a stop; his tools create and change any flag, and the spec-name restriction first planned was dropped. Leg PRs open ready rather than as drafts, because the CEO merges them.
 - **Team adjustments (2026-11-13).** Pip took over Sable's accepted tickets (Rex labels them `cto-accepted`), with his open-PR limit raised to 5. Rex now merges Grimble's PRs. Grimble attacks the top 3 lines, build compute first, and labels bold proposals `wild-idea` for Rex's stricter review. Kestrel's tickets need a way to verify the work, not an existing metric, so he can take net-new features, and he proposes his own checks; a card he can't spec goes back to Intake with his suggestion, clearing both approvals. Celestine answers when the CEO tags her in a ticket comment.
 - **Kid Kestrel's project workflow (2026-11-09).** The CEO set up a project board for him and four rules: a success metric on everything in Refined, flags on every change (or back to Intake to be split), a spec held 12 hours in Spec Created as a rate limiter, and a WIP limit of 5 on In Development only. Refinement became two signed approvals, CPO and CTO, with whoever approves second moving the card, so neither waits on the other. Specs go straight to `main` because they change on runs that open no PR, such as dial-up steps. He was first planned at 8 Opus runs a day, then cut to 4 to protect usage; they sit in Pip's slots so Rex's runs review both. He may work several cards a run, but each in its own session and worktree so projects never mix. Rex approves his PRs on a stricter bar than Pip's (no smells, no bugs, nothing existing broken) but the CEO merges, as with Grimble's. The board replaced the label state machine. Flag changes and warehouse queries come through a new engineering role and MCP server; he touches only his specs' flags, which keeps assignment stable without sticky bucketing. It is built in iterations: K1 stops at Spec Created until the CEO has reviewed a few specs. The dial-up is set per ticket by Celestine and Rex, from how the system runs and how fast the work can be verified, not by a fixed ladder; until a ticket argues otherwise it is `C` → 100%, and Kestrel goes to 100% without the CEO.
 
@@ -1534,7 +1564,7 @@ How an executive agent is wired to BoroughSim, and how to set up a new one.
 | `chief-of-staff-agent` | Penny Platen, Chief of Staff | `chief-of-staff-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | None | 06:00 (8:00 CT), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `REPORTS=1`, `USAGE_SUMMARY=1` |
 | `aws-cost-agent` | Grimble Tollbridge, AWS Cost Efficiency Engineer | `aws-cost-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `aws-cost-agent` → role `Nyc311CostAgentRole`: Pip's access plus Cost Explorer and Budgets reads | Mon and Wed 03:30 (05:30 CT, §21.10), `KIND=pr-limit`, `cost/`, 3 PRs, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
 | `software-analyzer-agent` | Sable Marsh, Software Analyzer | `software-analyzer-agent@agents.boroughsim.com` | `BOROUGH_SIM_TEAM` | IAM user `software-analyzer-agent` → write to the reports bucket's `software-analyzer-agent/` prefix only (§19.6), used by the scheduler's sync, never by the agent | Tue 21:30 (23:30 CT, §21.10), `KIND=operations`, `TEAM_CHAT_ENV=PROD`, `MEMORY=1`, `REPORTS=1` |
-| `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | IAM user `gen-purpose-dev` → role `Nyc311EngineerAgentRole`, the same access as `devx-agent`, for verifying through logs and resource state | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `BUILD=0` |
+| `gen-purpose-dev` | Kid Kestrel, Software Engineer | `gen-purpose-dev@agents.boroughsim.com` (after K1.1 deploys) | `BOROUGH_SIM_TEAM`, `BOROUGH_SIM_ENGINEERING` | IAM user `gen-purpose-dev` → role `Nyc311EngineerAgentRole`, the same access as `devx-agent`, for verifying through logs and resource state | 07:00, 13:00, 20:00, 02:00 on Opus 5.5 (§22.6), `KIND=board`, `TEAM_CHAT_ENV=PROD`, `ENGINEERING_TOOLS=1`, `MEMORY=1`, `REPORTS=1`, `WIP_LIMIT=5` |
 | CEO | Seth Theeke | The admin user | `ADMIN`, `BOROUGH_SIM_TEAM` | The admin `nyc311` profile, on the MacBook only | — |
 
 The `@agents.boroughsim.com` addresses need no inbox. No mail is ever sent to them.

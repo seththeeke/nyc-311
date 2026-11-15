@@ -10,7 +10,9 @@
 # overwrite credentials.
 #
 # With AGENT_PRODUCT_TOOLS set, it carries the boroughsim-product server too,
-# and with AGENT_ENGINEERING_TOOLS the boroughsim-engineering server (§22.9).
+# and with AGENT_ENGINEERING_TOOLS the boroughsim-engineering server (§22.9),
+# which also signs in to the other environment (when the agent has a password
+# for it) so the agent can manage flags in both Test and Prod.
 # With AGENT_OPS_TOOLS set, the config also carries the boroughsim-ops MCP
 # server (§12.4) on the same sign-in, for the COO's capacity tools.
 #
@@ -49,33 +51,58 @@ case "$(stat -f '%Lp' "$credentials" 2>/dev/null || stat -c '%a' "$credentials")
   600 | 400) : ;;
   *) die "$credentials must be mode 600 (chmod 600 $credentials)" ;;
 esac
-password=$(CREDS=$credentials AGENT=$agent KEY="$(printf '%s' "$env_name" | tr 'A-Z' 'a-z')_password" python3 -c '
+# The agent's password for <TEST|PROD>, or empty.
+password_for() {
+  CREDS=$credentials AGENT=$agent KEY="$(printf '%s' "$1" | tr 'A-Z' 'a-z')_password" python3 -c '
 import configparser, os
 config = configparser.ConfigParser(interpolation=None)
 config.read(os.environ["CREDS"])
 print(config.get(os.environ["AGENT"], os.environ["KEY"], fallback=""))
-') || die "could not read $credentials"
+'
+}
+password=$(password_for "$env_name") || die "could not read $credentials"
 [ -n "$password" ] || die "no ${env_name} password for $agent in $credentials"
 # shellcheck disable=SC1091
 . "$(dirname -- "$0")/agent-schedules/team-chat.env"
-if [ "$env_name" = TEST ]; then client_id=${TEAM_CHAT_CLIENT_ID_TEST:-}; else client_id=${TEAM_CHAT_CLIENT_ID_PROD:-}; fi
+client_id_for() { if [ "$1" = TEST ]; then printf '%s' "${TEAM_CHAT_CLIENT_ID_TEST:-}"; else printf '%s' "${TEAM_CHAT_CLIENT_ID_PROD:-}"; fi; }
+client_id=$(client_id_for "$env_name")
 [ -n "$client_id" ] || die "no agent client id for $env_name in scripts/agent-schedules/team-chat.env"
 
 dir=$(mktemp -d "${TMPDIR:-/tmp}/nyc311-team-chat-XXXXXX")
 chmod 700 "$dir"
 umask 077
 
-# The sign-in request goes through a file in the private directory, so the password never appears in a process's arguments.
-AUTH_EMAIL=$email AUTH_PASSWORD=$password AUTH_CLIENT_ID=$client_id python3 -c '
+# Signs in with <password> <client id>, printing the Cognito result. The request
+# goes through a file in the private directory, so the password never appears
+# in a process's arguments.
+sign_in() {
+  AUTH_EMAIL=$email AUTH_PASSWORD=$1 AUTH_CLIENT_ID=$2 python3 -c '
 import json, os
 print(json.dumps({"AuthFlow": "USER_PASSWORD_AUTH", "ClientId": os.environ["AUTH_CLIENT_ID"],
                   "AuthParameters": {"USERNAME": os.environ["AUTH_EMAIL"], "PASSWORD": os.environ["AUTH_PASSWORD"]}}))
 ' >"$dir/auth.json"
-auth=$(aws cognito-idp initiate-auth --no-sign-request --region "$region" --cli-input-json "file://$dir/auth.json" --output json) \
-  || { rm -rf "$dir"; die "sign-in failed for $email"; }
-rm -f "$dir/auth.json"
+  result=0
+  aws cognito-idp initiate-auth --no-sign-request --region "$region" --cli-input-json "file://$dir/auth.json" --output json || result=$?
+  rm -f "$dir/auth.json"
+  return "$result"
+}
+auth=$(sign_in "$password" "$client_id") || { rm -rf "$dir"; die "sign-in failed for $email"; }
 
-AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server POST_WORDS=${AGENT_CHAT_POST_WORDS:-} QUERY_LIMIT=${AGENT_PRODUCT_QUERY_LIMIT:-} ENGINEERING_TOOLS=${AGENT_ENGINEERING_TOOLS:-} ENGINEERING_SERVER=$engineering_server ENGINEERING_QUERY_LIMIT=${AGENT_ENGINEERING_QUERY_LIMIT:-} CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
+# The engineering tools also manage flags in the other environment (§22.9).
+other_env=""; other_api_url=""; other_auth=""; other_client_id=""
+if [ -n "${AGENT_ENGINEERING_TOOLS:-}" ]; then
+  if [ "$env_name" = TEST ]; then other_env=PROD; other_api_url=https://api.boroughsim.com; else other_env=TEST; other_api_url=https://api.test.boroughsim.com; fi
+  other_client_id=$(client_id_for "$other_env")
+  other_password=$(password_for "$other_env") || other_password=""
+  if [ -z "$other_password" ] || [ -z "$other_client_id" ]; then
+    printf 'agent-team-chat-config: WARN: no %s password or client id for %s; its flag tools work in %s only\n' "$other_env" "$agent" "$env_name" >&2
+  elif ! other_auth=$(sign_in "$other_password" "$other_client_id"); then
+    other_auth=""
+    printf 'agent-team-chat-config: WARN: %s sign-in failed for %s; its flag tools work in %s only\n' "$other_env" "$email" "$env_name" >&2
+  fi
+fi
+
+AUTH_RESULT=$auth CHAT_API_URL=$chat_api_url OPS_API_URL=$ops_api_url OPS_TOOLS=${AGENT_OPS_TOOLS:-} OPS_SERVER=$ops_server PRODUCT_TOOLS=${AGENT_PRODUCT_TOOLS:-} PRODUCT_SERVER=$product_server POST_WORDS=${AGENT_CHAT_POST_WORDS:-} QUERY_LIMIT=${AGENT_PRODUCT_QUERY_LIMIT:-} ENGINEERING_TOOLS=${AGENT_ENGINEERING_TOOLS:-} ENGINEERING_SERVER=$engineering_server ENV_NAME=$env_name OTHER_AUTH=$other_auth OTHER_API_URL=$other_api_url OTHER_CLIENT_ID=$other_client_id ENGINEERING_QUERY_LIMIT=${AGENT_ENGINEERING_QUERY_LIMIT:-} CLIENT_ID=$client_id REGION=$region SERVER=$server TSX=$tsx python3 -c '
 import json, os
 result = json.loads(os.environ["AUTH_RESULT"]).get("AuthenticationResult") or {}
 if not result.get("IdToken") or not result.get("RefreshToken"):
@@ -109,6 +136,12 @@ if os.environ.get("ENGINEERING_TOOLS"):
                 "AGENT_REGION": os.environ["REGION"]}}
     if os.environ.get("ENGINEERING_QUERY_LIMIT"):
         servers["boroughsim-engineering"]["env"]["ENGINEERING_QUERY_LIMIT"] = os.environ["ENGINEERING_QUERY_LIMIT"]
+    servers["boroughsim-engineering"]["env"]["AGENT_ENV"] = os.environ["ENV_NAME"]
+    other = json.loads(os.environ.get("OTHER_AUTH") or "{}").get("AuthenticationResult") or {}
+    if other.get("IdToken") and other.get("RefreshToken"):
+        servers["boroughsim-engineering"]["env"].update({
+            "AGENT_OTHER_API_URL": os.environ["OTHER_API_URL"], "AGENT_OTHER_ID_TOKEN": other["IdToken"],
+            "AGENT_OTHER_REFRESH_TOKEN": other["RefreshToken"], "AGENT_OTHER_CLIENT_ID": os.environ["OTHER_CLIENT_ID"]})
 print(json.dumps({"mcpServers": servers}, indent=2))
 ' >"$dir/mcp.json" || { rm -rf "$dir"; die "could not write the MCP config"; }
 

@@ -15,16 +15,19 @@
 #      pr-limit (default, devx-agent) — count the agent's open PRs (head branch
 #        starts with BRANCH_PREFIX): below MAX_OPEN_PRS → NEW mode, else REVISE
 #      board (gen-purpose-dev, docs/17-executive-team.md §22.6) — list the
-#        agent's cards on the project board (agent-board.sh): SPEC for each
-#        card in Assigned that isn't parked, oldest first, at most
-#        MAX_CARDS_PER_RUN. Nothing to do → IDLE, `claude` is never started.
+#        agent's cards on the project board (agent-board.sh) that need him,
+#        in order, at most MAX_CARDS_PER_RUN, skipping parked ones: DIALUP for
+#        Verified in Test, BUILD for In Development (unless its open PR only
+#        waits on Rex or the CEO) and for a ceo-approved Spec Created card
+#        while In Development has room, SPEC for Assigned. Nothing to do →
+#        IDLE, `claude` is never started.
 #   3. `agent-worktree.sh run <agent> "<prompt>"` — for board, once per card,
 #      each in its own worktree
 #   4. prune logs > 30 days and this agent's kept worktrees > 7 days
 #
-# A pr-limit run posts nothing to GitHub itself. A board run, when a card's
-# session ends without moving the card on or parking it, parks it with a
-# comment — fail closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
+# A pr-limit run posts nothing to GitHub itself. A board run, when an
+# Assigned card's session ends without moving it on, or any card's session
+# fails, parks it with a comment — fail closed, never silently retried. Config: scripts/agent-schedules/<agent>.env. Log per run:
 # ~/Library/Logs/nyc311-agents/<agent>/<timestamp>.log (AGENT_LOG_ROOT overrides).
 #
 # A manual run (the agent monitor's Run button, agent-web-app/SPEC.md §5.1)
@@ -123,7 +126,7 @@ AGENT_CHAT_POST_WORDS=${CHAT_POST_WORDS:-}
 export AGENT_CHAT_POST_WORDS
 case "$KIND" in
   pr-limit) : "${BRANCH_PREFIX:?}" "${MAX_OPEN_PRS:?}" "${PROMPT_NEW:?}" "${PROMPT_REVISE:?}" ;;
-  board) : "${PROMPT_SPEC:?}" "${MAX_CARDS_PER_RUN:?}" ;;
+  board) : "${PROMPT_SPEC:?}" "${PROMPT_BUILD:?}" "${PROMPT_DIALUP:?}" "${MAX_CARDS_PER_RUN:?}" ;;
   # An operating agent (docs/17-executive-team.md §12.4): every fire is one run, of PROMPT_<MODE> for its slot's mode (§21.6) or else PROMPT_NEW, with no PRs or issues to count.
   operations) : ;;
   *) die "unknown KIND '$KIND' in $agent.env (pr-limit | board | operations)" ;;
@@ -231,31 +234,89 @@ is_parked() {
   gh issue view "$1" --repo "$REPO" --json comments --jq '.comments[-1].body // ""' | grep -qF -- "$PARKED_MARKER"
 }
 
-# The cards in <column> that aren't parked, oldest first, at most MAX_CARDS_PER_RUN.
-pick_cards() {
-  listed=$(board list "$1") || return 1
-  picked=0
-  printf '%s\n' "$listed" | cut -f1 | sort -n | while IFS= read -r n; do
-    [ -n "$n" ] || continue
-    [ "$picked" -lt "$MAX_CARDS_PER_RUN" ] || break
-    if is_parked "$n"; then
-      log "#$n is parked — skipping" >&2
-      continue
-    fi
-    printf '%s\n' "$n"
-    picked=$((picked + 1))
-  done
+has_ceo_approval() {
+  gh issue view "$1" --repo "$REPO" --json labels --jq '[.labels[].name] | index("ceo-approved") != null' | grep -qx true
 }
 
-# A card still in <column> after its session, and not parked, means the
-# session died mid-flight. Park it (fail closed); a reply resumes it.
-park_if_stuck() {
-  [ "$(board show "$1" 2>/dev/null)" = "$2" ] || return 0
-  is_parked "$1" && return 0
-  log "parking #$1: its session ended (exit $3) with the card still in $2"
+# An In Development card whose open PR waits only on someone else (docs/17
+# §22.8): Rex hasn't reviewed its head yet, or approved it or escalated it
+# for the CEO to merge, and it has no conflict. No open PR, changes
+# requested or a conflict all need Kestrel.
+waits_on_review() {
+  pr=$(gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,mergeable,labels \
+    --jq "[.[] | select(.headRefName | startswith(\"$agent/$1-\"))][0] // empty") || return 1
+  [ -n "$pr" ] || return 1
+  [ "$(printf '%s' "$pr" | jq -r .mergeable)" != CONFLICTING ] || return 1
+  printf '%s' "$pr" | jq -e '[.labels[].name] | index("cto-escalated") != null' >/dev/null && return 0
+  sha=$(printf '%s' "$pr" | jq -r .headRefOid)
+  review=$(gh api "repos/$REPO/commits/$sha/status" --jq '[.statuses[] | select(.context == "cto-review")][0].state // "none"') || return 1
+  [ "$review" != failure ]
+}
+
+# The cards that need a session this run, as "<issue>:<mode>" lines, in
+# §22.6's order (Prod first), oldest first within a column, at most
+# MAX_CARDS_PER_RUN. Parked cards are skipped; Requires CEO Intervention
+# and the Verified columns past Test are never picked.
+pick_cards() {
+  listed=$(board list) || return 1
+  column_cards() { printf '%s\n' "$listed" | awk -F'\t' -v c="$1" '$2 == c { print $1 }' | sort -n; }
+  wip=$(column_cards in-development | grep -c . || true)
+  {
+    for n in $(column_cards verified-test); do echo "$n:DIALUP:verified-test"; done
+    for n in $(column_cards in-development); do echo "$n:BUILD:in-development"; done
+    for n in $(column_cards spec-created); do echo "$n:BUILD:spec-created"; done
+    for n in $(column_cards assigned); do echo "$n:SPEC:assigned"; done
+  } | {
+    picked=0
+    while IFS=: read -r n mode column; do
+      [ "$picked" -lt "$MAX_CARDS_PER_RUN" ] || break
+      if is_parked "$n"; then
+        log "#$n is parked — skipping" >&2
+        continue
+      fi
+      case "$column" in
+        spec-created)
+          has_ceo_approval "$n" || continue
+          if [ "$wip" -ge "${WIP_LIMIT:-5}" ]; then
+            log "#$n is ceo-approved but In Development is full ($wip/${WIP_LIMIT:-5}) — waiting" >&2
+            continue
+          fi
+          wip=$((wip + 1)) ;;
+        in-development | verified-test)
+          if ! has_ceo_approval "$n"; then
+            log "#$n has no ceo-approved label — paused" >&2
+            continue
+          fi
+          if [ "$column" = in-development ] && waits_on_review "$n"; then
+            log "#$n's open PR is waiting on review or merge — skipping" >&2
+            continue
+          fi ;;
+      esac
+      echo "$n:$mode:$column"
+      picked=$((picked + 1))
+    done
+  }
+}
+
+park() {
+  log "parking #$1: $2"
   gh issue comment "$1" --repo "$REPO" --body "$PARKED_MARKER
-**Parked.** A scheduled run's session for this card ended (exit $3) without moving it on or parking it. Nothing was merged. Reply here to have the next run pick it back up." \
+**Parked.** $2 Nothing was merged. Reply here to have the next run pick it back up." \
     >/dev/null || log "WARN: could not comment on #$1"
+}
+
+# After a card's session: a failed session parks the card, and an Assigned
+# card still in Assigned means the session died before its spec or its
+# pushback. Later columns legitimately stay put (waiting on a review, a
+# deploy or a hold), so only a failure parks them. Fail closed; a reply resumes it.
+park_if_stuck() {
+  is_parked "$1" && return 0
+  column=$(board show "$1" 2>/dev/null) || column=""
+  if [ "$3" -ne 0 ] && [ "$column" = "$2" ]; then
+    park "$1" "A scheduled run's session for this card ended with exit $3, with the card still in $2."
+  elif [ "$2" = assigned ] && [ "$column" = assigned ]; then
+    park "$1" "A scheduled run's session for this card ended (exit $3) without moving it on or sending it back."
+  fi
 }
 
 # ---- 2. pick the mode --------------------------------------------------------
@@ -280,16 +341,16 @@ if [ "$KIND" = "operations" ]; then
   log "operations run → $mode${AGENT_MODEL:+ (model $AGENT_MODEL)}"
 elif [ "$KIND" = "board" ]; then
   command -v jq >/dev/null 2>&1 || die "'jq' not on PATH"
-  # K1 (docs/17 §22.11): only specs. BUILD=1 will add the later stages.
-  cards=$(pick_cards assigned) || die "could not read the board"
+  # Every column Kestrel works (docs/17 §22.6); past Spec Created only with ceo-approved (§22.1).
+  cards=$(pick_cards) || die "could not read the board"
   cards=$(printf '%s' "$cards" | tr '\n' ' ' | sed 's/ *$//')
   if [ -n "$cards" ]; then
-    mode=SPEC
-    prompt="$PROMPT_SPEC"
+    mode=BOARD
+    prompt=""
   else
     mode=IDLE
   fi
-  log "board: assigned cards ${cards:+#}$(printf '%s' "$cards" | sed 's/ / #/g') (max $MAX_CARDS_PER_RUN, BUILD=${BUILD:-0}) → $mode"
+  log "board: cards ${cards:-none} (max $MAX_CARDS_PER_RUN, WIP limit ${WIP_LIMIT:-5}) → $mode"
 elif [ "$count" -ge "$MAX_OPEN_PRS" ]; then
   mode=REVISE
   prompt="$PROMPT_REVISE $prs_before"
@@ -347,15 +408,24 @@ if [ "$mode" = "IDLE" ]; then
   log "nothing assigned to $agent needs work — not starting claude"
 else
   # One session per card for a board run (docs/17 §22.6), each in its own worktree; one session otherwise.
-  for card in ${cards:-_}; do
+  for pick in ${cards:-_}; do
     session_prompt=$prompt
     report="${AGENT_SCHED_LOG%.log}.report.md"
-    if [ "$card" != "_" ]; then
-      session_prompt="$prompt
+    card=_
+    if [ "$pick" != "_" ]; then
+      card=${pick%%:*}
+      card_mode=${pick#*:}
+      card_column=${card_mode#*:}
+      card_mode=${card_mode%%:*}
+      eval "card_prompt=\${PROMPT_$card_mode}"
+      if [ -n "${AGENT_MANUAL:-}" ] && [ "${AGENT_PROMPT_MODE:-append}" = replace ] && [ -n "${AGENT_PROMPT:-}" ]; then
+        card_prompt=""
+      fi
+      session_prompt="$card_prompt$prompt
 
-Your card: #$card"
+Your card: #$card ($card_column)"
       report="${AGENT_SCHED_LOG%.log}.$card.report.md"
-      log "--- card #$card"
+      log "--- card #$card ($card_column → $card_mode)"
     fi
     started=$(date +%s)
     "$script_dir/agent-worktree.sh" run "$agent" "$session_prompt" >"$report"
@@ -372,7 +442,7 @@ Your card: #$card"
       if [ -n "$chat_line" ]; then log "team-chat: ${chat_line#*Chat post:}"; else log "WARN: no chat post reported"; fi
     fi
 
-    [ "$card" = "_" ] || park_if_stuck "$card" assigned "$session_status"
+    [ "$card" = "_" ] || park_if_stuck "$card" "$card_column" "$session_status"
   done
 
   if [ "$KIND" != "operations" ] && [ "$KIND" != "board" ]; then
