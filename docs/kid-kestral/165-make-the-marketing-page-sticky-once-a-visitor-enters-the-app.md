@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14. **Ticket:** #165. **Card:** Spec Created.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15. **Ticket:** #165. **Card:** In Development.
 
 ## 1. Ticket
 
@@ -100,7 +100,7 @@ would put the change live in Prod at merge, with no dark period.
 
 | Leg | Change | Packages | Depends on | Verified by | PR | State |
 |---|---|---|---|---|---|---|
-| 1 | `routes/marketingEntry.ts`: read, write, refresh, expire and clear the stored entry, with storage errors swallowed. `hooks/useMarketingEntry.ts` (`useSyncExternalStore`), so the gate re-renders when the button clears the entry. `MarketingGate.tsx` branches on the flag. About drawer button (`navigate("/")` after clearing). Flag constants and mock row. Unit tests for both treatments. `tests/smoke/marketingEntry.spec.ts`. `map.spec.ts` seeds both stores. `docs/18-marketing-page.md` updated | `web-app` | the §3 rows exist (the Test smoke run needs `T1`) | V1 in Test, V2 | — | not started |
+| 1 | `routes/marketingEntry.ts`: read, write, refresh, expire and clear the stored entry, with storage errors swallowed. `hooks/useMarketingEntry.ts` (`useSyncExternalStore`), so the gate re-renders when the button clears the entry. `MarketingGate.tsx` branches on the flag. About drawer button (`navigate("/")` after clearing). Flag constants and mock row. Unit tests for both treatments. `tests/smoke/marketingEntry.spec.ts`. `map.spec.ts` seeds both stores. `docs/18-marketing-page.md` updated | `web-app` | the §3 rows exist (the Test smoke run needs `T1`) | V1 in Test, V2 | [#229](https://github.com/seththeeke/nyc-311/pull/229) | In review |
 
 One leg: it's a single front-end gate, around 200 lines plus tests. The
 flag's cleanup (drop `C` and the `sessionStorage` path) is its own issue, filed
@@ -125,6 +125,8 @@ can't reach the marketing page through the button or after 7 days.
 
 | Date | Step | Result | Numbers |
 |---|---|---|---|
+| 2026-11-15 | Flag rows | Prod created at `C` (v1, no overrides, no allocations). Test **not created**: the flag tool has no Test sign-in this run (503) | V3 now returns `C` in Prod (was 404) |
+| 2026-11-15 | Leg 1 Operational Loop (`web-app/`, PR #229) | build ✅, lint ✅, test:coverage ✅ | 248 files, 1575 tests; every file ≥ 90%; `marketingEntry.ts` 95.1% stmts, 100% branches, 94.6% lines |
 
 ## 7. Outcome
 
@@ -132,7 +134,7 @@ Not yet.
 
 ## 8. Needs the CEO
 
-- Create the two `MARKETING_STICKY_ENTRY` rows (§3) before Leg 1 merges.
+- ~~Create the two `MARKETING_STICKY_ENTRY` rows~~: I created the Prod row (`C`) on 2026-11-15. The **Test row (`T1`) is still missing**, because the flag tool had no Test sign-in. It has to exist before #229 merges, or the new smoke spec fails in `BrowserSmokeTestsTest`. I retry it each run. Or the CEO can create it through Admin → Feature Flags in Test.
 - Confirm that `MARKETING_PAGE` is meant to be `T1` in Prod. If not, set it
   back to `C`. This project works either way, but its Prod check needs
   `MARKETING_PAGE` at `T1`.
@@ -154,5 +156,13 @@ Not yet.
 - **The button lives in the About drawer**, as the ticket suggests, rather
   than as a new sidebar control. It shows only when both flags are `T1`, so
   `C` changes nothing.
+- **Leg 1 build choices (2026-11-15).** The button is its own component,
+  `components/about/BackToIntroButton.tsx`. `SidebarFooter` passes it into
+  `AboutOverlay` through a new optional `footer` prop, which keeps the drawer
+  free of router and flag code. The gate waits for both flag reads before it
+  shows the marketing page. `useMarketingEntry` re-reads the entry when the
+  sticky flag resolves or the entry is cleared. The smoke spec tells the
+  marketing page from the shell by Enter fleet against the sidebar's About
+  button.
 - **Rejected: a page-view metric.** No page-view tracking exists, and adding
   it is more than this fix needs (Celestine's comment).
