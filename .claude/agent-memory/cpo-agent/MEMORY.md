@@ -6,21 +6,21 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets
 
-- **#227 (11-15, new):** resident repair feedback. Proposed route
-  `POST /v1/requests/{order_id}/feedback`, op `SUBMIT_REPAIR_FEEDBACK`.
-  Covers 5 contacts (Sycamore, Sassafras x2, Yellowwood, Ginkgo-effectiveness).
-  Board Intake. NOT yet cpo-approved: waiting on Rex (is a new
-  actionTools.ts tool definition in bounds? new entity or Contact type?).
-  CPO_TICKET 01M7FMWXKZN5JW2H2KNV1THJBZ. Approve once Rex answers.
+- **#227 (11-15):** repair feedback. Rex answered both open qs (new
+  `RepairFeedback` entity, actionTools.ts def in-bounds) — folded into
+  body, dedup key + repeat-response code tightened, CPO Approved, board
+  moved Intake → Refined. Both approvals held; CEO moves to Assigned next.
+  5 contacts covered (Sycamore, Sassafras x2, Yellowwood, Ginkgo).
 - **#166 (11-06):** status visibility via `searchRequests.description`
   wording. Refined, both approved. 39+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth. 11-15
-  comment: stalled again, no order events at all Nov 15 00:00–13:00.
+  comment: stalled again, no order events at all Nov 15 00:00–13:00. No
+  Seth answer yet.
 - **#194 (11-09):** nearest idle op. Spec Created; needs #202.
 - **#213 (11-10, measurement):** idle in WBR. Pushback cleared both
-  approvals; I answered 11-14, posed A vs B to Seth. Still no Seth answer
-  as of 11-15 16:00. Re-approve once he picks.
+  approvals; posed A vs B to Seth 11-14. Still no answer. Re-approve once
+  he picks.
 - **#69 (not mine):** lat/lng fallback. Refined.
 - **#165, #202 (not mine):** Spec Created, need CEO. No action for me.
 
@@ -28,7 +28,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - Data export / research / analysis tools (Ginkgo, 8th+): public search +
   Open Data.
-- Hazard detection/reporting/photo/hardware/apps (Dogwood repeats): 311/911.
+- Hazard detection/reporting/photo/hardware/apps (Dogwood repeats, latest
+  11-15): 311/911.
 - Mark urgent / priority / urgency voting: priority is automatic.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -83,15 +84,15 @@ Shapes (rebuild from these):
   per Bash call (no `;`/`&&`); `mkdir` alone via Bash works, chained
   with `&&` needs approval.
 - `grep --include=*` fails in zsh; use plain paths.
-- Morning runs land ~13:00 UTC.
 - Top-level posts ≤75 words.
 - Check upstream intake before reading a demand drop as real.
 - Self-joins over 7 d of operator_events time out.
-- `gh issue view`: `--json comments -q`; no for-loops over issue numbers.
+- `gh issue view`: `--json comments -q`; no for-loops over issue numbers
+  with `$n` interpolation in one Bash call (simple_expansion blocked) —
+  run one `gh` call per issue instead.
 - All gh comments show seththeeke; tell agents apart by marker.
 - customer/backend/ decision logic is off-limits; only a tool's own
   definition in actionTools.ts (description, schema) is a lever.
-- Skip chat-thread hunting when only GitHub needed updating.
 - A repeat contact from a persona already covered by a ticket still gets
   `track_contact` on that ticket (new contact_id each time).
 
@@ -102,7 +103,12 @@ Shapes (rebuild from these):
 - 11-15 07:00 (audit): 7 contacts (4 → #227, 3 declined); filed #227,
   board Intake; #181 stall evidence; 4/10 queries; CPO_DAILY
   01M7FMX0Y2MYCA9HPR67BESP0B.
-- 11-15 16:00 (conversation): inbox empty; no Seth mentions pending on
-  166/181/194/202/213/69/227 (all last-commented by me); 2 new contacts:
-  Dogwood hazard-detection declined, Sassafras repair-feedback → #227
-  (now 5 contacts). No board moves, no queries, no chat post.
+- 11-15 (conversation, ~16:00): inbox empty; 2 contacts: Dogwood hazard
+  declined, Sassafras repair-feedback → #227 (5 contacts total). No
+  board moves, no queries, no chat post.
+- 11-15 (conversation, ~19:00): CTO replied on #227 thread — folded his
+  answers (RepairFeedback entity, actionTools.ts in-bounds) into body,
+  tightened dedup/repeat-response, CPO approved, board Intake → Refined,
+  1-line thread reply. 1 new contact: Dogwood hazard (repeat) declined.
+  #166/170/194/202/213/69/181 all checked, no new Seth/Rex action
+  pending. 0 queries used. No daily post (conversation).
