@@ -10,9 +10,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   `RepairFeedback` entity, actionTools.ts def in-bounds) — folded into
   body, dedup key + repeat-response code tightened, CPO Approved, board
   moved Intake → Refined. Both approvals held; CEO moves to Assigned next.
-  5 contacts covered (Sycamore, Sassafras x2, Yellowwood, Ginkgo).
+  6 contacts covered (Sycamore, Sassafras x3, Yellowwood, Ginkgo).
 - **#166 (11-06):** status visibility via `searchRequests.description`
-  wording. Refined, both approved. 39+ contacts.
+  wording. Refined, both approved. 40+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth. 11-15
   comment: stalled again, no order events at all Nov 15 00:00–13:00. No
@@ -95,6 +95,9 @@ Shapes (rebuild from these):
   definition in actionTools.ts (description, schema) is a lever.
 - A repeat contact from a persona already covered by a ticket still gets
   `track_contact` on that ticket (new contact_id each time).
+- `list_contacts` can return empty pages with a non-null `next_cursor`
+  still set; one empty page doesn't mean the end — but in a conversation
+  run, stop after the new items surface rather than exhausting it.
 
 ## Run log
 
@@ -112,3 +115,8 @@ Shapes (rebuild from these):
   1-line thread reply. 1 new contact: Dogwood hazard (repeat) declined.
   #166/170/194/202/213/69/181 all checked, no new Seth/Rex action
   pending. 0 queries used. No daily post (conversation).
+- 11-15 (conversation, ~22:00): inbox empty, no new Seth/Rex mentions on
+  any open ticket (166/170/181/194/202/213/69/227 all unchanged since
+  19:00 check). 1 new contact: Sassafras status-notification request →
+  tracked on #166. No board moves (213/181 still blocked on Seth; 227
+  already Refined). 0 queries used. No chat post.
