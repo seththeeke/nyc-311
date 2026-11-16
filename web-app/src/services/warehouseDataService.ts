@@ -1,9 +1,9 @@
-import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../config";
 import { WarehouseSchemaResponseSchema, type WarehouseSchemaResponse } from "../models/warehouseSchema";
 import { WarehouseJobRunListResponseSchema, type WarehouseJobRunListResponse } from "../models/warehouseJobRun";
 import { MOCK_WAREHOUSE_SCHEMA } from "../test-data/warehouseSchema";
 import { MOCK_WAREHOUSE_JOB_RUNS } from "../test-data/warehouseJobRuns";
+import { authorizedFetch } from "./http";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
@@ -14,15 +14,6 @@ import { MOCK_WAREHOUSE_JOB_RUNS } from "../test-data/warehouseJobRuns";
 export interface WarehouseDataService {
   getSchema(): Promise<WarehouseSchemaResponse>;
   getJobRuns(): Promise<WarehouseJobRunListResponse>;
-}
-
-async function authorizedFetch(path: string): Promise<Response> {
-  const session = await fetchAuthSession();
-  const idToken = session.tokens?.idToken?.toString();
-  if (!idToken) {
-    throw new Error("Not authenticated");
-  }
-  return fetch(`${config.apiBaseUrl}${path}`, { headers: { Authorization: `Bearer ${idToken}` } });
 }
 
 export class LiveWarehouseDataService implements WarehouseDataService {

@@ -1,5 +1,3 @@
-import { fetchAuthSession } from "aws-amplify/auth";
-import { config } from "../config";
 import {
   WarehouseJobDefinitionSchema,
   WarehouseJobDefinitionListResponseSchema,
@@ -9,6 +7,7 @@ import {
 } from "../models/warehouseJobDefinition";
 import { WarehouseJobSqlResponseSchema } from "../models/warehouseJobSql";
 import { MOCK_WAREHOUSE_JOB_DEFINITIONS } from "../test-data/warehouseJobDefinitions";
+import { authorizedFetch, readApiErrorMessage } from "./http";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
@@ -27,21 +26,8 @@ export interface WarehouseJobDefinitionService {
   getJobSql(name: string): Promise<string>;
 }
 
-async function authorizedFetch(path: string, init?: RequestInit): Promise<Response> {
-  const session = await fetchAuthSession();
-  const idToken = session.tokens?.idToken?.toString();
-  if (!idToken) {
-    throw new Error("Not authenticated");
-  }
-  return fetch(`${config.apiBaseUrl}${path}`, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${idToken}` },
-  });
-}
-
 async function errorMessageFrom(response: Response, fallback: string): Promise<string> {
-  const body = (await response.json().catch(() => null)) as { message?: string } | null;
-  return body?.message ?? `${fallback}: HTTP ${response.status}`;
+  return (await readApiErrorMessage(response)) ?? `${fallback}: HTTP ${response.status}`;
 }
 
 class LiveWarehouseJobDefinitionService implements WarehouseJobDefinitionService {

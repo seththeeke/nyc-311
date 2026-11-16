@@ -1,4 +1,3 @@
-import { fetchAuthSession } from "aws-amplify/auth";
 import { config } from "../config";
 import {
   FeatureFlagListSchema,
@@ -8,6 +7,7 @@ import {
   type UpdateFeatureFlagRequest,
 } from "../models/featureFlag";
 import { MOCK_FEATURE_FLAGS } from "../test-data/featureFlags";
+import { authorizedFetch, readApiErrorMessage } from "./http";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
@@ -21,29 +21,10 @@ export interface FeatureFlagService {
   deleteFeatureFlag(flagKey: string): Promise<void>;
 }
 
-async function authorizedFetch(path: string, init?: RequestInit): Promise<Response> {
-  const session = await fetchAuthSession();
-  const idToken = session.tokens?.idToken?.toString();
-  if (!idToken) {
-    throw new Error("Not authenticated");
-  }
-  return fetch(`${config.apiBaseUrl}${path}`, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${idToken}` },
-  });
-}
-
 /** Surfaces the API's own `message` (e.g. a 409's "reload and retry") when it sent one. */
 async function failure(action: string, response: Response): Promise<Error> {
-  try {
-    const body: unknown = await response.json();
-    if (body && typeof body === "object" && "message" in body && typeof body.message === "string") {
-      return new Error(`Failed to ${action}: ${body.message}`);
-    }
-  } catch {
-    /* No JSON body — fall back to the status code alone. */
-  }
-  return new Error(`Failed to ${action}: HTTP ${response.status}`);
+  const message = (await readApiErrorMessage(response)) ?? `HTTP ${response.status}`;
+  return new Error(`Failed to ${action}: ${message}`);
 }
 
 function jsonInit(method: string, body: unknown): RequestInit {
