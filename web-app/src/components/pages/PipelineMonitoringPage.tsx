@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
+import { MONITORING_PATH } from "../../routes/pagePaths";
 import { usePipelineStatus } from "../../hooks/usePipelineStatus";
 import { PipelineStagesView } from "../pipeline/PipelineStagesView";
 import { PipelineExecutionHistory } from "../pipeline/PipelineExecutionHistory";
@@ -33,7 +34,7 @@ export function PipelineMonitoringPage(): ReactElement {
 
       <main className={PAGE_CONTENT_CLASSES}>
         <div className="flex items-center justify-between">
-          <Link to="/monitoring" className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+          <Link to={MONITORING_PATH} className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
             &larr; Monitoring
           </Link>
           <a

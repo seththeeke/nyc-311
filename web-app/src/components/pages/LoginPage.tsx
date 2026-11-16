@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { ADMIN_PATH } from "../../routes/pagePaths";
 
 interface LocationState {
   from?: { pathname: string };
@@ -30,7 +31,7 @@ export function LoginPage(): ReactElement {
 
   if (user) {
     const state = location.state as LocationState | null;
-    return <Navigate to={state?.from?.pathname ?? "/admin"} replace />;
+    return <Navigate to={state?.from?.pathname ?? ADMIN_PATH} replace />;
   }
 
   async function handleCredentialsSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {

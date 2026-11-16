@@ -3,6 +3,7 @@ import { MonitoringTile, type MonitoringTileAccent } from "../MonitoringTile";
 import { CapacityIcon, FeatureFlagIcon, SqlConsoleIcon } from "../monitoring/MonitoringTileIcons";
 import { useAuth } from "../../hooks/useAuth";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
+import { ADMIN_CAPACITY_PATH, ADMIN_FEATURE_FLAGS_PATH, ADMIN_WAREHOUSE_PATH } from "../../routes/pagePaths";
 
 interface AdminTileConfig {
   title: string;
@@ -16,21 +17,21 @@ const ADMIN_TILES: AdminTileConfig[] = [
   {
     title: "Capacity",
     description: "Manage the vehicle fleet — add or remove capacity, and see live availability and cost.",
-    to: "/admin/capacity",
+    to: ADMIN_CAPACITY_PATH,
     accent: "emerald",
     icon: <CapacityIcon />,
   },
   {
     title: "Data Warehouse",
     description: "Browse the schema, run ad-hoc queries, and manage self-service scheduled jobs.",
-    to: "/admin/warehouse",
+    to: ADMIN_WAREHOUSE_PATH,
     accent: "violet",
     icon: <SqlConsoleIcon />,
   },
   {
     title: "Feature Flags",
     description: "Manage flags and experiments — treatments, per-Operator overrides, and percentage splits.",
-    to: "/admin/feature-flags",
+    to: ADMIN_FEATURE_FLAGS_PATH,
     accent: "amber",
     icon: <FeatureFlagIcon />,
   },

@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
+import { ADMIN_PATH } from "../../routes/pagePaths";
 import { useWarehouseSchema } from "../../hooks/useWarehouseSchema";
 import { useWarehouseJobRuns } from "../../hooks/useWarehouseJobRuns";
 import { useWarehouseJobDefinitions } from "../../hooks/useWarehouseJobDefinitions";
@@ -80,7 +81,7 @@ export function AdminWarehousePage(): ReactElement {
       />
 
       <main className={PAGE_CONTENT_CLASSES}>
-        <Link to="/admin" className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+        <Link to={ADMIN_PATH} className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
           &larr; Admin
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-hue-emerald via-hue-cyan to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">

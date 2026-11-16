@@ -11,6 +11,15 @@ import {
   PublicApiIcon,
 } from "../monitoring/MonitoringTileIcons";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
+import {
+  DATA_PATH,
+  MONITORING_CODE_QUALITY_PATH,
+  MONITORING_INGESTION_PATH,
+  MONITORING_INTEGRATION_TESTS_PATH,
+  MONITORING_LAMBDA_HEALTH_PATH,
+  MONITORING_PIPELINE_PATH,
+  MONITORING_PUBLIC_API_PATH,
+} from "../../routes/pagePaths";
 
 interface MonitoringTileConfig {
   title: string;
@@ -25,35 +34,35 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "311 Request Metrics",
     description: "NYC 311 poller run history and status.",
-    to: "/monitoring/ingestion",
+    to: MONITORING_INGESTION_PATH,
     accent: "cyan",
     icon: <IngestionIcon />,
   },
   {
     title: "Pipeline",
     description: "Nyc311Pipeline stage status and deploy history.",
-    to: "/monitoring/pipeline",
+    to: MONITORING_PIPELINE_PATH,
     accent: "violet",
     icon: <PipelineIcon />,
   },
   {
     title: "Lambda Health",
     description: "Invocations, successes, errors, and latency per Lambda, over the last 7 days.",
-    to: "/monitoring/lambda-health",
+    to: MONITORING_LAMBDA_HEALTH_PATH,
     accent: "amber",
     icon: <LambdaHealthIcon />,
   },
   {
     title: "Public API",
     description: "The public API's health over the last 24 hours, its operations, and its OpenAPI model.",
-    to: "/monitoring/public-api",
+    to: MONITORING_PUBLIC_API_PATH,
     accent: "emerald",
     icon: <PublicApiIcon />,
   },
   {
     title: "Code Quality",
     description: "An outside auditor's scores for each part of the codebase, and the findings behind them.",
-    to: "/monitoring/code-quality",
+    to: MONITORING_CODE_QUALITY_PATH,
     accent: "violet",
     icon: <CodeQualityIcon />,
   },
@@ -68,14 +77,14 @@ const MONITORING_TILES: MonitoringTileConfig[] = [
   {
     title: "Integration Tests",
     description: "Which GET routes the integration-test suite reached on its most recent run.",
-    to: "/monitoring/integration-tests",
+    to: MONITORING_INTEGRATION_TESTS_PATH,
     accent: "indigo",
     icon: <IntegrationTestsIcon />,
   },
   {
     title: "Data Modeling",
     description: "Explore the warehouse schema, job run history, and job results.",
-    to: "/data",
+    to: DATA_PATH,
     accent: "cyan",
     icon: <DataWarehouseIcon />,
   },
