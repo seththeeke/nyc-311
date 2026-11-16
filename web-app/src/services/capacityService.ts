@@ -1,7 +1,6 @@
-import { fetchAuthSession } from "aws-amplify/auth";
-import { config } from "../config";
 import { CapacityStatusSchema, OperatorSchema, type CapacityStatus, type Operator } from "../models/operator";
 import { MOCK_OPERATORS } from "../test-data/operators";
+import { authorizedFetch } from "./http";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
@@ -15,18 +14,6 @@ export interface CapacityService {
   getCapacityStatus(): Promise<CapacityStatus>;
   addCapacity(name: string, ratePerHour?: number): Promise<Operator>;
   removeCapacity(operatorId: string): Promise<Operator>;
-}
-
-async function authorizedFetch(path: string, init?: RequestInit): Promise<Response> {
-  const session = await fetchAuthSession();
-  const idToken = session.tokens?.idToken?.toString();
-  if (!idToken) {
-    throw new Error("Not authenticated");
-  }
-  return fetch(`${config.apiBaseUrl}${path}`, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${idToken}` },
-  });
 }
 
 class LiveCapacityService implements CapacityService {

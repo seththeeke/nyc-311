@@ -1,7 +1,6 @@
-import { fetchAuthSession } from "aws-amplify/auth";
-import { config } from "../config";
 import { AdHocQueryResultSchema, type AdHocQueryResult } from "../models/adHocQueryResult";
 import { MOCK_AD_HOC_QUERY_RESULT } from "../test-data/adHocQueryResult";
+import { authorizedFetch, readApiErrorMessage } from "./http";
 
 /*
  * One interface, two implementations, selected by VITE_DATA_MODE at build time
@@ -18,19 +17,13 @@ const LEADING_COMMENTS = /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/;
 
 class LiveWarehouseQueryService implements WarehouseQueryService {
   async runQuery(sql: string): Promise<AdHocQueryResult> {
-    const session = await fetchAuthSession();
-    const idToken = session.tokens?.idToken?.toString();
-    if (!idToken) {
-      throw new Error("Not authenticated");
-    }
-    const response = await fetch(`${config.apiBaseUrl}/admin/warehouse/query`, {
+    const response = await authorizedFetch("/admin/warehouse/query", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sql }),
     });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { message?: string } | null;
-      throw new Error(body?.message ?? `Failed to run query: HTTP ${response.status}`);
+      throw new Error((await readApiErrorMessage(response)) ?? `Failed to run query: HTTP ${response.status}`);
     }
     const body: unknown = await response.json();
     return AdHocQueryResultSchema.parse(body);
