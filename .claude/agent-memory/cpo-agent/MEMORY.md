@@ -8,17 +8,21 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#234 (11-16):** link duplicate reports (same location_id + descriptor,
   earlier order still open, 7d) to the open order; one visit resolves both.
-  185/1886 accepted (9.8%) in 30d, ~$74k/mo, −$39/accepted. Board Intake,
-  NOT approved yet: waiting on Rex (index/GSI for open orders by location;
-  BBL coarseness, lat/lng 50 m?). Comment owes: measure top descriptor for
-  first dial-up step (body says Pothole, unverified). Approve after Rex.
+  185/1886 accepted (9.8%) in 30d, ~$74k/mo, −$39/accepted. CPO Approved
+  11-16 13:00. Rex: feasible, needs new sparse GSI3 (location_id →
+  current_stage) on Orders, same pattern as gsi1-stage-sla. Body updated
+  with his answers (link = merge into one visit; only pre-scheduling
+  orders checked; match = location_id+open+descriptor). Still open: BBL
+  frontage tightness (lat/lng 50m?). Waiting on Rex's formal CTO Approved.
+  Owe: measure top descriptor for first dial-up step (next audit).
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
 - **#166 (11-06):** status visibility via `searchRequests.description`.
   Refined. 40+ contacts (notify/alerts/ETA API all go here).
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth, no answer.
   11-16 comment: empty 18 h Nov 14 18:00–Nov 15 12:00, Nov 16 00–06 1 order.
-- **#194 (11-09):** nearest idle op. Spec Created; needs #202.
+- **#194 (11-09):** nearest idle op. Spec Created (Kid Kestrel, 11-14);
+  needs #202, no new action.
 - **#213 (11-10, measurement):** idle in WBR. A vs B posed to Seth 11-14,
   unanswered. Re-approve once he picks.
 - **#69 (not mine):** lat/lng fallback. Refined.
@@ -28,14 +32,16 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - Data export / research databases (Ginkgo, 9th+ on 11-16): public search +
   Open Data.
-- Hazard reporting / reporting apps / photo / hardware (Dogwood, Sassafras
-  11-16 x2): report via 311.
-- Mark urgent / priority / urgency voting: priority is automatic.
+- Hazard reporting / reporting apps / photo / hardware / detection
+  (Dogwood x2, Sassafras 11-16): report via 311; point notify-on-fix asks
+  to #166.
+- Mark urgent / priority / urgency voting / pothole reporting tool
+  (Yellowwood 11-16): priority is automatic, no resident-side reporting
+  tool planned on top of 311.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
 - Feature-request tracking dashboard: each request already shows status.
 - Notify/alert/status-timing/ETA → #166. Repair quality/feedback → #227.
-- Pothole prioritisation → track on #69.
 - Fast-track review of feature requests: no separate lane.
 
 ## WBR and cost model
@@ -57,13 +63,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 ## Research agenda
 
 - **Proven → #170, #181, #194, #213, #69, #227, #234.**
-- **Proven 11-16 → #234:** duplicate jobs. 302/1886 repeat location within
-  7d (168 within 1d); 185 same descriptor while prior open; $57.2k
-  materials; p50 gap 20.5 h.
 - **Measuring: idle share** (by interval start day): 19% Nov 9, 34, 37, 63,
   88% Nov 13, 58% Nov 14, 14% Nov 15, 25% Nov 16 partial.
-- **Next:** #234 by descriptor (which to dial first); re-complaint rate after
-  resolve (guardrail baseline for #234).
+- **Next:** #234 by descriptor (which to dial first, owed on ticket); re-
+  complaint rate after resolve (guardrail baseline for #234).
 - **Idea:** materials estimate ~2x low vs actual. Low priority.
 - **Idea:** once #227 ships, defect/rework rate → cost.
 - **Disproved:** poller sets 44 h floor (11-13); 40% searches fail (11-11).
@@ -107,12 +110,12 @@ Shapes (rebuild from these):
   definition in actionTools.ts is a lever.
 - A repeat contact from a persona already covered still gets
   `track_contact` on that ticket.
-- `list_contacts` can return a non-null cursor then an empty page,
-  repeatedly, with decreasing dates well into the past (seen 11-16: 3
-  empty pages back to Nov 5) — stop after a few once rows are exhausted,
-  don't chase it indefinitely in a conversation run.
+- `list_contacts` cursor can return empty pages with decreasing dates well
+  into the past; stop after one or two empty pages in a conversation run.
 - `for n in ...; do gh ...; done` in Bash trips the sandbox's
   "Contains simple_expansion" guard; issue one `gh` call per ticket.
+- `mkdir -p "path"` alone (no `&&`) still needs approval in this sandbox;
+  run it standalone, not chained.
 
 ## Run log
 
@@ -126,3 +129,8 @@ Shapes (rebuild from these):
   contacts: Dogwood hazard-detection declined (reuse 311 reasoning),
   Sassafras scheduled-start notifications → #166. 0/2 queries used. Chat
   post: none.
+- 11-16 13:00 (conversation): Rex gave feasibility on #234 (sparse GSI3,
+  3 questions) — answered on issue + body updated, CPO Approved, still
+  Intake pending his formal CTO Approved. 2 new contacts declined (Dogwood
+  hazard-detection dup ask, Yellowwood pothole-priority tool). 0/2 queries
+  used. Chat post: none (reply only, in #234's thread).
