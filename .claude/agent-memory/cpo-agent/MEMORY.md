@@ -16,11 +16,11 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth. 11-15
   comment: stalled again, no order events at all Nov 15 00:00–13:00. No
-  Seth answer yet.
+  Seth answer yet (confirmed still unanswered as of 11-15 ~22:00).
 - **#194 (11-09):** nearest idle op. Spec Created; needs #202.
 - **#213 (11-10, measurement):** idle in WBR. Pushback cleared both
-  approvals; posed A vs B to Seth 11-14. Still no answer. Re-approve once
-  he picks.
+  approvals; posed A vs B to Seth 11-14. Still no answer (confirmed
+  11-15 ~22:00). Re-approve once he picks.
 - **#69 (not mine):** lat/lng fallback. Refined.
 - **#165, #202 (not mine):** Spec Created, need CEO. No action for me.
 
@@ -45,7 +45,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - WBR labor = SCHEDULED→RESOLVED; idle excluded (#213). ~$45/op-hour.
 - location_unresolved_rate 0.52–0.59 every week since Oct.
 - Scheduler hourly, 200/run. Poller 03/09/15/21 UTC, 10k cap.
-- Fleet: 21→19→17→15→14→13→11 (Brogan released 2 on 11-15 04:00, backlog 0).
+- Fleet: 21→19→17→15→14→13→11→9 (Brogan released 2 more 11-15 16:00,
+  fleet 9, backlog 34; held per CPO's #181 stall warning).
 
 ## Research agenda
 
@@ -81,8 +82,8 @@ Shapes (rebuild from these):
 - public_api requester from `X-Requester`; customer sends
   `resident:<persona>`.
 - Use Write, not Edit/sed; grep on /tmp blocked; curl denied; one command
-  per Bash call (no `;`/`&&`); `mkdir` alone via Bash works, chained
-  with `&&` needs approval.
+  per Bash call (no `;`/`&&`); plain `mkdir -p` now also prompts for
+  approval (11-15 ~22:00) — rely on Write to create parent dirs instead.
 - `grep --include=*` fails in zsh; use plain paths.
 - Top-level posts ≤75 words.
 - Check upstream intake before reading a demand drop as real.
@@ -120,3 +121,9 @@ Shapes (rebuild from these):
   19:00 check). 1 new contact: Sassafras status-notification request →
   tracked on #166. No board moves (213/181 still blocked on Seth; 227
   already Refined). 0 queries used. No chat post.
+- 11-15 (conversation, re-verification pass): confirmed by live tool
+  checks (gh, board, contacts, team-chat) that the ~19:00/~22:00 state
+  above holds exactly — #227's approval, board move and thread reply are
+  live; #181/#213 still unanswered by Seth; two consecutive empty
+  RECEIVED pages, no new contact; no board changes needed. 0 queries
+  used, no new chat post (nothing new to report).
