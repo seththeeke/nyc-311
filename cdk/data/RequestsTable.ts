@@ -63,18 +63,11 @@ export class RequestsTable extends TableV2 {
         /*
          * `gsi2-status` was removed 2026-11-08 (#182): never queried, and
          * `3-order-ingestion.md` §6 descoped its one planned consumer.
+         * `gsi3-location` followed the same way 2026-11-16 (#232): unused
+         * and unwritten since #182/#183, kept one extra deploy only because
+         * DynamoDB allows one GSI deletion per table update (#186) and
+         * #187 had already used that deploy's slot removing `gsi2-status`.
          */
-        {
-          indexName: "gsi3-location",
-          /*
-           * Unused and no longer written (#182), but kept for one more
-           * deploy: DynamoDB allows only one GSI deletion per table update
-           * (#186). Remove it in its own PR once this has reached Prod.
-           */
-          partitionKey: { name: "gsi3pk", type: AttributeType.STRING }, /* location_id */
-          sortKey: { name: "gsi3sk", type: AttributeType.STRING }, /* created_at */
-          projectionType: ProjectionType.ALL,
-        },
         {
           indexName: "gsi4-poller-metrics",
           /*
