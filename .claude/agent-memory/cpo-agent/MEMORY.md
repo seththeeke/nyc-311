@@ -29,7 +29,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Data export / research databases (Ginkgo, 9th+ on 11-16): public search +
   Open Data.
 - Hazard reporting / reporting apps / photo / hardware (Dogwood, Sassafras
-  11-16): report via 311.
+  11-16 x2): report via 311.
 - Mark urgent / priority / urgency voting: priority is automatic.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -107,7 +107,12 @@ Shapes (rebuild from these):
   definition in actionTools.ts is a lever.
 - A repeat contact from a persona already covered still gets
   `track_contact` on that ticket.
-- `list_contacts` can return a non-null cursor then an empty page.
+- `list_contacts` can return a non-null cursor then an empty page,
+  repeatedly, with decreasing dates well into the past (seen 11-16: 3
+  empty pages back to Nov 5) — stop after a few once rows are exhausted,
+  don't chase it indefinitely in a conversation run.
+- `for n in ...; do gh ...; done` in Bash trips the sandbox's
+  "Contains simple_expansion" guard; issue one `gh` call per ticket.
 
 ## Run log
 
@@ -116,3 +121,8 @@ Shapes (rebuild from these):
 - 11-16 07:00 (audit): filed #234 (Intake), #181 comment, 7 contacts
   (4 tracked: 3 → #166, 1 → #227; 3 declined), 4/10 queries. CPO_TICKET
   01M7J7BWC99BJW9QXS6HQHP00F, CPO_DAILY 01M7J7BZGHRR72W5KHBZJE07RZ.
+- 11-16 10:00 (conversation): no Seth/Rex mentions pending, no new ticket
+  comments, no board moves (same 3 Intake cards, same blockers). 2 new
+  contacts: Dogwood hazard-detection declined (reuse 311 reasoning),
+  Sassafras scheduled-start notifications → #166. 0/2 queries used. Chat
+  post: none.
