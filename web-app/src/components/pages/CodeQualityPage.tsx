@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
+import { MONITORING_PATH } from "../../routes/pagePaths";
 import { useCodeQualityReports } from "../../hooks/useCodeQualityReports";
 import { CodeQualityHistory } from "../codeQuality/CodeQualityHistory";
 import { CodeQualityReportView } from "../codeQuality/CodeQualityReportView";
@@ -27,7 +28,7 @@ export function CodeQualityPage(): ReactElement {
       </div>
 
       <main className={PAGE_CONTENT_CLASSES}>
-        <Link to="/monitoring" className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+        <Link to={MONITORING_PATH} className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
           &larr; Monitoring
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-hue-violet via-hue-indigo to-hue-cyan bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">

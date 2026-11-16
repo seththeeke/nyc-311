@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router-dom";
+import { MONITORING_PATH } from "../../routes/pagePaths";
 import { config } from "../../config";
 import { PAGE_CONTENT_CLASSES } from "../pageLayout";
 import { PublicApiHealth } from "../publicApi/PublicApiHealth";
@@ -16,7 +17,7 @@ export function PublicApiPage(): ReactElement {
       </div>
 
       <main className={PAGE_CONTENT_CLASSES}>
-        <Link to="/monitoring" className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+        <Link to={MONITORING_PATH} className="text-sm font-medium text-fg-muted transition-colors hover:text-fg">
           &larr; Monitoring
         </Link>
         <h1 className="mt-4 bg-gradient-to-r from-hue-cyan via-hue-emerald to-hue-violet bg-clip-text text-3xl font-black tracking-tight text-transparent sm:text-4xl">

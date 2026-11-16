@@ -5,62 +5,14 @@ import { AdminRoute } from "./AdminRoute";
 import { FeatureFlagRoute } from "./FeatureFlagRoute";
 import { MarketingGate } from "./MarketingGate";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { CONTACTS_PAGE_FLAG, CONTACTS_PAGE_ON, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
 import { MAP_JOB_PATTERN, MAP_PATH } from "../components/map/mapRoutes";
-import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { CONTACTS_PATH, LEGACY_CONTACTS_PATH } from "../components/contacts/contactRoutes";
 import { SpinnerIcon } from "../components/icons";
-import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
+import { ABOUT_PATH } from "./pagePaths";
+import { PAGES, type PageRoute } from "./pageTable";
 
-/*
- * Every page is dynamic-imported so Vite/Rollup emits it as its own chunk
- * instead of folding them all (SQL console, charts, diagrams, the 3-D map)
- * into one bundle — `npm run build` flagged that bundle at 802 kB minified.
- */
-const DataPage = lazy(() => import("../components/pages/DataPage").then((m) => ({ default: m.DataPage })));
-const MonitoringPage = lazy(() =>
-  import("../components/pages/MonitoringPage").then((m) => ({ default: m.MonitoringPage }))
-);
-const IngestionMonitoringPage = lazy(() =>
-  import("../components/pages/IngestionMonitoringPage").then((m) => ({ default: m.IngestionMonitoringPage }))
-);
-const PipelineMonitoringPage = lazy(() =>
-  import("../components/pages/PipelineMonitoringPage").then((m) => ({ default: m.PipelineMonitoringPage }))
-);
-const LambdaMonitoringPage = lazy(() =>
-  import("../components/pages/LambdaMonitoringPage").then((m) => ({ default: m.LambdaMonitoringPage }))
-);
-const PublicApiPage = lazy(() =>
-  import("../components/pages/PublicApiPage").then((m) => ({ default: m.PublicApiPage }))
-);
-const CodeQualityPage = lazy(() =>
-  import("../components/pages/CodeQualityPage").then((m) => ({ default: m.CodeQualityPage }))
-);
-const IntegrationTestReportPage = lazy(() =>
-  import("../components/pages/IntegrationTestReportPage").then((m) => ({ default: m.IntegrationTestReportPage }))
-);
 /* The map pulls in MapLibre and Three.js. Its paths share one layout route, so diving into a job never remounts the city behind it. */
 const MapPage = lazy(() => import("../components/pages/MapPage").then((m) => ({ default: m.MapPage })));
-const ResidentsPage = lazy(() =>
-  import("../components/pages/ResidentsPage").then((m) => ({ default: m.ResidentsPage }))
-);
-const ContactsPage = lazy(() => import("../components/pages/ContactsPage").then((m) => ({ default: m.ContactsPage })));
-const ResidentIdeaPage = lazy(() =>
-  import("../components/pages/ResidentIdeaPage").then((m) => ({ default: m.ResidentIdeaPage }))
-);
-const TeamPage = lazy(() => import("../components/pages/TeamPage").then((m) => ({ default: m.TeamPage })));
-const TeamChatPage = lazy(() => import("../components/pages/TeamChatPage").then((m) => ({ default: m.TeamChatPage })));
-const LoginPage = lazy(() => import("../components/pages/LoginPage").then((m) => ({ default: m.LoginPage })));
-const AdminPage = lazy(() => import("../components/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
-const CapacityManagementPage = lazy(() =>
-  import("../components/pages/CapacityManagementPage").then((m) => ({ default: m.CapacityManagementPage }))
-);
-const AdminWarehousePage = lazy(() =>
-  import("../components/pages/AdminWarehousePage").then((m) => ({ default: m.AdminWarehousePage }))
-);
-const FeatureFlagsPage = lazy(() =>
-  import("../components/pages/FeatureFlagsPage").then((m) => ({ default: m.FeatureFlagsPage }))
-);
 
 /** Suspense fallback shown in the primary workspace while a lazy page chunk loads. */
 function PageLoadingFallback(): ReactElement {
@@ -74,9 +26,23 @@ function PageLoadingFallback(): ReactElement {
   );
 }
 
-/* Every lazy page below repeats this same wrap — one helper instead of 16 copies of it. */
+/* Every lazy page repeats this same wrap — one helper instead of a copy per route. */
 function withLoadingFallback(page: ReactElement): ReactElement {
   return <Suspense fallback={<PageLoadingFallback />}>{page}</Suspense>;
+}
+
+/* A page wrapped in its tier's guard: AdminRoute, or PublicRoute (plus FeatureFlagRoute when flagged). */
+function guardedPage({ tier, flag, Page }: PageRoute): ReactElement {
+  const page = withLoadingFallback(<Page />);
+  if (tier === "ADMIN") return <AdminRoute>{page}</AdminRoute>;
+  if (!flag) return <PublicRoute>{page}</PublicRoute>;
+  return (
+    <PublicRoute>
+      <FeatureFlagRoute flagKey={flag.key} onTreatments={flag.onTreatments}>
+        {page}
+      </FeatureFlagRoute>
+    </PublicRoute>
+  );
 }
 
 export function AppRoutes(): ReactElement {
@@ -89,79 +55,16 @@ export function AppRoutes(): ReactElement {
           >
             <Route path={MAP_PATH} />
             {/* The About drawer lives in the sidebar footer; the map renders underneath. */}
-            <Route path="/about" />
+            <Route path={ABOUT_PATH} />
             <Route path={MAP_JOB_PATTERN} />
           </Route>
           {/* The map's old path, kept so bookmarks still land on it. */}
           <Route path="/mapv2/*" element={<Navigate to={MAP_PATH} replace />} />
-          <Route path={RESIDENTS_PATH} element={withLoadingFallback(<ResidentsPage />)} />
-          <Route
-            path={CONTACTS_PATH}
-            element={
-              <FeatureFlagRoute flagKey={CONTACTS_PAGE_FLAG} onTreatments={[CONTACTS_PAGE_ON]}>
-                {withLoadingFallback(<ContactsPage />)}
-              </FeatureFlagRoute>
-            }
-          />
           {/* Contacts' old path as a Residents tab, kept so bookmarks still land on it. */}
           <Route path={LEGACY_CONTACTS_PATH} element={<Navigate to={CONTACTS_PATH} replace />} />
-          <Route path={IDEA_DETAIL_PATTERN} element={withLoadingFallback(<ResidentIdeaPage />)} />
-          <Route
-            path={TEAM_PATH}
-            element={
-              <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
-                {withLoadingFallback(<TeamPage />)}
-              </FeatureFlagRoute>
-            }
-          />
-          <Route
-            path={TEAM_CHAT_PATH}
-            element={
-              <FeatureFlagRoute flagKey={MEET_THE_TEAM_FLAG} onTreatments={[MEET_THE_TEAM_ON]}>
-                {withLoadingFallback(<TeamChatPage />)}
-              </FeatureFlagRoute>
-            }
-          />
-          <Route path="/data" element={<PublicRoute>{withLoadingFallback(<DataPage />)}</PublicRoute>} />
-          <Route path="/monitoring" element={<PublicRoute>{withLoadingFallback(<MonitoringPage />)}</PublicRoute>} />
-          <Route
-            path="/monitoring/ingestion"
-            element={<PublicRoute>{withLoadingFallback(<IngestionMonitoringPage />)}</PublicRoute>}
-          />
-          <Route
-            path="/monitoring/pipeline"
-            element={<PublicRoute>{withLoadingFallback(<PipelineMonitoringPage />)}</PublicRoute>}
-          />
-          <Route
-            path="/monitoring/lambda-health"
-            element={<PublicRoute>{withLoadingFallback(<LambdaMonitoringPage />)}</PublicRoute>}
-          />
-          <Route
-            path="/monitoring/public-api"
-            element={<PublicRoute>{withLoadingFallback(<PublicApiPage />)}</PublicRoute>}
-          />
-          <Route
-            path="/monitoring/code-quality"
-            element={<PublicRoute>{withLoadingFallback(<CodeQualityPage />)}</PublicRoute>}
-          />
-          <Route
-            path="/monitoring/integration-tests"
-            element={<PublicRoute>{withLoadingFallback(<IntegrationTestReportPage />)}</PublicRoute>}
-          />
-          <Route path="/login" element={<PublicRoute>{withLoadingFallback(<LoginPage />)}</PublicRoute>} />
-          <Route path="/admin" element={<AdminRoute>{withLoadingFallback(<AdminPage />)}</AdminRoute>} />
-          <Route
-            path="/admin/capacity"
-            element={<AdminRoute>{withLoadingFallback(<CapacityManagementPage />)}</AdminRoute>}
-          />
-          <Route
-            path="/admin/warehouse"
-            element={<AdminRoute>{withLoadingFallback(<AdminWarehousePage />)}</AdminRoute>}
-          />
-          <Route
-            path="/admin/feature-flags"
-            element={<AdminRoute>{withLoadingFallback(<FeatureFlagsPage />)}</AdminRoute>}
-          />
+          {PAGES.map((page) => (
+            <Route key={page.path} path={page.path} element={guardedPage(page)} />
+          ))}
         </Route>
       </Route>
     </Routes>

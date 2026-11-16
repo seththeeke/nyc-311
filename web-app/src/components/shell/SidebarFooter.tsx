@@ -5,12 +5,11 @@ import { AboutOverlay } from "../about/AboutOverlay";
 import { ROW_BASE_CLASSES, rowStateClasses } from "./SidebarLink";
 import { InfoIcon, SignOutIcon } from "./shellIcons";
 import { ThemeToggle } from "./ThemeToggle";
+import { ABOUT_PATH } from "../../routes/pagePaths";
 
 interface SidebarFooterProps {
   collapsed: boolean;
 }
-
-const ABOUT_PATH = "/about";
 
 /**
  * Everything the old top `Header` carried besides navigation: the About

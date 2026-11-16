@@ -5,6 +5,21 @@ import { CONTACTS_PATH } from "../contacts/contactRoutes";
 import { MAP_PATH } from "../map/mapRoutes";
 import { RESIDENTS_PATH } from "../residents/residentRoutes";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../team/teamRoutes";
+import {
+  ABOUT_PATH,
+  ADMIN_CAPACITY_PATH,
+  ADMIN_FEATURE_FLAGS_PATH,
+  ADMIN_PATH,
+  ADMIN_WAREHOUSE_PATH,
+  DATA_PATH,
+  MONITORING_CODE_QUALITY_PATH,
+  MONITORING_INGESTION_PATH,
+  MONITORING_INTEGRATION_TESTS_PATH,
+  MONITORING_LAMBDA_HEALTH_PATH,
+  MONITORING_PATH,
+  MONITORING_PIPELINE_PATH,
+  MONITORING_PUBLIC_API_PATH,
+} from "../../routes/pagePaths";
 import { AdminIcon, ChatIcon, ContactsIcon, MapIcon, MonitorIcon, ResidentsIcon, TeamIcon } from "./shellIcons";
 
 /*
@@ -35,7 +50,7 @@ export interface MenuLinkEntry {
   icon: ComponentType<IconProps>;
   /* A short tag after the label, e.g. Beta. */
   badge?: string;
-  /* A `showOn` rule needs the matching FeatureFlagRoute guard on the route; the menu entry alone is only a cue. */
+  /* A `showOn` rule must match its page's flag in routes/pageTable.ts (a test checks); the menu entry alone is only a cue. */
   featureFlag?: MenuFlagRule;
 }
 
@@ -58,7 +73,7 @@ export const MENU: readonly MenuEntry[] = [
     id: "MAP",
     label: "Map",
     to: MAP_PATH,
-    alsoActiveOn: ["/about", "/job"],
+    alsoActiveOn: [ABOUT_PATH, "/job"],
     icon: MapIcon,
   },
   {
@@ -101,17 +116,17 @@ export const MENU: readonly MenuEntry[] = [
     id: "MONITORING",
     label: "System Monitoring",
     icon: MonitorIcon,
-    basePath: "/monitoring",
+    basePath: MONITORING_PATH,
     requiresAuth: false,
     items: [
-      { label: "311 Request Metrics", to: "/monitoring/ingestion" },
-      { label: "Pipeline", to: "/monitoring/pipeline" },
-      { label: "Lambda Health", to: "/monitoring/lambda-health" },
-      { label: "Public API", to: "/monitoring/public-api" },
-      { label: "Code Quality", to: "/monitoring/code-quality" },
+      { label: "311 Request Metrics", to: MONITORING_INGESTION_PATH },
+      { label: "Pipeline", to: MONITORING_PIPELINE_PATH },
+      { label: "Lambda Health", to: MONITORING_LAMBDA_HEALTH_PATH },
+      { label: "Public API", to: MONITORING_PUBLIC_API_PATH },
+      { label: "Code Quality", to: MONITORING_CODE_QUALITY_PATH },
       { label: "Test Coverage", to: "/coverage/index.html", external: true },
-      { label: "Integration Tests", to: "/monitoring/integration-tests" },
-      { label: "Data Modeling", to: "/data" },
+      { label: "Integration Tests", to: MONITORING_INTEGRATION_TESTS_PATH },
+      { label: "Data Modeling", to: DATA_PATH },
     ],
   },
   {
@@ -119,12 +134,12 @@ export const MENU: readonly MenuEntry[] = [
     id: "ADMIN",
     label: "Admin",
     icon: AdminIcon,
-    basePath: "/admin",
+    basePath: ADMIN_PATH,
     requiresAuth: true,
     items: [
-      { label: "Capacity", to: "/admin/capacity" },
-      { label: "Data Warehouse", to: "/admin/warehouse" },
-      { label: "Feature Flags", to: "/admin/feature-flags" },
+      { label: "Capacity", to: ADMIN_CAPACITY_PATH },
+      { label: "Data Warehouse", to: ADMIN_WAREHOUSE_PATH },
+      { label: "Feature Flags", to: ADMIN_FEATURE_FLAGS_PATH },
     ],
   },
 ];

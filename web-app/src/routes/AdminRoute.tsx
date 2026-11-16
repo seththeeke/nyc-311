@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { LOGIN_PATH } from "./pagePaths";
 
 interface AdminRouteProps {
   children: ReactElement;
@@ -20,6 +21,6 @@ export function AdminRoute({ children }: AdminRouteProps): ReactElement | null {
   const location = useLocation();
 
   if (isLoading) return null;
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!user) return <Navigate to={LOGIN_PATH} state={{ from: location }} replace />;
   return children;
 }
