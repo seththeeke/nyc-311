@@ -8,24 +8,23 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#234 (11-16):** link duplicate reports (same location_id + descriptor,
   earlier order still open, 7d) to the open order; one visit resolves both.
-  185/1886 accepted (9.8%) in 30d, ~$74k/mo, −$39/accepted. CPO Approved
-  11-16. Rex gave feasibility (needs new sparse GSI3, location_id →
-  current_stage, on Orders, same pattern as gsi1-stage-sla) + 3 questions,
-  all answered on the issue, body updated (link = merge into one visit;
-  only pre-scheduling orders checked; match = location_id+open+descriptor).
-  Still Intake: waiting on Rex's formal cto-approved label. Owe: measure top
-  descriptor for first dial-up step (next audit).
+  185/1886 accepted (9.8%) in 30d, ~$74k/mo, −$39/accepted. Both CPO + CTO
+  approved, moved to **Refined** 11-16 ~19:00. Match = location_id + open +
+  descriptor, merge-into-one-visit, only pre-scheduling orders. Still owe:
+  measure top descriptor for dial-up step 1 (Seth flagged Pothole was
+  unverified) — do at next audit, update body.
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
 - **#166 (11-06):** status visibility via `searchRequests.description`.
   Refined. 40+ contacts (notify/alerts/ETA API all go here).
 - **#170 (11-07):** event-driven dispatch. Spec Created.
-- **#181 (11-08, bug):** intake stall. Intake, escalated to Seth, still no
-  answer as of 11-16 14:00. Recurs: empty Nov14 18:00-Nov15 12:00, Nov16
-  00-06 only 1 order, then bursts (4,749+2,832, then 3,360).
+- **#181 (11-08, bug):** intake stall. Intake, escalated to Seth 11-13, still
+  no answer as of 11-16 19:00 (3 "new evidence" comments posted, last
+  11-16 13:04). Recurs: empty Nov14 18:00-Nov15 12:00, Nov16 00-06 only 1
+  order, then bursts.
 - **#194 (11-09):** nearest idle op. Spec Created (Kid Kestrel, 11-14);
   needs #202, no new action.
 - **#213 (11-10, measurement):** idle in WBR. A vs B posed to Seth 11-14,
-  still unanswered 11-16 14:00. Re-approve once he picks.
+  still unanswered 11-16 19:00. Re-approve once he picks.
 - **#69, #165, #202 (not mine):** no action for me.
 
 ## Declines (reuse the reasoning)
@@ -112,6 +111,8 @@ Shapes (rebuild from these):
   into the past; stop after one or two empty pages in a conversation run.
 - `for n in ...; do gh ...; done` trips the sandbox guard; one `gh` call per
   ticket.
+- A conversation run can span a context reset mid-run: check the board and
+  latest gh comments before assuming no progress was made yet.
 
 ## Run log
 
@@ -120,11 +121,11 @@ Shapes (rebuild from these):
 - 11-16 07:00 (audit): filed #234 (Intake), #181 comment, 7 contacts
   (4 tracked, 3 declined), 4/10 queries. CPO_TICKET 01M7J7BWC99BJW9QXS6HQHP00F,
   CPO_DAILY 01M7J7BZGHRR72W5KHBZJE07RZ.
-- 11-16 10:00 (conv): no new contacts worth tracking, no board moves. 2
-  contacts declined. 0/2 queries. Chat post: none.
-- 11-16 13:00 (conv): Rex gave feasibility on #234 (sparse GSI3, 3
-  questions), answered on issue + body updated, CPO Approved, still Intake
-  pending cto-approved. 2 contacts declined. 0/2 queries. Chat post: none.
-- 11-16 14:00 (conv): no inbox items, no new Rex/Seth comments beyond
-  11-16 13:00's, no new contacts (2 empty pages), board unchanged (213/181
-  still waiting on Seth, 234 on Rex's label). 0/2 queries. Chat post: none.
+- 11-16 10:00/13:00/14:00 (conv): #234 feasibility from Rex answered, CPO
+  Approved; 213/181 still waiting on Seth; 0-few contacts each run.
+- 11-16 19:00 (conv): #234 fully closed out — Rex's answers posted, both
+  approvals on, moved to Refined. #181/#213 still unanswered by Seth (no
+  new comments since 11-16 13:04 / 11-14 13:01). 2 empty contact pages, no
+  new contacts. Board: no new Intake cards ready. 0/2 queries. Chat post:
+  01M7JVT93KREQBKVNRTNSDG1P9 (already posted this run, thread reply on
+  #234).
