@@ -98,9 +98,18 @@ describe("loadRuntimeConfig", () => {
     expect(config.chatApiBaseUrl).toBe("https://chat-api.boroughsim.com");
   });
 
+  it("defaults publicApiBaseUrl/chatApiBaseUrl to empty in a production build, never Test's hosts", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "");
+    vi.stubEnv("VITE_CHAT_API_BASE_URL", "");
+    const { config } = await import("../src/config");
+    expect(config.publicApiBaseUrl).toBe("");
+    expect(config.chatApiBaseUrl).toBe("");
+  });
+
   it("keeps the Vite-build-time default when the fetch 404s (local dev)", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://local-default.example.com");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
     const { config, loadRuntimeConfig } = await import("../src/config");
 
     await loadRuntimeConfig();
@@ -120,11 +129,77 @@ describe("loadRuntimeConfig", () => {
 
   it("ignores a runtime config payload with no usable apiBaseUrl", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://local-default.example.com");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ apiBaseUrl: "" }) }));
     const { config, loadRuntimeConfig } = await import("../src/config");
 
     await loadRuntimeConfig();
 
     expect(config.apiBaseUrl).toBe("https://local-default.example.com");
+  });
+
+  it("applies nothing from a malformed payload, even its valid fields", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://local-default.example.com");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ apiBaseUrl: "https://x.example.com", userPoolId: 7 }) })
+    );
+    const { config, loadRuntimeConfig } = await import("../src/config");
+
+    await loadRuntimeConfig();
+
+    expect(config.apiBaseUrl).toBe("https://local-default.example.com");
+  });
+});
+
+describe("loadRuntimeConfig failure logging", () => {
+  /*
+   * jsdom serves the page from localhost, where a missing file is normal
+   * and stays silent; the deployed-site tests swap in a real hostname.
+   */
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  function onDeployedSite(): void {
+    vi.stubGlobal("location", { ...window.location, hostname: "boroughsim.com" });
+  }
+
+  it.each([
+    ["a non-2xx response", { ok: false, status: 403 }, "HTTP 403"],
+    ["a malformed body", { ok: true, json: async () => "<!doctype html>" }, "malformed body"],
+  ])("warns on a deployed site after %s", async (_label, response, reason) => {
+    onDeployedSite();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+    const { loadRuntimeConfig } = await import("../src/config");
+
+    await loadRuntimeConfig();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(reason));
+  });
+
+  it("warns on a deployed site when the fetch throws, with a non-Error value too", async () => {
+    onDeployedSite();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("network down")).mockRejectedValueOnce("boom"));
+    const { loadRuntimeConfig } = await import("../src/config");
+
+    await loadRuntimeConfig();
+    await loadRuntimeConfig();
+
+    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("network down"));
+    expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining("unknown error"));
+  });
+
+  it("stays silent on localhost", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    const { loadRuntimeConfig } = await import("../src/config");
+
+    await loadRuntimeConfig();
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

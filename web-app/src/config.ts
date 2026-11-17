@@ -1,3 +1,5 @@
+import { RuntimeEnvConfigSchema } from "./models/runtimeEnvConfig";
+
 export interface AppConfig {
   apiBaseUrl: string;
   pipelineApiBaseUrl: string;
@@ -16,8 +18,8 @@ export interface AppConfig {
  * `config` is a mutable singleton, not frozen: the pipeline builds
  * web-app/dist once and deploys the identical bundle to both environments,
  * so a build-time env var can't hold two API URLs. `loadRuntimeConfig`
- * overwrites `apiBaseUrl` from a deploy-time-injected file instead; read
- * `config.apiBaseUrl` lazily, not at import time.
+ * overwrites the per-environment fields from a deploy-time-injected file
+ * instead; read them lazily, not at import time.
  */
 export const config: AppConfig = {
   /*
@@ -38,51 +40,55 @@ export const config: AppConfig = {
   userPoolId: import.meta.env.VITE_USER_POOL_ID || "",
   userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID || "",
   residentApiBaseUrl: import.meta.env.VITE_RESIDENT_API_BASE_URL || "https://customer-api.boroughsim.com",
-  publicApiBaseUrl: import.meta.env.VITE_PUBLIC_API_BASE_URL || "https://public-api.test.boroughsim.com",
-  chatApiBaseUrl: import.meta.env.VITE_CHAT_API_BASE_URL || "https://chat-api.test.boroughsim.com",
+  /*
+   * Test's hosts are a dev-server convenience only: a production build
+   * folds `DEV` to false and defaults to "", so a Prod page whose
+   * env-config.json failed to load breaks loudly instead of reading Test data.
+   */
+  publicApiBaseUrl:
+    import.meta.env.VITE_PUBLIC_API_BASE_URL || (import.meta.env.DEV ? "https://public-api.test.boroughsim.com" : ""),
+  chatApiBaseUrl:
+    import.meta.env.VITE_CHAT_API_BASE_URL || (import.meta.env.DEV ? "https://chat-api.test.boroughsim.com" : ""),
 };
-
-interface RuntimeEnvConfig {
-  apiBaseUrl?: string;
-  publicApiBaseUrl?: string;
-  chatApiBaseUrl?: string;
-  userPoolId?: string;
-  userPoolClientId?: string;
-}
 
 const RUNTIME_CONFIG_PATH = "/env-config.json";
 
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
+
+/*
+ * A deployed site always has env-config.json, so a failed load there is a
+ * real fault worth a console line; on localhost it is the normal case.
+ * Logs only the reason, never the file's contents.
+ */
+function warnRuntimeConfigFailure(reason: string): void {
+  if (LOCAL_HOSTNAMES.has(globalThis.location.hostname)) return;
+  console.warn(`config: ${RUNTIME_CONFIG_PATH} not applied (${reason}); using build-time defaults`);
+}
+
 /**
- * Fetches `/env-config.json` — written by `WebsiteDeployment.ts` with the
- * deployed environment's real API URL — and merges `apiBaseUrl` into
- * `config`. Safe with no such file (local dev): failures are swallowed and
- * `config` keeps its Vite-build-time default. Call once before render.
+ * Fetches `/env-config.json`, written by `WebsiteDeployment.ts` per
+ * environment, parses it with `RuntimeEnvConfigSchema` and merges every
+ * field it sets (API hosts, Cognito ids) into `config`. A missing or
+ * malformed file keeps the build-time defaults and is logged off localhost.
+ * Call once before render.
  */
 export async function loadRuntimeConfig(): Promise<void> {
   try {
     const response = await fetch(RUNTIME_CONFIG_PATH);
-    if (!response.ok) return;
-    const runtime = (await response.json()) as RuntimeEnvConfig;
-    if (typeof runtime.apiBaseUrl === "string" && runtime.apiBaseUrl.length > 0) {
-      config.apiBaseUrl = runtime.apiBaseUrl;
+    if (!response.ok) {
+      warnRuntimeConfigFailure(`HTTP ${response.status}`);
+      return;
     }
-    if (typeof runtime.publicApiBaseUrl === "string" && runtime.publicApiBaseUrl.length > 0) {
-      config.publicApiBaseUrl = runtime.publicApiBaseUrl;
+    const parsed = RuntimeEnvConfigSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      warnRuntimeConfigFailure("malformed body");
+      return;
     }
-    if (typeof runtime.chatApiBaseUrl === "string" && runtime.chatApiBaseUrl.length > 0) {
-      config.chatApiBaseUrl = runtime.chatApiBaseUrl;
+    for (const key of RuntimeEnvConfigSchema.keyof().options) {
+      const value = parsed.data[key];
+      if (value !== undefined) config[key] = value;
     }
-    if (typeof runtime.userPoolId === "string" && runtime.userPoolId.length > 0) {
-      config.userPoolId = runtime.userPoolId;
-    }
-    if (typeof runtime.userPoolClientId === "string" && runtime.userPoolClientId.length > 0) {
-      config.userPoolClientId = runtime.userPoolClientId;
-    }
-  } catch {
-    /*
-     * No env-config.json reachable (local dev, or a transient network
-     * blip) — keep the Vite-build-time default rather than failing app
-     * startup over an optional enhancement.
-     */
+  } catch (error) {
+    warnRuntimeConfigFailure(error instanceof Error ? error.message : "unknown error");
   }
 }
