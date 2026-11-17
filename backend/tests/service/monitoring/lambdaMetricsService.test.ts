@@ -6,25 +6,15 @@ import { getLambdaHealth } from "../../../service/monitoring/lambdaMetricsServic
 const cwMock = mockClient(CloudWatchClient);
 const client = new CloudWatchClient({});
 
-const ENV_VARS: Record<string, string> = {
-  MONITORED_LAMBDA_POLLER: "Nyc311Poller-Test",
-  MONITORED_LAMBDA_ORDER_FAN_OUT: "Nyc311RequestsFanOut-Test",
-  MONITORED_LAMBDA_REQUEST_EVALUATION: "Nyc311RequestEvaluation-Test",
-  MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: "Nyc311OrdersStreamFanOut-Test",
-  MONITORED_LAMBDA_LOCATIONS_FAN_OUT: "Nyc311LocationsFanOut-Test",
-  MONITORED_LAMBDA_OPERATORS_FAN_OUT: "Nyc311OperatorsStreamFanOut-Test",
-  MONITORED_LAMBDA_ORDER_EVALUATION: "Nyc311OrderEvaluation-Test",
-  MONITORED_LAMBDA_ORDER_SCHEDULING: "Nyc311OrderScheduling-Test",
-  MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: "Nyc311WarehouseJobRunner-Test",
-  MONITORED_LAMBDA_ADMIN_API: "Nyc311AdminApi-Test",
-  MONITORED_LAMBDA_FEATURE_FLAGS_API: "Nyc311FeatureFlagsApi-Test",
-  MONITORED_LAMBDA_DATA_API: "Nyc311DataApi-Test",
-  MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
-  MONITORED_LAMBDA_FLEET_API: "Nyc311GetFleetLocationsApi-Test",
-  MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: "Nyc311RegisterWebhookSubscriptionApi-Test",
-  MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
-  MONITORED_LAMBDA_PUBLIC_V1_API: "Nyc311PublicV1Api-Test",
-};
+const MONITORED = [
+  "Nyc311Poller-Test",
+  "Nyc311RequestsFanOut-Test",
+  "Nyc311DataApi-Test",
+  "Nyc311WebhookDelivery-Test",
+  "Nyc311PipelineStatus",
+];
+
+const ENV_VARS: Record<string, string> = { MONITORED_LAMBDAS: JSON.stringify(MONITORED) };
 
 const NOW = new Date("2026-08-22T00:00:00.000Z");
 const now = () => NOW;
@@ -64,7 +54,7 @@ describe("getLambdaHealth", () => {
 
     const result = await getLambdaHealth({ client, now });
 
-    expect(result).toHaveLength(17);
+    expect(result).toHaveLength(MONITORED.length);
     const poller = result.find((r) => r.logicalName === "Poller");
     expect(poller).toEqual({
       logicalName: "Poller",
@@ -203,14 +193,44 @@ describe("getLambdaHealth", () => {
   it("defaults `client` and `now` to fresh instances when not injected", async () => {
     cwMock.on(GetMetricStatisticsCommand).resolves({ Datapoints: [] });
 
-    await expect(getLambdaHealth()).resolves.toHaveLength(17);
+    await expect(getLambdaHealth()).resolves.toHaveLength(MONITORED.length);
   });
 
-  it("throws when a monitored lambda's env var is unset", async () => {
-    delete process.env.MONITORED_LAMBDA_POLLER;
+  it("covers every function cdk/ lists, named without the Nyc311 prefix or env suffix (#217)", async () => {
+    cwMock.on(GetMetricStatisticsCommand).resolves({ Datapoints: [] });
+
+    const result = await getLambdaHealth({ client, now });
+
+    expect(result.map((r) => [r.logicalName, r.functionName])).toEqual([
+      ["Poller", "Nyc311Poller-Test"],
+      ["RequestsFanOut", "Nyc311RequestsFanOut-Test"],
+      ["DataApi", "Nyc311DataApi-Test"],
+      ["WebhookDelivery", "Nyc311WebhookDelivery-Test"],
+      ["PipelineStatus", "Nyc311PipelineStatus"],
+    ]);
+  });
+
+  it("throws when MONITORED_LAMBDAS is unset", async () => {
+    delete process.env.MONITORED_LAMBDAS;
 
     await expect(getLambdaHealth({ client, now })).rejects.toThrow(
-      "Missing required environment variable: MONITORED_LAMBDA_POLLER"
+      "Missing required environment variable: MONITORED_LAMBDAS"
     );
   });
+
+  it("throws when MONITORED_LAMBDAS is not JSON", async () => {
+    process.env.MONITORED_LAMBDAS = "Nyc311Poller-Test";
+
+    await expect(getLambdaHealth({ client, now })).rejects.toThrow("MONITORED_LAMBDAS is not valid JSON");
+  });
+
+  it.each([["[]"], ['[""]'], ['{"Poller":"Nyc311Poller-Test"}']])(
+    "rejects a MONITORED_LAMBDAS of the wrong shape (%s) at the boundary",
+    async (value) => {
+      process.env.MONITORED_LAMBDAS = value;
+
+      await expect(getLambdaHealth({ client, now })).rejects.toThrow();
+      expect(cwMock.calls()).toHaveLength(0);
+    }
+  );
 });

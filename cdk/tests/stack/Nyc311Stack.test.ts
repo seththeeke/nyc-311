@@ -344,30 +344,29 @@ describe("Nyc311Stack", () => {
     template.hasOutput("Nyc311ApiUrl", {});
   });
 
-  it("wires GET /lambda-metrics to the monitoring bundle, with every monitored function name set (2026-08-22 incident)", () => {
-    const { template } = testEnv;
+  it("wires GET /lambda-metrics to the monitoring bundle", () => {
+    testEnv.template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /lambda-metrics" });
+  });
 
-    template.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /lambda-metrics" });
-    template.hasResourceProperties("AWS::Lambda::Function", {
-      Environment: {
-        Variables: Match.objectLike({
-          MONITORED_LAMBDA_POLLER: { Ref: Match.stringLikeRegexp("^Nyc311PollerLambda") },
-          MONITORED_LAMBDA_ORDER_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311RequestsFanOutLambda") },
-          MONITORED_LAMBDA_REQUEST_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311RequestEvaluationLambda") },
-          MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: { Ref: Match.stringLikeRegexp("^Nyc311OrdersStreamFanOutLambda") },
-          MONITORED_LAMBDA_ORDER_EVALUATION: { Ref: Match.stringLikeRegexp("^Nyc311OrderEvaluationLambda") },
-          MONITORED_LAMBDA_ORDER_SCHEDULING: { Ref: Match.stringLikeRegexp("^Nyc311OrderSchedulingLambda") },
-          MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: { Ref: Match.stringLikeRegexp("^Nyc311WarehouseJobRunnerLambda") },
-          MONITORED_LAMBDA_ADMIN_API: { Ref: Match.stringLikeRegexp("^Nyc311AdminApiLambda") },
-          MONITORED_LAMBDA_FEATURE_FLAGS_API: { Ref: Match.stringLikeRegexp("^Nyc311FeatureFlagsApiLambda") },
-          MONITORED_LAMBDA_DATA_API: { Ref: Match.stringLikeRegexp("^Nyc311DataApiLambda") },
-          MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
-          MONITORED_LAMBDA_FLEET_API: { Ref: Match.stringLikeRegexp("^Nyc311GetFleetLocationsApiLambda") },
-          MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: { Ref: Match.stringLikeRegexp("^Nyc311RegisterWebhookSubscriptionApiLambda") },
-          MONITORED_LAMBDA_PIPELINE_STATUS: "Nyc311PipelineStatus",
-        }),
-      },
-    });
+  /*
+   * #217: the health tile once covered 16 of 24 Lambdas because its list was
+   * kept by hand. Every named Lambda the template deploys must be on it, so
+   * a forgotten one fails here; only CDK's unnamed helpers are exempt.
+   */
+  it.each([
+    ["TEST", "Test"],
+    ["PROD", "Prod"],
+  ] as const)("puts every named Lambda in the %s template on the health tile (2026-08-22 incident)", (envName, suffix) => {
+    const { template } = envName === "TEST" ? testEnv : prodEnv;
+    const functions = Object.values(template.findResources("AWS::Lambda::Function")).map(
+      (fn) => fn.Properties as { FunctionName?: string; Environment?: { Variables?: Record<string, unknown> } }
+    );
+    const deployed = functions.flatMap((fn) => (fn.FunctionName === undefined ? [] : [fn.FunctionName]));
+    const monitoring = functions.find((fn) => fn.FunctionName === `Nyc311MonitoringApi-${suffix}`);
+    const monitored = JSON.parse(String(monitoring?.Environment?.Variables?.MONITORED_LAMBDAS)) as string[];
+
+    expect(deployed.length).toBeGreaterThanOrEqual(23);
+    expect([...monitored].sort()).toEqual([...deployed, "Nyc311PipelineStatus"].sort());
   });
 
   it("never exceeds the 10-custom-metric cap (1-data-ingestion.md §8), in either environment", () => {
