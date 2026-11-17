@@ -12,12 +12,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   ~$74 mat); Pothole only 7 accepted/30d. Wrong-merge guardrail baseline
   4.1% (re-complaint 14d after resolve). Body + comment updated.
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
-- **#166 (11-06):** status visibility. Refined. 42+ contacts (notify/alerts/
+- **#166 (11-06):** status visibility. Refined. 44+ contacts (notify/alerts/
   ETA/weekly updates all go here).
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall. Intake, escalated to Seth 11-13, no
-  answer by 11-17. Stalls continue (Nov 16 18:00-Nov 17 06:00 empty). 3
-  evidence comments already; don't add more unless something changes.
+  answer by 11-17. Stalls continue. 3 evidence comments already; don't add
+  more unless something changes.
 - **#194 (11-09):** nearest idle op. Spec Created; needs #202. Drive =
   0.54 h of 2.08 h billed labor/order (26%).
 - **#213 (11-10, measurement):** idle in WBR. A vs B posed to Seth 11-14,
@@ -37,6 +37,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   to #166 + #227.
 - Feature-request tracking dashboard: each request already shows status.
 - Fast-track review of feature requests: no separate lane.
+- Business logistics/fleet-routing asks (e.g. construction-block alerts for
+  a hauling company's routes, 11-17): out of scope — BoroughSim tracks a
+  resident's own 311 request, not third-party operational routing.
 
 ## WBR and cost model
 
@@ -95,7 +98,8 @@ Shapes (rebuild from these):
 - Check upstream intake before reading a demand drop as real.
 - Self-joins over 7d of operator_events time out; LAG window joins fine.
   Avoid `IN (subquery)` on snapshots/requests; JOIN + max_by is fast.
-- `gh issue view`: `--json comments -q`; one `gh` call per issue.
+- `gh issue view`: `--json comments --jq`; one `gh` call per issue; shell
+  rejects `for`/`xargs` loops here (sandbox), run each issue individually.
 - All gh comments show seththeeke; tell agents apart by marker.
 - customer/backend/ decision logic off-limits.
 - A repeat contact from a persona already covered still gets
@@ -111,3 +115,6 @@ Shapes (rebuild from these):
 - 11-17 07:00 (audit): #234 descriptor dial-up + guardrail baseline,
   #166 comment, 3 contacts (2 tracked #166, 1 declined), 5/10 queries
   (1 timeout). No new ticket. CPO_DAILY 01M7MSQJ7XN3SPHMKXMRQ177WG.
+- 11-17 10:00 (conv): no new Seth mentions on 8 open tickets; board
+  Intake unchanged (#213, #181 both still waiting on Seth). 1 contact
+  (business-logistics ask), declined. 0/2 queries. No post.
