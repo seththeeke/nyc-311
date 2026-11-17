@@ -199,7 +199,7 @@ export class Nyc311Stack extends Stack {
       requestEventsTopic,
     });
 
-    const requestsFanOutLambda = new Nyc311RequestsFanOutLambda(this, "Nyc311RequestsFanOutLambda", {
+    new Nyc311RequestsFanOutLambda(this, "Nyc311RequestsFanOutLambda", {
       envName: props.envName,
       requestsTable,
       requestEventsTopic,
@@ -249,7 +249,7 @@ export class Nyc311Stack extends Stack {
     const locationEventsTopic = new Nyc311LocationEventsTopic(this, "Nyc311LocationEventsTopic", {
       envName: props.envName,
     });
-    const locationsFanOutLambda = new Nyc311LocationsFanOutLambda(this, "Nyc311LocationsFanOutLambda", {
+    new Nyc311LocationsFanOutLambda(this, "Nyc311LocationsFanOutLambda", {
       envName: props.envName,
       locationsTable,
       locationEventsTopic,
@@ -268,7 +268,7 @@ export class Nyc311Stack extends Stack {
     const operatorProjectionsTopic = new Nyc311OperatorProjectionsTopic(this, "Nyc311OperatorProjectionsTopic", {
       envName: props.envName,
     });
-    const operatorsStreamFanOutLambda = new Nyc311OperatorsStreamFanOutLambda(
+    new Nyc311OperatorsStreamFanOutLambda(
       this,
       "Nyc311OperatorsStreamFanOutLambda",
       {
@@ -280,7 +280,7 @@ export class Nyc311Stack extends Stack {
     );
 
     /* 3-order-ingestion.md §3 — consumes orderIngestionQueue, runs the filter pipeline, promotes/creates the Order. */
-    const requestEvaluationLambda = new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
+    new Nyc311RequestEvaluationLambda(this, "Nyc311RequestEvaluationLambda", {
       envName: props.envName,
       requestsTable,
       locationsTable,
@@ -320,7 +320,7 @@ export class Nyc311Stack extends Stack {
       orderEventsTopic,
     });
 
-    const orderEvaluationLambda = new Nyc311OrderEvaluationLambda(this, "Nyc311OrderEvaluationLambda", {
+    new Nyc311OrderEvaluationLambda(this, "Nyc311OrderEvaluationLambda", {
       envName: props.envName,
       ordersTable,
       orderEvaluationQueue,
@@ -668,26 +668,11 @@ export class Nyc311Stack extends Stack {
     /*
      * 15-resource-consolidation.md §3.3 — the monitoring Service API bundle,
      * which also serves the Lambda health tile (added after the 2026-08-22
-     * fan-out-Lambda incident), so it is handed every name the tile covers.
+     * fan-out-Lambda incident). It finds every Lambda in this stack itself.
      */
     const monitoringApiLambda = new Nyc311MonitoringApiLambda(this, "Nyc311MonitoringApiLambda", {
       envName: props.envName,
       requestsTable,
-      pollerFunctionName: pollerLambda.functionName,
-      orderFanOutFunctionName: requestsFanOutLambda.functionName,
-      locationsFanOutFunctionName: locationsFanOutLambda.functionName,
-      operatorsFanOutFunctionName: operatorsStreamFanOutLambda.functionName,
-      requestEvaluationFunctionName: requestEvaluationLambda.functionName,
-      orderEventFanOutFunctionName: ordersStreamFanOutLambda.functionName,
-      orderEvaluationFunctionName: orderEvaluationLambda.functionName,
-      orderSchedulingFunctionName: orderSchedulingLambda.functionName,
-      warehouseJobRunnerFunctionName: warehouseJobRunnerLambda.functionName,
-      adminApiFunctionName: adminApiLambda.functionName,
-      featureFlagsApiFunctionName: featureFlagsApiLambda.functionName,
-      dataApiFunctionName: dataApiLambda.functionName,
-      fleetApiFunctionName: getFleetLocationsApiLambda.functionName,
-      webhookSubscriptionsApiFunctionName: registerWebhookSubscriptionApiLambda.functionName,
-      publicV1ApiFunctionName: publicApiLambda.functionName,
       publicApiId: publicApi.apiId,
     });
 

@@ -1,8 +1,8 @@
 import * as path from "node:path";
-import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
+import { Duration, Lazy, RemovalPolicy, Stack, Token } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { type CfnFunction, Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -14,23 +14,6 @@ import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 export interface Nyc311MonitoringApiLambdaProps {
   envName: Nyc311Environment;
   requestsTable: RequestsTable;
-  /* Physical function names of every Lambda the health tile covers; this bundle adds its own. */
-  pollerFunctionName: string;
-  orderFanOutFunctionName: string;
-  requestEvaluationFunctionName: string;
-  orderEventFanOutFunctionName: string;
-  locationsFanOutFunctionName: string;
-  operatorsFanOutFunctionName: string;
-  orderEvaluationFunctionName: string;
-  orderSchedulingFunctionName: string;
-  warehouseJobRunnerFunctionName: string;
-  adminApiFunctionName: string;
-  featureFlagsApiFunctionName: string;
-  dataApiFunctionName: string;
-  fleetApiFunctionName: string;
-  webhookSubscriptionsApiFunctionName: string;
-  /** The public API's bundle Lambda (16-resident-action-models.md §2), on the Lambda health tile. */
-  publicV1ApiFunctionName: string;
   /** The public API's HTTP API id — `GET /public-api/metrics` reads its built-in metrics. */
   publicApiId: string;
 }
@@ -42,8 +25,8 @@ export interface Nyc311MonitoringApiLambdaProps {
  * (`17-executive-team.md` §19.6, read from the account's agent reports
  * bucket, which the pipeline stack owns), entry
  * `backend/controller/web-api/monitoring/monitoringApiRouter.ts`. Its
- * timeout is the Lambda-health route's: up to 48 parallel CloudWatch calls
- * (16 monitored Lambdas × 3 metrics), itself among them.
+ * timeout is the Lambda-health route's: 3 parallel CloudWatch calls per
+ * Lambda in `monitoredFunctionNames`, itself among them.
  */
 export class Nyc311MonitoringApiLambda extends NodejsFunction {
   constructor(scope: Construct, id: string, props: Nyc311MonitoringApiLambdaProps) {
@@ -70,23 +53,8 @@ export class Nyc311MonitoringApiLambda extends NodejsFunction {
       depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
-        MONITORED_LAMBDA_POLLER: props.pollerFunctionName,
-        MONITORED_LAMBDA_ORDER_FAN_OUT: props.orderFanOutFunctionName,
-        MONITORED_LAMBDA_REQUEST_EVALUATION: props.requestEvaluationFunctionName,
-        MONITORED_LAMBDA_ORDER_EVENT_FAN_OUT: props.orderEventFanOutFunctionName,
-        MONITORED_LAMBDA_LOCATIONS_FAN_OUT: props.locationsFanOutFunctionName,
-        MONITORED_LAMBDA_OPERATORS_FAN_OUT: props.operatorsFanOutFunctionName,
-        MONITORED_LAMBDA_ORDER_EVALUATION: props.orderEvaluationFunctionName,
-        MONITORED_LAMBDA_ORDER_SCHEDULING: props.orderSchedulingFunctionName,
-        MONITORED_LAMBDA_WAREHOUSE_JOB_RUNNER: props.warehouseJobRunnerFunctionName,
-        MONITORED_LAMBDA_ADMIN_API: props.adminApiFunctionName,
-        MONITORED_LAMBDA_FEATURE_FLAGS_API: props.featureFlagsApiFunctionName,
-        MONITORED_LAMBDA_DATA_API: props.dataApiFunctionName,
-        MONITORED_LAMBDA_MONITORING_API: functionName,
-        MONITORED_LAMBDA_FLEET_API: props.fleetApiFunctionName,
-        MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: props.webhookSubscriptionsApiFunctionName,
-        MONITORED_LAMBDA_PIPELINE_STATUS: PIPELINE_STATUS_FUNCTION_NAME,
-        MONITORED_LAMBDA_PUBLIC_V1_API: props.publicV1ApiFunctionName,
+        /* Lazy, so it resolves at synth: every Lambda in the stack is listed however late it is built. */
+        MONITORED_LAMBDAS: Lazy.string({ produce: () => JSON.stringify(monitoredFunctionNames(Stack.of(scope))) }),
         PUBLIC_API_ID: props.publicApiId,
         AGENT_REPORTS_BUCKET: agentReportsBucketName(Stack.of(scope).account),
       },
@@ -99,4 +67,26 @@ export class Nyc311MonitoringApiLambda extends NodejsFunction {
     this.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [reportsBucketArn], conditions: { StringLike: { "s3:prefix": ["software-analyzer-agent/*"] } } }));
     this.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [`${reportsBucketArn}/software-analyzer-agent/*`] }));
   }
+}
+
+/**
+ * Every Lambda the health tile covers (#217): each `NodejsFunction` in the
+ * stack by its literal physical name (no `Ref`, so this bundle can list
+ * itself), plus the pipeline stack's status Lambda. Derived, not kept by
+ * hand, so a new Lambda needs no edit here. CDK's unnamed helper functions
+ * aren't `NodejsFunction`s and stay off the list.
+ * @throws when a `NodejsFunction` has no literal name (CLAUDE.md §5.3).
+ */
+export function monitoredFunctionNames(stack: Stack): string[] {
+  const names = stack.node
+    .findAll()
+    .filter((construct): construct is NodejsFunction => construct instanceof NodejsFunction)
+    .map((fn) => {
+      const name = (fn.node.defaultChild as CfnFunction).functionName;
+      if (name === undefined || Token.isUnresolved(name)) {
+        throw new Error(`${fn.node.path} needs a literal, env-suffixed functionName to be on the Lambda health tile`);
+      }
+      return name;
+    });
+  return [...names, PIPELINE_STATUS_FUNCTION_NAME];
 }

@@ -1,27 +1,32 @@
-import { App, Stack } from "aws-cdk-lib";
+import * as path from "node:path";
+import { App, Lazy, Stack } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
+import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { RequestsTable } from "../../data/RequestsTable";
 import { Nyc311MonitoringApiLambda } from "../../lambda/Nyc311MonitoringApiLambda";
 
-const MONITORED = {
-  pollerFunctionName: "Nyc311Poller-Test",
-  orderFanOutFunctionName: "Nyc311RequestsFanOut-Test",
-  locationsFanOutFunctionName: "Nyc311LocationsFanOut-Test",
-  operatorsFanOutFunctionName: "Nyc311OperatorsStreamFanOut-Test",
-  requestEvaluationFunctionName: "Nyc311RequestEvaluation-Test",
-  orderEventFanOutFunctionName: "Nyc311OrdersStreamFanOut-Test",
-  orderEvaluationFunctionName: "Nyc311OrderEvaluation-Test",
-  orderSchedulingFunctionName: "Nyc311OrderScheduling-Test",
-  warehouseJobRunnerFunctionName: "Nyc311WarehouseJobRunner-Test",
-  adminApiFunctionName: "Nyc311AdminApi-Test",
-  featureFlagsApiFunctionName: "Nyc311FeatureFlagsApi-Test",
-  dataApiFunctionName: "Nyc311DataApi-Test",
-  fleetApiFunctionName: "Nyc311GetFleetLocationsApi-Test",
-  webhookSubscriptionsApiFunctionName: "Nyc311RegisterWebhookSubscriptionApi-Test",
-  publicV1ApiFunctionName: "Nyc311PublicV1Api-Test",
-  publicApiId: "pub123",
-};
+const MONITORED = { publicApiId: "pub123" };
+
+const BACKEND_ROOT = path.join(__dirname, "..", "..", "..", "backend");
+
+/* A bare NodejsFunction alongside the bundle, to prove the list is found from the stack rather than passed in. */
+function addFunction(stack: Stack, id: string, functionName: string | undefined): void {
+  new NodejsFunction(stack, id, {
+    functionName,
+    entry: path.join(BACKEND_ROOT, "controller", "web-api", "monitoring", "monitoringApiRouter.ts"),
+    handler: "monitoringApiRouter",
+    runtime: Runtime.NODEJS_22_X,
+    projectRoot: BACKEND_ROOT,
+    depsLockFilePath: path.join(BACKEND_ROOT, "package-lock.json"),
+  });
+}
+
+function monitoredLambdasOf(template: Template, functionName: string): string[] {
+  const fn = Object.values(template.findResources("AWS::Lambda::Function", { Properties: { FunctionName: functionName } }))[0];
+  return JSON.parse((fn.Properties as { Environment: { Variables: { MONITORED_LAMBDAS: string } } }).Environment.Variables.MONITORED_LAMBDAS) as string[];
+}
 
 function synthesize(envName: "TEST" | "PROD"): Template {
   const app = new App();
@@ -76,30 +81,39 @@ describe("Nyc311MonitoringApiLambda", () => {
     synthesize("PROD").hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311MonitoringApi-Prod" });
   });
 
-  it("carries the Requests table name plus every MONITORED_LAMBDA_* name the health tile reads", () => {
-    const keys = envKeysOf(testTemplate);
-    expect(keys).toContain("REQUESTS_TABLE_NAME");
-    expect(keys.filter((key) => key.startsWith("MONITORED_LAMBDA_"))).toHaveLength(17);
-    expect(keys).toContain("PUBLIC_API_ID");
-    expect(keys).toContain("AGENT_REPORTS_BUCKET");
-    expect(keys).toHaveLength(20);
+  it("carries the Requests table name, the one MONITORED_LAMBDAS list, the public API id and the reports bucket", () => {
+    expect(envKeysOf(testTemplate)).toEqual(["AGENT_REPORTS_BUCKET", "MONITORED_LAMBDAS", "PUBLIC_API_ID", "REQUESTS_TABLE_NAME"]);
   });
 
-  it("names itself as the monitored MonitoringApi Lambda, and every other web API bundle by its function name", () => {
-    const [fn] = Object.values(testTemplate.findResources("AWS::Lambda::Function"));
-    const variables = (fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+  it("lists itself by literal name plus the pipeline's status Lambda when alone in its stack", () => {
+    expect(monitoredLambdasOf(testTemplate, "Nyc311MonitoringApi-Test")).toEqual(["Nyc311MonitoringApi-Test", "Nyc311PipelineStatus"]);
+  });
 
-    expect(variables).toMatchObject({
-      MONITORED_LAMBDA_MONITORING_API: "Nyc311MonitoringApi-Test",
-      MONITORED_LAMBDA_ADMIN_API: "Nyc311AdminApi-Test",
-      MONITORED_LAMBDA_FEATURE_FLAGS_API: "Nyc311FeatureFlagsApi-Test",
-      MONITORED_LAMBDA_DATA_API: "Nyc311DataApi-Test",
-      MONITORED_LAMBDA_FLEET_API: "Nyc311GetFleetLocationsApi-Test",
-      MONITORED_LAMBDA_WEBHOOK_SUBSCRIPTIONS_API: "Nyc311RegisterWebhookSubscriptionApi-Test",
-      MONITORED_LAMBDA_PUBLIC_V1_API: "Nyc311PublicV1Api-Test",
-      PUBLIC_API_ID: "pub123",
-    });
-    expect(Object.keys(variables).filter((key) => /METRICS_API|SCHEMA_API|JOBS_API|JOB_RESULT_API|FLEET_LOCATIONS_API/.test(key))).toEqual([]);
+  it("finds every NodejsFunction in the stack, including one built after it (#217)", () => {
+    const app = new App();
+    const stack = new Stack(app, "FindAllStack", { env: { region: "us-east-1" } });
+    addFunction(stack, "Before", "Nyc311Before-Test");
+    new Nyc311MonitoringApiLambda(stack, "Nyc311MonitoringApiLambda", { envName: "TEST", ...MONITORED, requestsTable: new RequestsTable(stack, "RequestsTable", { envName: "TEST" }) });
+    addFunction(stack, "After", "Nyc311After-Test");
+
+    expect(monitoredLambdasOf(Template.fromStack(stack), "Nyc311MonitoringApi-Test")).toEqual([
+      "Nyc311Before-Test",
+      "Nyc311MonitoringApi-Test",
+      "Nyc311After-Test",
+      "Nyc311PipelineStatus",
+    ]);
+  });
+
+  it.each([
+    ["no functionName", undefined],
+    ["an unresolved functionName", Lazy.string({ produce: () => "Nyc311Late-Test" })],
+  ])("fails synth for a NodejsFunction with %s, which the tile could not name", (_label, functionName) => {
+    const app = new App();
+    const stack = new Stack(app, "UnnamedStack", { env: { region: "us-east-1" } });
+    new Nyc311MonitoringApiLambda(stack, "Nyc311MonitoringApiLambda", { envName: "TEST", ...MONITORED, requestsTable: new RequestsTable(stack, "RequestsTable", { envName: "TEST" }) });
+    addFunction(stack, "Unnamed", functionName);
+
+    expect(() => Template.fromStack(stack)).toThrow("UnnamedStack/Unnamed needs a literal, env-suffixed functionName to be on the Lambda health tile");
   });
 
   it("grants Requests Query/GetItem, CloudWatch metric reads (GetMetricData for the public API's health) and reads of Sable's reports", () => {
