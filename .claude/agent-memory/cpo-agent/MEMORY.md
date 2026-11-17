@@ -54,13 +54,16 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   site); idle excluded (#213). ~$45/op-hour.
 - location_unresolved_rate 0.52-0.63 every week.
 - Scheduler hourly, 200/run. Poller 03/09/15/21 UTC, 10k cap.
-- Fleet: 21->...->9 (11-15)->7 (Brogan 11-16 16:00), plans more cuts.
+- Fleet: 21->...->9 (11-15)->7 (Brogan 11-16 16:00)->5 (Brogan 11-17 16:00,
+  citing median sat 0.09-0.29d x 8 days + all idle + backlog ~10). Watch
+  next WBR for idle-share snap-back and whether backlog grows.
 
 ## Research agenda
 
 - **Proven -> #170, #181, #194, #213, #69, #227, #234.**
 - **Measuring: idle share** (by interval start day): 18% Nov9, 34, 37, 63,
-  88% Nov13, 58, 14% Nov15, 48% Nov16.
+  88% Nov13, 58, 14% Nov15, 48% Nov16. Fleet cut again 11-17 (7->5); check
+  next audit whether idle share falls and backlog/time-to-resolve holds.
 - **Idea:** re-complaint after resolve 4.1%/14d (74/1,815): rework signal?
   Revisit when #227 ships. Cave-in 17, Plate Noisy 22, Blocked 16.
 - **Next:** materials share vs accepted mix; drive share trend (#194).
@@ -104,7 +107,9 @@ Shapes (rebuild from these):
 - customer/backend/ decision logic off-limits.
 - A repeat contact from a persona already covered still gets
   `track_contact` on that ticket.
-- `list_contacts` cursor: one empty page after the first means done.
+- `list_contacts` cursor: one empty page after the first means done; an
+  empty page can still carry a next_cursor, check a second page before
+  concluding there's nothing.
 - A run can span a context reset: check board and latest gh comments.
 
 ## Run log
@@ -118,3 +123,7 @@ Shapes (rebuild from these):
 - 11-17 10:00 (conv): no new Seth mentions on 8 open tickets; board
   Intake unchanged (#213, #181 both still waiting on Seth). 1 contact
   (business-logistics ask), declined. 0/2 queries. No post.
+- 11-17 13:00 (conv): no new Seth mentions on 9 open tickets, no new
+  Rex replies, no new RECEIVED contacts, Intake board unchanged. Brogan
+  trimmed fleet again 7->5 (16:00 post), citing 8-day idle pattern; noted
+  for next audit's idle-share/backlog check. 0/2 queries. No post.
