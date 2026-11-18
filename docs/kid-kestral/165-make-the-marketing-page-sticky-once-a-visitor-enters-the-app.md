@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15. **Ticket:** #165. **Card:** In Development.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18. **Ticket:** #165. **Card:** In Development.
 
 ## 1. Ticket
 
@@ -100,7 +100,7 @@ would put the change live in Prod at merge, with no dark period.
 
 | Leg | Change | Packages | Depends on | Verified by | PR | State |
 |---|---|---|---|---|---|---|
-| 1 | `routes/marketingEntry.ts`: read, write, refresh, expire and clear the stored entry, with storage errors swallowed. `hooks/useMarketingEntry.ts` (`useSyncExternalStore`), so the gate re-renders when the button clears the entry. `MarketingGate.tsx` branches on the flag. About drawer button (`navigate("/")` after clearing). Flag constants and mock row. Unit tests for both treatments. `tests/smoke/marketingEntry.spec.ts`. `map.spec.ts` seeds both stores. `docs/18-marketing-page.md` updated | `web-app` | the §3 rows exist (the Test smoke run needs `T1`) | V1 in Test, V2 | [#229](https://github.com/seththeeke/nyc-311/pull/229) | In review |
+| 1 | `routes/marketingEntry.ts`: read, write, refresh, expire and clear the stored entry, with storage errors swallowed. `hooks/useMarketingEntry.ts` (`useSyncExternalStore`), so the gate re-renders when the button clears the entry. `MarketingGate.tsx` branches on the flag. About drawer button (`navigate("/")` after clearing). Flag constants and mock row. Unit tests for both treatments. `tests/smoke/marketingEntry.spec.ts`. `map.spec.ts` seeds both stores. `docs/18-marketing-page.md` updated | `web-app` | the §3 rows exist (the Test smoke run needs `T1`) | V1 in Test, V2 | [#229](https://github.com/seththeeke/nyc-311/pull/229) | Merged 2026-11-18 |
 
 One leg: it's a single front-end gate, around 200 lines plus tests. The
 flag's cleanup (drop `C` and the `sessionStorage` path) is its own issue, filed
@@ -127,6 +127,9 @@ can't reach the marketing page through the button or after 7 days.
 |---|---|---|---|
 | 2026-11-15 | Flag rows | Prod created at `C` (v1, no overrides, no allocations). Test **not created**: the flag tool has no Test sign-in this run (503) | V3 now returns `C` in Prod (was 404) |
 | 2026-11-15 | Leg 1 Operational Loop (`web-app/`, PR #229) | build ✅, lint ✅, test:coverage ✅ | 248 files, 1575 tests; every file ≥ 90%; `marketingEntry.ts` 95.1% stmts, 100% branches, 94.6% lines |
+| 2026-11-18 | Leg 1 merged | #229 merged 17:30 UTC as `69b2374`, before the Test row existed | — |
+| 2026-11-18 | Test flag row | Created `MARKETING_STICKY_ENTRY` in Test at `T1` (v1, 21:00 UTC; no overrides, no allocations). `MARKETING_PAGE` in Test is `T1` (v1) | Test was 404 before this run |
+| 2026-11-18 | V1 in Test | **Not run yet.** I can't confirm `DeployTest` for `69b2374` (no AWS profile), and the `BrowserSmokeTestsTest` run for that merge ran before the Test row existed, so its sticky steps would have seen `C`. The run after the next pipeline execution counts as V1's first pass | — |
 
 ## 7. Outcome
 
@@ -134,7 +137,8 @@ Not yet.
 
 ## 8. Needs the CEO
 
-- ~~Create the two `MARKETING_STICKY_ENTRY` rows~~: I created the Prod row (`C`) on 2026-11-15. The **Test row (`T1`) is still missing**, because the flag tool had no Test sign-in. It has to exist before #229 merges, or the new smoke spec fails in `BrowserSmokeTestsTest`. I retry it each run. Or the CEO can create it through Admin → Feature Flags in Test.
+- ~~Create the two `MARKETING_STICKY_ENTRY` rows~~: done. Prod `C` (2026-11-15) and Test `T1` (2026-11-18).
+- #229 merged before the Test row existed. If the pipeline run for `69b2374` stopped at `BrowserSmokeTestsTest` (`marketingEntry.spec.ts` steps 3–6 would have seen `C`), release that change again in CodePipeline. The Test row is now `T1`, so the rerun should pass.
 - Confirm that `MARKETING_PAGE` is meant to be `T1` in Prod. If not, set it
   back to `C`. This project works either way, but its Prod check needs
   `MARKETING_PAGE` at `T1`.
