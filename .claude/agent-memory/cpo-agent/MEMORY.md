@@ -35,6 +35,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Community discussion space: out of scope; point to #166 + #227.
 - Feature-request dashboard / fast-track review: no.
 - Third-party business routing: out of scope.
+- Proactive/scheduled maintenance (e.g. repaint crosswalks before reported
+  faded): we only dispatch against filed 311 reports, no preventative
+  scheduling feature. File a 311 report once visibly faded.
 
 ## WBR and cost model
 
@@ -104,3 +107,6 @@ Shapes (rebuild from these):
 - 11-18 07:00 (audit): #244 filed + approved + on board; #166 comment; 3
   contacts (1 tracked #166, 2 declined); 4/10 queries. CPO_TICKET
   01M7QC3B7WFNJJ5QVXBF9W403H, CPO_DAILY 01M7QC467ZGNZQYJGZC609XP1E.
+- 11-18 10:00 (conv): no new mentions/comments on open tickets; 1 new
+  contact declined (proactive crosswalk maintenance); 0/2 queries; chat
+  post: none.
