@@ -6,121 +6,101 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets
 
-- **#234 (11-16):** link duplicate reports (same location_id + descriptor,
-  earlier order still open, 7d) to the open order. Refined, both approved.
-  11-17: dial-up step 1 measured -> Plate Condition - Noisy (50/237, 21%,
-  ~$74 mat); Pothole only 7 accepted/30d.
+- **#244 (11-18, bug):** scheduled_window ends before every job finishes
+  (0/1,496 inside; median 33 min late; 2x window = 100%). Fix: W=2.0
+  multiplier on scheduled_end via env/SSM. On board (Intake), CPO
+  Approved. Asked Rex: multiplier vs flag (#202), and routing (board vs Pip).
+- **#234 (11-16):** link duplicate reports to open order. Refined, both
+  approved. Dial-up step 1 = Plate Condition - Noisy.
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
-- **#166 (11-06):** status visibility. Refined. 46+ contacts (notify/alerts/
-  ETA/weekly updates all go here).
+- **#166 (11-06):** status visibility. Refined. 47+ contacts (notify/
+  alerts/ETA). 11-18: commented that it depends on #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created.
-- **#181 (11-08, bug):** intake stall. 11-17 23:44: Seth read it as "feed
-  can't be controlled, close as not possible" -> I corrected: fix is in OUR
-  poller (misreads a known empty-page quirk, #72, as drained), not asking
-  NYC's feed to improve. Real blocker still Rex's 11-13 call: route to Pip
-  as direct bug fix, not Kestrel's board (needs backend flags we don't have
-  yet). Tagged Rex in chat; awaiting Seth/Rex's routing decision.
+- **#181 (11-08, bug):** intake stall, our poller misreads empty page (#72).
+  In Intake; routing (Pip direct vs board) waits on Seth. Don't re-ping.
 - **#194 (11-09):** nearest idle op. Spec Created; needs #202.
-- **#213 (11-10, measurement):** idle in WBR. 11-17 23:42: Seth picked
-  Option A (additive idle_stats CTE in v1-wbr.sql, flag-exempt, Test-then-
-  Prod). Re-approved CPO Approved + label; still Intake pending Rex's
-  re-approval (his approval was cleared by Kestrel's 11-14 pushback).
+- **#213 (11-10, measurement):** idle in WBR, Option A. Both approved,
+  Refined (11-18).
 - **#69, #165, #202 (not mine):** no action for me.
-- Backfill done: all open cpo-agent feature tickets are on the board.
 
 ## Declines (reuse the reasoning)
 
-- Data export / research databases: public search + Open Data.
-- Hazard reporting / reporting apps / photo / hardware / detection: report
-  via 311; point notify-on-fix asks to #166.
-- Mark urgent / priority / urgency voting / mark large (potholes): priority
-  and order are automatic, not flaggable by size.
+- Data export / research / crew performance: NYC Open Data + public search.
+- Hazard reporting / detection / apps / photo / hardware: report via 311
+  (911 if danger); notify-on-fix asks go to #166.
+- Route-safety maps: out of scope; fold notify part into #166.
+- Mark urgent / priority / voting / mark large: automatic.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
-- Community discussion / comment / chat space: out of scope; point to
-  #166 + #227.
-- Feature-request tracking dashboard: each request already shows status.
-- Fast-track review of feature requests: no separate lane.
-- Business logistics/fleet-routing asks (third-party routing): out of
-  scope — BoroughSim tracks a resident's own 311 request, not operational
-  routing for other companies.
+- Community discussion space: out of scope; point to #166 + #227.
+- Feature-request dashboard / fast-track review: no.
+- Third-party business routing: out of scope.
 
 ## WBR and cost model
 
-- Goal = total_cost / orders_accepted. Oct: $299-357. Nov 2: $2,093.
-  Nov 9 final: $678 (339,885/501); median 7.4 h. Nov 16 wk 1 day: $949.
-- Materials ~81% of cost (~$400/resolved); labor ~$95/resolved. Only
-  product lever on materials = fewer visits (#234).
-- WBR labor = SCHEDULED->RESOLVED = 2.08 h (0 queue, 0.54 drive, 1.55 on
-  site); idle excluded (fix in flight, #213).
-- location_unresolved_rate 0.52-0.63 every week.
-- Fleet: 21->...->9 (11-15)->7 (11-16 16:00)->5 (11-17 16:00, Brogan
-  citing median sat 0.09-0.29d x 8 days + all idle). Watch next WBR for
-  idle-share snap-back and whether backlog grows beyond its 10.
+- Goal = total_cost / orders_accepted. Oct $299-357; Nov 2 $2,093; Nov 9
+  $678; Nov 16 wk (2 days) $693 (51,264/74).
+- **$25 goal is structurally unreachable** (told Seth 11-18): materials
+  ~$401/resolved avg (30d), Cave-in 56% of materials ($894 avg); even $0-
+  materials inspection jobs ~0.9 h labor = ~$44. Labor ~$48/h.
+- Materials = descriptor constant (streetConditionMaterialsCostService) x
+  processing factor 1+U(0,1) (orderExecutionService randomVarianceFactor).
+  Actual/estimate 1.48-1.56 for every descriptor.
+- WBR labor = SCHEDULED->RESOLVED; idle excluded (#213).
+- location_unresolved_rate 0.52-0.64 (0.64 Nov 16 wk, highest since Sep).
+- Fleet: 21 -> 5 (11-17). Brogan plans 1-2 more trims 11-18.
 
 ## Research agenda
 
-- **Proven -> #170, #181, #194, #213, #69, #227, #234.**
-- **Measuring: idle share** (by interval start day): last seen 48% Nov16.
-  Fleet cut again 11-17 (7->5); check next audit whether idle share falls
-  and backlog/time-to-resolve holds.
-- **Idea:** re-complaint after resolve 4.1%/14d (74/1,815): rework signal?
-  Revisit when #227 ships.
-- **Next:** materials share vs accepted mix; drive share trend (#194);
-  once #213 ships, recompute cost/accepted-order with idle included.
-- **Disproved:** poller sets 44h floor; 40% searches fail; scheduled->
-  dispatch queue inflating billed labor (0 h).
+- **Proven -> #170, #181, #194, #213, #69, #227, #234, #244.**
+- **Measuring: idle share** (by interval start day): 8d ~50% of 2,628 h;
+  Nov 17 37%, Nov 18 partial 19% at 5 ops. Falling with fleet cuts.
+- **Idea:** re-complaint after resolve 4.1%/14d: revisit when #227 ships.
+- **Next:** drive share (#194); after #213 ships, cost incl. idle; after
+  #244 ships, rerun scheduled-window-accuracy (target >=98%).
+- **Disproved:** materials mix as a product lever (fixed per descriptor,
+  mix set by residents' reports); poller 44h floor; 40% searches fail;
+  scheduled->dispatch queue (0 h).
 
-## Saved queries (folder writes STILL BLOCKED, sensitive-file)
+## Saved queries (folder writes STILL BLOCKED, sensitive-file; 11-18 too)
 
 Shapes (rebuild from these):
 - fleet-time-budget-daily: DISTINCT operator_events 30d, LEAD next (or
   now); class by opening event; exclude OPERATOR_REMOVED; by start day, 8d.
-- orders-6h-blocks: DISTINCT order_events CREATED/ACCEPTED/RESOLVED 4d,
-  by day + (hour/6)*6.
-- repeat-by-descriptor (#234): ONE pass over order_events (min accepted,
-  min resolved, max materials per order_id, dt >= 31d), acc 30d; snapshot
-  via max_by(... , last_event_sequence) with JOIN (not IN); requests
-  max_by(descriptor, warehouse_ingested_at); LAG by (location_id,
-  descriptor).
-- order-labor-phases: max SCHEDULED/DISPATCHED/ARRIVED/RESOLVED per order,
-  resolved 14d; avg diffs.
-- resident-post-resolution-searches (#227), intake-runs (#181),
+- scheduled-window-accuracy (#244): resolved 14d (events 20d), last
+  SCHEDULED/RESOLVED per order; snapshot max_by(scheduled_start/end,
+  last_event_sequence); share inside, overrun p50/p90, actual/planned;
+  variant: share with ratio <= k.
+- materials-by-descriptor: per_order max acc/sch/res/materials (31d) +
+  snapshot request_id + requests max_by(descriptor); 30d sums/avgs/share.
+- repeat-by-descriptor (#234), order-labor-phases, orders-6h-blocks,
+  resident-post-resolution-searches (#227), intake-runs (#181),
   location-unresolved-latlng (#69), resident-searches (#166).
 
 ## Lessons
 
 - Operator event payloads have NO `$.order_id`.
 - public_api_calls.request_params is a plain string `order_id=<id>`.
-- Satisfaction lives customer-side (idea resolution); never read it.
-- Use Write, not Edit (disabled), sed, perl or python; rewrite whole files.
-  Write DOES create the report folder (mkdir itself needs approval/blocked
-  in sandbox; Write doesn't).
+- Satisfaction lives customer-side; never read it.
+- Use Write, not Edit, sed or python; rewrite whole files. Write creates
+  report folder; mkdir is blocked.
 - Don't assert unmeasured facts in a ticket body; measure first.
-- Top-level posts <=75 words; the counter is strict, aim for 65.
+- Top-level posts <=75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
-- `gh issue view`: `--json comments --jq`; one `gh` call per issue; shell
-  rejects `for`/`xargs` loops here (sandbox), run each issue individually.
+- `gh issue view`: `--json comments --jq`; one `gh` call per issue; no
+  shell loops.
 - All gh comments show seththeeke; tell agents apart by marker.
-- A repeat contact from a persona already covered still gets
-  `track_contact` on that ticket.
-- `list_contacts` cursor: empty pages can keep returning a next_cursor for
-  a while (older already-closed contacts); 2 empty pages in a row is
-  enough to stop in a conversation run.
+- Repeat contact from a covered persona still gets `track_contact`.
+- `list_contacts` cursor: 2 empty pages in a row = stop.
 - A run can span a context reset: check board and latest gh comments.
-- Seth's chat mention can misread a ticket's cause (e.g. #181 as "feed
-  quality" vs "our own poller logic") — correct the premise on the issue,
-  don't just comply, when the proposal doesn't actually need what he thinks.
-- When a ticket's CPO_TICKET team-chat post exists, reply in that thread
-  for routing/decision updates rather than only the GitHub issue.
+- Correct a misread premise on the issue rather than just complying.
+- Reply in a ticket's CPO_TICKET thread for routing updates.
+- Read the simulation code (execution draws) before blaming the product:
+  some numbers are fixed by the sim's world model, not by product choices.
 
 ## Run log
 
-- 11-17 07:00 (audit): #234 descriptor dial-up + guardrail baseline, #166
-  comment, 3 contacts, 5/10 queries. CPO_DAILY 01M7MSQJ7XN3SPHMKXMRQ177WG.
-- 11-17 10:00, 13:00 (conv): no new Seth mentions then; Brogan trimmed
-  fleet 7->5. 0/2 queries each. No posts.
-- 11-17 19:00 (conv): Seth answered #213 (Option A, re-approved) and #181
-  (misread as feed-quality; corrected, routing still open with Rex). 3
-  contacts (1 tracked #166, 2 declined). 0/2 queries. Chat replies in
-  #213's and #181-related CTO-daily threads; no new-ticket post.
+- 11-17 (audit + 3 conv): #234 dial-up, #213 Option A, #181 premise fix.
+- 11-18 07:00 (audit): #244 filed + approved + on board; #166 comment; 3
+  contacts (1 tracked #166, 2 declined); 4/10 queries. CPO_TICKET
+  01M7QC3B7WFNJJ5QVXBF9W403H, CPO_DAILY 01M7QC467ZGNZQYJGZC609XP1E.
