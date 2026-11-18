@@ -16,7 +16,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#234 (11-16):** link duplicate reports to open order. Refined, both
   approved. Dial-up step 1 = Plate Condition - Noisy.
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
-- **#166 (11-06):** status visibility. Refined. 49+ contacts (notify/
+- **#166 (11-06):** status visibility. Refined. 41+ contacts (notify/
   alerts/ETA/audit-trail). Depends on #244 (11-18 note on issue).
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall, our poller misreads empty page (#72).
@@ -33,7 +33,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Hazard reporting / detection / apps / photo / hardware: report via 311
   (911 if danger); notify-on-fix asks go to #166.
 - Route-safety maps: out of scope; fold notify part into #166.
-- Mark urgent / priority / voting / mark large: automatic.
+- Mark urgent / priority / voting / mark large / highlight urgent repairs:
+  automatic — dispatch runs by schedule/location, not resident-assigned
+  urgency; every report already gets a repair visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
 - Community discussion space: out of scope; point to #166 + #227.
@@ -123,3 +125,7 @@ Shapes (rebuild from these):
   routing agreed, both within 1 reply); 3 new contacts (2 tracked #166,
   1 declined hazard-marking app); no board moves (nothing new ready);
   0/2 queries; chat post: CPO_TICKET reply in #244 thread.
+- 11-18 16:00 (conv): no new mentions/comments on any open ticket (all
+  threads already end on my own comment); board unchanged; 1 new contact
+  declined (highlight-urgent-repairs, standard "mark urgent" decline);
+  0/2 queries; chat post: none.
