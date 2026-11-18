@@ -19,7 +19,7 @@ export class UsersTable extends TableV2 {
     super(scope, id, {
       tableName: `Users-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "user_id", type: AttributeType.STRING },
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.envName === "PROD" }, /* #242; PITR storage bills by table size, Test's is disposable */
       deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
       globalSecondaryIndexes: [

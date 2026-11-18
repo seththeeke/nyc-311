@@ -22,15 +22,15 @@ describe("WebhookSubscriptionsTable", () => {
     expect(table.Properties.StreamSpecification).toBeUndefined();
   });
 
-  it("is retained, with point-in-time recovery, and deletion-protected in Prod only", () => {
+  it("is retained, and PITR + deletion protection are Prod only (#242, v1-prod-deployment.md B9)", () => {
     const test = synthesize("TEST");
     test.hasResource("AWS::DynamoDB::GlobalTable", { DeletionPolicy: "Retain" });
     test.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
-      Replicas: [{ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }, DeletionProtectionEnabled: false }],
+      Replicas: [{ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: false }, DeletionProtectionEnabled: false }],
     });
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       TableName: "WebhookSubscriptions-Prod",
-      Replicas: [{ DeletionProtectionEnabled: true }],
+      Replicas: [{ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }, DeletionProtectionEnabled: true }],
     });
   });
 });
