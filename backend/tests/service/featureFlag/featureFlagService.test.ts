@@ -201,19 +201,129 @@ describe("evaluateFeatureFlag", () => {
   });
 });
 
-describe("getTreatment", () => {
-  it("returns the evaluated treatment", async () => {
+describe("getTreatment (#202: fail-safe, one FeatureFlagRead line per read)", () => {
+  const C_T1_FLAG: FeatureFlag = {
+    ...flag,
+    flag_key: "NEW_DISPATCH",
+    treatments: ["C", "T1"],
+    default_treatment: "C",
+    overrides: [{ entity_type: "OPERATOR", entity_id: "op-1", treatment: "T1" }],
+    allocations: [{ treatment: "T1", percent: 50 }],
+  };
+  const OPTIONS = { fallback: "C", treatments: ["C", "T1"] } as const;
+
+  /* A clock that advances 7 ms between the read's start and its log line. */
+  function steppingClock(): () => Date {
+    let calls = 0;
+    return () => new Date(NOW.getTime() + 7 * calls++);
+  }
+
+  function readLine(spy: ReturnType<typeof vi.spyOn>): Record<string, unknown> {
+    const lines = spy.mock.calls
+      .map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>)
+      .filter((line: Record<string, unknown>) => line["message"] === "FeatureFlagRead");
+    expect(lines).toHaveLength(1);
+    return lines[0] as Record<string, unknown>;
+  }
+
+  async function read(dao: FeatureFlagDao, context = {}, random = () => 0.99): Promise<string> {
+    return getTreatment("NEW_DISPATCH", context, OPTIONS, { featureFlagDao: dao, now: steppingClock(), random });
+  }
+
+  it.each([
+    ["OVERRIDE", { operator_id: "op-1" }, 0.99, "T1"],
+    ["ALLOCATION", {}, 0.1, "T1"],
+    ["DEFAULT", {}, 0.99, "C"],
+  ] as const)("returns the treatment chosen by %s and logs outcome TREATMENT at info", async (reason, context, draw, treatment) => {
+    vi.stubEnv("AWS_LAMBDA_FUNCTION_NAME", "Nyc311OrderScheduling-Test");
+    const dao = mockDao({ getFlag: vi.fn().mockResolvedValue(C_T1_FLAG) });
+    await expect(read(dao, context, () => draw)).resolves.toBe(treatment);
+    expect(readLine(vi.mocked(console.log))).toEqual(
+      expect.objectContaining({
+        level: "info",
+        flagKey: "NEW_DISPATCH",
+        outcome: "TREATMENT",
+        reason,
+        treatment,
+        flagVersion: 3,
+        durationMs: 7,
+        functionName: "Nyc311OrderScheduling-Test",
+      })
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("accepts any treatment when the caller passes no treatments list", async () => {
     const dao = mockDao();
     await expect(getTreatment("COST_MODEL", { operator_id: "op-1" }, { fallback: "BRUTE_FORCE" }, { featureFlagDao: dao })).resolves.toBe("ML");
+    expect(readLine(vi.mocked(console.log))).toEqual(expect.objectContaining({ outcome: "TREATMENT", reason: "OVERRIDE" }));
   });
 
-  it("returns the fallback for a missing flag", async () => {
+  it("returns the fallback with FLAG_MISSING when the flag doesn't exist", async () => {
     const dao = mockDao({ getFlag: vi.fn().mockResolvedValue(null) });
-    await expect(getTreatment("MISSING", {}, { fallback: "SAFE" }, { featureFlagDao: dao })).resolves.toBe("SAFE");
+    await expect(read(dao)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({ level: "warn", outcome: "FALLBACK", reason: "FLAG_MISSING", treatment: "C", durationMs: 7 })
+    );
   });
 
-  it("rethrows other failures", async () => {
-    const dao = mockDao({ getFlag: vi.fn().mockRejectedValue(new Error("throttled")) });
-    await expect(getTreatment("COST_MODEL", {}, { fallback: "SAFE" }, { featureFlagDao: dao })).rejects.toThrow("throttled");
+  it("returns the fallback with READ_FAILED when DynamoDB throws", async () => {
+    const dao = mockDao({ getFlag: vi.fn().mockRejectedValue(Object.assign(new Error("throttled"), { name: "ProvisionedThroughputExceededException" })) });
+    await expect(read(dao)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({
+        outcome: "FALLBACK",
+        reason: "READ_FAILED",
+        treatment: "C",
+        errorName: "ProvisionedThroughputExceededException",
+        errorMessage: "throttled",
+      })
+    );
+  });
+
+  it("returns the fallback with READ_FAILED when the stored row fails its schema", async () => {
+    const ddbMock = mockClient(DynamoDBDocumentClient);
+    ddbMock.on(GetCommand).resolves({ Item: { flag_key: "NEW_DISPATCH", treatments: "not-a-list" } });
+    await expect(getTreatment("NEW_DISPATCH", {}, OPTIONS)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({ outcome: "FALLBACK", reason: "READ_FAILED", errorName: "ValidationError" })
+    );
+    ddbMock.restore();
+  });
+
+  it("returns the fallback with READ_FAILED when FEATURE_FLAGS_TABLE_NAME is unset", async () => {
+    vi.stubEnv("FEATURE_FLAGS_TABLE_NAME", "");
+    await expect(getTreatment("NEW_DISPATCH", {}, OPTIONS)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({ reason: "READ_FAILED", errorName: "Error", errorMessage: expect.stringContaining("FEATURE_FLAGS_TABLE_NAME") })
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("returns the fallback with READ_FAILED when something non-Error is thrown", async () => {
+    const dao = mockDao({ getFlag: vi.fn().mockRejectedValue("boom") });
+    await expect(read(dao)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({ reason: "READ_FAILED", errorName: "UnknownError", errorMessage: "boom" })
+    );
+  });
+
+  it("returns the fallback with UNKNOWN_TREATMENT when the flag picks a treatment the caller doesn't handle", async () => {
+    const t2Flag: FeatureFlag = { ...C_T1_FLAG, treatments: ["C", "T1", "T2"], overrides: [], allocations: [{ treatment: "T2", percent: 100 }] };
+    const dao = mockDao({ getFlag: vi.fn().mockResolvedValue(t2Flag) });
+    await expect(read(dao)).resolves.toBe("C");
+    expect(readLine(vi.mocked(console.warn))).toEqual(
+      expect.objectContaining({ outcome: "FALLBACK", reason: "UNKNOWN_TREATMENT", treatment: "C", evaluatedTreatment: "T2", flagVersion: 3 })
+    );
+  });
+
+  it("uses the real clock and default DAO when not injected", async () => {
+    const ddbMock = mockClient(DynamoDBDocumentClient);
+    ddbMock.on(GetCommand).resolves({ Item: { ...C_T1_FLAG, allocations: [] } });
+    await expect(getTreatment("NEW_DISPATCH", {}, OPTIONS)).resolves.toBe("C");
+    const line = readLine(vi.mocked(console.log));
+    expect(line["durationMs"]).toBeGreaterThanOrEqual(0);
+    expect(ddbMock.commandCalls(GetCommand)[0].args[0].input.TableName).toBe("FeatureFlags");
+    ddbMock.restore();
   });
 });

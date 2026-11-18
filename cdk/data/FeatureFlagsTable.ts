@@ -1,5 +1,6 @@
 import { RemovalPolicy } from "aws-cdk-lib";
 import { AttributeType, TableV2 } from "aws-cdk-lib/aws-dynamodb";
+import type { Grant, IGrantable } from "aws-cdk-lib/aws-iam";
 import type { Construct } from "constructs";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 
@@ -21,5 +22,14 @@ export class FeatureFlagsTable extends TableV2 {
       deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
     });
+  }
+
+  /**
+   * The backend flag read's grant (#202): `dynamodb:GetItem` on this table
+   * only, all `featureFlagService.getTreatment` needs. Each calling Lambda
+   * calls this instead of the API Lambdas' broader inline grant.
+   */
+  grantFlagRead(grantee: IGrantable): Grant {
+    return this.grant(grantee, "dynamodb:GetItem");
   }
 }

@@ -6,6 +6,7 @@ import type {
   CreateFeatureFlagRequest,
   FeatureFlag,
   TreatmentContext,
+  TreatmentReason,
   UpdateFeatureFlagRequest,
 } from "../../models/featureFlag";
 import { evaluateTreatment } from "./treatmentEvaluator";
@@ -117,14 +118,52 @@ export async function evaluateFeatureFlag(
 }
 
 export interface GetTreatmentOptions {
-  /** Returned when the flag doesn't exist, so a missing flag never breaks the caller. */
+  /** Returned on every failure (missing flag, failed read, unknown treatment), usually the control `C`. */
   fallback: string;
+  /** The treatments the caller handles; any other evaluated treatment yields `fallback`. Omit to accept any. */
+  treatments?: readonly string[];
+}
+
+/* Why a backend read fell back to the caller's `fallback`; logged as the `reason` field. */
+export type FeatureFlagFallbackReason = "FLAG_MISSING" | "READ_FAILED" | "UNKNOWN_TREATMENT";
+
+interface FeatureFlagReadFields {
+  flagKey: string;
+  reason: TreatmentReason | FeatureFlagFallbackReason;
+  treatment: string;
+  context: TreatmentContext;
+  startedAtMs: number;
+  now: () => Date;
+  flagVersion?: number;
+  evaluatedTreatment?: string;
+  errorName?: string;
+  errorMessage?: string;
+}
+
+/* The one `FeatureFlagRead` line per read (#202): the substrate of the Nyc311/FeatureFlags metric filters. */
+function logFeatureFlagRead(fields: FeatureFlagReadFields): string {
+  const { startedAtMs, now, ...rest } = fields;
+  const outcome = fields.reason === "OVERRIDE" || fields.reason === "ALLOCATION" || fields.reason === "DEFAULT" ? "TREATMENT" : "FALLBACK";
+  const line = {
+    ...rest,
+    outcome,
+    durationMs: now().getTime() - startedAtMs,
+    functionName: process.env["AWS_LAMBDA_FUNCTION_NAME"],
+  };
+  if (outcome === "TREATMENT") {
+    logInfo("FeatureFlagRead", line);
+  } else {
+    logWarn("FeatureFlagRead", line);
+  }
+  return fields.treatment;
 }
 
 /**
- * In-process entry point for backend callers (§4 Q3/Q4) — same choice as
- * {@link evaluateFeatureFlag}, but a missing flag yields `fallback` with a
- * WARN instead of throwing. Other failures (DynamoDB errors) still throw.
+ * In-process entry point for backend callers (§4 Q3/Q4, #202). Same choice
+ * as {@link evaluateFeatureFlag}, but it never rejects: a missing flag, a
+ * failed or malformed read, a missing table env var or a treatment outside
+ * `options.treatments` all return `options.fallback` with a WARN. Every
+ * call logs one `FeatureFlagRead` line with its outcome and duration.
  */
 export async function getTreatment(
   flagKey: string,
@@ -132,13 +171,35 @@ export async function getTreatment(
   options: GetTreatmentOptions,
   deps: FeatureFlagServiceDeps = {}
 ): Promise<string> {
+  const now = deps.now ?? (() => new Date());
+  const startedAtMs = now().getTime();
+  const base = { flagKey, context, startedAtMs, now };
   try {
-    return await evaluateFeatureFlag(flagKey, context, deps);
-  } catch (err) {
-    if (err instanceof NotFoundError) {
-      logWarn("TreatmentFallbackUsed", { flagKey, fallback: options.fallback, context });
-      return options.fallback;
+    const dao = deps.featureFlagDao ?? getFeatureFlagDao();
+    const flag = await dao.getFlag(flagKey);
+    if (!flag) {
+      return logFeatureFlagRead({ ...base, reason: "FLAG_MISSING", treatment: options.fallback });
     }
-    throw err;
+    const decision = evaluateTreatment(flag, context, deps.random);
+    if (options.treatments && !options.treatments.includes(decision.treatment)) {
+      return logFeatureFlagRead({
+        ...base,
+        reason: "UNKNOWN_TREATMENT",
+        treatment: options.fallback,
+        flagVersion: flag.version,
+        evaluatedTreatment: decision.treatment,
+      });
+    }
+    return logFeatureFlagRead({ ...base, reason: decision.reason, treatment: decision.treatment, flagVersion: flag.version });
+  } catch (err) {
+    const errorName = err instanceof Error ? err.name : "UnknownError";
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return logFeatureFlagRead({
+      ...base,
+      reason: "READ_FAILED",
+      treatment: options.fallback,
+      errorName,
+      errorMessage,
+    });
   }
 }
