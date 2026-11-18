@@ -1,8 +1,5 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource, SqsDlq } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -10,6 +7,7 @@ import type { Construct } from "constructs";
 import type { LocationsTable } from "../data/LocationsTable";
 import type { Nyc311LocationEventsTopic } from "./Nyc311LocationEventsTopic";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311LocationsFanOutLambdaProps {
   envName: Nyc311Environment;
@@ -31,38 +29,26 @@ const RETRY_ATTEMPTS = 3;
  * `locations` warehouse Firehose. No DAO calls; `sns:Publish` only, no
  * `dynamodb:*` write; per-item failure isolation.
  */
-export class Nyc311LocationsFanOutLambda extends NodejsFunction {
+export class Nyc311LocationsFanOutLambda extends Nyc311Function {
   public readonly fanOutLogGroup: logs.LogGroup;
   public readonly onFailureDeadLetterQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: Nyc311LocationsFanOutLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311LocationsFanOut-${suffix}`;
-
-    const fanOutLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
 
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "ingestion", "fanOutLocationEventsController.ts"),
+      envName: props.envName,
+      name: "Nyc311LocationsFanOut",
+      entry: ["controller", "ingestion", "fanOutLocationEventsController.ts"],
       handler: "fanOutLocationEventsController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: fanOutLogGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         LOCATION_EVENTS_TOPIC_ARN: props.locationEventsTopic.topic.topicArn,
       },
     });
 
-    this.fanOutLogGroup = fanOutLogGroup;
+    this.fanOutLogGroup = this.functionLogGroup;
 
     this.onFailureDeadLetterQueue = new sqs.Queue(this, "OnFailureDlq", {
       queueName: `Nyc311LocationsFanOutDlq-${suffix}`,

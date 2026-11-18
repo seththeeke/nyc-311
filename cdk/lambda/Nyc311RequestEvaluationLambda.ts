@@ -1,8 +1,4 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
@@ -10,7 +6,8 @@ import type { RequestsTable } from "../data/RequestsTable";
 import type { LocationsTable } from "../data/LocationsTable";
 import type { OrdersTable } from "../data/OrdersTable";
 import type { Nyc311OrderIngestionQueue } from "./Nyc311OrderIngestionQueue";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311RequestEvaluationLambdaProps {
   envName: Nyc311Environment;
@@ -34,31 +31,17 @@ const BATCH_SIZE = 10;
  * stream `onFailure`, no separate destination is needed here since SQS's
  * redrive-to-DLQ already carries full message content.
  */
-export class Nyc311RequestEvaluationLambda extends NodejsFunction {
+export class Nyc311RequestEvaluationLambda extends Nyc311Function {
   public readonly requestEvaluationLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: Nyc311RequestEvaluationLambdaProps) {
-    const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311RequestEvaluation-${suffix}`;
-
-    const requestEvaluationLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "ingestion", "requestEvaluationController.ts"),
+      envName: props.envName,
+      name: "Nyc311RequestEvaluation",
+      entry: ["controller", "ingestion", "requestEvaluationController.ts"],
       handler: "requestEvaluationController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: requestEvaluationLogGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
@@ -66,7 +49,7 @@ export class Nyc311RequestEvaluationLambda extends NodejsFunction {
       },
     });
 
-    this.requestEvaluationLogGroup = requestEvaluationLogGroup;
+    this.requestEvaluationLogGroup = this.functionLogGroup;
 
     this.addEventSource(
       new SqsEventSource(props.orderIngestionQueue.queue, {

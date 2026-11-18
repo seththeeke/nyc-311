@@ -1,8 +1,5 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource, SqsDlq } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -11,6 +8,7 @@ import type { OrdersTable } from "../data/OrdersTable";
 import type { Nyc311OrderEventsTopic } from "./Nyc311OrderEventsTopic";
 import type { Nyc311OrderProjectionsTopic } from "./Nyc311OrderProjectionsTopic";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311OrdersStreamFanOutLambdaProps {
   envName: Nyc311Environment;
@@ -37,44 +35,27 @@ const RETRY_ATTEMPTS = 3;
  * {@link Nyc311OrderProjectionsTopic} (feeds the warehouse). Two outbound
  * topics, no DAO calls.
  */
-export class Nyc311OrdersStreamFanOutLambda extends NodejsFunction {
+export class Nyc311OrdersStreamFanOutLambda extends Nyc311Function {
   public readonly fanOutLogGroup: logs.LogGroup;
   public readonly onFailureDeadLetterQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: Nyc311OrdersStreamFanOutLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311OrdersStreamFanOut-${suffix}`;
-
-    const fanOutLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
 
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "order-processing", "fanOutOrdersStreamController.ts"),
+      envName: props.envName,
+      name: "Nyc311OrdersStreamFanOut",
+      entry: ["controller", "order-processing", "fanOutOrdersStreamController.ts"],
       handler: "fanOutOrdersStreamController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: fanOutLogGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — see Nyc311PollerLambda.ts for why both
-       * projectRoot and depsLockFilePath must point at it explicitly.
-       */
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         ORDER_EVENTS_TOPIC_ARN: props.orderEventsTopic.topic.topicArn,
         ORDER_PROJECTIONS_TOPIC_ARN: props.orderProjectionsTopic.topic.topicArn,
       },
     });
 
-    this.fanOutLogGroup = fanOutLogGroup;
+    this.fanOutLogGroup = this.functionLogGroup;
 
     /*
      * Same known asymmetry as the Requests-side fan-out: this on-failure

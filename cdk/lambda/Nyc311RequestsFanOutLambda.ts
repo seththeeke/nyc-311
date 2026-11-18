@@ -1,8 +1,5 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource, SqsDlq } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -10,6 +7,7 @@ import type { Construct } from "constructs";
 import type { RequestsTable } from "../data/RequestsTable";
 import type { Nyc311RequestEventsTopic } from "./Nyc311RequestEventsTopic";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311RequestsFanOutLambdaProps {
   envName: Nyc311Environment;
@@ -40,43 +38,26 @@ const RETRY_ATTEMPTS = 3;
  * `INSERT` via a filter policy, the `requests` warehouse Firehose takes
  * all. No DAO calls; per-item failure isolation.
  */
-export class Nyc311RequestsFanOutLambda extends NodejsFunction {
+export class Nyc311RequestsFanOutLambda extends Nyc311Function {
   public readonly fanOutLogGroup: logs.LogGroup;
   public readonly onFailureDeadLetterQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: Nyc311RequestsFanOutLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311RequestsFanOut-${suffix}`;
-
-    const fanOutLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
 
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "ingestion", "fanOutRequestEventsController.ts"),
+      envName: props.envName,
+      name: "Nyc311RequestsFanOut",
+      entry: ["controller", "ingestion", "fanOutRequestEventsController.ts"],
       handler: "fanOutRequestEventsController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: fanOutLogGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — see Nyc311PollerLambda.ts for why both
-       * projectRoot and depsLockFilePath must point at it explicitly.
-       */
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUEST_EVENTS_TOPIC_ARN: props.requestEventsTopic.topic.topicArn,
       },
     });
 
-    this.fanOutLogGroup = fanOutLogGroup;
+    this.fanOutLogGroup = this.functionLogGroup;
 
     /*
      * Agreed 2026-08-18 (3-order-ingestion.md §2.3): this on-failure
