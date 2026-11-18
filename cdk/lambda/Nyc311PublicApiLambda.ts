@@ -1,15 +1,13 @@
 import * as path from "node:path";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { NodejsFunction, type ICommandHooks } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
-import * as logs from "aws-cdk-lib/aws-logs";
+import { Duration } from "aws-cdk-lib";
+import type { ICommandHooks } from "aws-cdk-lib/aws-lambda-nodejs";
 import type * as sns from "aws-cdk-lib/aws-sns";
 import type { Construct } from "constructs";
 import type { ContactsTable } from "../data/ContactsTable";
 import type { LocationsTable } from "../data/LocationsTable";
 import type { OrdersTable } from "../data/OrdersTable";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311PublicApiLambdaProps {
   envName: Nyc311Environment;
@@ -41,32 +39,16 @@ export const PUBLIC_API_BUNDLING_HOOKS: ICommandHooks = {
  * every `/v1/` route. Reads Orders and Locations (search); reads and
  * creates Contacts (feature requests), never updates or deletes them.
  */
-export class Nyc311PublicApiLambda extends NodejsFunction {
+export class Nyc311PublicApiLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311PublicApiLambdaProps) {
-    const functionName = `Nyc311PublicV1Api-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "publicV1", "publicV1ApiRouter.ts"),
+      envName: props.envName,
+      name: "Nyc311PublicV1Api",
+      entry: ["controller", "web-api", "publicV1", "publicV1ApiRouter.ts"],
       handler: "publicV1ApiRouter",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: {
-        ...NYC311_LAMBDA_BUNDLING,
-        commandHooks: PUBLIC_API_BUNDLING_HOOKS,
-      },
+      commandHooks: PUBLIC_API_BUNDLING_HOOKS,
       timeout: Duration.seconds(10),
       memorySize: 512,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
