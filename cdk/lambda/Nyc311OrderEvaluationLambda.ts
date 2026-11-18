@@ -1,14 +1,11 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { OrdersTable } from "../data/OrdersTable";
 import type { Nyc311OrderEvaluationQueue } from "./Nyc311OrderEvaluationQueue";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311OrderEvaluationLambdaProps {
   envName: Nyc311Environment;
@@ -27,37 +24,23 @@ const BATCH_SIZE = 10;
  * policy — no separate destination needed, same reasoning as
  * `Nyc311RequestEvaluationLambda`.
  */
-export class Nyc311OrderEvaluationLambda extends NodejsFunction {
+export class Nyc311OrderEvaluationLambda extends Nyc311Function {
   public readonly orderEvaluationLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: Nyc311OrderEvaluationLambdaProps) {
-    const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311OrderEvaluation-${suffix}`;
-
-    const orderEvaluationLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "order-processing", "evaluateOrderController.ts"),
+      envName: props.envName,
+      name: "Nyc311OrderEvaluation",
+      entry: ["controller", "order-processing", "evaluateOrderController.ts"],
       handler: "evaluateOrderController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: orderEvaluationLogGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
       },
     });
 
-    this.orderEvaluationLogGroup = orderEvaluationLogGroup;
+    this.orderEvaluationLogGroup = this.functionLogGroup;
 
     this.addEventSource(
       new SqsEventSource(props.orderEvaluationQueue.queue, {

@@ -1,12 +1,9 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { RequestsTable } from "../data/RequestsTable";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311PollerLambdaProps {
   envName: Nyc311Environment;
@@ -25,44 +22,24 @@ const METRIC_NAMESPACE = "Nyc311/Ingestion";
  * group (for the `MetricFilter`s below) and a least-privilege grant on
  * `RequestsTable` — exactly the three actions `RequestDao` calls.
  */
-export class Nyc311PollerLambda extends NodejsFunction {
+export class Nyc311PollerLambda extends Nyc311Function {
   public readonly pollerLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: Nyc311PollerLambdaProps) {
-    const functionName = `Nyc311Poller-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const pollerLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "ingestion", "nyc311PollerController.ts"),
+      envName: props.envName,
+      name: "Nyc311Poller",
+      entry: ["controller", "ingestion", "nyc311PollerController.ts"],
       handler: "nyc311PollerController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       /* Raised from 5 to 10 minutes (2026-08-22) alongside PER_RUN_RECORD_CAP's bump to 10000 — see nyc311RequestService.ts. */
       timeout: Duration.minutes(10),
       memorySize: 512,
-      logGroup: pollerLogGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — NodejsFunction's default projectRoot
-       * detection walks up from this defining file's own directory (cdk/)
-       * and rejects an entry path outside it, so both must be pointed at
-       * backend/ explicitly.
-       */
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
       },
     });
 
-    this.pollerLogGroup = pollerLogGroup;
+    this.pollerLogGroup = this.functionLogGroup;
 
     /*
      * Least privilege: only the DynamoDB actions RequestDao actually issues

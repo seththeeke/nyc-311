@@ -1,8 +1,5 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime, StartingPosition } from "aws-cdk-lib/aws-lambda";
+import { StartingPosition } from "aws-cdk-lib/aws-lambda";
 import { DynamoEventSource, SqsDlq } from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
@@ -11,6 +8,7 @@ import type { OperatorsTable } from "../data/OperatorsTable";
 import type { Nyc311OperatorEventsTopic } from "./Nyc311OperatorEventsTopic";
 import type { Nyc311OperatorProjectionsTopic } from "./Nyc311OperatorProjectionsTopic";
 import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311OperatorsStreamFanOutLambdaProps {
   envName: Nyc311Environment;
@@ -35,44 +33,27 @@ const RETRY_ATTEMPTS = 3;
  * is event-sourced too. Unlike `Orders`, neither topic has an operational
  * subscriber — both feed the warehouse only.
  */
-export class Nyc311OperatorsStreamFanOutLambda extends NodejsFunction {
+export class Nyc311OperatorsStreamFanOutLambda extends Nyc311Function {
   public readonly fanOutLogGroup: logs.LogGroup;
   public readonly onFailureDeadLetterQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: Nyc311OperatorsStreamFanOutLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311OperatorsStreamFanOut-${suffix}`;
-
-    const fanOutLogGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
 
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "ingestion", "fanOutOperatorEventsController.ts"),
+      envName: props.envName,
+      name: "Nyc311OperatorsStreamFanOut",
+      entry: ["controller", "ingestion", "fanOutOperatorEventsController.ts"],
       handler: "fanOutOperatorEventsController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup: fanOutLogGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — see Nyc311PollerLambda.ts for why both
-       * projectRoot and depsLockFilePath must point at it explicitly.
-       */
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         OPERATOR_EVENTS_TOPIC_ARN: props.operatorEventsTopic.topic.topicArn,
         OPERATOR_PROJECTIONS_TOPIC_ARN: props.operatorProjectionsTopic.topic.topicArn,
       },
     });
 
-    this.fanOutLogGroup = fanOutLogGroup;
+    this.fanOutLogGroup = this.functionLogGroup;
 
     /*
      * Same known asymmetry as the other fan-outs: this on-failure

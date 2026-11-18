@@ -1,14 +1,10 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime, Tracing } from "aws-cdk-lib/aws-lambda";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { OperatorsTable } from "../data/OperatorsTable";
 import type { OrdersTable } from "../data/OrdersTable";
 import type { LocationsTable } from "../data/LocationsTable";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311FleetApiLambdaProps {
   envName: Nyc311Environment;
@@ -26,29 +22,16 @@ export interface Nyc311FleetApiLambdaProps {
  * so no UsersTable grant. Read-only on `OperatorsTable`, `OrdersTable`'s
  * recent-jobs trail and `LocationsTable`'s batched lookups.
  */
-export class Nyc311FleetApiLambda extends NodejsFunction {
+export class Nyc311FleetApiLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311FleetApiLambdaProps) {
-    const functionName = `Nyc311GetFleetLocationsApi-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "fleet", "fleetApiRouter.ts"),
+      envName: props.envName,
+      name: "Nyc311GetFleetLocationsApi",
+      entry: ["controller", "web-api", "fleet", "fleetApiRouter.ts"],
       handler: "fleetApiRouter",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(20),
       memorySize: 1769, /* one full vCPU — at 256 MB (~1/7 vCPU) SDK overhead alone took 6-10s and hit the timeout */
-      tracing: Tracing.ACTIVE,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
+      tracing: true,
       environment: {
         OPERATORS_TABLE_NAME: props.operatorsTable.tableName,
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
