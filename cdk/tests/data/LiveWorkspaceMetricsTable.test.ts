@@ -11,13 +11,10 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("LiveWorkspaceMetricsTable", () => {
-  it("keys on metric_key alone, with PITR enabled and RETAIN removal policy", () => {
+  it("keys on metric_key alone, with RETAIN removal policy", () => {
     const template = synthesize("TEST");
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       KeySchema: [{ AttributeName: "metric_key", KeyType: "HASH" }],
-      Replicas: Match.arrayWith([
-        Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } }),
-      ]),
     });
     template.hasResource("AWS::DynamoDB::GlobalTable", { DeletionPolicy: "Retain", UpdateReplacePolicy: "Retain" });
   });
@@ -46,6 +43,15 @@ describe("LiveWorkspaceMetricsTable", () => {
     });
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: false })]),
+    });
+  });
+
+  it("enables PITR in Prod and leaves it off in Test (#242 — storage is waste on disposable data)", () => {
+    synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } })]),
+    });
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: false } })]),
     });
   });
 });

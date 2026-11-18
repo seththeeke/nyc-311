@@ -11,7 +11,7 @@ function synthesize(envName: "TEST" | "PROD"): Template {
 }
 
 describe("LocationsTable", () => {
-  it("keys on location_id alone, with PITR enabled and RETAIN removal policy, no GSIs", () => {
+  it("keys on location_id alone, with RETAIN removal policy, no GSIs", () => {
     const template = synthesize("TEST");
 
     template.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
@@ -45,6 +45,17 @@ describe("deletion protection (v1-prod-deployment.md B9)", () => {
     });
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
       Replicas: Match.arrayWith([Match.objectLike({ DeletionProtectionEnabled: false })]),
+    });
+  });
+});
+
+describe("point-in-time recovery (#242 — Test's PITR storage is waste on disposable data)", () => {
+  it("is enabled in Prod and off in Test", () => {
+    synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } })]),
+    });
+    synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: false } })]),
     });
   });
 });

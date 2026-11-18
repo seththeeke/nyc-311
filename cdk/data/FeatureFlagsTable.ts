@@ -17,7 +17,7 @@ export class FeatureFlagsTable extends TableV2 {
     super(scope, id, {
       tableName: `FeatureFlags-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "flag_key", type: AttributeType.STRING },
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.envName === "PROD" }, /* #242; PITR storage bills by table size, Test's is disposable */
       deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
     });

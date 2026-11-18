@@ -24,7 +24,7 @@ export class OperatorsTable extends TableV2 {
       tableName: `Operators-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "operator_id", type: AttributeType.STRING },
       sortKey: { name: "sk", type: AttributeType.STRING },
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.envName === "PROD" }, /* #242; PITR storage bills by table size, Test's is disposable */
       deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       removalPolicy: RemovalPolicy.RETAIN,
       dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,

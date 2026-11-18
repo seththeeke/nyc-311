@@ -19,7 +19,7 @@ export class OrdersTable extends TableV2 {
       tableName: `Orders-${ENV_NAME_SUFFIX[props.envName]}`,
       partitionKey: { name: "order_id", type: AttributeType.STRING },
       sortKey: { name: "sk", type: AttributeType.STRING },
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.envName === "PROD" }, /* #242; PITR storage bills by table size, Test's is disposable */
       deletionProtection: props.envName === "PROD", /* v1-prod-deployment.md B9; Test stays deletable */
       dynamoStream: StreamViewType.NEW_AND_OLD_IMAGES,
       removalPolicy: RemovalPolicy.RETAIN,
