@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { type Duration, RemovalPolicy } from "aws-cdk-lib";
 import { Runtime, Tracing } from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { type ICommandHooks, NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
@@ -26,6 +26,8 @@ export interface Nyc311FunctionProps {
   environment: Record<string, string>;
   /** Active X-Ray tracing. Off unless a Lambda opts in. */
   tracing?: boolean;
+  /** esbuild hooks added to the shared bundling, e.g. to copy a non-TS asset in. */
+  commandHooks?: ICommandHooks;
 }
 
 /**
@@ -50,7 +52,7 @@ export class Nyc311Function extends NodejsFunction {
       entry: path.join(NYC311_BACKEND_ROOT, ...props.entry),
       handler: props.handler,
       runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
+      bundling: props.commandHooks ? { ...NYC311_LAMBDA_BUNDLING, commandHooks: props.commandHooks } : NYC311_LAMBDA_BUNDLING,
       timeout: props.timeout,
       memorySize: props.memorySize,
       tracing: props.tracing ? Tracing.ACTIVE : undefined,

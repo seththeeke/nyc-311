@@ -1,15 +1,13 @@
-import * as path from "node:path";
-import { Duration, Lazy, RemovalPolicy, Stack, Token } from "aws-cdk-lib";
+import { Duration, Lazy, Stack, Token } from "aws-cdk-lib";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { type CfnFunction, Runtime } from "aws-cdk-lib/aws-lambda";
+import type { CfnFunction } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import { agentReportsBucketName } from "../agents/AgentReportsBucket";
 import type { RequestsTable } from "../data/RequestsTable";
 import { PIPELINE_STATUS_FUNCTION_NAME } from "../pipeline/Nyc311PipelineStatusLambda";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311MonitoringApiLambdaProps {
   envName: Nyc311Environment;
@@ -28,29 +26,15 @@ export interface Nyc311MonitoringApiLambdaProps {
  * timeout is the Lambda-health route's: 3 parallel CloudWatch calls per
  * Lambda in `monitoredFunctionNames`, itself among them.
  */
-export class Nyc311MonitoringApiLambda extends NodejsFunction {
+export class Nyc311MonitoringApiLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311MonitoringApiLambdaProps) {
-    const functionName = `Nyc311MonitoringApi-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "monitoring", "monitoringApiRouter.ts"),
+      envName: props.envName,
+      name: "Nyc311MonitoringApi",
+      entry: ["controller", "web-api", "monitoring", "monitoringApiRouter.ts"],
       handler: "monitoringApiRouter",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(25),
       memorySize: 256,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
         /* Lazy, so it resolves at synth: every Lambda in the stack is listed however late it is built. */
