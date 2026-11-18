@@ -8,6 +8,7 @@ A full-screen marketing page at `/` that sells BoroughSim and ends on **Enter fl
 
 - `MarketingGate` (`web-app/src/routes/MarketingGate.tsx`) wraps the shell route. On `T1`, a first visit to `/` gets `MarketingPage` instead of the shell. Every other path, and `C`, passes straight through.
 - **Enter fleet** (hero, closing section) sets `nyc311.marketing.entered` in session storage. From then on `/` is the map for the rest of the tab, so the map's own links home (the Map menu entry, leaving a dive-in) keep working. A new tab sees the marketing page again.
+- **Sticky entry** (#165, `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md`), behind `MARKETING_STICKY_ENTRY` (`C`/`T1`; `T1` in `FeatureFlags-Test`, `C` in `FeatureFlags-Prod`). On `C`, entry is per tab as above. On `T1`, Enter fleet also stores `nyc311.marketing.enteredAt` (an ISO timestamp) in `localStorage` (`routes/marketingEntry.ts`), so a new tab or a restarted browser goes straight to the map. Each page load with a valid entry refreshes the timestamp; an entry more than 7 days old (or malformed) is removed and the marketing page shows again. The About drawer gets **Back to the intro**, which clears both stores and goes to `/`. Both need `MARKETING_PAGE` on `T1`. Smoke check: `web-app/tests/smoke/marketingEntry.spec.ts`.
 - The page renders outside the app shell (no sidebar or secondary workspace) as a `fixed` scroll container, and is lazy-loaded as its own chunk.
 
 ## 2. Sections

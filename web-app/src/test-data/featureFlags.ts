@@ -1,6 +1,6 @@
 import type { FeatureFlag } from "../models/featureFlag";
 
-/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Meet the Team, marketing and Contacts page gates, the agent contributions gate, and a plain on/off one. */
+/* Baked sample data for "mock" data mode — the planned COST_MODEL flag, the Meet the Team, marketing and Contacts page gates, sticky marketing entry, the agent contributions gate, and a plain on/off one. */
 export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
   {
     flag_key: "COST_MODEL",
@@ -60,6 +60,18 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
     version: 1,
     created_at: "2026-11-01T12:00:00.000Z",
     updated_at: "2026-11-01T12:00:00.000Z",
+    updated_by: "01MOCKADMIN",
+  },
+  {
+    flag_key: "MARKETING_STICKY_ENTRY",
+    description: "Sticky marketing entry (#165). C = per tab, T1 = 7 days plus About's Back to the intro. T1 here so mock mode shows it.",
+    treatments: ["C", "T1"],
+    default_treatment: "T1",
+    overrides: [],
+    allocations: [],
+    version: 1,
+    created_at: "2026-11-15T12:00:00.000Z",
+    updated_at: "2026-11-15T12:00:00.000Z",
     updated_by: "01MOCKADMIN",
   },
   {

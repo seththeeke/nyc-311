@@ -6,8 +6,9 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
  * check that WebGL actually draws.
  */
 
-/** MarketingGate's MARKETING_ENTERED_KEY, copied so this spec doesn't load React into Playwright's Node runtime. */
+/** marketingEntry.ts's keys, copied so this spec doesn't load React into Playwright's Node runtime. */
 const MARKETING_ENTERED_KEY = "nyc311.marketing.entered";
+const MARKETING_ENTERED_AT_KEY = "nyc311.marketing.enteredAt";
 
 /** A blank or single-colour canvas has a handful of colours; a drawn city or street has hundreds. */
 const MIN_DISTINCT_COLOURS = 40;
@@ -41,10 +42,17 @@ async function distinctColours(page: Page, target: Locator): Promise<number> {
 /*
  * With MARKETING_PAGE on T1 (Test), a fresh tab's / is the marketing page,
  * not the map (docs/18-marketing-page.md §1). Start each test as a visitor
- * who already clicked Enter fleet, so / is the map under any treatment.
+ * who already clicked Enter fleet, in both stores (MARKETING_STICKY_ENTRY C
+ * and T1), so / is the map under any treatment.
  */
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((key) => window.sessionStorage.setItem(key, "1"), MARKETING_ENTERED_KEY);
+  await page.addInitScript(
+    ([sessionKey, storedKey]) => {
+      window.sessionStorage.setItem(sessionKey, "1");
+      window.localStorage.setItem(storedKey, new Date().toISOString());
+    },
+    [MARKETING_ENTERED_KEY, MARKETING_ENTERED_AT_KEY] as const,
+  );
 });
 
 test("the 3-D city loads and draws", async ({ page }) => {
