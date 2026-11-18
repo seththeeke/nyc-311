@@ -1,6 +1,6 @@
 # 202. backend: read feature flags in services, so backend changes can ship dark
 
-**Status:** Spec created 2026-11-14. **Ticket:** #202. **Card:** Spec Created.
+**Status:** Spec created 2026-11-14. Development started 2026-11-18. **Ticket:** #202. **Card:** In Development.
 
 ## 1. Ticket
 
@@ -84,7 +84,7 @@ account.
 
 | Leg | Change | Packages | Depends on | Verified by | PR | State |
 |---|---|---|---|---|---|---|
-| 1 | **`backend/`:** `getTreatment` catches every error and returns `fallback`. It gains the `treatments` option and logs `FeatureFlagRead` with `durationMs` (injectable `now`). `TreatmentFallbackUsed` is replaced by that line. **`cdk/`:** `FeatureFlagsTable.grantFlagRead(grantee)` (`GetItem` only) and the `FeatureFlagReadMetricFilters` construct, both unused until a caller wires them in | `backend/`, `cdk/` | none | V1, V2; Operational Loop in both packages | | Not started |
+| 1 | **`backend/`:** `getTreatment` catches every error and returns `fallback`. It gains the `treatments` option and logs `FeatureFlagRead` with `durationMs` (injectable `now`). `TreatmentFallbackUsed` is replaced by that line. **`cdk/`:** `FeatureFlagsTable.grantFlagRead(grantee)` (`GetItem` only) and the `FeatureFlagReadMetricFilters` construct, both unused until a caller wires them in | `backend/`, `cdk/` | none | V1, V2; Operational Loop in both packages | [#246](https://github.com/seththeeke/nyc-311/pull/246) | In review |
 
 Callers wire in through their own first leg: #194 Leg 1 and #170 Leg 2. Each
 one:
@@ -115,6 +115,8 @@ inside the first caller's own `C` → 100% `T1` step:
 | Date | Step | Result | Numbers |
 |---|---|---|---|
 | 2026-11-14 | Before | Recorded (§2) | 0 backend callers. Success rate: none exists. Latency: to be measured |
+| 2026-11-18 | Leg 1 Operational Loop (#246) | Pass | `backend/`: build, lint, 195 files / 1661 tests, coverage 99.95% stmts, 99.25% branches; `featureFlagService.ts` fully covered. `cdk/`: build, lint, 89 files / 488 tests, 100% |
+| 2026-11-18 | V1, V2 (unit and template tests, in #246) | Pass | V1: 10 `getTreatment` cases (OVERRIDE, ALLOCATION, DEFAULT, no list, FLAG_MISSING, READ_FAILED ×4, UNKNOWN_TREATMENT), all resolve, one `FeatureFlagRead` line each. V2: grant is one `dynamodb:GetItem` statement on the table ARN; 3 filters with the patterns and dimensions in §3 |
 
 ## 7. Outcome
 
@@ -145,6 +147,15 @@ Not yet.
   hold is checked on every run. An alarm can follow with the flag-cleanup
   work.
 - **Rejected: a canary caller** (option (b), 11-10). Celestine chose (a).
+- **Leg 1 build choices (2026-11-18):** the `injectable now` is the
+  service's existing `deps.now` (a `Date` clock). `durationMs` starts
+  before the DAO is built, so a missing env var still logs a duration.
+  `READ_FAILED` lines also carry `errorMessage`, and `UNKNOWN_TREATMENT`
+  lines carry `evaluatedTreatment`, for debugging. Every filter also
+  requires `$.functionName` and `$.flagKey` to exist, because CloudWatch
+  needs a dimension's field in the pattern. The filters are created in
+  every environment, not Prod only like the Poller's: Test is where V3's
+  `treatment = T1` check runs.
 - **Assumption:** `durationMs` covers the `GetItem` and the evaluation, not
   client construction. The `REPORT` duration on the API Lambda is a loose
   upper bound for it, which is why V4's baseline is a guardrail and not the
