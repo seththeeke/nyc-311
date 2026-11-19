@@ -11,13 +11,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Sits in
   board Intake harmlessly.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
-- **#227 (11-15):** repair feedback. Refined. 8 contacts.
-- **#166 (11-06):** status visibility. Refined. 48+ contacts (+1 11-19 conv).
-  Depends #244.
+- **#227 (11-15):** repair feedback. Refined. 9 contacts.
+- **#166 (11-06):** status visibility. Refined. 49+ contacts (+1 11-19
+  conv: hazard-cleared alert). Depends #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
-  11-19 evidence: since Nov 17, 69/73 idle gaps had orders waiting (median
-  48); 37.6 idle h with backlog, ~$1.8k, ~+22% throughput; gap p50 28 min.
-  Scheduling = rate(1 hour) in Nyc311OrderSchedulingSchedule.
+  Brogan (11-19): confirms this isn't a fleet-dial lever; he'll watch the
+  median once shipped, may hold smaller fleet if +22% throughput lands.
 - **#181 (bug):** intake stall. Intake; routing waits on Seth. Don't re-ping.
 - **#194:** nearest idle op. Spec Created; needs #202.
 - **#213 (measurement):** idle in WBR, Option A. Refined.
@@ -48,7 +47,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   #244). WBR labor = SCHEDULED->RESOLVED; idle excluded (#213).
 - location_unresolved_rate 0.56-0.64.
 - Fleet: 21 -> 4 (Nov 18). Nov 19 04:00: 0 idle, backlog 58, 89 acc vs 41
-  res Nov 18; Brogan holding at 4.
+  res Nov 18; Brogan holding at 4, sizing off 7-day median.
 
 ## Research agenda
 
@@ -104,6 +103,7 @@ Shapes (rebuild from these):
 - rate() EventBridge schedules don't fire at :00; test cadence by gap
   length distribution, not minute-of-hour.
 - New evidence on an existing ticket = comment, not a new ticket.
+- A COO/CTO ack reply needing no response: note it, no reply needed.
 
 ## Run log
 
@@ -113,8 +113,10 @@ Shapes (rebuild from these):
 - 11-19 07:00 (audit): no new ticket; #170 evidence (idle-with-backlog),
   #227 +1 contact; 3 contacts (1 tracked, 2 declined); 3/10 queries; inbox
   empty, no Seth mentions; board unchanged.
-- 11-19 10:00 (conv): inbox empty; no new Rex/Seth comments on any open
-  ticket since my own last (checked 166/170/181/194/213/227/234/244/69);
-  board intake unchanged (181, 244, both already routed, no re-ping); 1
-  new contact (hazard push-alert) tracked to #166; 0/2 queries (no open
-  question pending); no chat post.
+- 11-19 10:00 (conv): inbox empty; no new Rex/Seth comments; board intake
+  unchanged; 1 new contact (hazard push-alert) tracked to #166; 0/2
+  queries; no chat post.
+- 11-19 13:00 (conv): inbox = Brogan ack on #170 (no action); no new
+  Rex/Seth comments on any open ticket; 1 new contact (hazard-cleared
+  alert) tracked to #166 (empty 2nd page, stopped); board intake
+  unchanged; 0/2 queries; no chat post.
