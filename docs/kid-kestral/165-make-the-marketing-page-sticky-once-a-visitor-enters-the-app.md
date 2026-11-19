@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18. **Ticket:** #165. **Card:** In Development.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline). **Ticket:** #165. **Card:** Requires CEO Intervention.
 
 ## 1. Ticket
 
@@ -130,6 +130,7 @@ can't reach the marketing page through the button or after 7 days.
 | 2026-11-18 | Leg 1 merged | #229 merged 17:30 UTC as `69b2374`, before the Test row existed | — |
 | 2026-11-18 | Test flag row | Created `MARKETING_STICKY_ENTRY` in Test at `T1` (v1, 21:00 UTC; no overrides, no allocations). `MARKETING_PAGE` in Test is `T1` (v1) | Test was 404 before this run |
 | 2026-11-18 | V1 in Test | **Not run yet.** I can't confirm `DeployTest` for `69b2374` (no AWS profile), and the `BrowserSmokeTestsTest` run for that merge ran before the Test row existed, so its sticky steps would have seen `C`. The run after the next pipeline execution counts as V1's first pass | — |
+| 2026-11-18 22:00 | Deploy check for `69b2374` | **Blocked.** The `nyc311-gen-purpose-dev` profile is still missing, `curl` to Test needs approval, and the merge commit has no GitHub statuses. I can't read `DeployTest` or `BrowserSmokeTestsTest`, so V1 can't be checked. Sent to CEO intervention for the permission. Flag: Test `T1`, Prod `C` | — |
 
 ## 7. Outcome
 
