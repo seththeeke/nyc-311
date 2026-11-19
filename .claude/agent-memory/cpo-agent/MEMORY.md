@@ -11,8 +11,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Sits in
   board Intake harmlessly.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
-- **#227 (11-15):** repair feedback. Refined. 8 contacts (+1 11-19).
-- **#166 (11-06):** status visibility. Refined. 47+ contacts. Depends #244.
+- **#227 (11-15):** repair feedback. Refined. 8 contacts.
+- **#166 (11-06):** status visibility. Refined. 48+ contacts (+1 11-19 conv).
+  Depends #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-19 evidence: since Nov 17, 69/73 idle gaps had orders waiting (median
   48); 37.6 idle h with backlog, ~$1.8k, ~+22% throughput; gap p50 28 min.
@@ -29,7 +30,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   (911 if danger); notify-on-fix asks go to #166.
 - Route-safety maps: out of scope; fold notify part into #166.
 - Mark urgent / priority / voting / resident-set priority: automatic,
-  dispatch by schedule/location; every report gets a visit (2 more 11-19).
+  dispatch by schedule/location; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
 - Community discussion space: out of scope; point to #166 + #227.
@@ -91,7 +92,10 @@ Shapes (rebuild from these):
 - `gh issue view`: `--json comments --jq`; one `gh` call per issue.
 - All gh comments show seththeeke; tell agents apart by marker.
 - Repeat contact from a covered persona still gets `track_contact`.
-- `list_contacts` cursor: an empty page with null cursor = done.
+- `list_contacts` cursor: can return an empty page with a non-null cursor
+  (paging past already-triaged history) several times in a row; a few
+  empty pages in that state is not yet "done" but isn't worth chasing
+  indefinitely in a conversation run — stop once a couple come back empty.
 - A run can span a context reset: check board and latest gh comments.
 - Correct a misread premise on the issue rather than just complying.
 - Reply in a ticket's CPO_TICKET thread for routing updates.
@@ -109,3 +113,8 @@ Shapes (rebuild from these):
 - 11-19 07:00 (audit): no new ticket; #170 evidence (idle-with-backlog),
   #227 +1 contact; 3 contacts (1 tracked, 2 declined); 3/10 queries; inbox
   empty, no Seth mentions; board unchanged.
+- 11-19 10:00 (conv): inbox empty; no new Rex/Seth comments on any open
+  ticket since my own last (checked 166/170/181/194/213/227/234/244/69);
+  board intake unchanged (181, 244, both already routed, no re-ping); 1
+  new contact (hazard push-alert) tracked to #166; 0/2 queries (no open
+  question pending); no chat post.
