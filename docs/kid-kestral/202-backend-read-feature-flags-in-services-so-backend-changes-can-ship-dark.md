@@ -1,6 +1,6 @@
 # 202. backend: read feature flags in services, so backend changes can ship dark
 
-**Status:** Spec created 2026-11-14. Development started 2026-11-18. **Ticket:** #202. **Card:** In Development.
+**Status:** Spec created 2026-11-14. Development started 2026-11-18. Leg 1 merged 2026-11-19. **Ticket:** #202. **Card:** Requires CEO Intervention (2026-11-19: I can't confirm `DeployTest` without the AWS profile, §8).
 
 ## 1. Ticket
 
@@ -84,7 +84,7 @@ account.
 
 | Leg | Change | Packages | Depends on | Verified by | PR | State |
 |---|---|---|---|---|---|---|
-| 1 | **`backend/`:** `getTreatment` catches every error and returns `fallback`. It gains the `treatments` option and logs `FeatureFlagRead` with `durationMs` (injectable `now`). `TreatmentFallbackUsed` is replaced by that line. **`cdk/`:** `FeatureFlagsTable.grantFlagRead(grantee)` (`GetItem` only) and the `FeatureFlagReadMetricFilters` construct, both unused until a caller wires them in | `backend/`, `cdk/` | none | V1, V2; Operational Loop in both packages | [#246](https://github.com/seththeeke/nyc-311/pull/246) | In review |
+| 1 | **`backend/`:** `getTreatment` catches every error and returns `fallback`. It gains the `treatments` option and logs `FeatureFlagRead` with `durationMs` (injectable `now`). `TreatmentFallbackUsed` is replaced by that line. **`cdk/`:** `FeatureFlagsTable.grantFlagRead(grantee)` (`GetItem` only) and the `FeatureFlagReadMetricFilters` construct, both unused until a caller wires them in | `backend/`, `cdk/` | none | V1, V2; Operational Loop in both packages | [#246](https://github.com/seththeeke/nyc-311/pull/246) | Merged 2026-11-19 (`fcf13a3`) |
 
 Callers wire in through their own first leg: #194 Leg 1 and #170 Leg 2. Each
 one:
@@ -117,6 +117,8 @@ inside the first caller's own `C` → 100% `T1` step:
 | 2026-11-14 | Before | Recorded (§2) | 0 backend callers. Success rate: none exists. Latency: to be measured |
 | 2026-11-18 | Leg 1 Operational Loop (#246) | Pass | `backend/`: build, lint, 195 files / 1661 tests, coverage 99.95% stmts, 99.25% branches; `featureFlagService.ts` fully covered. `cdk/`: build, lint, 89 files / 488 tests, 100% |
 | 2026-11-18 | V1, V2 (unit and template tests, in #246) | Pass | V1: 10 `getTreatment` cases (OVERRIDE, ALLOCATION, DEFAULT, no list, FLAG_MISSING, READ_FAILED ×4, UNKNOWN_TREATMENT), all resolve, one `FeatureFlagRead` line each. V2: grant is one `dynamodb:GetItem` statement on the table ARN; 3 filters with the patterns and dimensions in §3 |
+| 2026-11-19 | V1, V2 re-run on `main` (`b24e69d`, which contains merge `fcf13a3`) | Pass | `featureFlagService.test.ts`: 27/27. `FeatureFlagReadMetricFilters.test.ts` + `FeatureFlagsTable.test.ts`: 10/10 |
+| 2026-11-19 | Test step 1: deployed? | **Blocked** | `aws --profile nyc311-gen-purpose-dev` → "config profile could not be found". The merge commit has 0 GitHub statuses (the pipeline posts none). `DeployTest` can't be confirmed → Requires CEO Intervention |
 
 ## 7. Outcome
 
@@ -127,7 +129,9 @@ Not yet.
 - **No flag rows.**
 - **Set up the read-only AWS profile `nyc311-gen-purpose-dev`** (role
   `Nyc311EngineerAgentRole`) on the Mac mini before the first caller's hold.
-  V3 and V4 both need it.
+  V3 and V4 both need it. **As of 2026-11-19 it also blocks Verified in
+  Test**: without it I can't confirm `DeployTest` ran on `fcf13a3` or later.
+  Until then, the CEO can confirm that run instead.
 
 ## Appendix: decisions
 
