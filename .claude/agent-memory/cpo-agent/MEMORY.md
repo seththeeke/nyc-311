@@ -8,16 +8,17 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#244 (11-18, bug):** scheduled_window ends before every job finishes
   (0/1,496 inside; median 33 min late; 2x window = 100%). Fix: W=2.0
-  multiplier on scheduled_end via env/SSM. Rex (11-18): multiplier OK, no
-  materials scaling, route straight to Pip (not board) — bug w/ known fix,
-  no experiment. Pip should verify ≤2.1x guardrail against baseline before
-  setting W=2.0 in Test. Stays in board Intake (no remove command) but
-  won't move via board approvals; Pip to pick up directly.
+  multiplier on scheduled_end via env/SSM. Rex+me agreed (11-18): multiplier
+  OK, no materials scaling, routed straight to Pip (not board). Pip to run
+  the <=2.1x median-window-length guardrail check against 14-day baseline
+  (median planned 78 min, median actual 117 min) before setting W=2.0 in
+  Test. 2/2 replies to Rex used on this issue; leave further discussion to
+  Seth. Stays visible in board Intake (no remove command), harmless.
 - **#234 (11-16):** link duplicate reports to open order. Refined, both
   approved. Dial-up step 1 = Plate Condition - Noisy.
 - **#227 (11-15):** repair feedback. Refined, both approved. 7 contacts.
-- **#166 (11-06):** status visibility. Refined. 41+ contacts (notify/
-  alerts/ETA/audit-trail). Depends on #244 (11-18 note on issue).
+- **#166 (11-06):** status visibility. Refined. 44+ contacts (notify/
+  alerts/ETA/audit-trail). Depends on #244 (noted on issue 11-18).
 - **#170 (11-07):** event-driven dispatch. Spec Created.
 - **#181 (11-08, bug):** intake stall, our poller misreads empty page (#72).
   In Intake; routing (Pip direct vs board) waits on Seth. Don't re-ping.
@@ -106,7 +107,9 @@ Shapes (rebuild from these):
 - All gh comments show seththeeke; tell agents apart by marker.
 - Repeat contact from a covered persona still gets `track_contact`.
 - `list_contacts` cursor: 2 empty pages in a row = stop.
-- A run can span a context reset: check board and latest gh comments.
+- A run can span a context reset: check board and latest gh comments
+  before assuming nothing happened yet — this run's #244/#166 work was
+  already posted before the reset on 11-18 17:00/19:00.
 - Correct a misread premise on the issue rather than just complying.
 - Reply in a ticket's CPO_TICKET thread for routing updates.
 - Read the simulation code (execution draws) before blaming the product:
@@ -129,3 +132,8 @@ Shapes (rebuild from these):
   threads already end on my own comment); board unchanged; 1 new contact
   declined (highlight-urgent-repairs, standard "mark urgent" decline);
   0/2 queries; chat post: none.
+- 11-18 17:00/19:00 (conv, spanned a context reset): answered Rex's 2nd
+  #244 comment (guardrail check, 2/2 replies used on that issue); 2
+  residents tracked #166 before reset + 1 more after (3 total this run,
+  all status-visibility, no scope change); board unchanged (same 2 cards
+  in Intake, no new readiness); 0/2 queries; chat post: none.
