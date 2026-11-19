@@ -8,7 +8,7 @@
 | #194 | Dispatch the nearest idle operator | Spec Created 2026-11-13 (commit 6d19f8e) | `docs/kid-kestral/194-dispatch-the-nearest-idle-operator-to-each-order-not-whichever-the-index-returns-first.md` | `NEAREST_OPERATOR_DISPATCH` (rows not created yet). Leg 1 depends on #202 |
 | #170 | Event-driven dispatch | Spec Created 2026-11-14 (commit 282fd1c). Asked Celestine/Rex to confirm `WORK_COMPLETED` instead of `ORDER_RESOLVED` | `docs/kid-kestral/170-dispatch-the-next-order-the-moment-an-operator-frees-up-not-only-on-the-hourly-scheduling-run.md` | `EVENT_DRIVEN_DISPATCH`. Leg 1 (claim race) has no dependency; Leg 2 depends on #202 |
 
-| #165 | Sticky marketing page | In Development. Leg 1 #229 merged 2026-11-18 (`69b2374`), before the Test row existed. Spec commit dca75cb. Next: confirm DeployTest (no AWS profile; curl and `gh api` need approval), then V1 on two green smoke runs → verified-test | `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md` | `MARKETING_STICKY_ENTRY`: Prod `C` (v1, 11-15); Test `T1` (v1, 11-18) |
+| #165 | Sticky marketing page | **Requires CEO Intervention** 2026-11-18 22:00: I can't read the pipeline (no AWS profile, curl denied, no GH statuses on `69b2374`). Spec commit d34aecc. Asked for the profile, an allowlist entry, or the CEO confirming two green smoke runs. Next: read the answer, then V1 → verified-test | `docs/kid-kestral/165-make-the-marketing-page-sticky-once-a-visitor-enters-the-app.md` | `MARKETING_STICKY_ENTRY`: Prod `C` (v1, 11-15); Test `T1` (v1, 11-18) |
 
 ## Flags I own
 - `NEAREST_OPERATOR_DISPATCH` (#194): C = first-available, T1 = nearest. Read once per scheduling run with empty context.
@@ -44,4 +44,5 @@
 - 2026-11-15: the flag tools returned 503 "This run has no TEST sign-in" for TEST, while PROD worked. Retry each run. A smoke spec that needs the Test row blocks the merge until the row exists.
 - `gh issue create` isn't on my allowlist. File a flag-cleanup issue only after the Prod check, or ask in the ticket. Running build/test from `web-app/` works with `cd web-app && npm run …`, but `npm --prefix` and redirects need approval.
 - Web-app gate pattern: pass flag-gated UI into a router- and flag-free component as a prop (`AboutOverlay footer`), so that component's tests stay untouched.
+- The pipeline posts no GitHub commit statuses, so `gh api …/status` can't stand in for the AWS profile. A missing permission that blocks verification across runs counts as CEO intervention, not waiting.
 - Team Chat: one top-level post per card. On a re-park, reply in the existing thread.
