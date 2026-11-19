@@ -1,14 +1,10 @@
-import * as path from "node:path";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
-import * as logs from "aws-cdk-lib/aws-logs";
+import { Duration } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 import type { OrdersTable } from "../data/OrdersTable";
 import type { OperatorsTable } from "../data/OperatorsTable";
 import type { RequestsTable } from "../data/RequestsTable";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311OrderExecutionLambdaProps {
   envName: Nyc311Environment;
@@ -28,29 +24,15 @@ export interface Nyc311OrderExecutionLambdaProps {
  * Least-privilege: Orders + Operators read/write, Requests read-only
  * (Dispatch's live processing-time re-estimate) — no Query anywhere.
  */
-export class Nyc311OrderExecutionLambda extends NodejsFunction {
+export class Nyc311OrderExecutionLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311OrderExecutionLambdaProps) {
-    const functionName = `Nyc311OrderExecution-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "order-processing", "orderExecutionController.ts"),
+      envName: props.envName,
+      name: "Nyc311OrderExecution",
+      entry: ["controller", "order-processing", "orderExecutionController.ts"],
       handler: "orderExecutionController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
         OPERATORS_TABLE_NAME: props.operatorsTable.tableName,

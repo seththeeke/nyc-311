@@ -1,17 +1,13 @@
-import * as path from "node:path";
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Duration } from "aws-cdk-lib";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { OrdersTable } from "../data/OrdersTable";
 import type { RequestsTable } from "../data/RequestsTable";
 import type { WebhookSubscriptionsTable } from "../data/WebhookSubscriptionsTable";
 import type { Nyc311WebhookDeliveryQueue } from "./Nyc311WebhookDeliveryQueue";
 import type { Nyc311WebhookDispatchQueue } from "./Nyc311WebhookDispatchQueue";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "./Nyc311Function";
 
 export interface Nyc311WebhookDispatchLambdaProps {
   envName: Nyc311Environment;
@@ -31,29 +27,15 @@ const BATCH_SIZE = 10;
  * (`13-customer-simulation.md` §3 Flow A). Entry point is
  * `backend/controller/webhook/dispatchWebhookEventController.ts`.
  */
-export class Nyc311WebhookDispatchLambda extends NodejsFunction {
+export class Nyc311WebhookDispatchLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311WebhookDispatchLambdaProps) {
-    const functionName = `Nyc311WebhookDispatch-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "webhook", "dispatchWebhookEventController.ts"),
+      envName: props.envName,
+      name: "Nyc311WebhookDispatch",
+      entry: ["controller", "webhook", "dispatchWebhookEventController.ts"],
       handler: "dispatchWebhookEventController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(30),
       memorySize: 256,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         ORDERS_TABLE_NAME: props.ordersTable.tableName,
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
