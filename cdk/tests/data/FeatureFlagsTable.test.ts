@@ -1,5 +1,6 @@
 import { App, Stack } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { describe, expect, it } from "vitest";
 import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
 
@@ -29,6 +30,26 @@ describe("FeatureFlagsTable", () => {
   it("suffixes the physical table name by environment", () => {
     synthesize("TEST").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Test" });
     synthesize("PROD").hasResourceProperties("AWS::DynamoDB::GlobalTable", { TableName: "FeatureFlags-Prod" });
+  });
+});
+
+describe("grantFlagRead (#202)", () => {
+  it("grants dynamodb:GetItem on this table's ARN and nothing else", () => {
+    const app = new App();
+    const stack = new Stack(app, "TestStack", { env: { region: "us-east-1" } });
+    const table = new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName: "TEST" });
+    const role = new Role(stack, "CallerRole", { assumedBy: new ServicePrincipal("lambda.amazonaws.com") });
+    table.grantFlagRead(role);
+    const template = Template.fromStack(stack);
+
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    expect(policies).toHaveLength(1);
+    const statements = (policies[0]?.Properties as { PolicyDocument: { Statement: Record<string, unknown>[] } }).PolicyDocument.Statement;
+    expect(statements).toHaveLength(1);
+    expect(statements[0]?.["Action"]).toBe("dynamodb:GetItem");
+    expect(statements[0]?.["Effect"]).toBe("Allow");
+    expect(JSON.stringify(statements[0]?.["Resource"])).toContain("FeatureFlagsTable");
+    expect(JSON.stringify(statements[0]?.["Resource"])).not.toContain("/index/");
   });
 });
 

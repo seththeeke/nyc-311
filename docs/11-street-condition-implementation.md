@@ -270,8 +270,12 @@ separate calls. That's deliberate for this pass. Each evaluation logs
 `{ flag_key, treatment, reason, flag_version, context }`.
 
 The in-process API is
-`getTreatment(flagKey, context, { fallback })`. A missing flag returns
-`fallback` and logs a WARN.
+`getTreatment(flagKey, context, { fallback, treatments? })`. It never
+throws (#202): a missing flag, a failed or malformed read, or a treatment
+outside `treatments` returns `fallback`. Every call logs one
+`FeatureFlagRead` line (outcome, reason, `durationMs`), which
+`cdk/lambda/FeatureFlagReadMetricFilters.ts` turns into metrics. A calling
+Lambda gets `FeatureFlagsTable.grantFlagRead()` (`GetItem` only).
 
 ### 4.4 Where it lives
 
