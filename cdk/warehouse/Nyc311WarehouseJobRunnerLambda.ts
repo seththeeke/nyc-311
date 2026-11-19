@@ -1,16 +1,12 @@
-import * as path from "node:path";
-import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Duration, Stack } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { WarehouseJobRunsTable } from "../data/WarehouseJobRunsTable";
 import type { Nyc311WarehouseBucket } from "./Nyc311WarehouseBucket";
 import type { Nyc311WarehouseCatalog } from "./Nyc311WarehouseCatalog";
 import type { Nyc311AnalyticsWorkgroup } from "./Nyc311AnalyticsWorkgroup";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "../lambda/Nyc311Function";
 
 export interface Nyc311WarehouseJobRunnerLambdaProps {
   envName: Nyc311Environment;
@@ -29,32 +25,16 @@ export interface Nyc311WarehouseJobRunnerLambdaProps {
  * Athena on the one workgroup, read-only `glue:Get*`, S3 read on
  * `data/*`/`job-definitions/*`, r/w on `job-results/*`/`athena-results/*`.
  */
-export class Nyc311WarehouseJobRunnerLambda extends NodejsFunction {
+export class Nyc311WarehouseJobRunnerLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311WarehouseJobRunnerLambdaProps) {
-    const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311WarehouseJobRunner-${suffix}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-      /* DESTROY so a failed first-deploy rollback cleans it up rather than orphaning the name — see Nyc311OrderSchedulingLambda. */
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "analytics", "runWarehouseJobController.ts"),
+      envName: props.envName,
+      name: "Nyc311WarehouseJobRunner",
+      entry: ["controller", "analytics", "runWarehouseJobController.ts"],
       handler: "runWarehouseJobController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       /* Polls Athena up to 120s (QUERY_MAX_WAIT_MS); 300s covers that plus the DynamoDB/S3 reads and writes. */
       timeout: Duration.seconds(300),
       memorySize: 256,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         JOB_RESULTS_BUCKET: props.warehouseBucket.bucketName,
         WAREHOUSE_DATABASE_NAME: props.warehouseCatalog.databaseName,

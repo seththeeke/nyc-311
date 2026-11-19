@@ -1,14 +1,10 @@
-import * as path from "node:path";
-import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
+import { Duration, Stack } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
 import type { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
 import type { Nyc311WarehouseCatalog } from "./Nyc311WarehouseCatalog";
-import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
+import type { Nyc311Environment } from "../stack/Nyc311Stack";
+import { Nyc311Function } from "../lambda/Nyc311Function";
 
 export interface Nyc311DataApiLambdaProps {
   envName: Nyc311Environment;
@@ -22,29 +18,15 @@ export interface Nyc311DataApiLambdaProps {
  * `backend/controller/web-api/data/dataApiRouter.ts`. Read-only: Glue
  * catalog reads and a BatchGetItem on the live metrics table.
  */
-export class Nyc311DataApiLambda extends NodejsFunction {
+export class Nyc311DataApiLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311DataApiLambdaProps) {
-    const functionName = `Nyc311DataApi-${ENV_NAME_SUFFIX[props.envName]}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "data", "dataApiRouter.ts"),
+      envName: props.envName,
+      name: "Nyc311DataApi",
+      entry: ["controller", "web-api", "data", "dataApiRouter.ts"],
       handler: "dataApiRouter",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(10),
       memorySize: 256,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         WAREHOUSE_DATABASE_NAME: props.warehouseCatalog.databaseName,
         LIVE_WORKSPACE_METRICS_TABLE_NAME: props.liveWorkspaceMetricsTable.tableName,
