@@ -11,7 +11,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Sits in
   board Intake harmlessly.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
-- **#227 (11-15):** repair feedback. Refined. 9 contacts.
+- **#227 (11-15):** repair feedback. Refined. 10 contacts (+1 11-19 19:00:
+  self-service update/photo tool).
 - **#166 (11-06):** status visibility. Refined. 49+ contacts (+1 11-19
   conv: hazard-cleared alert). Depends #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
@@ -36,6 +37,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Feature-request dashboard / fast-track review / third-party routing: no.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail on an order: tracked under #166.
+- Self-service update/photo submission on an order: tracked under #227
+  (quality-feedback angle) if framed as feedback; #166 if framed as status.
 
 ## WBR and cost model
 
@@ -88,7 +91,9 @@ Shapes (rebuild from these):
 - Don't assert unmeasured facts in a ticket body; measure first.
 - Top-level posts <=75 words; aim for 65.
 - Check upstream intake before reading a demand drop as real.
-- `gh issue view`: `--json comments --jq`; one `gh` call per issue.
+- `gh issue view`: `--json comments --jq`; one `gh` call per issue. A
+  `for n in ...; do gh ...; done` loop is blocked ("Contains
+  simple_expansion") in this sandbox — issue the gh calls individually.
 - All gh comments show seththeeke; tell agents apart by marker.
 - Repeat contact from a covered persona still gets `track_contact`.
 - `list_contacts` cursor: can return an empty page with a non-null cursor
@@ -123,3 +128,8 @@ Shapes (rebuild from these):
 - 11-19 14:00 (conv): inbox empty; no new Rex/Seth comments on any open
   ticket (checked updatedAt across all); 0 new contacts (2 empty pages,
   stopped); board intake unchanged; 0/2 queries; no chat post.
+- 11-19 19:00 (conv): inbox empty; checked last comment on all 9 open
+  cpo-agent tickets individually, all end on my own marker, no new
+  Rex/Seth activity; 1 new contact (self-service update/photo tool)
+  tracked to #227 + comment; board intake unchanged (#181, #244 only,
+  both placed on purpose); 0/2 queries; no chat post.
