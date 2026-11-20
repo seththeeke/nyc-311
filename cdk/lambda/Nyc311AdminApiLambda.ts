@@ -1,11 +1,7 @@
-import * as path from "node:path";
-import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "./lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
+import { Duration, Stack } from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
+import { Nyc311Function } from "./Nyc311Function";
 import type { ContactsTable } from "../data/ContactsTable";
 import type { FeatureFlagsTable } from "../data/FeatureFlagsTable";
 import type { LiveWorkspaceMetricsTable } from "../data/LiveWorkspaceMetricsTable";
@@ -45,31 +41,17 @@ export interface Nyc311AdminApiLambdaProps {
  * the union of the per-route Lambdas it replaces, each grant still scoped
  * to its own table/prefix/ARN; nothing is broader than some route needed.
  */
-export class Nyc311AdminApiLambda extends NodejsFunction {
+export class Nyc311AdminApiLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311AdminApiLambdaProps) {
     const suffix = ENV_NAME_SUFFIX[props.envName];
-    const functionName = `Nyc311AdminApi-${suffix}`;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "admin", "adminApiRouter.ts"),
+      envName: props.envName,
+      name: "Nyc311AdminApi",
+      entry: ["controller", "web-api", "admin", "adminApiRouter.ts"],
       handler: "adminApiRouter",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       /* API Gateway answers at 30s; the ad-hoc query's own poll gives up at 20s. */
       timeout: Duration.seconds(30),
       memorySize: 512,
-      logGroup,
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         USERS_TABLE_NAME: props.usersTable.tableName,
         OPERATORS_TABLE_NAME: props.operatorsTable.tableName,
