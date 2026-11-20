@@ -18,6 +18,9 @@ export interface Nyc311OrderIngestionQueueProps {
  */
 const MAX_RECEIVE_COUNT = 3;
 
+/* DynamoDB stream `eventName`s (backend `RequestStreamRecordSchema`) this queue receives; tests/backendLiteralSync.test.ts checks them. */
+export const ORDER_INGESTION_EVENT_NAMES = ["INSERT"];
+
 /**
  * The standard SQS queue `Nyc311RequestEvaluationLambda` consumes from
  * (`3-order-ingestion.md` §3). Subscribed to {@link Nyc311RequestEventsTopic}
@@ -54,7 +57,7 @@ export class Nyc311OrderIngestionQueue extends Construct {
       new subscriptions.SqsSubscription(this.queue, {
         rawMessageDelivery: true,
         filterPolicy: {
-          event_name: SubscriptionFilter.stringFilter({ allowlist: ["INSERT"] }),
+          event_name: SubscriptionFilter.stringFilter({ allowlist: ORDER_INGESTION_EVENT_NAMES }),
         },
       })
     );
