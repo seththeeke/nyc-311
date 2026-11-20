@@ -8,12 +8,13 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#244 (11-18, bug):** scheduled_window ends before every job finishes
   (0/1,496 inside; median 33 min late). Fix: W=2.0 multiplier via env/SSM,
-  routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Rex's
-  11-18 comment is a feasibility note, not cto-approved label; still Intake.
+  routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Still
+  Intake 11-20 pm: no cto-approved label (Rex's comment is feasibility only).
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
-- **#166 (11-06):** status visibility. Refined. 53+ contacts (+4 11-20:
-  done-alert, late-repair alert, notification prefs). Depends #244.
+- **#166 (11-06):** status visibility. Refined. 54+ contacts (+5 11-20:
+  done-alert, late-repair alert, notification prefs, nighttime-alert).
+  Depends #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-20 evidence: 92/92 idle gaps since Nov 18 had orders waiting, 42.9 h
   idle in 2.6 d (+20%, ~$2.1k).
@@ -26,6 +27,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - Data export / research / crew performance / community map or
   crowdsourced data: NYC Open Data + public search.
+- Resident-contributed/crowd-sourced status updates during a repair: ours
+  are operator-tracked, not resident-reported; status visibility -> #166.
 - Hazard reporting / detection / apps / photo / hardware: report via 311
   (911 if danger); notify-on-fix asks go to #166.
 - Route-safety maps: out of scope; fold notify part into #166.
@@ -38,7 +41,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail on an order: tracked under #166.
 - Self-service update/photo on an order: #227 if feedback; #166 if status.
-- Notification preferences / late-repair alerts: track under #166.
+- Notification preferences / late-repair alerts / nighttime alerts: #166.
 
 ## WBR and cost model
 
@@ -50,9 +53,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   #244). WBR labor = SCHEDULED->RESOLVED; idle excluded (#213).
 - location_unresolved_rate 0.56-0.64.
 - Fleet: 21 -> 4 (Nov 18) -> 3 (Nov 19 16:00) -> 5 (Nov 20 04:00, +2,
-  backlog 109). Brogan sizes off 7-day median of RESOLVED orders, which
-  lags a growing backlog (flagged to him 11-20 in CPO_DAILY thread).
-  Snapshot (capacitySnapshotService.ts) does expose backlog + oldest.
+  backlog 109) -> Brogan recruiting +2 more 11-20 pm (daily median now
+  climbing 0.44->1.22->1.8 d; accepted outrunning resolved by 39-52/day
+  since Nov 17; backlog 146, zero idle trucks). Brogan now watching daily
+  trend, not just 7-day blend, after my 11-20 flag; ack'd, no reply needed.
 
 ## Research agenda
 
@@ -61,14 +65,15 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **Measuring: backlog-age-daily** (new 11-20): backlog eod 21 (11-17)
   -> 67 -> 116 -> 140; p90 age 45 h; resolved-day TTR p50 8.8 -> 25.7 ->
   39.8 h. Ages cluster at 2.3/8.3/16.4 h (bursty acceptance, #181).
-  Watch: does +2 ops and/or #170 bend it?
+  Watch: does +4 ops (5->7, per Brogan 11-20) and/or #170 bend it?
 - **Measuring: idle share** by day: ~50% at 21 ops -> 17.6% Nov 18,
   18.3% Nov 19, 15.9% Nov 20 partial. Remaining idle = hourly-tick wait.
 - **Measuring: drive share** 18-25% of paid time, 28-39 min/trip (#194).
   Work 92-110 min/job; cycle ~2.4 h/job.
 - **Idea:** re-complaint after resolve 4.1%/14d: revisit when #227 ships.
 - **Next:** after #213 ships, cost incl. idle; after #244, scheduled-
-  window-accuracy >=98%; after #170, idle-with-backlog -> ~0.
+  window-accuracy >=98%; after #170, idle-with-backlog -> ~0. Check next
+  audit whether Brogan's +2 (to 7) bends backlog growth.
 - **Disproved:** materials mix as lever; poller 44h floor; 40% searches
   fail; scheduled->dispatch queue (0 h).
 
@@ -120,8 +125,6 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-18 (audit + conv): #244 filed/approved; Rex #244 answered (2/2).
-- 11-19 07:00 (audit): #170, #227 evidence; 3 contacts; 3/10 queries.
 - 11-19 conv x4: 2 contacts tracked (#166, #227); no posts.
 - 11-20 07:00 (audit): no new ticket; #170 evidence (92/92 gaps w/
   backlog), #166 +4 contacts; 5 contacts (4 tracked, 1 declined); 3/10
@@ -132,3 +135,10 @@ Shapes (rebuild from these):
   0 new RECEIVED contacts (2 empty pages); #244 still Intake (no
   cto-approved label yet, Rex's comment was feasibility only); 0/2
   queries used. No post.
+- 11-20 13:00 (conv): Brogan ack'd backlog-median flag, now +2 more
+  (5->7) and watching daily trend (noted, no reply). No new Seth/Rex
+  ticket comments (166/170 show only my own 13:02 comments). 2 new
+  contacts: nighttime-alert tracked -> #166; crowd-sourced live-status
+  updates declined (resident-reported status, not our model). Board
+  unchanged (181/244 Intake, 244 still no cto-approved). 0/2 queries
+  used (no Rex/Seth question pending). No post (nothing new to ticket).
