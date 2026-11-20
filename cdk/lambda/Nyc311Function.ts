@@ -15,7 +15,8 @@ import { ENV_NAME_SUFFIX, type Nyc311Environment } from "../stack/Nyc311Stack";
 export const NYC311_BACKEND_ROOT = path.join(__dirname, "..", "..", "backend");
 
 export interface Nyc311FunctionProps {
-  envName: Nyc311Environment;
+  /** `null` only for a Lambda in a singleton stack (`Nyc311PipelineStack`): its name gets no env suffix. */
+  envName: Nyc311Environment | null;
   /** Without the env suffix, e.g. `Nyc311Poller`. */
   name: string;
   /** Path segments under backend/, e.g. `["controller", "ingestion", "nyc311PollerController.ts"]`. */
@@ -31,8 +32,7 @@ export interface Nyc311FunctionProps {
 }
 
 /**
- * A backend/ Lambda in `Nyc311Stack`, named and logged per environment
- * (#218). Fleet-wide settings live here once: Node 22, shared bundling,
+ * Every backend/ Lambda, named and logged per environment (#218). Fleet-wide settings live here once: Node 22, shared bundling,
  * a one-month log group that is destroyed with the stack (a retained
  * group with a fixed name blocks re-creating it), and tracing off by
  * default.
@@ -41,7 +41,7 @@ export class Nyc311Function extends NodejsFunction {
   public readonly functionLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: Nyc311FunctionProps) {
-    const functionName = `${props.name}-${ENV_NAME_SUFFIX[props.envName]}`;
+    const functionName = props.envName === null ? props.name : `${props.name}-${ENV_NAME_SUFFIX[props.envName]}`;
     const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
       logGroupName: `/aws/lambda/${functionName}`,
       retention: logs.RetentionDays.ONE_MONTH,

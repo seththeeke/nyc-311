@@ -32,6 +32,12 @@ describe("Nyc311Function", () => {
     synthesize({ envName: "PROD" }).template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Probe-Prod" });
   });
 
+  it("leaves the name unsuffixed for a singleton-stack Lambda (envName null)", () => {
+    const { template } = synthesize({ envName: null });
+    template.hasResourceProperties("AWS::Lambda::Function", { FunctionName: "Nyc311Probe" });
+    template.hasResource("AWS::Logs::LogGroup", { Properties: { LogGroupName: "/aws/lambda/Nyc311Probe" }, DeletionPolicy: "Delete" });
+  });
+
   it("owns a one-month log group that is destroyed with the stack", () => {
     const { template, fn } = synthesize();
     template.hasResource("AWS::Logs::LogGroup", {

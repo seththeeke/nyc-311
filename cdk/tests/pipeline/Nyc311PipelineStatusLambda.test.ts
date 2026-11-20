@@ -32,6 +32,10 @@ describe("Nyc311PipelineStatusLambda", () => {
     template.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/lambda/Nyc311PipelineStatus" });
   });
 
+  it("destroys its log group with the stack, like every other Lambda (#218)", () => {
+    synthesize().hasResource("AWS::Logs::LogGroup", { DeletionPolicy: "Delete", UpdateReplacePolicy: "Delete" });
+  });
+
   it("passes the pipeline name as PIPELINE_NAME", () => {
     const template = synthesize();
 

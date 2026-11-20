@@ -1,11 +1,7 @@
-import * as path from "node:path";
 import { Duration } from "aws-cdk-lib";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { NYC311_LAMBDA_BUNDLING } from "../lambda/lambdaBundling";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as logs from "aws-cdk-lib/aws-logs";
 import type { Construct } from "constructs";
+import { Nyc311Function } from "../lambda/Nyc311Function";
 
 /* Exported so Nyc311MonitoringApiLambda (a different stack) can reference this Lambda by name without a cross-stack construct reference. */
 export const PIPELINE_STATUS_FUNCTION_NAME = "Nyc311PipelineStatus";
@@ -24,32 +20,15 @@ export interface Nyc311PipelineStatusLambdaProps {
  * Read-only: grants exactly the three CodePipeline actions the service
  * layer calls, scoped to this pipeline's own ARN.
  */
-export class Nyc311PipelineStatusLambda extends NodejsFunction {
+export class Nyc311PipelineStatusLambda extends Nyc311Function {
   constructor(scope: Construct, id: string, props: Nyc311PipelineStatusLambdaProps) {
-    const functionName = PIPELINE_STATUS_FUNCTION_NAME;
-
-    const logGroup = new logs.LogGroup(scope, `${id}LogGroup`, {
-      logGroupName: `/aws/lambda/${functionName}`, /* matches Lambda's own default log group naming convention */
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    const backendRoot = path.join(__dirname, "..", "..", "backend");
-
     super(scope, id, {
-      functionName,
-      entry: path.join(backendRoot, "controller", "web-api", "getPipelineStatusController.ts"),
+      envName: null,
+      name: PIPELINE_STATUS_FUNCTION_NAME,
+      entry: ["controller", "web-api", "getPipelineStatusController.ts"],
       handler: "getPipelineStatusController",
-      runtime: Runtime.NODEJS_22_X,
-      bundling: NYC311_LAMBDA_BUNDLING,
       timeout: Duration.seconds(20), /* up to ~1 + 1 + 10*2 CodePipeline calls per invocation, mostly parallelized (service §3) */
       memorySize: 256,
-      logGroup,
-      /*
-       * backend/ is its own npm package (own lockfile/node_modules),
-       * separate from cdk/ — see Nyc311PollerLambda for the same note.
-       */
-      projectRoot: backendRoot,
-      depsLockFilePath: path.join(backendRoot, "package-lock.json"),
       environment: {
         PIPELINE_NAME: props.pipelineName,
       },
