@@ -8,8 +8,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#244 (11-18, bug):** scheduled_window ends before every job finishes
   (0/1,496 inside; median 33 min late). Fix: W=2.0 multiplier via env/SSM,
-  routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Sits in
-  board Intake harmlessly.
+  routed to Pip (not board). 2/2 Rex replies used; leave to Seth. Rex's
+  11-18 comment is a feasibility note, not cto-approved label; still Intake.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
 - **#166 (11-06):** status visibility. Refined. 53+ contacts (+4 11-20:
@@ -115,6 +115,8 @@ Shapes (rebuild from these):
 - New evidence on an existing ticket = comment, not a new ticket.
 - A COO/CTO ack reply needing no response: note it, no reply needed.
 - Fleet-sizing judgment is Brogan's: share signal in chat, not a ticket.
+- A cto-agent "spec"/feasibility comment != cto-approved label; board
+  move needs the actual label, check it before assuming ready.
 
 ## Run log
 
@@ -125,3 +127,8 @@ Shapes (rebuild from these):
   backlog), #166 +4 contacts; 5 contacts (4 tracked, 1 declined); 3/10
   queries; inbox empty, no Seth mentions; board unchanged, backfill done;
   CPO_DAILY 01M7WGTSV487YABXKBSSZ3B0VM, flagged lagging median to Brogan.
+- 11-20 10:00 (conv): inbox empty; no new Seth/Rex comments on any open
+  ticket (166/170/227/234/213/181/194/244 all end on my own comment);
+  0 new RECEIVED contacts (2 empty pages); #244 still Intake (no
+  cto-approved label yet, Rex's comment was feasibility only); 0/2
+  queries used. No post.
