@@ -14,6 +14,9 @@ export interface Nyc311OrderEvaluationQueueProps {
 /* Same retry budget as every other queue in this project (3-order-ingestion.md §2.1/§2.3). */
 const MAX_RECEIVE_COUNT = 3;
 
+/* backend `ORDER_EVENT_TYPES` values this queue receives; tests/backendLiteralSync.test.ts checks them. */
+export const ORDER_EVALUATION_EVENT_TYPES = ["ORDER_CREATED"];
+
 /**
  * The standard SQS queue the evaluation Lambda consumes from
  * (`5-order-evaluation.md` §3/§6) — subscribed to
@@ -51,7 +54,7 @@ export class Nyc311OrderEvaluationQueue extends Construct {
       new subscriptions.SqsSubscription(this.queue, {
         rawMessageDelivery: true,
         filterPolicy: {
-          event_type: SubscriptionFilter.stringFilter({ allowlist: ["ORDER_CREATED"] }),
+          event_type: SubscriptionFilter.stringFilter({ allowlist: ORDER_EVALUATION_EVENT_TYPES }),
         },
       })
     );

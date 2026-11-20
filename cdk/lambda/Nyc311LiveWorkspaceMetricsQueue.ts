@@ -14,6 +14,9 @@ export interface Nyc311LiveWorkspaceMetricsQueueProps {
 /* Same retry budget as every other queue in this project (3-order-ingestion.md §2.1/§2.3). */
 const MAX_RECEIVE_COUNT = 3;
 
+/* backend `ORDER_EVENT_TYPES` values this queue receives; tests/backendLiteralSync.test.ts checks them. */
+export const LIVE_WORKSPACE_METRICS_EVENT_TYPES = ["ORDER_ACCEPTED", "ORDER_RESOLVED"];
+
 /**
  * The standard SQS queue the live-workspace-metrics Lambda consumes from —
  * subscribed to {@link Nyc311OrderEventsTopic} with a filter policy that
@@ -50,7 +53,7 @@ export class Nyc311LiveWorkspaceMetricsQueue extends Construct {
       new subscriptions.SqsSubscription(this.queue, {
         rawMessageDelivery: true,
         filterPolicy: {
-          event_type: SubscriptionFilter.stringFilter({ allowlist: ["ORDER_ACCEPTED", "ORDER_RESOLVED"] }),
+          event_type: SubscriptionFilter.stringFilter({ allowlist: LIVE_WORKSPACE_METRICS_EVENT_TYPES }),
         },
       })
     );
