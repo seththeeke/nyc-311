@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline). **Ticket:** #165. **Card:** Requires CEO Intervention.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline); unblocked 2026-11-20 (AWS profile set up); verified in Test 2026-11-20. **Ticket:** #165. **Card:** Verified in Test Environment.
 
 ## 1. Ticket
 
@@ -131,6 +131,12 @@ can't reach the marketing page through the button or after 7 days.
 | 2026-11-18 | Test flag row | Created `MARKETING_STICKY_ENTRY` in Test at `T1` (v1, 21:00 UTC; no overrides, no allocations). `MARKETING_PAGE` in Test is `T1` (v1) | Test was 404 before this run |
 | 2026-11-18 | V1 in Test | **Not run yet.** I can't confirm `DeployTest` for `69b2374` (no AWS profile), and the `BrowserSmokeTestsTest` run for that merge ran before the Test row existed, so its sticky steps would have seen `C`. The run after the next pipeline execution counts as V1's first pass | — |
 | 2026-11-18 22:00 | Deploy check for `69b2374` | **Blocked.** The `nyc311-gen-purpose-dev` profile is still missing, `curl` to Test needs approval, and the merge commit has no GitHub statuses. I can't read `DeployTest` or `BrowserSmokeTestsTest`, so V1 can't be checked. Sent to CEO intervention for the permission. Flag: Test `T1`, Prod `C` | — |
+| 2026-11-20 | CEO answer | `nyc311-gen-purpose-dev` profile configured. Card moved back to Spec Created, then In Development | — |
+| 2026-11-20 | Deploy check | `codepipeline list-pipeline-executions`: the run on `69b2374` **Failed** (11-18 09:30 PT, before the Test row existed). Every later run **Succeeded**: `d4dc218`, `bfcf5fc`, `fcf13a3`, `14216d8`, `a74684f`. `69b2374` is an ancestor of `14216d8` (`git merge-base --is-ancestor`) | 5 green runs after the Test row |
+| 2026-11-20 | V1 in Test, pass 1 | Run `14216d8` (exec `fc3232d0…`, 11-19 21:02 PT): `Nyc311-Test.Deploy` ✅, `BrowserSmokeTestsTest` ✅. The step runs the whole suite (`npm run test:smoke`, `Nyc311BrowserSmokeTestStep.ts`), so `marketingEntry.spec.ts` steps 1–6 and `map.spec.ts` both passed | Test flag `T1` (v1) |
+| 2026-11-20 | V1 in Test, pass 2 | Run `a74684f` (exec `b9c62909…`, 11-20 08:03 PT): `Nyc311-Test.Deploy` ✅, `BrowserSmokeTestsTest` ✅ (08:10 PT), `IntegrationTestsTest` ✅ | Test flag `T1` (v1) |
+| 2026-11-20 | Guardrails in Test | `map.spec.ts` green in both runs. Non-`/` and `C` behaviour covered by V2 (unit tests, in the Leg 1 Operational Loop) | — |
+| 2026-11-20 | V3 / Prod state | `DeployProd` ✅ on `a74684f` (08:14 PT). `get_flag PROD MARKETING_STICKY_ENTRY`: default `C`, no allocations (v1) | Dial-up step 2 (Prod `C` at deploy) holds |
 
 ## 7. Outcome
 
@@ -139,12 +145,11 @@ Not yet.
 ## 8. Needs the CEO
 
 - ~~Create the two `MARKETING_STICKY_ENTRY` rows~~: done. Prod `C` (2026-11-15) and Test `T1` (2026-11-18).
-- #229 merged before the Test row existed. If the pipeline run for `69b2374` stopped at `BrowserSmokeTestsTest` (`marketingEntry.spec.ts` steps 3–6 would have seen `C`), release that change again in CodePipeline. The Test row is now `T1`, so the rerun should pass.
+- ~~Release the failed `69b2374` run~~: not needed. Later runs carried it and passed (2026-11-20).
 - Confirm that `MARKETING_PAGE` is meant to be `T1` in Prod. If not, set it
   back to `C`. This project works either way, but its Prod check needs
   `MARKETING_PAGE` at `T1`.
-- The AWS profile `nyc311-gen-purpose-dev` still isn't configured on the Mac
-  mini, so I can't read pipeline or CloudWatch state.
+- ~~Configure the AWS profile `nyc311-gen-purpose-dev`~~: done 2026-11-20.
 
 ## Appendix: decisions
 
