@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import { ResidentDao } from "../../dao/resident/residentDao";
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
+import { getResidentDao } from "../../dao/resident/getResidentDao";
+import type { ResidentDao } from "../../dao/resident/residentDao";
 import { logInfo } from "../../logger";
 import { ValidationError } from "../../models/errors";
 import {
@@ -14,11 +13,6 @@ import {
 } from "../../models/resident";
 import { ACTION_PROMPT_VERSION, buildActionPrompt } from "./actionPrompt";
 import { IDEA_PROMPT_VERSION, buildIdeaPrompt } from "./ideaPrompt";
-
-/* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getResidentDao(): ResidentDao {
-  return new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
-}
 
 export interface ResidentSyncDeps {
   residentDao?: ResidentDao;

@@ -1,9 +1,9 @@
-import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import { ResidentDao } from "../../dao/resident/residentDao";
-import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
-import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
+import { getResidentDao } from "../../dao/resident/getResidentDao";
+import type { ResidentDao } from "../../dao/resident/residentDao";
+import { getResidentIdeaDao } from "../../dao/residentIdea/getResidentIdeaDao";
+import type { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
+import { getWebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/getWebhookCustomerFacingOrderDao";
+import type { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import { logError, logInfo, logWarn } from "../../logger";
 import type { IdeaActionMessage } from "../../models/ideaActionMessage";
 import type { IdeaWorkerEvent } from "../../models/ideaWorkerEvent";
@@ -38,7 +38,7 @@ export interface IdeaWorkerDeps {
 export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps = {}): Promise<IdeaWorkerOutcome> {
   const random = deps.random ?? Math.random;
   const now = (deps.now ?? (() => new Date()))();
-  const residentDao = deps.residentDao ?? new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
+  const residentDao = deps.residentDao ?? getResidentDao();
   const context = { personaId: event.persona_id };
 
   const resident = await residentDao.getCurrent(event.persona_id);
@@ -53,11 +53,11 @@ export async function runIdeaWorker(event: IdeaWorkerEvent, deps: IdeaWorkerDeps
   }
   logInfo("IdeaWorkerThinking", { ...context, roll, activityLevel: resident.activity_level, force: event.force ?? false, version: resident.version });
 
-  const ideaDao = deps.ideaDao ?? new ResidentIdeaDao(createDocumentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
-  const orderDao = deps.orderDao ?? new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
+  const ideaDao = deps.ideaDao ?? getResidentIdeaDao();
+  const orderDao = deps.orderDao ?? getWebhookCustomerFacingOrderDao();
   const ideaContext = await gatherIdeaContext(resident, { ideaDao, orderDao, random });
   const offered = [...ideaContext.candidates, ...ideaContext.followedOrders];
-  const generate = deps.generate ?? ((request: GeneratorRequest) => generateIdea(request, new BedrockRuntimeClient({})));
+  const generate = deps.generate ?? ((request: GeneratorRequest) => generateIdea(request));
   const result = await generate({
     modelId: resident.model_id,
     systemPrompt: resident.idea_prompt,
