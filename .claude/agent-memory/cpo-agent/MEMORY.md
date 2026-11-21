@@ -12,9 +12,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   Intake 11-20 pm: no cto-approved label (Rex's comment is feasibility only).
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
-- **#166 (11-06):** status visibility. Refined. 54+ contacts (+5 11-20:
-  done-alert, late-repair alert, notification prefs, nighttime-alert).
-  Depends #244.
+- **#166 (11-06):** status visibility. Refined. 56+ contacts (+1 11-20 pm:
+  estimated-completion-date ask -> same cluster). Depends #244.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-20 evidence: 92/92 idle gaps since Nov 18 had orders waiting, 42.9 h
   idle in 2.6 d (+20%, ~$2.1k).
@@ -41,7 +40,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail on an order: tracked under #166.
 - Self-service update/photo on an order: #227 if feedback; #166 if status.
-- Notification preferences / late-repair alerts / nighttime alerts: #166.
+- Notification preferences / late-repair alerts / nighttime alerts /
+  estimated completion date: #166.
 
 ## WBR and cost model
 
@@ -53,10 +53,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   #244). WBR labor = SCHEDULED->RESOLVED; idle excluded (#213).
 - location_unresolved_rate 0.56-0.64.
 - Fleet: 21 -> 4 (Nov 18) -> 3 (Nov 19 16:00) -> 5 (Nov 20 04:00, +2,
-  backlog 109) -> Brogan recruiting +2 more 11-20 pm (daily median now
+  backlog 109) -> Brogan recruiting +2 more 11-20 pm (5->7; daily median
   climbing 0.44->1.22->1.8 d; accepted outrunning resolved by 39-52/day
-  since Nov 17; backlog 146, zero idle trucks). Brogan now watching daily
-  trend, not just 7-day blend, after my 11-20 flag; ack'd, no reply needed.
+  since Nov 17; backlog 146, zero idle trucks). Brogan watching daily
+  trend now, after my 11-20 flag; ack'd, no reply needed.
 
 ## Research agenda
 
@@ -125,20 +125,19 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-19 conv x4: 2 contacts tracked (#166, #227); no posts.
 - 11-20 07:00 (audit): no new ticket; #170 evidence (92/92 gaps w/
   backlog), #166 +4 contacts; 5 contacts (4 tracked, 1 declined); 3/10
   queries; inbox empty, no Seth mentions; board unchanged, backfill done;
   CPO_DAILY 01M7WGTSV487YABXKBSSZ3B0VM, flagged lagging median to Brogan.
-- 11-20 10:00 (conv): inbox empty; no new Seth/Rex comments on any open
-  ticket (166/170/227/234/213/181/194/244 all end on my own comment);
-  0 new RECEIVED contacts (2 empty pages); #244 still Intake (no
-  cto-approved label yet, Rex's comment was feasibility only); 0/2
-  queries used. No post.
-- 11-20 13:00 (conv): Brogan ack'd backlog-median flag, now +2 more
-  (5->7) and watching daily trend (noted, no reply). No new Seth/Rex
-  ticket comments (166/170 show only my own 13:02 comments). 2 new
-  contacts: nighttime-alert tracked -> #166; crowd-sourced live-status
-  updates declined (resident-reported status, not our model). Board
-  unchanged (181/244 Intake, 244 still no cto-approved). 0/2 queries
-  used (no Rex/Seth question pending). No post (nothing new to ticket).
+- 11-20 10:00 (conv): inbox empty; no new Seth/Rex comments; 0 new
+  contacts; #244 still Intake (no cto-approved); 0/2 queries. No post.
+- 11-20 13:00 (conv): Brogan ack'd backlog-median flag, +2 more (5->7),
+  watching daily trend. No new Seth/Rex ticket comments. 2 contacts:
+  nighttime-alert -> #166; crowd-sourced live-status declined. Board
+  unchanged. 0/2 queries. No post.
+- 11-20 19:00 (conv): inbox empty; no new Seth/Rex comments on any of
+  166/170/227/234/213/181/194/244/202 (#202 is Kid Kestrel/Seth build
+  thread, nothing addressed to me). 2 new contacts: estimated-completion-
+  date -> #166; real-time hazard detection declined (point to 311/911).
+  Board unchanged (181/244 Intake, 244 still no cto-approved). 0/2
+  queries (nothing pending from Rex/Seth). No post.
