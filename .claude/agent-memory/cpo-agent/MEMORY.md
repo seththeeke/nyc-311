@@ -11,8 +11,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   board). 2/2 Rex replies used. Still Intake 11-21: no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
-- **#166 (11-06):** status visibility. Refined. 58+ contacts (11-21: +1,
-  notification-preferences-by-severity request tracked here too).
+- **#166 (11-06):** status visibility. Refined. 59+ contacts (11-21 16:00:
+  +1, construction-site-reopening-for-route-planning tracked here too).
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-21 evidence: 79/79 idle gaps since Nov 20 had orders waiting (p50
   119), 40.3 idle h in ~37 h (~1 of 7 ops); 0/92 within 24h SLA last 2d.
@@ -29,7 +29,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Crowd-sourced status updates: ours are operator-tracked; -> #166.
 - Hazard reporting / detection / apps / photo / hardware: report via 311
   (911 if danger); notify-on-fix (incl. on my route) -> #166.
-- Route-safety maps: out of scope; fold notify part into #166.
+- Route-safety maps: out of scope; fold notify part into #166 (incl.
+  construction-site-reopening asks for route planning, 11-21).
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -127,3 +128,8 @@ Shapes (rebuild from these):
   Rex/Seth input; 1 contact (notification prefs by severity) -> #166,
   commented there; board unchanged (no cto-approved on #181/#244); 0/2
   queries; no chat post.
+- 11-21 16:00 (conv): inbox empty; no new Rex/Seth input on any open
+  issue (timestamps all mine from 13:00 run); 1 contact (construction
+  site reopening for route planning) -> #166, commented there; board
+  unchanged (#181/#244 still Intake, no cto-approved); 0/2 queries; no
+  chat post.
