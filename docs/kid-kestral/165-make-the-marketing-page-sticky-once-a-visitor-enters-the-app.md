@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline); unblocked 2026-11-20 (AWS profile set up); verified in Test 2026-11-20. **Ticket:** #165. **Card:** Verified in Test Environment.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline); unblocked 2026-11-20 (AWS profile set up); verified in Test 2026-11-20; Prod flag at 100% `T1` 2026-11-21 10:00 UTC. **Ticket:** #165. **Card:** Verified in Test Environment.
 
 ## 1. Ticket
 
@@ -137,6 +137,9 @@ can't reach the marketing page through the button or after 7 days.
 | 2026-11-20 | V1 in Test, pass 2 | Run `a74684f` (exec `b9c62909…`, 11-20 08:03 PT): `Nyc311-Test.Deploy` ✅, `BrowserSmokeTestsTest` ✅ (08:10 PT), `IntegrationTestsTest` ✅ | Test flag `T1` (v1) |
 | 2026-11-20 | Guardrails in Test | `map.spec.ts` green in both runs. Non-`/` and `C` behaviour covered by V2 (unit tests, in the Leg 1 Operational Loop) | — |
 | 2026-11-20 | V3 / Prod state | `DeployProd` ✅ on `a74684f` (08:14 PT). `get_flag PROD MARKETING_STICKY_ENTRY`: default `C`, no allocations (v1) | Dial-up step 2 (Prod `C` at deploy) holds |
+| 2026-11-21 10:00 UTC | Guardrails before the flip | Latest pipeline run, on `f4caae7` (contains `69b2374`, checked with `merge-base --is-ancestor`): `BrowserSmokeTestsTest` ✅ (11-20 21:09 PT), `IntegrationTestsTest` ✅, `Nyc311-Prod.Deploy` ✅, `IntegrationTestsProd` ✅ (21:12 PT). `MARKETING_PAGE` Prod: default `T1` (v6) | All green |
+| 2026-11-21 10:00 UTC | **Dial-up step 3: Prod 100% `T1`** | `update_flag PROD MARKETING_STICKY_ENTRY` allocations `[T1 100%]` → v2. V3: `get_flag` now returns allocation `T1` 100% | Allocation 100% `T1` |
+| 2026-11-21 10:01 UTC | V1 right after the flip | `marketingEntry.spec.ts` against **Test**: 3/3 tests (steps 1–6) ✅ in 14.3 s. **Not run against Prod:** `SMOKE_BASE_URL=https://boroughsim.com` needs approval in a headless run, so it was denied. No guardrail has been seen past its threshold, so this isn't an abort. Asked the CEO (ticket) for an allowlist entry or a manual run before the 24 h check | Test 3/3. Prod not run |
 
 ## 7. Outcome
 
@@ -150,6 +153,10 @@ Not yet.
   back to `C`. This project works either way, but its Prod check needs
   `MARKETING_PAGE` at `T1`.
 - ~~Configure the AWS profile `nyc311-gen-purpose-dev`~~: done 2026-11-20.
+- Let me run V1 against Prod: allow
+  `env SMOKE_BASE_URL=https://boroughsim.com npm run test:smoke -- marketingEntry`
+  in `.claude/agent-settings/gen-purpose-dev.json`, or run it yourself and
+  post the result on #165. Needed before the 24 h check (from 2026-11-22 10:00 UTC).
 
 ## Appendix: decisions
 
