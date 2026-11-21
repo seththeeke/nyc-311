@@ -1,9 +1,9 @@
-import { BedrockRuntimeClient, type Message } from "@aws-sdk/client-bedrock-runtime";
+import type { Message } from "@aws-sdk/client-bedrock-runtime";
 import { z } from "zod";
-import { ResidentDao } from "../../dao/resident/residentDao";
-import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
+import { getResidentDao } from "../../dao/resident/getResidentDao";
+import type { ResidentDao } from "../../dao/resident/residentDao";
+import { getResidentIdeaDao } from "../../dao/residentIdea/getResidentIdeaDao";
+import type { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
 import { logInfo, logWarn } from "../../logger";
 import { TerminalError } from "../../models/errors";
 import type { IdeaActionMessage } from "../../models/ideaActionMessage";
@@ -145,9 +145,9 @@ function nextResolution(previous: IdeaResolution, step: IdeaStep, resident: Resi
 export async function runIdeaActions(message: IdeaActionMessage, deps: IdeaActionDeps = {}): Promise<IdeaActionOutcome> {
   const now = deps.now ?? (() => new Date());
   const context = { personaId: message.persona_id, ideaId: message.idea_id };
-  const residentDao = deps.residentDao ?? new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
-  const ideaDao = deps.ideaDao ?? new ResidentIdeaDao(createDocumentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
-  const takeTurn = deps.takeTurn ?? ((request: ModelTurnRequest) => takeModelTurn(request, new BedrockRuntimeClient({})));
+  const residentDao = deps.residentDao ?? getResidentDao();
+  const ideaDao = deps.ideaDao ?? getResidentIdeaDao();
+  const takeTurn = deps.takeTurn ?? ((request: ModelTurnRequest) => takeModelTurn(request));
   const call = deps.call ?? ((request: PublicApiRequest) => callPublicApi(request));
 
   const resident = await residentDao.getCurrent(message.persona_id);

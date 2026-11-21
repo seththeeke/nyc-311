@@ -1,7 +1,7 @@
-import { createDocumentClient } from "../../dynamoClient";
 import { requireEnv } from "../../env";
 import { logInfo, logWarn } from "../../logger";
-import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
+import { getWebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/getWebhookCustomerFacingOrderDao";
+import type { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import {
   BOROUGHSIM_ORDER_ACCEPTED,
   BOROUGHSIM_ORDER_RESOLVED,
@@ -13,11 +13,6 @@ import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFac
 import { newPickKey } from "../idea/ulid";
 import { SigningSecretStore } from "./signingSecretStore";
 import { WEBHOOK_ID_HEADER, verifyWebhook } from "./webhookSignature";
-
-/* Constructed lazily (CLAUDE.md §5.2) — never a module-scope singleton. */
-function getWebhookCustomerFacingOrderDao(): WebhookCustomerFacingOrderDao {
-  return new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
-}
 
 export interface WebhookReceiverDeps {
   webhookCustomerFacingOrderDao?: WebhookCustomerFacingOrderDao;

@@ -1,9 +1,10 @@
 import { decodeCursor } from "../../dao/cursor";
-import { ResidentDao } from "../../dao/resident/residentDao";
-import { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
-import { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
-import { createDocumentClient } from "../../dynamoClient";
-import { requireEnv } from "../../env";
+import { getResidentDao } from "../../dao/resident/getResidentDao";
+import type { ResidentDao } from "../../dao/resident/residentDao";
+import { getResidentIdeaDao } from "../../dao/residentIdea/getResidentIdeaDao";
+import type { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
+import { getWebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/getWebhookCustomerFacingOrderDao";
+import type { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import { logInfo } from "../../logger";
 import { NotFoundError, ValidationError } from "../../models/errors";
 import type { ResidentCurrent } from "../../models/resident";
@@ -18,17 +19,6 @@ export interface ResidentReadDeps {
   residentDao?: ResidentDao;
   ideaDao?: ResidentIdeaDao;
   orderDao?: WebhookCustomerFacingOrderDao;
-}
-
-/* Constructed lazily (CLAUDE.md §5.2) — never module-scope singletons. */
-function residentDaoOf(deps: ResidentReadDeps): ResidentDao {
-  return deps.residentDao ?? new ResidentDao(createDocumentClient(), requireEnv("RESIDENTS_TABLE_NAME"));
-}
-function ideaDaoOf(deps: ResidentReadDeps): ResidentIdeaDao {
-  return deps.ideaDao ?? new ResidentIdeaDao(createDocumentClient(), requireEnv("RESIDENT_IDEAS_TABLE_NAME"), requireEnv("RESIDENTS_TABLE_NAME"));
-}
-function orderDaoOf(deps: ResidentReadDeps): WebhookCustomerFacingOrderDao {
-  return deps.orderDao ?? new WebhookCustomerFacingOrderDao(createDocumentClient(), requireEnv("CUSTOMER_ORDERS_TABLE_NAME"));
 }
 
 /** `limit` from the query string: default 20, at most 50 (§2 customer side, decision 9). */
@@ -103,20 +93,20 @@ export function toStepView(step: IdeaStep): IdeaStepView {
 
 async function withAnchors(ideas: ResidentIdea[], deps: ResidentReadDeps): Promise<ResidentIdeaView[]> {
   const orderIds = ideas.flatMap((idea) => (idea.order_id ? [idea.order_id] : []));
-  const orders = orderIds.length > 0 ? await orderDaoOf(deps).batchGetOrders(orderIds) : [];
+  const orders = orderIds.length > 0 ? await (deps.orderDao ?? getWebhookCustomerFacingOrderDao()).batchGetOrders(orderIds) : [];
   const byId = new Map(orders.map((order) => [order.order_id, order]));
   return ideas.map((idea) => toIdeaView(idea, byId));
 }
 
 export async function listResidents(limit: number, cursor: string | undefined, deps: ResidentReadDeps = {}): Promise<Page<ResidentView>> {
-  const page = await residentDaoOf(deps).listCurrent(limit, decodeCursor(cursor));
+  const page = await (deps.residentDao ?? getResidentDao()).listCurrent(limit, decodeCursor(cursor));
   logInfo("ResidentsListed", { count: page.items.length, hasMore: page.lastKey !== null });
   return { items: page.items.map(toResidentView), nextCursor: page.lastKey };
 }
 
 /** @throws {@link NotFoundError} for an unknown resident. */
 export async function getResident(personaId: string, deps: ResidentReadDeps = {}): Promise<ResidentView> {
-  const resident = await residentDaoOf(deps).getCurrent(personaId);
+  const resident = await (deps.residentDao ?? getResidentDao()).getCurrent(personaId);
   if (!resident) throw new NotFoundError(`No resident ${personaId}`);
   return toResidentView(resident);
 }
@@ -132,7 +122,7 @@ export async function listIdeas(
   deps: ResidentReadDeps = {}
 ): Promise<Page<ResidentIdeaView>> {
   const startKey = decodeCursor(query.cursor);
-  const ideaDao = ideaDaoOf(deps);
+  const ideaDao = deps.ideaDao ?? getResidentIdeaDao();
   if (query.personaId && startKey && startKey.persona_id !== query.personaId) throw new ValidationError("Cursor belongs to another resident");
   const page = query.personaId ? await ideaDao.listForResident(query.personaId, query.limit, startKey) : await ideaDao.listFeed(query.limit, startKey);
   logInfo("IdeasListed", { personaId: query.personaId ?? null, count: page.items.length, hasMore: page.lastKey !== null });
@@ -145,7 +135,7 @@ export async function listIdeas(
  * @throws {@link NotFoundError} for an unknown idea.
  */
 export async function getIdea(personaId: string, ideaId: string, deps: ResidentReadDeps = {}): Promise<ResidentIdeaDetailView> {
-  const found = await ideaDaoOf(deps).getIdeaWithSteps(personaId, ideaId);
+  const found = await (deps.ideaDao ?? getResidentIdeaDao()).getIdeaWithSteps(personaId, ideaId);
   if (!found) throw new NotFoundError(`No idea ${ideaId} for resident ${personaId}`);
   const [view] = await withAnchors([found.idea], deps);
   logInfo("IdeaRead", { personaId, ideaId, stepCount: found.steps.length, resolution: found.idea.resolution.status });
