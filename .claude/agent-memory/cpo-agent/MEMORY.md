@@ -11,7 +11,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   board). 2/2 Rex replies used. Still Intake 11-21: no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
-- **#166 (11-06):** status visibility. Refined. 57+ contacts. Depends #244.
+- **#166 (11-06):** status visibility. Refined. 58+ contacts (11-21: +1,
+  notification-preferences-by-severity request tracked here too).
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-21 evidence: 79/79 idle gaps since Nov 20 had orders waiting (p50
   119), 40.3 idle h in ~37 h (~1 of 7 ops); 0/92 within 24h SLA last 2d.
@@ -35,7 +36,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Community discussion space: out of scope; point to #166 + #227.
 - Feature-request dashboard / fast-track review / third-party routing: no.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
-- Audit trail / notification prefs / late alerts / ETA date: #166.
+- Audit trail / notification prefs (incl. by type/severity) / late
+  alerts / ETA date: #166.
 - Self-service update/photo on an order: #227 if feedback; #166 if status.
 
 ## WBR and cost model
@@ -121,3 +123,7 @@ Shapes (rebuild from these):
   (1 -> #166, 1 declined); 5/10 queries; inbox empty, no Seth mentions;
   board unchanged; CPO_DAILY 01M7Z38X0EHSFH0BNYP520B91B (flagged intake
   stall to Brogan in thread).
+- 11-21 13:00 (conv): inbox empty; checked all open tagged issues, no new
+  Rex/Seth input; 1 contact (notification prefs by severity) -> #166,
+  commented there; board unchanged (no cto-approved on #181/#244); 0/2
+  queries; no chat post.
