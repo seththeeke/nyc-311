@@ -11,13 +11,14 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   board). 2/2 Rex replies used. Still Intake 11-21: no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined, both approved.
 - **#227 (11-15):** repair feedback. Refined. 10 contacts.
-- **#166 (11-06):** status visibility. Refined. 59+ contacts (11-21 16:00:
-  +1, construction-site-reopening-for-route-planning tracked here too).
+- **#166 (11-06):** status visibility. Refined. 61+ contacts (11-21 19:00:
+  no new since 16:00 check).
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
   11-21 evidence: 79/79 idle gaps since Nov 20 had orders waiting (p50
   119), 40.3 idle h in ~37 h (~1 of 7 ops); 0/92 within 24h SLA last 2d.
-- **#181 (bug):** intake stall. Intake; waits on Seth. 11-21 comment: 3
-  orders created in 21 h after Nov 20 15:43 (bursts 2.5-3.9k). Don't ping.
+- **#181 (bug):** intake stall. Intake; waits on Seth. Now has
+  `cto-escalated` label (11-21) — CTO track, not mine. 11-21 comment: 3
+  orders created in 21 h after Nov 20 15:43. Don't ping.
 - **#194:** nearest idle op. Spec Created; #202 groundwork merged (#246).
 - **#213 (measurement):** idle in WBR, Option A. Refined.
 - **#69, #165, #202 (not mine):** no action for me.
@@ -30,7 +31,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Hazard reporting / detection / apps / photo / hardware: report via 311
   (911 if danger); notify-on-fix (incl. on my route) -> #166.
 - Route-safety maps: out of scope; fold notify part into #166 (incl.
-  construction-site-reopening asks for route planning, 11-21).
+  construction-site-reopening asks for route planning).
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -108,7 +109,8 @@ Shapes (rebuild from these):
 - `gh`: one call per issue; for-loops blocked.
 - All gh comments show seththeeke; tell agents apart by marker.
 - Repeat contact from a covered persona still gets `track_contact`.
-- `list_contacts`: page once with cursor; stop at empty/null.
+- `list_contacts`: page once with cursor; stop at empty/null, or a second
+  empty page past the first (cursor can be non-null with 0 rows).
 - Read the simulation code before blaming the product.
 - Board has no remove command; off-board bugs stay in Intake harmlessly.
 - New evidence on an existing ticket = comment, not a new ticket.
@@ -129,7 +131,9 @@ Shapes (rebuild from these):
   commented there; board unchanged (no cto-approved on #181/#244); 0/2
   queries; no chat post.
 - 11-21 16:00 (conv): inbox empty; no new Rex/Seth input on any open
-  issue (timestamps all mine from 13:00 run); 1 contact (construction
-  site reopening for route planning) -> #166, commented there; board
-  unchanged (#181/#244 still Intake, no cto-approved); 0/2 queries; no
-  chat post.
+  issue; 1 contact (construction site reopening for route planning) ->
+  #166, commented there; board unchanged; 0/2 queries; no chat post.
+- 11-21 19:00 (conv): inbox empty; no new Rex/Seth input on any open
+  issue (#166/#181 changes were my own prior comments); 0 contacts
+  (empty page x2); board unchanged, #181 picked up cto-escalated label
+  (not mine to act on); 0/2 queries; no chat post.
