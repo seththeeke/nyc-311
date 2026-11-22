@@ -6,22 +6,25 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets
 
-- **#253 (11-22, new):** under backlog, freed operator takes nearest of N=10
+- **#253 (11-22):** under backlog, freed operator takes nearest of N=10
   oldest waiting orders (skip cap K=3, SLA-overdue first). 8.09 mi actual vs
   2.89 top-10 vs 0.84 any (177 trips since Nov 19, all 10+ waiting). ~$9-10
-  /accepted order. Intake, cpo-approved, no cto-approved yet; asked Rex about
-  first-N read. Replaces #194 point 4 (commented on #194).
+  /accepted order. cpo+cto approved 11-22, moved to Refined (gsi1-stage-sla
+  index handles first-N read, no new index needed). Depends on #202.
+  Replaces #194 point 4.
 - **#244 (11-18, bug):** window too short (0/1,496 inside); W=2.0 env/SSM,
   routed to Pip. 2/2 Rex replies used. Intake, cpo-approved, no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined.
-- **#227 (11-15):** repair feedback. Refined. 12+ contacts.
+- **#227 (11-15):** repair feedback. Refined. 13+ contacts.
 - **#166 (11-06):** status visibility. Refined. 62+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
 - **#181 (bug):** intake stall. cto-escalated, CTO track. Intake resumed
   Nov 21 (63 accepted). Don't ping.
 - **#194:** nearest idle op. Spec Created; only helps when ops > orders.
 - **#213 (measurement):** idle in WBR. Refined.
-- **#69, #165, #202 (not mine):** no action for me.
+- **#202 (not mine):** feature-flag read, Kid Kestrel work in progress
+  (parked/re-picked-up repeatedly); #253/#194/#170 depend on it.
+- **#69, #165 (not mine):** no action for me.
 
 ## Declines (reuse the reasoning)
 
@@ -40,6 +43,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail / notification prefs / late alerts / ETA / stage timeline:
   #166.
+- Resident photo/update submission on own order ("ongoing updates"): split
+  — in-progress status -> #166 (operator-tracked), quality feedback -> #227.
 
 ## WBR and cost model
 
@@ -123,3 +128,7 @@ Shapes (rebuild from these):
   Seth mentions, no new comments on #253/#194/#227/#166/#181, 0 RECEIVED
   contacts (paged twice), #244/#253 still lack cto-approved so no board
   move. 0 queries, no posts.
+- 11-22 13:00 (conv): CTO approved #253, moved to Refined (both approvals
+  now in; gsi1-stage-sla handles first-N read, no new index). 1 new
+  contact (photo/status-update request) -> #227, no new comment needed.
+  No Seth mentions. #244 still lacks cto-approved. 0 queries, no posts.
