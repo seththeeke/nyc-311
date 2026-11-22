@@ -25,15 +25,15 @@ export interface GeneratorRequest {
   featureRequestIds: string[];
 }
 
-const RecordIdeaInputSchema = z.object({
+export const RecordIdeaInputSchema = z.object({
   idea_type: z.enum(IDEA_TYPES),
   order_id: z.string().min(1),
   feature_request_id: z.string().min(1).optional(),
   text: z.string(),
 });
-const NothingToSayInputSchema = z.object({ reason: z.string().optional() });
+export const NothingToSayInputSchema = z.object({ reason: z.string().optional() });
 
-function toolConfig(orderIds: string[], featureRequestIds: string[]): ToolConfiguration {
+export function toolConfig(orderIds: string[], featureRequestIds: string[]): ToolConfiguration {
   return {
     tools: [
       {
