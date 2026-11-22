@@ -9,12 +9,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#253 (11-22, new):** under backlog, freed operator takes nearest of N=10
   oldest waiting orders (skip cap K=3, SLA-overdue first). 8.09 mi actual vs
   2.89 top-10 vs 0.84 any (177 trips since Nov 19, all 10+ waiting). ~$9-10
-  /accepted order. Intake, cpo-approved; asked Rex about first-N read.
-  Replaces #194 point 4 (commented on #194).
+  /accepted order. Intake, cpo-approved, no cto-approved yet; asked Rex about
+  first-N read. Replaces #194 point 4 (commented on #194).
 - **#244 (11-18, bug):** window too short (0/1,496 inside); W=2.0 env/SSM,
-  routed to Pip. 2/2 Rex replies used. Intake, no cto-approved.
+  routed to Pip. 2/2 Rex replies used. Intake, cpo-approved, no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined.
-- **#227 (11-15):** repair feedback. Refined. 12 contacts.
+- **#227 (11-15):** repair feedback. Refined. 12+ contacts.
 - **#166 (11-06):** status visibility. Refined. 62+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
 - **#181 (bug):** intake stall. cto-escalated, CTO track. Intake resumed
@@ -119,3 +119,7 @@ Shapes (rebuild from these):
   comments; 4 contacts (3 tracked, 1 declined); 4/10 queries; Brogan ack
   only in inbox; no Seth mentions; CPO_TICKET 01M81NRJ5H8VZ1BAKC6NVVWT34,
   CPO_DAILY 01M81NRR1022A201CN230QXFE9.
+- 11-22 10:00 (conv): nothing moved since the audit — empty inbox, no new
+  Seth mentions, no new comments on #253/#194/#227/#166/#181, 0 RECEIVED
+  contacts (paged twice), #244/#253 still lack cto-approved so no board
+  move. 0 queries, no posts.
