@@ -10,13 +10,26 @@ import { z } from "zod";
 export const SERVICE_REQUEST_STATUSES = ["RECEIVED", "ACCEPTED", "SCHEDULED", "IN_PROGRESS", "RESOLVED", "NOT_SERVICED"] as const;
 export const FEATURE_REQUEST_STATUSES = ["RECEIVED", "UNDER_REVIEW", "CLOSED"] as const;
 
+/*
+ * A known status, or one BoroughSim adds later: `string & {}` keeps the
+ * known values visible to the type checker without rejecting a new one,
+ * and the parsers below accept it too, since the API is additive-only.
+ */
+export type ServiceRequestStatus = (typeof SERVICE_REQUEST_STATUSES)[number] | (string & {});
+export type FeatureRequestStatus = (typeof FEATURE_REQUEST_STATUSES)[number] | (string & {});
+export const ServiceRequestStatusSchema: z.ZodType<ServiceRequestStatus> = z.union([z.enum(SERVICE_REQUEST_STATUSES), z.string().min(1)]);
+export const FeatureRequestStatusSchema: z.ZodType<FeatureRequestStatus> = z.union([z.enum(FEATURE_REQUEST_STATUSES), z.string().min(1)]);
+
+/* The one feature request status code branches on; `satisfies` makes a typo a compile error. */
+export const CLOSED_FEATURE_REQUEST_STATUS = "CLOSED" satisfies (typeof FEATURE_REQUEST_STATUSES)[number];
+
 export const ScheduledWindowSchema = z.object({ start: z.string().min(1), end: z.string().min(1) });
 export type ScheduledWindow = z.infer<typeof ScheduledWindowSchema>;
 
 export const ServiceRequestSchema = z
   .object({
     order_id: z.string().min(1),
-    status: z.string().min(1),
+    status: ServiceRequestStatusSchema,
     status_reason_description: z.string().nullable(),
     scheduled_window: ScheduledWindowSchema.nullable(),
     status_updated_at: z.string().min(1),
@@ -29,7 +42,7 @@ export const SearchRequestsResponseSchema = z.object({ items: z.array(ServiceReq
 export const FeatureRequestSchema = z
   .object({
     feature_request_id: z.string().min(1),
-    status: z.string().min(1),
+    status: FeatureRequestStatusSchema,
     status_reason_description: z.string().nullable(),
     title: z.string().min(1),
   })

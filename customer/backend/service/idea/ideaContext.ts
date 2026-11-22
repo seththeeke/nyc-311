@@ -1,9 +1,11 @@
 import type { ResidentIdeaDao } from "../../dao/residentIdea/residentIdeaDao";
 import type { WebhookCustomerFacingOrderDao } from "../../dao/webhookCustomerFacingOrder/webhookCustomerFacingOrderDao";
 import { logInfo } from "../../logger";
+import { CLOSED_FEATURE_REQUEST_STATUS } from "../../models/boroughSimPublicApi";
 import type { ResidentCurrent } from "../../models/resident";
 import type { ResidentFeatureRequestThread, ResidentIdea, ResidentOrderThread } from "../../models/residentIdea";
 import type { WebhookCustomerFacingOrder } from "../../models/webhookCustomerFacingOrder";
+import { humanStatus } from "../action/humanStatus";
 import { newPickKey } from "./ulid";
 
 /* How much the model is shown: a handful of fresh orders and recent history keeps the prompt small. */
@@ -48,7 +50,7 @@ export async function gatherIdeaContext(resident: ResidentCurrent, deps: IdeaCon
     deps.ideaDao.listFeatureRequestThreads(resident.persona_id),
   ]);
   const featureRequests = filed
-    .filter((thread) => thread.last_known_status !== "CLOSED")
+    .filter((thread) => thread.last_known_status !== CLOSED_FEATURE_REQUEST_STATUS)
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
     .slice(0, MAX_FEATURE_REQUESTS);
   const seen = new Set(threads.map((thread) => thread.order_id));
@@ -85,7 +87,7 @@ function describeOrder(order: WebhookCustomerFacingOrder, now: Date, thread?: Re
   const where = [order.address, order.borough].filter(Boolean).join(", ") || "address unknown";
   const state = order.status === "CLOSED" ? `marked repaired ${order.resolved_at ?? ""}`.trim() : "still open";
   const checked = thread?.last_known_status
-    ? `; when you last looked it up (${thread.last_checked_at?.slice(0, 10)}) BoroughSim said ${thread.last_known_status.toLowerCase().replace(/_/g, " ")}${thread.scheduled_window ? `, scheduled ${thread.scheduled_window.start}` : ""}`
+    ? `; when you last looked it up (${thread.last_checked_at?.slice(0, 10)}) BoroughSim said ${humanStatus(thread.last_known_status)}${thread.scheduled_window ? `, scheduled ${thread.scheduled_window.start}` : ""}`
     : "";
   return `- order ${order.order_id}: ${order.descriptor ?? "street problem"} at ${where}; accepted ${days} day(s) ago; ${state}${checked}`;
 }
@@ -97,7 +99,7 @@ function describeOutcome(idea: ResidentIdea): string {
   if (resolution.status === "IN_PROGRESS") return " (you are still working on it)";
   const said = resolution.summary ? ` You said: "${resolution.summary}"` : "";
   const later = resolution.follow_up ? ` You meant to check: ${resolution.follow_up}` : "";
-  return ` → ${resolution.status.toLowerCase().replace(/_/g, " ")}.${said}${later}`;
+  return ` → ${humanStatus(resolution.status)}.${said}${later}`;
 }
 
 /** The user turn: what is around the resident right now, in plain lines. */
@@ -119,7 +121,7 @@ export function describeContext(context: IdeaContext, now: Date): string {
       `Feature requests you filed that are still open:\n${context.featureRequests
         .map(
           (thread) =>
-            `- ${thread.feature_request_id}: "${thread.title}", filed ${thread.created_at.slice(0, 10)}; last seen ${thread.last_known_status.toLowerCase().replace(/_/g, " ")} on ${thread.last_checked_at.slice(0, 10)}${thread.last_known_status_reason ? ` (${thread.last_known_status_reason})` : ""}`
+            `- ${thread.feature_request_id}: "${thread.title}", filed ${thread.created_at.slice(0, 10)}; last seen ${humanStatus(thread.last_known_status)} on ${thread.last_checked_at.slice(0, 10)}${thread.last_known_status_reason ? ` (${thread.last_known_status_reason})` : ""}`
         )
         .join("\n")}`
     );
