@@ -36,9 +36,13 @@ export const FeatureRequestSchema = z
   .passthrough();
 export type FeatureRequest = z.infer<typeof FeatureRequestSchema>;
 
-/* The limits BoroughSim enforces on a new feature request; checked before calling so a bad input never reaches it. */
+/* The limits BoroughSim enforces on a new feature request; the tool spec tells the model the same numbers (#240). */
+export const FEATURE_REQUEST_TITLE_LENGTH = { min: 5, max: 120 } as const;
+export const FEATURE_REQUEST_DESCRIPTION_LENGTH = { min: 10, max: 2000 } as const;
+
+/* Checked before calling, so a bad input never reaches BoroughSim. */
 export const FeatureRequestDraftSchema = z.object({
-  title: z.string().trim().min(5).max(120),
-  description: z.string().trim().min(10).max(2000),
+  title: z.string().trim().min(FEATURE_REQUEST_TITLE_LENGTH.min).max(FEATURE_REQUEST_TITLE_LENGTH.max),
+  description: z.string().trim().min(FEATURE_REQUEST_DESCRIPTION_LENGTH.min).max(FEATURE_REQUEST_DESCRIPTION_LENGTH.max),
 });
 export type FeatureRequestDraft = z.infer<typeof FeatureRequestDraftSchema>;

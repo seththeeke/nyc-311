@@ -26,22 +26,27 @@ export const MAX_TOOL_CALLS = 5;
 export const MAX_TURNS = 8;
 export const FINISH_TOOL = "finish_idea";
 
-const FinishInputSchema = z.object({
-  resolution: z.enum(["SATISFIED", "UNSATISFIED", "GAVE_UP"]),
-  summary: z.string().trim().min(1).max(1000),
+/* The parser and the spec below share these, so the model is told what is checked (#240, tests/service/toolSpecContract.test.ts). */
+const FINISH_RESOLUTIONS = ["SATISFIED", "UNSATISFIED", "GAVE_UP"] as const satisfies readonly ResolutionStatus[];
+const MAX_SUMMARY_LENGTH = 1000;
+const MAX_FOLLOW_UP_LENGTH = 500;
+
+export const FinishInputSchema = z.object({
+  resolution: z.enum(FINISH_RESOLUTIONS),
+  summary: z.string().trim().min(1).max(MAX_SUMMARY_LENGTH),
   /* Models send null as often as they leave it out; both mean no follow-up (seen in Prod, 2026-10-31). */
-  follow_up: z.string().trim().max(500).nullable().optional(),
+  follow_up: z.string().trim().max(MAX_FOLLOW_UP_LENGTH).nullable().optional(),
 });
 
-const FINISH_TOOL_SPEC: ModelTool = {
+export const FINISH_TOOL_SPEC: ModelTool = {
   name: FINISH_TOOL,
   description: "You are done with this idea. Say how it went and, in your own voice, what you make of it.",
   inputSchema: {
     type: "object",
     properties: {
-      resolution: { type: "string", enum: ["SATISFIED", "UNSATISFIED", "GAVE_UP"], description: "How it went for you." },
-      summary: { type: "string", description: "A few sentences in your own voice." },
-      follow_up: { type: "string", description: "What you would check later, if anything." },
+      resolution: { type: "string", enum: [...FINISH_RESOLUTIONS], description: "How it went for you." },
+      summary: { type: "string", description: `A few sentences in your own voice, at most ${MAX_SUMMARY_LENGTH} characters.` },
+      follow_up: { type: "string", description: `What you would check later, if anything, at most ${MAX_FOLLOW_UP_LENGTH} characters.` },
     },
     required: ["resolution", "summary"],
   },

@@ -1,4 +1,10 @@
-import { FeatureRequestDraftSchema, FeatureRequestSchema, SearchRequestsResponseSchema } from "../../models/boroughSimPublicApi";
+import {
+  FEATURE_REQUEST_DESCRIPTION_LENGTH,
+  FEATURE_REQUEST_TITLE_LENGTH,
+  FeatureRequestDraftSchema,
+  FeatureRequestSchema,
+  SearchRequestsResponseSchema,
+} from "../../models/boroughSimPublicApi";
 import type { ActionType, ResidentCurrent } from "../../models/resident";
 import type { ResidentFeatureRequestThread, ResidentIdea, StepExecution, ThreadWrite } from "../../models/residentIdea";
 import type { PublicApiReply, PublicApiRequest } from "./publicApiClient";
@@ -142,8 +148,11 @@ const createFeatureRequest: ActionTool = {
   inputSchema: () => ({
     type: "object",
     properties: {
-      title: { type: "string", description: "A short title, 5 to 120 characters." },
-      description: { type: "string", description: "What you want and why, 10 to 2000 characters." },
+      title: { type: "string", description: `A short title, ${FEATURE_REQUEST_TITLE_LENGTH.min} to ${FEATURE_REQUEST_TITLE_LENGTH.max} characters.` },
+      description: {
+        type: "string",
+        description: `What you want and why, ${FEATURE_REQUEST_DESCRIPTION_LENGTH.min} to ${FEATURE_REQUEST_DESCRIPTION_LENGTH.max} characters.`,
+      },
     },
     required: ["title", "description"],
   }),
