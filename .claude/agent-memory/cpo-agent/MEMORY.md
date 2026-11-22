@@ -9,13 +9,15 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#253 (11-22):** under backlog, freed operator takes nearest of N=10
   oldest waiting orders (skip cap K=3, SLA-overdue first). 8.09 mi actual vs
   2.89 top-10 vs 0.84 any (177 trips since Nov 19, all 10+ waiting). ~$9-10
-  /accepted order. cpo+cto approved 11-22, moved to Refined (gsi1-stage-sla
-  index handles first-N read, no new index needed). Depends on #202.
-  Replaces #194 point 4.
+  /accepted order. cpo+cto approved 11-22, in Refined (gsi1-stage-sla
+  index handles first-N read, no new index needed). Rex reconfirmed 16:02
+  (size/risk small-medium, enforce SLA/skip-cap before nearest-of-N pick).
+  Depends on #202.
 - **#244 (11-18, bug):** window too short (0/1,496 inside); W=2.0 env/SSM,
   routed to Pip. 2/2 Rex replies used. Intake, cpo-approved, no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined.
-- **#227 (11-15):** repair feedback. Refined. 13+ contacts.
+- **#227 (11-15):** repair feedback. Refined. 14+ contacts (incl. Ginkgo
+  11-22, rating/feedback mechanism).
 - **#166 (11-06):** status visibility. Refined. 62+ contacts.
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
 - **#181 (bug):** intake stall. cto-escalated, CTO track. Intake resumed
@@ -56,8 +58,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - SLA: accepted+24h, all STANDARD; scheduler = FIFO by sla_deadline.
 - Drive minutes by distance (14d): <3 mi ~14.8, 3-6 17.0, 6-10 28.8, 10+
   50.5 (10-min floor + variance).
-- Fleet: 21 -> 3 (Nov 19) -> 7 (Nov 20) -> 9 (Nov 21 23:00, Brogan hired
-  ahead of burst).
+- Fleet: 21 -> 3 (Nov 19) -> 7 (Nov 20) -> 9 (Nov 21 23:00) -> 10 (Nov 22
+  16:00, Brogan +1). Backlog 140, median age 1.32d rising, 8/9 ops busy,
+  accepted(63)>resolved(35) today — Brogan flagged to Seth, no breach yet;
+  his call, not a ticket. Same pressure #253/#170 target once #202 lands.
 - Run time: "07:00" audit runs ~13:00 UTC; WBR job 07:00 UTC.
 
 ## Research agenda
@@ -111,7 +115,9 @@ Shapes (rebuild from these):
 - Board has no remove command; off-board bugs stay in Intake harmlessly.
 - New evidence on an existing ticket = comment; a distinct regime/change
   of a specced ticket = new ticket + cross-link comment (#253 vs #194).
-- A COO/CTO ack reply needing no response: note it, no reply needed.
+- A COO/CTO ack reply needing no response: note it, no reply needed —
+  but a brief thread ack is fine and doesn't count as a Rex reply (only
+  gh-issue comments do).
 - Fleet-sizing judgment is Brogan's: share signal in chat, not a ticket.
 - A cto-agent feasibility comment != cto-approved label; check the label.
 
@@ -124,11 +130,13 @@ Shapes (rebuild from these):
   comments; 4 contacts (3 tracked, 1 declined); 4/10 queries; Brogan ack
   only in inbox; no Seth mentions; CPO_TICKET 01M81NRJ5H8VZ1BAKC6NVVWT34,
   CPO_DAILY 01M81NRR1022A201CN230QXFE9.
-- 11-22 10:00 (conv): nothing moved since the audit — empty inbox, no new
-  Seth mentions, no new comments on #253/#194/#227/#166/#181, 0 RECEIVED
-  contacts (paged twice), #244/#253 still lack cto-approved so no board
-  move. 0 queries, no posts.
-- 11-22 13:00 (conv): CTO approved #253, moved to Refined (both approvals
-  now in; gsi1-stage-sla handles first-N read, no new index). 1 new
-  contact (photo/status-update request) -> #227, no new comment needed.
-  No Seth mentions. #244 still lacks cto-approved. 0 queries, no posts.
+- 11-22 10:00 (conv): nothing moved since the audit.
+- 11-22 13:00 (conv): CTO approved #253, moved to Refined. 1 new contact
+  (photo/status-update) -> #227. 0 queries, no posts.
+- 11-22 16:00 (conv): empty inbox, no new Seth mentions; only #253 had a
+  new comment (Rex reconfirming feasibility/risk, already Refined) —
+  replied once in chat thread (0/2 gh replies used). 1 new contact
+  (Ginkgo, repair-rating mechanism) -> #227. No board moves (#181
+  CTO-track, #244 no cto-approved). Noted Brogan's 16:01 fleet-10/backlog-
+  140/median-1.32d-rising capacity check — his call, not a ticket. 0/2
+  queries, no top-level post (one thread reply only).
