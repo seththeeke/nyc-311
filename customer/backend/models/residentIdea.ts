@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FeatureRequestStatusSchema, ServiceRequestStatusSchema, type FeatureRequestStatus, type ServiceRequestStatus } from "./boroughSimPublicApi";
 import { IDEA_TYPES } from "./resident";
 
 /*
@@ -128,7 +129,7 @@ export const ResidentOrderThreadSchema = z.object({
   first_idea_at: z.string().min(1),
   last_idea_at: z.string().min(1),
   /* What the resident last saw when they searched for this order (docs/16 §5.4); absent until they do. */
-  last_known_status: z.string().min(1).optional(),
+  last_known_status: ServiceRequestStatusSchema.optional(),
   scheduled_window: z.object({ start: z.string().min(1), end: z.string().min(1) }).nullable().optional(),
   last_checked_at: z.string().min(1).optional(),
 });
@@ -141,7 +142,7 @@ export const ResidentFeatureRequestThreadSchema = z.object({
   feature_request_id: z.string().min(1),
   title: z.string().min(1),
   filed_by_idea_id: z.string().min(1),
-  last_known_status: z.string().min(1),
+  last_known_status: FeatureRequestStatusSchema,
   last_known_status_reason: z.string().nullable(),
   last_checked_at: z.string().min(1),
   created_at: z.string().min(1),
@@ -150,9 +151,9 @@ export type ResidentFeatureRequestThread = z.infer<typeof ResidentFeatureRequest
 
 /* What a step changes in the resident's memory, written in the step's own transaction. */
 export type ThreadWrite =
-  | { kind: "ORDER_CHECKED"; order_id: string; status: string; scheduled_window: { start: string; end: string } | null; at: string }
-  | { kind: "FEATURE_REQUEST_FILED"; feature_request_id: string; title: string; idea_id: string; status: string; status_reason: string | null; at: string }
-  | { kind: "FEATURE_REQUEST_CHECKED"; feature_request_id: string; status: string; status_reason: string | null; at: string };
+  | { kind: "ORDER_CHECKED"; order_id: string; status: ServiceRequestStatus; scheduled_window: { start: string; end: string } | null; at: string }
+  | { kind: "FEATURE_REQUEST_FILED"; feature_request_id: string; title: string; idea_id: string; status: FeatureRequestStatus; status_reason: string | null; at: string }
+  | { kind: "FEATURE_REQUEST_CHECKED"; feature_request_id: string; status: FeatureRequestStatus; status_reason: string | null; at: string };
 
 export const IDEA_SK_PREFIX = "IDEA#";
 export const THREAD_SK_PREFIX = "ORDER#";

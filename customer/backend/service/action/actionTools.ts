@@ -7,6 +7,7 @@ import {
 } from "../../models/boroughSimPublicApi";
 import type { ActionType, ResidentCurrent } from "../../models/resident";
 import type { ResidentFeatureRequestThread, ResidentIdea, StepExecution, ThreadWrite } from "../../models/residentIdea";
+import { humanStatus } from "./humanStatus";
 import type { PublicApiReply, PublicApiRequest } from "./publicApiClient";
 
 /*
@@ -111,10 +112,6 @@ function rejected(context: ToolContext, summary: string): ToolOutcome {
     execution: { status: "FAILED", summary, request: null, response: null, error: summary, started_at: at, completed_at: at },
     threadWrites: [],
   };
-}
-
-function humanStatus(status: string): string {
-  return status.toLowerCase().replace(/_/g, " ");
 }
 
 const searchRequests: ActionTool = {
