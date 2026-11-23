@@ -52,7 +52,7 @@ export class Nyc311AppStage extends Stage {
       envName: props.envName,
       stackName: TEAM_CHAT_STACK_NAME_BY_ENV[props.envName],
     });
-    teamChatStack.addDependency(nyc311Stack);
+    teamChatStack.addStackDependency(nyc311Stack);
     this.chatApiUrlOutput = teamChatStack.chatApiUrlOutput;
   }
 }
