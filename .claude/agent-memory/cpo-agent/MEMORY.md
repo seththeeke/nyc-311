@@ -10,22 +10,20 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   oldest waiting orders (skip cap K=3, SLA-overdue first). 8.09 mi actual vs
   2.89 top-10 vs 0.84 any (177 trips since Nov 19, all 10+ waiting). ~$9-10
   /accepted order. cpo+cto approved 11-22, in Refined (gsi1-stage-sla
-  index handles first-N read, no new index needed). Rex reconfirmed 16:02
-  (size/risk small-medium, enforce SLA/skip-cap before nearest-of-N pick).
-  Depends on #202.
+  index handles first-N read, no new index needed). Depends on #202.
 - **#244 (11-18, bug):** window too short (0/1,496 inside); W=2.0 env/SSM,
   routed to Pip. 2/2 Rex replies used. Intake, cpo-approved, no cto-approved.
 - **#234 (11-16):** link duplicate reports. Refined.
-- **#227 (11-15):** repair feedback. Refined. 14+ contacts (incl. Ginkgo
-  11-22, rating/feedback mechanism).
-- **#166 (11-06):** status visibility. Refined. 62+ contacts.
+- **#227 (11-15):** repair feedback. Refined. 15+ contacts (incl. Sassafras
+  11-22, bundled map request's photo/feedback piece).
+- **#166 (11-06):** status visibility. Refined. 63+ contacts (incl.
+  Sassafras 11-22, bundled map request's real-time-update piece).
 - **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
-- **#181 (bug):** intake stall. cto-escalated, CTO track. Intake resumed
-  Nov 21 (63 accepted). Don't ping.
+- **#181 (bug):** intake stall. cto-escalated, CTO track. Don't ping.
 - **#194:** nearest idle op. Spec Created; only helps when ops > orders.
 - **#213 (measurement):** idle in WBR. Refined.
-- **#202 (not mine):** feature-flag read, Kid Kestrel work in progress
-  (parked/re-picked-up repeatedly); #253/#194/#170 depend on it.
+- **#202 (not mine):** feature-flag read, Kid Kestrel work in progress;
+  #253/#194/#170 depend on it.
 - **#69, #165 (not mine):** no action for me.
 
 ## Declines (reuse the reasoning)
@@ -45,8 +43,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail / notification prefs / late alerts / ETA / stage timeline:
   #166.
-- Resident photo/update submission on own order ("ongoing updates"): split
-  — in-progress status -> #166 (operator-tracked), quality feedback -> #227.
+- Resident photo/update submission on own order ("ongoing updates"), or a
+  bundled "interactive repair map" (real-time + photo + filtering): split
+  — in-progress status -> #166 (operator-tracked), photo/quality feedback
+  -> #227, map/filtering -> declined, out of scope.
 
 ## WBR and cost model
 
@@ -60,8 +60,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   50.5 (10-min floor + variance).
 - Fleet: 21 -> 3 (Nov 19) -> 7 (Nov 20) -> 9 (Nov 21 23:00) -> 10 (Nov 22
   16:00, Brogan +1). Backlog 140, median age 1.32d rising, 8/9 ops busy,
-  accepted(63)>resolved(35) today — Brogan flagged to Seth, no breach yet;
-  his call, not a ticket. Same pressure #253/#170 target once #202 lands.
+  accepted(63)>resolved(35) on 11-22 — Brogan flagged to Seth, no breach
+  yet; his call, not a ticket. Same pressure #253/#170 target once #202
+  lands.
 - Run time: "07:00" audit runs ~13:00 UTC; WBR job 07:00 UTC.
 
 ## Research agenda
@@ -123,20 +124,17 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-21 07:00 (audit): no new ticket; #170 + #181 comments; 2 contacts;
-  5/10 queries; CPO_DAILY 01M7Z38X0EHSFH0BNYP520B91B.
-- 11-21 13/16/19:00 (conv): 2 contacts -> #166; 0 queries; no posts.
 - 11-22 07:00 (audit): #253 filed, boarded, approved; #194/#227/#166
-  comments; 4 contacts (3 tracked, 1 declined); 4/10 queries; Brogan ack
-  only in inbox; no Seth mentions; CPO_TICKET 01M81NRJ5H8VZ1BAKC6NVVWT34,
-  CPO_DAILY 01M81NRR1022A201CN230QXFE9.
+  comments; 4 contacts (3 tracked, 1 declined); 4/10 queries; CPO_TICKET
+  01M81NRJ5H8VZ1BAKC6NVVWT34, CPO_DAILY 01M81NRR1022A201CN230QXFE9.
 - 11-22 10:00 (conv): nothing moved since the audit.
-- 11-22 13:00 (conv): CTO approved #253, moved to Refined. 1 new contact
-  (photo/status-update) -> #227. 0 queries, no posts.
-- 11-22 16:00 (conv): empty inbox, no new Seth mentions; only #253 had a
-  new comment (Rex reconfirming feasibility/risk, already Refined) —
-  replied once in chat thread (0/2 gh replies used). 1 new contact
-  (Ginkgo, repair-rating mechanism) -> #227. No board moves (#181
-  CTO-track, #244 no cto-approved). Noted Brogan's 16:01 fleet-10/backlog-
-  140/median-1.32d-rising capacity check — his call, not a ticket. 0/2
-  queries, no top-level post (one thread reply only).
+- 11-22 13:00 (conv): CTO approved #253, moved to Refined. 1 contact
+  (photo/status) -> #227. 0 queries, no posts.
+- 11-22 16:00 (conv): empty inbox; #253 Rex reconfirm (already Refined),
+  chat-thread ack only. 1 contact (repair-rating) -> #227. No board moves.
+  0/2 queries, no top-level post.
+- 11-22 19:00 (conv): empty inbox; no new Seth mentions; no new ticket
+  comments past 16:00's #253 (already answered). Intake unchanged (#181
+  CTO-track, #244 no cto-approved) — no board moves. 1 contact (Sassafras,
+  bundled map request) -> tracked #166, #227 and decline noted in text.
+  0/2 queries, no post (Chat post: none).
