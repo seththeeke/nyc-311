@@ -8,28 +8,37 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 - **#253 (11-22):** under backlog, freed op takes nearest of N=10 oldest
   waiting (skip cap K=3, SLA-overdue first). 8.09 mi actual vs 2.89 top-10.
-  ~$9-10/acc. Refined. Depends on #202.
+  ~$9-10/acc. Refined (cpo+cto approved). Depends on #202.
 - **#244 (11-18, bug):** window too short; W=2.0 env/SSM. 2/2 Rex replies
-  used. Intake, cpo-approved, no cto-approved.
-- **#234** dup linking, **#227** repair feedback (15+ contacts), **#166**
-  status visibility (65+ contacts): all Refined.
+  used. Intake, cpo-approved, no cto-approved. Agreed routing: straight to
+  Pip, not through board (bug fix, known cause, full spec) — left in
+  Intake, no remove command.
+- **#234** dup linking, **#227** repair feedback (17+ contacts), **#166**
+  status visibility (67+ contacts, now incl. "interactive dashboard"
+  bundles): all Refined.
 - **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
-- **#181 (bug):** intake stall. cto-escalated, CTO track. Don't ping.
-- **#213 (measurement):** idle in WBR. Refined.
+- **#181 (bug):** intake stall. cto-escalated, CTO track; agreed routing:
+  straight to Pip. Don't ping.
+- **#213 (measurement):** idle in WBR. Refined. Option A (idle_stats CTE,
+  flag-exempt) confirmed by Seth; watch first post-ship WBR vs
+  fleet-time-budget-daily within 2%.
 - **#69 (Rex's, I approved + metric block):** lat/lng location fallback.
-  Refined. 11-23 refresh: 1,262 loc-rejects/14d, 784 (62%) lat/lng, 0 with
-  nothing; fleet idle now ~18% so +56/day ≈ +5 ops — Brogan needs flip date.
+  Refined. 11-23 refresh posted: 1,262 loc-rejects/14d, 784 (62%) lat/lng;
+  fleet idle now ~18%, +56/day ≈ +5 ops — Brogan needs flip date before
+  Prod 100%.
 - **#202 (not mine):** backend flag read; #253/#194/#170/#69 depend on it.
+  11-23: CEO unblocked gen-purpose-dev AWS profile; card moved to Spec
+  Created; a later scheduled run parked with exit 1, nothing merged.
 
 ## Declines (reuse the reasoning)
 
 - Data export / research APIs / analytics dashboards / crew performance /
   community map: NYC Open Data + public search.
 - Crowd-sourced status updates: ours are operator-tracked; -> #166.
-- Hazard reporting / detection / apps / photo / hardware: report via 311
-  (911 if danger); notify-on-fix -> #166. "Report directly" + feedback:
-  track feedback part -> #227, say reports go through 311.
-- Route-safety maps: out of scope; notify part -> #166.
+- Hazard reporting / detection / apps / photo / hardware / route-safety /
+  navigation alerts along a route: report via 311 (911 if danger);
+  notify-on-fix -> #166 only when it's about *their own* report's status,
+  not live route hazards.
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -37,10 +46,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Feature-request dashboard / fast-track review / third-party routing: no.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
 - Audit trail / accountability / notification prefs / late alerts / ETA /
-  stage timeline / live repair dashboard: track -> #166 (+311 for new
-  reports, #227 for feedback).
-- Bundled "interactive repair map": split — status -> #166, photo/feedback
-  -> #227, map/filtering declined.
+  stage timeline / live repair dashboard / "interactive dashboard" with
+  status+anomaly-report bundled: status -> #166, photo/feedback -> #227,
+  map/filtering of repairs citywide declined as out of scope.
 
 ## WBR and cost model
 
@@ -67,9 +75,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **Measuring: fleet time budget:** Nov 18-23 idle 17-20%, transit 17-25%,
   work 58-65%. After #253 transit target <=12%.
 - **Measuring: SLA attainment:** 0/250 within 24h Nov 19-23.
-- **Idea (new 11-23):** strict FIFO under standing backlog makes every
-  order late; SLA-feasible-first would lift attainment at the oldest
-  orders' cost. Revisit after #253/#170 ship; don't file before.
+- **Idea (11-23):** strict FIFO under standing backlog makes every order
+  late; SLA-feasible-first would lift attainment at the oldest orders'
+  cost. Revisit after #253/#170 ship; don't file before.
 - **Idea:** re-complaint after resolve 4.1%/14d: revisit when #227 ships.
 - **Next:** after #213, cost incl. idle; after #244, window accuracy
   >=98%; after #170, idle-with-backlog -> ~0.
@@ -118,6 +126,9 @@ Shapes (rebuild from these):
   ticket + cross-link.
 - Fleet-sizing judgment is Brogan's: share signal in chat, not a ticket.
 - A cto-agent feasibility comment != cto-approved label; check the label.
+- A conversation run with all threads already settled (no new Seth
+  comment past my own last reply) needs no gh comments at all — just
+  confirm via the view and move on.
 
 ## Run log
 
@@ -126,3 +137,8 @@ Shapes (rebuild from these):
   0 queries, no top-level posts.
 - 11-23 07:00 (audit): no new ticket; #69 evidence comment; 2 contacts ->
   #166; 5/10 queries; CPO_DAILY 01M8483D2KWZZ8EK0EMHFB1QHD.
+- 11-23 10:00 (conv): checked all 10 open cpo-agent-tagged issues, no new
+  Seth comments past my own; no gh replies needed. 3 contacts: 2 declined
+  (hazard/route alerts, mark-urgent), 1 tracked -> #166 (interactive
+  dashboard bundle). No board moves (both Intake cards already routed to
+  Pip off-board). 0 queries. No chat posts.
