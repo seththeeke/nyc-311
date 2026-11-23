@@ -6,25 +6,20 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 
 ## Tickets
 
-- **#253 (11-22):** under backlog, freed operator takes nearest of N=10
-  oldest waiting orders (skip cap K=3, SLA-overdue first). 8.09 mi actual vs
-  2.89 top-10 vs 0.84 any (177 trips since Nov 19, all 10+ waiting). ~$9-10
-  /accepted order. cpo+cto approved 11-22, in Refined (gsi1-stage-sla
-  index handles first-N read, no new index needed). Depends on #202.
-- **#244 (11-18, bug):** window too short (0/1,496 inside); W=2.0 env/SSM,
-  routed to Pip. 2/2 Rex replies used. Intake, cpo-approved, no cto-approved.
-- **#234 (11-16):** link duplicate reports. Refined.
-- **#227 (11-15):** repair feedback. Refined. 15+ contacts (incl. Sassafras
-  11-22, bundled map request's photo/feedback piece).
-- **#166 (11-06):** status visibility. Refined. 63+ contacts (incl.
-  Sassafras 11-22, bundled map request's real-time-update piece).
-- **#170 (11-07):** event-driven dispatch. Spec Created, waiting on Seth.
+- **#253 (11-22):** under backlog, freed op takes nearest of N=10 oldest
+  waiting (skip cap K=3, SLA-overdue first). 8.09 mi actual vs 2.89 top-10.
+  ~$9-10/acc. Refined. Depends on #202.
+- **#244 (11-18, bug):** window too short; W=2.0 env/SSM. 2/2 Rex replies
+  used. Intake, cpo-approved, no cto-approved.
+- **#234** dup linking, **#227** repair feedback (15+ contacts), **#166**
+  status visibility (65+ contacts): all Refined.
+- **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
 - **#181 (bug):** intake stall. cto-escalated, CTO track. Don't ping.
-- **#194:** nearest idle op. Spec Created; only helps when ops > orders.
 - **#213 (measurement):** idle in WBR. Refined.
-- **#202 (not mine):** feature-flag read, Kid Kestrel work in progress;
-  #253/#194/#170 depend on it.
-- **#69, #165 (not mine):** no action for me.
+- **#69 (Rex's, I approved + metric block):** lat/lng location fallback.
+  Refined. 11-23 refresh: 1,262 loc-rejects/14d, 784 (62%) lat/lng, 0 with
+  nothing; fleet idle now ~18% so +56/day ≈ +5 ops — Brogan needs flip date.
+- **#202 (not mine):** backend flag read; #253/#194/#170/#69 depend on it.
 
 ## Declines (reuse the reasoning)
 
@@ -41,71 +36,76 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Community discussion space: out of scope; point to #166 + #227.
 - Feature-request dashboard / fast-track review / third-party routing: no.
 - Proactive/scheduled maintenance: we only dispatch on filed 311 reports.
-- Audit trail / notification prefs / late alerts / ETA / stage timeline:
-  #166.
-- Resident photo/update submission on own order ("ongoing updates"), or a
-  bundled "interactive repair map" (real-time + photo + filtering): split
-  — in-progress status -> #166 (operator-tracked), photo/quality feedback
-  -> #227, map/filtering -> declined, out of scope.
+- Audit trail / accountability / notification prefs / late alerts / ETA /
+  stage timeline / live repair dashboard: track -> #166 (+311 for new
+  reports, #227 for feedback).
+- Bundled "interactive repair map": split — status -> #166, photo/feedback
+  -> #227, map/filtering declined.
 
 ## WBR and cost model
 
 - Goal = total_cost / orders_accepted. Oct $299-357; Nov 2 $2,093; Nov 9
-  $678; Nov 16 wk final $409 (149,217/365), materials 81%, labor ~$79/acc.
-- **$25 goal structurally unreachable** (told Seth 11-18): materials ~$330
-  per accepted order. Labor ~$48/h is the product lever.
+  $678; Nov 16 wk final $422 (180,747/428), materials $342 (81%), labor $81.
+- **$25 goal structurally unreachable** (told Seth 11-18).
+- Materials = constant per descriptor x processing variance
+  (orderExecutionService.ts); wait time does NOT raise materials. Only
+  fewer jobs lower it (#234, #227).
 - WBR labor = SCHEDULED->RESOLVED (includes drive); idle excluded (#213).
 - SLA: accepted+24h, all STANDARD; scheduler = FIFO by sla_deadline.
-- Drive minutes by distance (14d): <3 mi ~14.8, 3-6 17.0, 6-10 28.8, 10+
-  50.5 (10-min floor + variance).
-- Fleet: 21 -> 3 (Nov 19) -> 7 (Nov 20) -> 9 (Nov 21 23:00) -> 10 (Nov 22
-  16:00, Brogan +1). Backlog 140, median age 1.32d rising, 8/9 ops busy,
-  accepted(63)>resolved(35) on 11-22 — Brogan flagged to Seth, no breach
-  yet; his call, not a ticket. Same pressure #253/#170 target once #202
-  lands.
+- Fleet: 21 -> 3 (Nov 19) -> 7 -> 9 -> 10 -> 11 (Nov 22 23:00). 11 ops
+  resolve ~81/day.
+- Intake is bursty (~09:00/15:00 UTC blocks); none from 18:00 UTC 11-22 to
+  13:00 UTC 11-23. Told Brogan not to release on a backlog drop driven by
+  missing intake.
 - Run time: "07:00" audit runs ~13:00 UTC; WBR job 07:00 UTC.
 
 ## Research agenda
 
-- **Proven -> #253 (11-22), #170, #181, #194, #213, #69, #227, #234, #244.**
-- **Measuring: backlog-age-daily:** eod 129 (11-20) -> 131 -> 140 (11-22);
-  p90 age 49.7 h; TTR p50 41.9 -> 43.2 -> 47.6 h.
-- **Measuring: fleet time budget** Nov 18-22 idle 17-20%, transit 17-25%,
-  work 62-65%. After #253 transit target <=12%.
-- **Measuring: SLA attainment:** 0/92 within 24h (11-21). Recheck after
-  #170/#253.
+- **Proven -> #253, #170, #181, #194, #213, #69, #227, #234, #244.**
+- **Measuring: backlog-age-daily:** eod 131 (11-21) -> 113 -> 65 (11-23
+  partial); TTR p50 49.7 h (11-22), 37.8 (11-23).
+- **Measuring: fleet time budget:** Nov 18-23 idle 17-20%, transit 17-25%,
+  work 58-65%. After #253 transit target <=12%.
+- **Measuring: SLA attainment:** 0/250 within 24h Nov 19-23.
+- **Idea (new 11-23):** strict FIFO under standing backlog makes every
+  order late; SLA-feasible-first would lift attainment at the oldest
+  orders' cost. Revisit after #253/#170 ship; don't file before.
 - **Idea:** re-complaint after resolve 4.1%/14d: revisit when #227 ships.
 - **Next:** after #213, cost incl. idle; after #244, window accuracy
   >=98%; after #170, idle-with-backlog -> ~0.
-- **Disproved:** materials mix as lever; poller 44h floor; 40% searches
-  fail; scheduled->dispatch queue (0 h).
+- **Disproved:** materials mix as lever; wait inflates materials (code);
+  poller 44h floor; 40% searches fail; scheduled->dispatch queue (0 h).
 
-## Saved queries (folder writes STILL BLOCKED, sensitive-file; 11-22 too)
+## Saved queries (folder writes STILL BLOCKED, sensitive-file; 11-23 too)
 
 Shapes (rebuild from these):
 - fleet-time-budget-daily: DISTINCT operator_events 30d, LEAD next (or
   now); class by opening event; exclude OPERATOR_REMOVED; by start day.
-- backlog-age-daily: per order min ACCEPTED / min RESOLVED|FAILED (45d);
-  days UNNEST(sequence(current_date-9d..today)); eod = least(d+1, now).
-- backlog-dispatch-distance (#253): trips = TRANSIT_STARTED -> next
-  WORK_STARTED ($.location.lat/lng in payload); waiting = acc <= t and
-  min ORDER_SCHEDULED >= t-10min or null; order pos via latest snapshot
-  location_id -> locations; great_circle_distance*0.621371; ROW_NUMBER by
-  acc for top-10; avg actual / nearest top-10 / nearest any.
-- drive-minutes-by-distance: same trips, bucket miles, avg minutes.
+- backlog-age-daily: per order min CREATED/ACCEPTED / min RESOLVED|FAILED
+  (45d); days UNNEST(sequence(current_date-9d..today)); eod = least(d+1,
+  now); backlog, med/p90 age, resolved, TTR p50.
+- intake-3h-blocks: created/accepted/resolved per 3h block, 72h.
+- sla-attainment-daily: per order min ACC/RES 30d; resolved by day,
+  within 1440 min, p50.
+- location-reject-payload (#69): LOCATION_UNRESOLVED rejects 14d ->
+  latest snapshot request_id -> latest requests (dt 20d, Street Condition)
+  raw_payload $.latitude / $.incident_address / $.intersection_street_1.
+- backlog-dispatch-distance (#253): trips TRANSIT_STARTED -> next
+  WORK_STARTED ($.location.lat/lng); waiting orders via snapshot
+  location_id -> locations; great_circle_distance*0.621371.
 - idle-with-backlog: gaps WORK_COMPLETED/ABORTED -> next event; LEFT JOIN
   orders accepted <= gap start and not dispatched yet.
-- sla-attainment-by-descriptor, intake-3h-blocks, scheduled-window-
-  accuracy (#244), materials-by-descriptor, repeat-by-descriptor (#234).
+- scheduled-window-accuracy (#244), materials-by-descriptor, repeat-by-
+  descriptor (#234).
 
 ## Lessons
 
 - Operator event payloads have `$.location` but NO `$.order_id`.
-- public_api_calls.request_params is a plain string `order_id=<id>`.
 - Satisfaction lives customer-side; never read it.
 - Use Write, not Edit, sed or python; rewrite whole files. Write creates
   report folder; mkdir is blocked.
-- `gh issue view` takes --comments OR --json, not both.
+- Don't run a gh command in parallel with the Write of its body file.
+- `gh issue view` takes --comments OR --json, not both; `gh api` blocked.
 - Don't assert unmeasured facts in a ticket body; measure first.
 - Top-level posts <=75 words; aim for 65.
 - Check upstream intake before reading a demand (or backlog) drop as real.
@@ -114,27 +114,15 @@ Shapes (rebuild from these):
 - `list_contacts`: page once with cursor; stop at empty/null.
 - Read the simulation code before blaming the product.
 - Board has no remove command; off-board bugs stay in Intake harmlessly.
-- New evidence on an existing ticket = comment; a distinct regime/change
-  of a specced ticket = new ticket + cross-link comment (#253 vs #194).
-- A COO/CTO ack reply needing no response: note it, no reply needed —
-  but a brief thread ack is fine and doesn't count as a Rex reply (only
-  gh-issue comments do).
+- New evidence on an existing ticket = comment; a distinct regime = new
+  ticket + cross-link.
 - Fleet-sizing judgment is Brogan's: share signal in chat, not a ticket.
 - A cto-agent feasibility comment != cto-approved label; check the label.
 
 ## Run log
 
-- 11-22 07:00 (audit): #253 filed, boarded, approved; #194/#227/#166
-  comments; 4 contacts (3 tracked, 1 declined); 4/10 queries; CPO_TICKET
-  01M81NRJ5H8VZ1BAKC6NVVWT34, CPO_DAILY 01M81NRR1022A201CN230QXFE9.
-- 11-22 10:00 (conv): nothing moved since the audit.
-- 11-22 13:00 (conv): CTO approved #253, moved to Refined. 1 contact
-  (photo/status) -> #227. 0 queries, no posts.
-- 11-22 16:00 (conv): empty inbox; #253 Rex reconfirm (already Refined),
-  chat-thread ack only. 1 contact (repair-rating) -> #227. No board moves.
-  0/2 queries, no top-level post.
-- 11-22 19:00 (conv): empty inbox; no new Seth mentions; no new ticket
-  comments past 16:00's #253 (already answered). Intake unchanged (#181
-  CTO-track, #244 no cto-approved) — no board moves. 1 contact (Sassafras,
-  bundled map request) -> tracked #166, #227 and decline noted in text.
-  0/2 queries, no post (Chat post: none).
+- 11-22 07:00 (audit): #253 filed/boarded/approved; 4 contacts; 4/10 q.
+- 11-22 10:00-19:00 (convs): #253 to Refined; 3 contacts -> #227/#166;
+  0 queries, no top-level posts.
+- 11-23 07:00 (audit): no new ticket; #69 evidence comment; 2 contacts ->
+  #166; 5/10 queries; CPO_DAILY 01M8483D2KWZZ8EK0EMHFB1QHD.
