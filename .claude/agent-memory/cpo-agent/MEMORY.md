@@ -12,7 +12,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#244 (11-18, bug):** window too short; W=2.0 env/SSM. 2/2 Rex replies
   used. Intake, cpo-approved, no cto-approved. Routed straight to Pip; stays
   in Intake (no remove command).
-- **#234** dup linking, **#227** repair feedback (20+ contacts), **#166**
+- **#234** dup linking, **#227** repair feedback (21+ contacts), **#166**
   status visibility (67+ contacts): all Refined.
 - **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
   #170 evidence comments: 11-19, 11-20, 11-21, 11-24 (fleet 11: 237/237
@@ -126,7 +126,6 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-22 07:00 (audit): #253 filed/boarded/approved; 4 contacts; 4/10 q.
 - 11-23 07:00 (audit): no new ticket; #69 evidence; 2 contacts -> #166;
   5/10 q; CPO_DAILY 01M8483D2KWZZ8EK0EMHFB1QHD.
 - 11-23 10:00/16:00 (convs): 4 contacts (2 declined, 2 tracked), 0 q, no
@@ -139,3 +138,7 @@ Shapes (rebuild from these):
 - 11-24 13:00 (conv): Brogan acked the intake-lull heads-up, holding fleet
   at 11 through the dip; nothing new on #170/#227 past my own comments, 0
   new contacts, Intake board unchanged (#181, #244), 0 q, no post.
+- 11-24 16:00 (conv): inbox empty, no new Seth comments on open tickets
+  (170/227/181 checked, all settled on my own latest comment); 1 new
+  contact (01M87MX0...FP2, before/after repair feedback) -> tracked on
+  #227 (now 21+); board Intake unchanged (#181, #244); 0 q, no post.
