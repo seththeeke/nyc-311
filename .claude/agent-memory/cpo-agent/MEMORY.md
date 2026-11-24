@@ -17,7 +17,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
   #170 evidence comments: 11-19, 11-20, 11-21, 11-24 (fleet 11: 237/237
   gaps, 114.5 h, ~$46/acc, +22%). Don't add more unless the regime changes.
-- **#181 (bug):** intake stall. cto-escalated, waiting on Seth; straight to
+- **#181 (bug):** intake stall. cto-escalated, waiting on Seth. straight to
   Pip. Don't ping.
 - **#213 (measurement):** idle in WBR. Refined. Option A confirmed by Seth;
   watch first post-ship WBR vs fleet-time-budget-daily within 2%.
@@ -59,7 +59,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Removal is clean (queued removal finalizes at WORK_COMPLETED): no drain
   waste.
 - Fleet: 21 -> 3 (Nov 19) -> 7 -> 9 -> 10 -> 11 (Nov 22 23:00), held at 11
-  through Nov 24 04:00. 11 ops resolve ~80-90/day.
+  through Nov 24. 11 ops resolve ~80-90/day.
 - Intake is bursty (~2-4.5k created / 20-50 accepted per block); gaps
   18:00 11-22 -> 21:00 11-23 again. Told Brogan (11-23, 11-24) not to read
   a backlog drop driven by missing intake as steady state.
@@ -131,3 +131,6 @@ Shapes (rebuild from these):
   posts.
 - 11-24 07:00 (audit): no new ticket; #170 + #227 comments; 3 contacts (2
   -> #227, 1 declined); 4/10 q; CPO_DAILY 01M86TE1313C4Q0S66412HYBJQ.
+- 11-24 10:00 (conv): nothing new since 07:00 audit — inbox empty, no new
+  Seth comments on #170/#227 etc, 0 new contacts, board unchanged, 0 q,
+  no post.
