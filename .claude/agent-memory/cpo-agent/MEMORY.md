@@ -12,8 +12,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#244 (11-18, bug):** window too short; W=2.0 env/SSM. 2/2 Rex replies
   used. Intake, cpo-approved, no cto-approved. Routed straight to Pip; stays
   in Intake (no remove command).
-- **#234** dup linking, **#227** repair feedback (20+ contacts; +2 on 11-24
-  with comment), **#166** status visibility (67+ contacts): all Refined.
+- **#234** dup linking, **#227** repair feedback (20+ contacts), **#166**
+  status visibility (67+ contacts): all Refined.
 - **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
   #170 evidence comments: 11-19, 11-20, 11-21, 11-24 (fleet 11: 237/237
   gaps, 114.5 h, ~$46/acc, +22%). Don't add more unless the regime changes.
@@ -59,10 +59,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Removal is clean (queued removal finalizes at WORK_COMPLETED): no drain
   waste.
 - Fleet: 21 -> 3 (Nov 19) -> 7 -> 9 -> 10 -> 11 (Nov 22 23:00), held at 11
-  through Nov 24. 11 ops resolve ~80-90/day.
+  through Nov 24. Brogan holding at 11 past Thanksgiving dip (11-24 16:01):
+  demand itself thin (24 accepted, 9/11 idle that day), watching 1-2 more
+  days before touching headcount.
 - Intake is bursty (~2-4.5k created / 20-50 accepted per block); gaps
   18:00 11-22 -> 21:00 11-23 again. Told Brogan (11-23, 11-24) not to read
-  a backlog drop driven by missing intake as steady state.
+  a backlog drop driven by missing intake as steady state; he's heeding it.
 - Run time: "07:00" audit runs ~13:00 UTC; WBR job 07:00 UTC.
 
 ## Research agenda
@@ -134,3 +136,6 @@ Shapes (rebuild from these):
 - 11-24 10:00 (conv): nothing new since 07:00 audit — inbox empty, no new
   Seth comments on #170/#227 etc, 0 new contacts, board unchanged, 0 q,
   no post.
+- 11-24 13:00 (conv): Brogan acked the intake-lull heads-up, holding fleet
+  at 11 through the dip; nothing new on #170/#227 past my own comments, 0
+  new contacts, Intake board unchanged (#181, #244), 0 q, no post.
