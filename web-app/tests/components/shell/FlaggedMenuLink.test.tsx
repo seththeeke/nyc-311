@@ -6,13 +6,13 @@ import { useFeatureTreatment } from "../../../src/hooks/useFeatureTreatment";
 
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureTreatment: vi.fn() }));
 
-const team = MENU.find((e): e is MenuLinkEntry & { featureFlag: MenuFlagRule } => e.kind === "LINK" && e.id === "TEAM")!;
+const contacts = MENU.find((e): e is MenuLinkEntry & { featureFlag: MenuFlagRule } => e.kind === "LINK" && e.id === "CONTACTS")!;
 
 function renderWith(treatment: string | null) {
   vi.mocked(useFeatureTreatment).mockReturnValue({ treatment, isLoading: false });
   return render(
     <ul>
-      <FlaggedMenuLink entry={team} render={(entry) => <span>{entry.label}</span>} />
+      <FlaggedMenuLink entry={contacts} render={(entry) => <span>{entry.label}</span>} />
     </ul>
   );
 }
@@ -20,8 +20,8 @@ function renderWith(treatment: string | null) {
 describe("FlaggedMenuLink", () => {
   it("renders the link as its flag resolves it", () => {
     renderWith("T1");
-    expect(screen.getByRole("listitem")).toHaveTextContent("Meet the Team");
-    expect(useFeatureTreatment).toHaveBeenCalledWith("MEET_THE_TEAM");
+    expect(screen.getByRole("listitem")).toHaveTextContent("Contacts");
+    expect(useFeatureTreatment).toHaveBeenCalledWith("CONTACTS_PAGE");
   });
 
   it("renders nothing when its flag hides it", () => {

@@ -19,11 +19,10 @@ describe("MENU", () => {
     expect(MENU.map((e) => e.label)).toEqual(["Map", "Residents", "Contacts", "Meet the Team", "Team Chat", "System Monitoring", "Admin"]);
   });
 
-  it("flags Contacts, Meet the Team and Team Chat (T1); Map and Residents are unflagged", () => {
+  it("flags only Contacts (T1); Map, Residents, Meet the Team and Team Chat are unflagged", () => {
     const flagged = MENU.filter((e) => e.kind === "LINK" && e.featureFlag);
-    expect(flagged.map((e) => e.id)).toEqual(["CONTACTS", "TEAM", "TEAM_CHAT"]);
+    expect(flagged.map((e) => e.id)).toEqual(["CONTACTS"]);
     expect(flagged[0]).toMatchObject({ to: "/contacts", featureFlag: { key: "CONTACTS_PAGE", showOn: ["T1"] } });
-    expect(flagged[1]).toMatchObject({ to: "/team", featureFlag: { key: "MEET_THE_TEAM", showOn: ["T1"] } });
     expect(map).toMatchObject({ id: "MAP", to: "/" });
     expect(map.featureFlag).toBeUndefined();
   });
@@ -114,7 +113,7 @@ describe("linkIsActive", () => {
 });
 
 describe("resolveFlaggedLink", () => {
-  const team = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "TEAM")!;
+  const contacts = MENU.find((e): e is MenuLinkEntry => e.kind === "LINK" && e.id === "CONTACTS")!;
 
   it("passes an unflagged link through untouched", () => {
     expect(resolveFlaggedLink(map, "T2")).toBe(map);
@@ -122,9 +121,9 @@ describe("resolveFlaggedLink", () => {
   });
 
   it("show-on links appear only on their treatments — loading, missing and other treatments hide them", () => {
-    expect(resolveFlaggedLink(team, undefined)).toBeNull();
-    expect(resolveFlaggedLink(team, null)).toBeNull();
-    expect(resolveFlaggedLink(team, "C")).toBeNull();
-    expect(resolveFlaggedLink(team, "T1")).toBe(team);
+    expect(resolveFlaggedLink(contacts, undefined)).toBeNull();
+    expect(resolveFlaggedLink(contacts, null)).toBeNull();
+    expect(resolveFlaggedLink(contacts, "C")).toBeNull();
+    expect(resolveFlaggedLink(contacts, "T1")).toBe(contacts);
   });
 });

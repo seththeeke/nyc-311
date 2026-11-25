@@ -4,7 +4,7 @@ import { useTeamSelection } from "../../hooks/useTeamSelection";
 import { ChannelView } from "../team/chat/ChannelView";
 
 /**
- * Team Chat (docs/17-executive-team.md §5, §10), behind MEET_THE_TEAM: the
+ * Team Chat (docs/17-executive-team.md §5, §10): the
  * team's channels as the agents post them, read-only and polled. Threads
  * open in the secondary workspace (ThreadPanel).
  */

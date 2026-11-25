@@ -1,5 +1,5 @@
 import { lazy, type ComponentType } from "react";
-import { CONTACTS_PAGE_FLAG, CONTACTS_PAGE_ON, MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../models/featureTreatment";
+import { CONTACTS_PAGE_FLAG, CONTACTS_PAGE_ON } from "../models/featureTreatment";
 import { CONTACTS_PATH } from "../components/contacts/contactRoutes";
 import { IDEA_DETAIL_PATTERN, RESIDENTS_PATH } from "../components/residents/residentRoutes";
 import { TEAM_CHAT_PATH, TEAM_PATH } from "../components/team/teamRoutes";
@@ -80,14 +80,13 @@ const FeatureFlagsPage = lazy(() =>
 );
 
 const CONTACTS_PAGE_RULE: PageFlagRule = { key: CONTACTS_PAGE_FLAG, onTreatments: [CONTACTS_PAGE_ON] };
-const MEET_THE_TEAM_RULE: PageFlagRule = { key: MEET_THE_TEAM_FLAG, onTreatments: [MEET_THE_TEAM_ON] };
 
 export const PAGES: readonly PageRoute[] = [
   { path: RESIDENTS_PATH, tier: "PUBLIC", Page: ResidentsPage },
   { path: CONTACTS_PATH, tier: "PUBLIC", flag: CONTACTS_PAGE_RULE, Page: ContactsPage },
   { path: IDEA_DETAIL_PATTERN, tier: "PUBLIC", Page: ResidentIdeaPage },
-  { path: TEAM_PATH, tier: "PUBLIC", flag: MEET_THE_TEAM_RULE, Page: TeamPage },
-  { path: TEAM_CHAT_PATH, tier: "PUBLIC", flag: MEET_THE_TEAM_RULE, Page: TeamChatPage },
+  { path: TEAM_PATH, tier: "PUBLIC", Page: TeamPage },
+  { path: TEAM_CHAT_PATH, tier: "PUBLIC", Page: TeamChatPage },
   { path: DATA_PATH, tier: "PUBLIC", Page: DataPage },
   { path: MONITORING_PATH, tier: "PUBLIC", Page: MonitoringPage },
   { path: MONITORING_INGESTION_PATH, tier: "PUBLIC", Page: IngestionMonitoringPage },
