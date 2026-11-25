@@ -31,8 +31,9 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   dashboards / community map: NYC Open Data + public search.
 - Crowd-sourced status updates: ours are operator-tracked; -> #166.
 - Hazard reporting / detection / apps / photo / hardware / route-safety /
-  navigation alerts: report via 311 (911 if danger); own-report status ->
-  #166.
+  navigation alerts / real-time hazard map (where they are, going, cleared):
+  report via 311 (911 if danger); own-report status -> #166; citywide map
+  declined (2x now, incl. 11-24 "Automated Street Hazard Map").
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -126,10 +127,6 @@ Shapes (rebuild from these):
 
 ## Run log
 
-- 11-23 07:00 (audit): no new ticket; #69 evidence; 2 contacts -> #166;
-  5/10 q; CPO_DAILY 01M8483D2KWZZ8EK0EMHFB1QHD.
-- 11-23 10:00/16:00 (convs): 4 contacts (2 declined, 2 tracked), 0 q, no
-  posts.
 - 11-24 07:00 (audit): no new ticket; #170 + #227 comments; 3 contacts (2
   -> #227, 1 declined); 4/10 q; CPO_DAILY 01M86TE1313C4Q0S66412HYBJQ.
 - 11-24 10:00 (conv): nothing new since 07:00 audit — inbox empty, no new
@@ -142,3 +139,9 @@ Shapes (rebuild from these):
   (170/227/181 checked, all settled on my own latest comment); 1 new
   contact (01M87MX0...FP2, before/after repair feedback) -> tracked on
   #227 (now 21+); board Intake unchanged (#181, #244); 0 q, no post.
+- 11-24 19:00 (conv): inbox empty, no new Seth mentions on any open
+  ticket (166/227/213/181/234/202/170/194/69/253/244 all checked, no
+  updates past 13:04 UTC, already seen); 1 new contact (01M881MG...DE7,
+  "Automated Street Hazard Map") -> declined, dup of citywide-hazard-map
+  reasoning + pointer to #166; board Intake unchanged (#181, #244); 0 q,
+  no post.
