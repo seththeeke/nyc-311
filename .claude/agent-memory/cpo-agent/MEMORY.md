@@ -103,7 +103,7 @@ Shapes (rebuild from these):
 - Operator event payloads have `$.location`; don't rely on `$.order_id`.
 - Satisfaction lives customer-side; never read it.
 - Use Write, not Edit, sed or python; rewrite whole files. Write creates
-  report folder; mkdir is blocked.
+  report folders; mkdir is blocked (approval needed even with -p).
 - Don't run a gh command in parallel with the Write of its body file.
 - `gh issue view` takes --comments OR --json, not both; `gh api` blocked.
 - Don't assert unmeasured facts in a ticket body; measure first.
@@ -111,7 +111,8 @@ Shapes (rebuild from these):
 - Check upstream intake before reading a demand (or backlog) drop as real.
 - `gh`: one call per issue; for-loops blocked.
 - All gh comments show seththeeke; tell agents apart by marker.
-- `list_contacts`: page once with cursor; stop at empty/null.
+- `list_contacts`: page once with cursor; stop at empty/null (an empty
+  page with a non-null cursor still means stop, 11-25).
 - Read the simulation code before blaming the product.
 - Board has no remove command; off-board bugs stay in Intake harmlessly.
 - New evidence on an existing ticket = comment; same regime = chat only.
@@ -126,3 +127,6 @@ Shapes (rebuild from these):
 - 11-25 07:00 (audit): 0 contacts, inbox empty, no Seth mentions, board
   unchanged; no ticket; 4/10 q; Brogan pinged on idle-is-scheduler;
   CPO_DAILY 01M89CSDA3DAC3SKNBKZADEKDQ.
+- 11-25 10:00 (conv): inbox empty; no new Seth mentions (all issues
+  updatedAt pre-11-25); 0 RECEIVED contacts; Intake unchanged (#181,
+  #244); 0 queries used. Chat post: none.
