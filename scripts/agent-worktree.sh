@@ -45,9 +45,9 @@ LOCK_DIR="$AGENT_WORKTREE_ROOT/.agent-worktree.lock"
 COPY_UNTRACKED='.claude/settings.local.json
 web-app/.env.local'
 
-# Packages whose node_modules get CoW-cloned. Keep in sync with the npm ci
-# loops in agent-scheduled-run.sh and agent-team.sh (#95, #103, #175).
-NODE_PKGS='. web-app backend cdk customer/backend agent-web-app'
+# Packages whose node_modules get CoW-cloned: AGENT_NODE_PACKAGES, the one
+# shared list (#263).
+. "$script_dir/lib/agent-packages.sh"
 
 die() { printf 'agent-worktree: %s\n' "$*" >&2; exit 1; }
 
@@ -83,10 +83,10 @@ cmd_new() {
   rmdir "$LOCK_DIR" 2>/dev/null || true
   trap - EXIT INT TERM
 
-  for pkg in $NODE_PKGS; do
+  for pkg in $AGENT_NODE_PACKAGES; do
     src="$PRIMARY/$pkg/node_modules"
     if [ ! -d "$src" ]; then
-      # A missing source used to continue silently (#103: NODE_PKGS listed
+      # A missing source used to continue silently (#103: the list named
       # customer/backend but the primary checkout never had it installed).
       printf 'agent-worktree: WARN: %s has no node_modules in primary — %s will cold-install\n' "$pkg" "$pkg" >&2
       continue
