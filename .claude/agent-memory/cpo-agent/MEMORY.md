@@ -31,7 +31,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Crowd-sourced status updates: ours are operator-tracked; -> #166.
 - Hazard reporting / detection / apps / photo / hardware / route-safety /
   navigation alerts / real-time hazard map: report via 311 (911 if
-  danger); own-report status -> #166; citywide map declined (2x).
+  danger); own-report status -> #166; citywide map declined (3x, incl.
+  11-25 "Dogwood" real-time hazard detection system).
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none.
@@ -130,3 +131,7 @@ Shapes (rebuild from these):
 - 11-25 10:00 (conv): inbox empty; no new Seth mentions (all issues
   updatedAt pre-11-25); 0 RECEIVED contacts; Intake unchanged (#181,
   #244); 0 queries used. Chat post: none.
+- 11-25 13:00 (conv): inbox empty; no new Seth mentions (same 11 issues,
+  updatedAt <= 11-24); no new issue comments on any open cpo ticket;
+  1 contact (Dogwood, real-time hazard detection) declined, 3rd of its
+  kind; Intake unchanged (#181, #244); 0 queries used. Chat post: none.
