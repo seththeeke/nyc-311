@@ -33,8 +33,6 @@ CLONE=${AGENT_SCHEDULER_CLONE:-"$HOME/agents/nyc-311"}
 # Agents with a schedule file that aren't started with the team. Empty: every
 # agent, Kid Kestrel (gen-purpose-dev) included, is on the team.
 NOT_ON_TEAM=""
-# Same list as agent-worktree.sh's NODE_PKGS (#175).
-LOCKFILE_PACKAGES=". web-app backend cdk customer/backend agent-web-app"
 
 die() { printf 'agent-team: %s\n' "$*" >&2; exit 1; }
 say() { printf 'agent-team: %s\n' "$*"; }
@@ -84,7 +82,9 @@ ensure_latest() {
     git -C "$CLONE" merge-base --is-ancestor "$head" "$latest" || die "the scheduler clone has commits origin/main doesn't; it can't fast-forward. See: git -C $CLONE log origin/main..HEAD"
     say "scheduler clone is $(git -C "$CLONE" rev-list --count HEAD..origin/main) commit(s) behind; fast-forwarding"
     git -C "$CLONE" merge --quiet --ff-only origin/main || die "fast-forward failed in $CLONE"
-    for pkg in $LOCKFILE_PACKAGES; do
+    # The shared list (#263), read from the clone after the fast-forward.
+    . "$CLONE/scripts/lib/agent-packages.sh"
+    for pkg in $AGENT_NODE_PACKAGES; do
       [ -d "$CLONE/$pkg/node_modules" ] \
         && git -C "$CLONE" diff --quiet "$head" "$latest" -- "$pkg/package-lock.json" && continue
       say "lockfile changed or node_modules missing in $pkg — npm ci"

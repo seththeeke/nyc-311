@@ -78,10 +78,11 @@ if [ -z "${AGENT_SCHED_REEXEC:-}" ]; then
       after=$(git -C "$PRIMARY" rev-parse HEAD)
       if [ "$before" != "$after" ]; then
         log "primary fast-forwarded ${before%"${before#???????}"}..${after%"${after#???????}"}"
-        # Same list as agent-worktree.sh's NODE_PKGS. A package with no
-        # node_modules installs too, so a newly listed one isn't skipped
-        # until its lockfile next changes (#175).
-        for pkg in . web-app backend cdk customer/backend agent-web-app; do
+        # The shared list (#263), read after the pull so a newly added
+        # package installs on this run. A package with no node_modules
+        # installs too, not skipped until its lockfile next changes (#175).
+        . "$PRIMARY/scripts/lib/agent-packages.sh"
+        for pkg in $AGENT_NODE_PACKAGES; do
           if [ -d "$PRIMARY/$pkg/node_modules" ] \
             && git -C "$PRIMARY" diff --quiet "$before" "$after" -- "$pkg/package-lock.json"; then
             continue
