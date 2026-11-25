@@ -49,6 +49,13 @@ describe("Nyc311RequestEvaluationLambda", () => {
     });
   });
 
+  it("puts its log group on the cheaper Infrequent Access class", () => {
+    synthesize("TEST").hasResourceProperties("AWS::Logs::LogGroup", {
+      LogGroupName: "/aws/lambda/Nyc311RequestEvaluation-Test",
+      LogGroupClass: "INFREQUENT_ACCESS",
+    });
+  });
+
   it("passes the three table names as environment variables", () => {
     const template = synthesize("TEST");
 
