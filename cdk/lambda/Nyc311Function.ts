@@ -29,6 +29,13 @@ export interface Nyc311FunctionProps {
   tracing?: boolean;
   /** esbuild hooks added to the shared bundling, e.g. to copy a non-TS asset in. */
   commandHooks?: ICommandHooks;
+  /**
+   * Defaults to `STANDARD`. `INFREQUENT_ACCESS` halves vended-log ingestion
+   * cost and still supports Logs Insights; only safe for a log group with no
+   * metric filter or subscription filter (both unsupported on that class) -
+   * confirmed per-function before opting in, not a fleet-wide default.
+   */
+  logGroupClass?: logs.LogGroupClass;
 }
 
 /**
@@ -46,6 +53,7 @@ export class Nyc311Function extends NodejsFunction {
       logGroupName: `/aws/lambda/${functionName}`,
       retention: logs.RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
+      logGroupClass: props.logGroupClass,
     });
     super(scope, id, {
       functionName,

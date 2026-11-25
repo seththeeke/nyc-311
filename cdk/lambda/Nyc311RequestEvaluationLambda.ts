@@ -42,6 +42,10 @@ export class Nyc311RequestEvaluationLambda extends Nyc311Function {
       handler: "requestEvaluationController",
       timeout: Duration.seconds(30),
       memorySize: 256,
+      /* By far the fleet's largest log volume (traffic-driven, `#257`'s
+         thread) and the only one confirmed to carry neither a metric filter
+         nor a subscription filter - safe to move off `STANDARD`. */
+      logGroupClass: logs.LogGroupClass.INFREQUENT_ACCESS,
       environment: {
         REQUESTS_TABLE_NAME: props.requestsTable.tableName,
         LOCATIONS_TABLE_NAME: props.locationsTable.tableName,
