@@ -27,18 +27,6 @@ export const MOCK_FEATURE_FLAGS: FeatureFlag[] = [
     updated_by: "01MOCKADMIN",
   },
   {
-    flag_key: "MEET_THE_TEAM",
-    description: "The Meet the Team page (#146). C = hidden, T1 = shown. T1 here so mock mode shows it.",
-    treatments: ["C", "T1"],
-    default_treatment: "T1",
-    overrides: [],
-    allocations: [],
-    version: 1,
-    created_at: "2026-10-31T12:00:00.000Z",
-    updated_at: "2026-10-31T12:00:00.000Z",
-    updated_by: "01MOCKADMIN",
-  },
-  {
     flag_key: "CONTACTS_PAGE",
     description: "The Residents page's Contacts tab (#146). C = hidden, T1 = shown. T1 here so mock mode shows it.",
     treatments: ["C", "T1"],

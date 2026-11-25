@@ -1,7 +1,5 @@
 import { useRef, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { useFeatureEnabled } from "../../hooks/useFeatureTreatment";
-import { MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON } from "../../models/featureTreatment";
 import type { TeamMember } from "../../models/teamMember";
 import { PersonaAvatar } from "../residents/PersonaAvatar";
 import { TEAM_ROSTER } from "../team/teamRoster";
@@ -30,11 +28,9 @@ function OrbitAvatar({ member, draw }: { member: TeamMember; draw: boolean }): R
 /*
  * The executive team as a slow orbit around "Human + Agents": every member rides
  * the ring while counter-rotating, so faces and names stay upright. Hovering
- * the ring pauses it. Faces draw only as the section nears the screen. Meet
- * the Team shows while its page's flag is on.
+ * the ring pauses it. Faces draw only as the section nears the screen.
  */
 export function AgentOrbit(): ReactElement {
-  const teamPageOn = useFeatureEnabled(MEET_THE_TEAM_FLAG, MEET_THE_TEAM_ON);
   const ref = useRef<HTMLElement>(null);
   const near = useInView(ref, 0, AVATAR_LEAD);
   return (
@@ -46,15 +42,13 @@ export function AgentOrbit(): ReactElement {
             {AGENT_SECTION.title}
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-fg-muted">{AGENT_SECTION.body}</p>
-          {teamPageOn && (
-            <Link
-              to={TEAM_PATH}
-              className="mk-pop-button mt-10 inline-flex items-center gap-3 rounded-full px-7 py-3.5 font-bold text-surface transition-transform duration-300 hover:-translate-y-0.5 hover:scale-105"
-            >
-              Meet the Team
-              <span aria-hidden="true">→</span>
-            </Link>
-          )}
+          <Link
+            to={TEAM_PATH}
+            className="mk-pop-button mt-10 inline-flex items-center gap-3 rounded-full px-7 py-3.5 font-bold text-surface transition-transform duration-300 hover:-translate-y-0.5 hover:scale-105"
+          >
+            Meet the Team
+            <span aria-hidden="true">→</span>
+          </Link>
         </Reveal>
         <div className="group relative mx-auto aspect-square w-full max-w-[32rem] [--orbit-r:min(38vw,13.5rem)]">
           <div aria-hidden="true" className="absolute inset-[8%] rounded-full border border-dashed border-line-strong" />

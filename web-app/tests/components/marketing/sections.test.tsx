@@ -11,9 +11,6 @@ import { MarketingHero } from "../../../src/components/marketing/MarketingHero";
 import { TEAM_ROSTER } from "../../../src/components/team/teamRoster";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import * as PersonaAvatarModule from "../../../src/components/residents/PersonaAvatar";
-import { useFeatureEnabled } from "../../../src/hooks/useFeatureTreatment";
-
-vi.mock("../../../src/hooks/useFeatureTreatment", () => ({ useFeatureEnabled: vi.fn(() => true) }));
 
 function withQuery(ui: ReactElement): ReactElement {
   return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>;
@@ -94,7 +91,7 @@ describe("AgentOrbit", () => {
     expect(document.querySelectorAll("li img")).toHaveLength(photos);
   });
 
-  it("links to the team page while Meet the Team is on", async () => {
+  it("links to the team page", async () => {
     render(
       <MemoryRouter>
         <Routes>
@@ -125,16 +122,6 @@ describe("AgentOrbit", () => {
     expect(avatar.mock.calls.some(([props]) => props.modelKey !== null)).toBe(true);
     vi.unstubAllGlobals();
     avatar.mockRestore();
-  });
-
-  it("hides the link while Meet the Team is off", () => {
-    vi.mocked(useFeatureEnabled).mockReturnValueOnce(false);
-    render(
-      <MemoryRouter>
-        <AgentOrbit />
-      </MemoryRouter>,
-    );
-    expect(screen.queryByRole("link", { name: /Meet the Team/ })).not.toBeInTheDocument();
   });
 });
 

@@ -11,7 +11,7 @@ const [CEO] = TEAM_ROSTER.filter((member) => member.kind === "HUMAN");
 const AGENTS = TEAM_ROSTER.filter((member) => member.kind === "AGENT");
 
 /**
- * Meet the Team (#146), behind MEET_THE_TEAM: BoroughSim's one human CEO
+ * Meet the Team (#146): BoroughSim's one human CEO
  * and its AI agents, one large card each. `?member=` scrolls to a card;
  * View Contributions (behind AGENT_CONTRIBUTIONS) opens that member's log in
  * the secondary workspace.

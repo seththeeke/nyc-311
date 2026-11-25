@@ -64,12 +64,12 @@ describe("AppRoutes", () => {
     expect(await screen.findByRole("heading", { name: "3-D map unavailable" })).toBeInTheDocument();
   });
 
-  it("renders the Meet the Team page at /team while MEET_THE_TEAM is on", async () => {
+  it("renders the Meet the Team page at /team", async () => {
     await renderAt("/team");
     expect(await screen.findByRole("heading", { level: 1, name: "Meet the Team" })).toBeInTheDocument();
   });
 
-  it("renders Team Chat at /team/chat while MEET_THE_TEAM is on", async () => {
+  it("renders Team Chat at /team/chat", async () => {
     await renderAt("/team/chat");
     expect(await screen.findByRole("heading", { level: 1, name: "Team Chat" })).toBeInTheDocument();
   });

@@ -9,7 +9,7 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { ADMIN_USER, authResult } from "../../testUtils/authFixtures";
 
 vi.mock("../../../src/hooks/useAuth", () => ({ useAuth: vi.fn() }));
-/* No flag resolves here, so the show-on Meet the Team entries stay hidden; their own tests set treatments. */
+/* No flag resolves here, so the flagged Contacts entry stays hidden; its own test sets treatments. */
 vi.mock("../../../src/hooks/useFeatureTreatment", () => ({
   useFeatureTreatment: vi.fn(() => ({ treatment: null, isLoading: false })),
   useFeatureEnabled: vi.fn(() => false),
@@ -279,8 +279,7 @@ describe("Sidebar brand", () => {
 describe("Sidebar flagged entries", () => {
   afterEach(() => withTreatments({}));
 
-  it("MEET_THE_TEAM = T1: shows Meet the Team and Team Chat after Residents", () => {
-    withTreatments({ MEET_THE_TEAM: "T1" });
+  it("always shows Meet the Team and Team Chat after Residents, with no flag resolved", () => {
     renderSidebar();
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     expect(links.indexOf("Meet the Team")).toBe(links.indexOf("Residents") + 1);

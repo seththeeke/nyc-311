@@ -12,7 +12,7 @@
 - **Built, set up on the Mac mini next:** the CPO agent (§17), with the Contacts page and agent memory.
 - **Installed on the Mac mini, K1 (specs only):** the Software Engineer, Kid Kestrel (§22). His roster card still shows **Work in progress**.
 - **Next:** these three run for a few days before the next executive is designed (§9).
-- **Flag:** `MEET_THE_TEAM` is `T1` in Test and `C` in Prod.
+- **Flag:** none. `MEET_THE_TEAM` was `T1` in Test and Prod from 2026-11-01 and was removed from the code in [#261](https://github.com/seththeeke/nyc-311/issues/261).
 - **Setting up an agent:** Appendix B.
 
 Tracking: [#146](https://github.com/seththeeke/nyc-311/issues/146), which absorbs the Slack-style communication work first filed as [#150](https://github.com/seththeeke/nyc-311/issues/150).
@@ -31,7 +31,7 @@ BoroughSim is an agent-run business: one human CEO and a team of AI agents, each
 | **Team Chat** | A Slack-style workspace: channels, threads, emoji reactions and `@` mentions (§5). |
 | **Staff Meeting** | The daily meeting, shown in Team Chat as the agents' discussion and the Chief of Staff's minutes (§6). |
 
-Both pages sit behind the `MEET_THE_TEAM` feature flag (`C`/`T1`): `T1` in `FeatureFlags-Test`, `C` in `FeatureFlags-Prod`. Each route is guarded by `FeatureFlagRoute`, and each has a sidebar link that shows on `T1`.
+Both pages are public routes, each with a sidebar link. They launched behind the `MEET_THE_TEAM` feature flag, which was removed in [#261](https://github.com/seththeeke/nyc-311/issues/261) once it had been `T1` in Test and Prod for over three weeks.
 
 ---
 
@@ -679,7 +679,7 @@ The design in §10 to §12 is built in legs. The rules:
 | **L8. COO backend** | `GET /capacity/snapshot`, `limits`, `reason` and actor on operator events, and the 2-recruit and 2-release daily caps. | backend, cdk | Gates pass. |
 | **L9. COO agent** | `coo-agent.md` in Brogan's voice, the `boroughsim-ops` MCP server, and its schedule config. | backend, agent docs, scripts | **The CEO creates the `coo-agent` user in `BOROUGH_SIM_TEAM` and `BOROUGH_SIM_OPERATIONS`.** One supervised Prod run, then the schedule is installed. |
 
-Turning `MEET_THE_TEAM` on in Prod is the CEO's own step, after watching the agents run for a while. It is not a leg.
+Turning `MEET_THE_TEAM` on in Prod was the CEO's own step (done 2026-11-01), not a leg; the flag is now removed (#261).
 
 ---
 
