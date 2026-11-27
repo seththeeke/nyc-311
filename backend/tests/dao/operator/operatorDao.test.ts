@@ -193,6 +193,19 @@ describe("OperatorDao.findIdleOperator", () => {
 });
 
 describe("OperatorDao.startTransit", () => {
+  it("stamps the dispatch policy and pass on the TRANSIT_STARTED payload when given (20-ml-driver-assignment.md §2.4)", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
+    const stamp = { dispatch_policy: "C" as const, planner_run_id: "RUN-1", trigger: "SCHEDULE" as const, model_version: null };
+
+    await operatorDao.startTransit("01OPERATOR", stamp);
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "TRANSIT_STARTED",
+      payload: { location: HOME_DEPOT_LOCATION, ...stamp },
+    });
+  });
+
   it("sets current_activity to TRANSIT and clears availability", async () => {
     ddbMock.on(GetCommand).resolves({ Item: makeOperatorItem() });
 

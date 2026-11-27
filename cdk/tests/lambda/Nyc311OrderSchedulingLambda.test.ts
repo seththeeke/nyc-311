@@ -6,6 +6,8 @@ import { OrdersTable } from "../../data/OrdersTable";
 import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
+import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
+import { Nyc311DispatchDecisionsTopic } from "../../lambda/Nyc311DispatchDecisionsTopic";
 import { Nyc311OrderSchedulingLambda } from "../../lambda/Nyc311OrderSchedulingLambda";
 
 const FAKE_STATE_MACHINE_ARN = "arn:aws:states:us-east-1:123456789012:stateMachine:Fake";
@@ -29,6 +31,8 @@ function synthesize(envName: "TEST" | "PROD"): Template {
     locationsTable,
     operatorsTable,
     orderExecutionStateMachine,
+    featureFlagsTable: new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName }),
+    dispatchDecisionsTopic: new Nyc311DispatchDecisionsTopic(stack, "Topic", { envName }).topic,
   });
   return Template.fromStack(stack);
 }
@@ -96,5 +100,31 @@ describe("Nyc311OrderSchedulingLambda", () => {
     const dynamoActions = allActions.filter((a) => typeof a === "string" && a.startsWith("dynamodb:"));
     expect(new Set(dynamoActions)).toEqual(new Set(["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]));
     expect(allActions).toContain("states:StartExecution");
+  });
+
+  it("reads DISPATCH_POLICY with GetItem on the flag table only, and publishes dispatch decisions (20-ml-driver-assignment.md §2.4)", () => {
+    const template = synthesize("TEST");
+
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "Nyc311OrderScheduling-Test",
+      Environment: {
+        Variables: Match.objectLike({
+          FEATURE_FLAGS_TABLE_NAME: Match.anyValue(),
+          DISPATCH_DECISIONS_TOPIC_ARN: Match.anyValue(),
+        }),
+      },
+    });
+    const statements = Object.values(template.findResources("AWS::IAM::Policy")).flatMap(
+      (policy) => (policy.Properties as { PolicyDocument: { Statement: Record<string, unknown>[] } }).PolicyDocument.Statement
+    );
+    const flagRead = statements.filter((st) => JSON.stringify(st["Resource"]).includes("FeatureFlagsTable"));
+    expect(flagRead.map((st) => st["Action"])).toEqual(["dynamodb:GetItem"]);
+    const publish = statements.filter((st) => st["Action"] === "sns:Publish");
+    expect(publish).toHaveLength(1);
+    expect(JSON.stringify(publish[0]?.["Resource"])).toContain("Topic");
+  });
+
+  it("turns its FeatureFlagRead log lines into the #202 metrics", () => {
+    synthesize("TEST").resourceCountIs("AWS::Logs::MetricFilter", 3);
   });
 });

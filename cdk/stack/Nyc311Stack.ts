@@ -64,6 +64,7 @@ import { Nyc311DataApiLambda } from "../warehouse/Nyc311DataApiLambda";
 import { Nyc311OrderExecutionLambda } from "../lambda/Nyc311OrderExecutionLambda";
 import { Nyc311OrderExecutionStateMachine } from "../step-function/Nyc311OrderExecutionStateMachine";
 import { Nyc311OperatorEventsTopic } from "../lambda/Nyc311OperatorEventsTopic";
+import { Nyc311DispatchDecisionsTopic } from "../lambda/Nyc311DispatchDecisionsTopic";
 import { Nyc311OperatorProjectionsTopic } from "../lambda/Nyc311OperatorProjectionsTopic";
 import { Nyc311OperatorsStreamFanOutLambda } from "../lambda/Nyc311OperatorsStreamFanOutLambda";
 import { Nyc311CostBudget } from "./Nyc311CostBudget";
@@ -475,6 +476,17 @@ export class Nyc311Stack extends Stack {
       warehouseBucket,
       transformLambda: warehouseTransformLambda,
     });
+    /* 20-ml-driver-assignment.md §2.4 — dispatch decisions, published by the order-scheduling Lambda. */
+    const dispatchDecisionsTopic = new Nyc311DispatchDecisionsTopic(this, "Nyc311DispatchDecisionsTopic", { envName: props.envName });
+    new Nyc311WarehouseFirehose(this, "Nyc311WarehouseDispatchDecisionsFirehose", {
+      envName: props.envName,
+      label: "DispatchDecisions",
+      tableName: "dispatch_decisions",
+      sourceTopic: dispatchDecisionsTopic.topic,
+      glueTable: warehouseCatalog.tables["dispatch_decisions"],
+      warehouseBucket,
+      transformLambda: warehouseTransformLambda,
+    });
     new Nyc311WarehouseFirehose(this, "Nyc311WarehouseOperatorSnapshotsFirehose", {
       envName: props.envName,
       label: "OperatorSnapshots",
@@ -606,6 +618,8 @@ export class Nyc311Stack extends Stack {
       locationsTable,
       operatorsTable,
       orderExecutionStateMachine: orderExecutionStateMachine.stateMachine,
+      featureFlagsTable,
+      dispatchDecisionsTopic: dispatchDecisionsTopic.topic,
     });
 
     new Nyc311OrderSchedulingSchedule(this, "Nyc311OrderSchedulingSchedule", {

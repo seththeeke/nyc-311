@@ -6,6 +6,8 @@ import { OrdersTable } from "../../data/OrdersTable";
 import { RequestsTable } from "../../data/RequestsTable";
 import { LocationsTable } from "../../data/LocationsTable";
 import { OperatorsTable } from "../../data/OperatorsTable";
+import { FeatureFlagsTable } from "../../data/FeatureFlagsTable";
+import { Nyc311DispatchDecisionsTopic } from "../../lambda/Nyc311DispatchDecisionsTopic";
 import { Nyc311OrderSchedulingLambda } from "../../lambda/Nyc311OrderSchedulingLambda";
 import { Nyc311OrderSchedulingSchedule } from "../../lambda/Nyc311OrderSchedulingSchedule";
 
@@ -28,6 +30,8 @@ function synthesize(envName: "TEST" | "PROD" = "TEST"): Template {
     locationsTable,
     operatorsTable,
     orderExecutionStateMachine,
+    featureFlagsTable: new FeatureFlagsTable(stack, "FeatureFlagsTable", { envName }),
+    dispatchDecisionsTopic: new Nyc311DispatchDecisionsTopic(stack, "Topic", { envName }).topic,
   });
   new Nyc311OrderSchedulingSchedule(stack, "Nyc311OrderSchedulingSchedule", {
     envName,

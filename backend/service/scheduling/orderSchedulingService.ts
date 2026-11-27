@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { logInfo, logWarn } from "../../logger";
 import type { OrderDao } from "../../dao/order/orderDao";
 import { getOrderDao } from "../../dao/order/getOrderDao";
@@ -17,6 +18,10 @@ import { streetConditionMaterialsCostEstimator } from "./streetConditionMaterial
 import { stepFunctionsOrderExecutionStarter, type OrderExecutionStarter } from "./orderExecutionStarter";
 import { failExecution } from "../execution/orderExecutionService";
 import { ConflictError } from "../../models/errors";
+import type { DispatchStamp, DispatchTrigger } from "../../models/dispatchDecision";
+import { getDistance } from "./pathPlanningService";
+import { resolveDispatchPolicy } from "./dispatchPolicyService";
+import { recordDispatchDecision } from "./dispatchDecisionService";
 
 
 /*
@@ -27,6 +32,8 @@ import { ConflictError } from "../../models/errors";
 const MAX_ORDERS_PER_RUN = 200;
 /* Page size for each gsi1-stage-sla Query call while paging up to MAX_ORDERS_PER_RUN. */
 const QUERY_PAGE_SIZE = 50;
+/* How many waiting orders a decision record lists as considered (20-ml-driver-assignment.md §5.1's K). */
+const MAX_CONSIDERED_ORDERS = 30;
 
 export interface SchedulingRunSummary {
   ordersConsidered: number;
@@ -54,6 +61,23 @@ export interface OrderSchedulingDeps {
   /** Cleanup when a claimed vehicle can't be handed off — injectable for tests. */
   failExecution?: typeof failExecution;
   now?: () => Date;
+  /** Reads DISPATCH_POLICY once per pass (20-ml-driver-assignment.md §3.1). */
+  resolveDispatchPolicy?: typeof resolveDispatchPolicy;
+  /** Publishes one dispatch_decisions row per committed assignment (§2.4). */
+  recordDispatchDecision?: typeof recordDispatchDecision;
+  newRunId?: () => string;
+}
+
+export interface ScheduleOrdersOptions {
+  /** What started this pass; only the hourly SCHEDULE exists until Leg 1b. */
+  trigger?: DispatchTrigger;
+}
+
+/* Per-decision context the pass hands each dispatch: its stamp, and the waiting orders it was chosen from. */
+interface DispatchContext {
+  stamp: DispatchStamp;
+  /** This order first, then the ones queued behind it in the pass, capped at MAX_CONSIDERED_ORDERS. */
+  consideredOrders: Order[];
 }
 
 /** Falls back to `HOME_DEPOT_LOCATION` when a Location record is missing lat/lng — real 311 geodata is sometimes incomplete (§3.7). */
@@ -75,9 +99,20 @@ async function dispatchOneOrder(
   deps: Required<
     Pick<
       OrderSchedulingDeps,
-      "orderDao" | "requestDao" | "locationDao" | "operatorDao" | "transitEstimator" | "processingEstimator" | "materialsEstimator" | "executionStarter" | "failExecution" | "now"
+      | "orderDao"
+      | "requestDao"
+      | "locationDao"
+      | "operatorDao"
+      | "transitEstimator"
+      | "processingEstimator"
+      | "materialsEstimator"
+      | "executionStarter"
+      | "failExecution"
+      | "now"
+      | "recordDispatchDecision"
     >
-  >
+  >,
+  context: DispatchContext
 ): Promise<"SCHEDULED" | "SKIPPED_NO_CAPACITY"> {
   logInfo("OrderScheduleAttemptStarted", { orderId: order.order_id });
 
@@ -106,16 +141,23 @@ async function dispatchOneOrder(
   }
 
   const jobLocation = resolveJobLocation(location);
+  const locationIsFallback = jobLocation === HOME_DEPOT_LOCATION;
   /* Should never be null in practice — every Operator is stamped with HOME_DEPOT_LOCATION at OPERATOR_ADDED — but the schema allows it, so this is defended rather than assumed. */
   const operatorLocation = idleOperator.current_location ?? HOME_DEPOT_LOCATION;
 
-  const [transitMinutes, processingMinutes, materialsCostEstimate] = await Promise.all([
+  const [transitMinutes, processingMinutes, materialsCostEstimate, distanceMiles] = await Promise.all([
     deps.transitEstimator.estimateMinutes(operatorLocation, jobLocation),
     deps.processingEstimator.estimateMinutes(order, request),
     deps.materialsEstimator.estimateCost(order, request),
+    getDistance(operatorLocation, jobLocation),
   ]);
   logInfo("OrderScheduleEstimated", {
     orderId: order.order_id,
+    operatorId: idleOperator.operator_id,
+    dispatchPolicy: context.stamp.dispatch_policy,
+    plannerRunId: context.stamp.planner_run_id,
+    distanceMiles,
+    locationIsFallback,
     descriptor: request.descriptor,
     transitMinutes,
     processingMinutes,
@@ -133,7 +175,7 @@ async function dispatchOneOrder(
    * idle again.
    */
   try {
-    await deps.operatorDao.startTransit(idleOperator.operator_id);
+    await deps.operatorDao.startTransit(idleOperator.operator_id, context.stamp);
   } catch (err) {
     /* A10: another run claimed this vehicle first. The Order stays in SCHEDULE for the next run. */
     if (err instanceof ConflictError) {
@@ -155,6 +197,7 @@ async function dispatchOneOrder(
       operatorId: idleOperator.operator_id,
       materialsCostEstimate,
       costModel: deps.materialsEstimator.costModel,
+      dispatch: context.stamp,
     });
 
     await deps.executionStarter.startExecution({
@@ -179,6 +222,30 @@ async function dispatchOneOrder(
     scheduledStart: scheduledStart.toISOString(),
     scheduledEnd: scheduledEnd.toISOString(),
   });
+
+  /* Under C the pass takes orders oldest-first, so the chosen order is always rank 1 of its considered set. */
+  await deps.recordDispatchDecision({
+    planner_run_id: context.stamp.planner_run_id,
+    decided_at: scheduledStart.toISOString(),
+    dispatch_policy: context.stamp.dispatch_policy,
+    trigger: context.stamp.trigger,
+    model_version: context.stamp.model_version,
+    decision_type: "ASSIGN",
+    operator_id: idleOperator.operator_id,
+    order_id: order.order_id,
+    considered_order_ids: JSON.stringify(context.consideredOrders.map((considered) => considered.order_id)),
+    considered_count: context.consideredOrders.length,
+    order_age_rank: 1,
+    location_is_fallback: locationIsFallback,
+    distance_miles: distanceMiles,
+    predicted_transit_minutes: transitMinutes,
+    predicted_work_minutes: processingMinutes,
+    edge_cost: null,
+    wait_for_operator_id: null,
+    expected_free_at: null,
+    predicted_saving_minutes: null,
+    recheck_at: null,
+  });
   return "SCHEDULED";
 }
 
@@ -191,7 +258,10 @@ async function dispatchOneOrder(
  * in the run is skipped. One bad Order never aborts the run (§7's
  * per-order error isolation).
  */
-export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<SchedulingRunSummary> {
+export async function scheduleOrders(
+  deps: OrderSchedulingDeps = {},
+  options: ScheduleOrdersOptions = {}
+): Promise<SchedulingRunSummary> {
   const resolvedDeps = {
     orderDao: deps.orderDao ?? getOrderDao(),
     requestDao: deps.requestDao ?? getRequestDao(),
@@ -203,9 +273,15 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     executionStarter: deps.executionStarter ?? stepFunctionsOrderExecutionStarter,
     failExecution: deps.failExecution ?? failExecution,
     now: deps.now ?? (() => new Date()),
+    recordDispatchDecision: deps.recordDispatchDecision ?? recordDispatchDecision,
   };
 
-  logInfo("OrderSchedulingRunStarted", {});
+  const plannerRunId = (deps.newRunId ?? randomUUID)();
+  const trigger = options.trigger ?? "SCHEDULE";
+  const { appliedPolicy } = await (deps.resolveDispatchPolicy ?? resolveDispatchPolicy)();
+  const stamp: DispatchStamp = { dispatch_policy: appliedPolicy, planner_run_id: plannerRunId, trigger, model_version: null };
+
+  logInfo("OrderSchedulingRunStarted", { plannerRunId, trigger, dispatchPolicy: appliedPolicy });
 
   const summary: SchedulingRunSummary = {
     ordersConsidered: 0,
@@ -221,10 +297,11 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
       cursor,
     });
 
-    for (const order of page.orders) {
+    for (const [index, order] of page.orders.entries()) {
       summary.ordersConsidered += 1;
       try {
-        const outcome = await dispatchOneOrder(order, resolvedDeps);
+        const consideredOrders = page.orders.slice(index, index + MAX_CONSIDERED_ORDERS);
+        const outcome = await dispatchOneOrder(order, resolvedDeps, { stamp, consideredOrders });
         if (outcome === "SCHEDULED") summary.ordersScheduled += 1;
         else summary.ordersSkippedNoCapacity += 1;
       } catch (err) {
@@ -236,6 +313,6 @@ export async function scheduleOrders(deps: OrderSchedulingDeps = {}): Promise<Sc
     cursor = page.nextCursor;
   } while (cursor && summary.ordersConsidered < MAX_ORDERS_PER_RUN);
 
-  logInfo("OrderSchedulingRunCompleted", { summary });
+  logInfo("OrderSchedulingRunCompleted", { summary, plannerRunId, dispatchPolicy: appliedPolicy });
   return summary;
 }

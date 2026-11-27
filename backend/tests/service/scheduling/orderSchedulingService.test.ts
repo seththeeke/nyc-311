@@ -15,6 +15,7 @@ import { ConflictError } from "../../../models/errors";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const NOW = new Date("2026-08-28T12:00:00.000Z");
+const STAMP = { dispatch_policy: "C", planner_run_id: "RUN-1", trigger: "SCHEDULE", model_version: null };
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -110,6 +111,9 @@ function baseDeps(overrides: OrderSchedulingDeps = {}): OrderSchedulingDeps {
     executionStarter: { startExecution: vi.fn().mockResolvedValue(undefined) },
     failExecution: vi.fn().mockResolvedValue(undefined),
     now: () => NOW,
+    resolveDispatchPolicy: vi.fn().mockResolvedValue({ flagTreatment: "C", appliedPolicy: "C" }),
+    recordDispatchDecision: vi.fn().mockResolvedValue(undefined),
+    newRunId: () => "RUN-1",
     ...overrides,
   };
 }
@@ -136,13 +140,14 @@ describe("scheduleOrders", () => {
       ordersSkippedNoCapacity: 0,
       ordersFailed: 0,
     });
-    expect(deps.operatorDao!.startTransit).toHaveBeenCalledWith("01OPERATOR");
+    expect(deps.operatorDao!.startTransit).toHaveBeenCalledWith("01OPERATOR", STAMP);
     expect(deps.orderDao!.scheduleOrder).toHaveBeenCalledWith("01ORDER", {
       scheduledStart: "2026-08-28T12:00:00.000Z",
       scheduledEnd: "2026-08-28T12:50:00.000Z",
       operatorId: "01OPERATOR",
       materialsCostEstimate: 75,
       costModel: "BRUTE_FORCE",
+      dispatch: STAMP,
     });
     expect(deps.materialsEstimator!.estimateCost).toHaveBeenCalledWith(makeOrder(), makeRequest());
   });
@@ -373,5 +378,96 @@ describe("scheduleOrders", () => {
     } finally {
       if (previous !== undefined) process.env["ORDERS_TABLE_NAME"] = previous;
     }
+  });
+});
+
+describe("scheduleOrders dispatch stamps and decision records (20-ml-driver-assignment.md §2.4)", () => {
+  it("reads the dispatch policy once per pass, however many orders it considers", async () => {
+    const deps = baseDeps({
+      orderDao: makeOrderDao([makeOrder({ order_id: "A" }), makeOrder({ order_id: "B" }), makeOrder({ order_id: "C" })]),
+    });
+
+    await scheduleOrders(deps);
+
+    expect(deps.resolveDispatchPolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it("records one ASSIGN decision per scheduled order, with the considered set, distance and predictions", async () => {
+    const deps = baseDeps({ operatorDao: makeOperatorDao("01OPERATOR", { lat: 40.75, lng: -73.9 }) });
+
+    await scheduleOrders(deps);
+
+    expect(deps.recordDispatchDecision).toHaveBeenCalledTimes(1);
+    const decision = vi.mocked(deps.recordDispatchDecision!).mock.calls[0][0];
+    expect(decision).toEqual({
+      planner_run_id: "RUN-1",
+      decided_at: "2026-08-28T12:00:00.000Z",
+      dispatch_policy: "C",
+      trigger: "SCHEDULE",
+      model_version: null,
+      decision_type: "ASSIGN",
+      operator_id: "01OPERATOR",
+      order_id: "01ORDER",
+      considered_order_ids: JSON.stringify(["01ORDER"]),
+      considered_count: 1,
+      order_age_rank: 1,
+      location_is_fallback: false,
+      distance_miles: expect.any(Number),
+      predicted_transit_minutes: 20,
+      predicted_work_minutes: 30,
+      edge_cost: null,
+      wait_for_operator_id: null,
+      expected_free_at: null,
+      predicted_saving_minutes: null,
+      recheck_at: null,
+    });
+    expect(decision.distance_miles).toBeGreaterThan(3);
+    expect(decision.distance_miles).toBeLessThan(5);
+  });
+
+  it("lists the chosen order and the ones queued behind it, capped at 30", async () => {
+    const orders = Array.from({ length: 40 }, (_, i) => makeOrder({ order_id: `O${i}` }));
+    const deps = baseDeps({ orderDao: makeOrderDao(orders) });
+    vi.mocked(deps.operatorDao!.findIdleOperator)
+      .mockResolvedValueOnce({ operator_id: "01OPERATOR", current_location: HOME_DEPOT_LOCATION } as never)
+      .mockResolvedValue(null);
+
+    await scheduleOrders(deps);
+
+    const decision = vi.mocked(deps.recordDispatchDecision!).mock.calls[0][0];
+    expect(decision.considered_count).toBe(30);
+    expect(JSON.parse(decision.considered_order_ids)).toEqual(orders.slice(0, 30).map((o) => o.order_id));
+  });
+
+  it("marks a decision whose job location fell back to HOME_DEPOT_LOCATION", async () => {
+    const deps = baseDeps({ locationDao: makeLocationDao(makeLocation({ latitude: null, longitude: null })) });
+
+    await scheduleOrders(deps);
+
+    expect(vi.mocked(deps.recordDispatchDecision!).mock.calls[0][0].location_is_fallback).toBe(true);
+  });
+
+  it("stamps the trigger it was given", async () => {
+    const deps = baseDeps();
+
+    await scheduleOrders(deps, { trigger: "WORK_COMPLETED" });
+
+    expect(deps.operatorDao!.startTransit).toHaveBeenCalledWith("01OPERATOR", { ...STAMP, trigger: "WORK_COMPLETED" });
+  });
+
+  it("stamps the policy the resolver applied", async () => {
+    const deps = baseDeps({ resolveDispatchPolicy: vi.fn().mockResolvedValue({ flagTreatment: "T2", appliedPolicy: "C" }) });
+
+    await scheduleOrders(deps);
+
+    expect(vi.mocked(deps.recordDispatchDecision!).mock.calls[0][0].dispatch_policy).toBe("C");
+  });
+
+  it("records no decision for a skipped order", async () => {
+    const deps = baseDeps({ operatorDao: makeOperatorDao(null) });
+
+    await scheduleOrders(deps);
+
+    expect(deps.recordDispatchDecision).not.toHaveBeenCalled();
   });
 });

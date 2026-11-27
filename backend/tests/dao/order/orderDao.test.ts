@@ -282,6 +282,21 @@ describe("OrderDao.scheduleOrder", () => {
     costModel: "BRUTE_FORCE" as const,
   };
 
+  it("stamps the dispatch policy and pass on the ORDER_SCHEDULED payload when given (20-ml-driver-assignment.md §2.4)", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),
+    });
+    const stamp = { dispatch_policy: "C" as const, planner_run_id: "RUN-1", trigger: "SCHEDULE" as const, model_version: null };
+
+    await orderDao.scheduleOrder("01ORDER", { ...SCHEDULED_INPUT, dispatch: stamp });
+
+    const transactInput = ddbMock.commandCalls(TransactWriteCommand)[0].args[0].input;
+    expect(transactInput.TransactItems?.[0]?.Put?.Item).toMatchObject({
+      event_type: "ORDER_SCHEDULED",
+      payload: { operator_id: "01OPERATOR", cost_model: "BRUTE_FORCE", ...stamp },
+    });
+  });
+
   it("moves current_stage to EXECUTE, stamping the window, operator, and materials estimate", async () => {
     ddbMock.on(GetCommand).resolves({
       Item: makeOrderItem({ current_stage: "SCHEDULE", status: "ACTIVE", sla_deadline: "2026-08-29T00:00:00.000Z" }),

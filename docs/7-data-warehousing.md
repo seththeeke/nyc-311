@@ -158,6 +158,7 @@ established.
 | `Locations` table — real `Location` rows | `locations` | Geography dimension — `bbl`, `borough`, `zip`, `latitude`/`longitude`, joined to `order_snapshots`/`requests` on `location_id`. Written once per `bbl` (`findOrCreate`), never updated — `INSERT`-only. |
 | `Operators` table — `OperatorEvent` items (`EVENT#<n>`) | `operator_events` | Fact stream — every `OPERATOR_ADDED`/`OPERATOR_REMOVAL_REQUESTED`/`OPERATOR_REMOVED`/`TRANSIT_STARTED`/`WORK_STARTED`/`WORK_COMPLETED` with `occurred_at`, `actor`, `payload` (Leg 6, 2026-09-13). |
 | `Operators` table — `#METADATA` projection | `operator_snapshots` | Current-state dimension — `status`, `current_activity`, `rate_per_hour`, `start_datetime`/`end_datetime`, `current_location` as plain typed columns. Backs `10-capacity-modeling-and-integration.md` §2.3's all-time-cost job (Leg 6, 2026-09-13). |
+| Order-scheduling Lambda — one SNS message per committed dispatch decision (`20-ml-driver-assignment.md` §2.4) | `dispatch_decisions` | Fact stream — the policy, pass and trigger behind each assignment (or, under `T2`, hold), with the considered orders and the predicted transit/work minutes. Published best-effort to `Nyc311DispatchDecisions-<Env>`, like `public_api_calls`. |
 
 **Excluded, by design:** `Requests`' `METRIC#<ulid>` poller-metrics rows
 and `CURSOR#NYC_311` sentinel (operational, already served by

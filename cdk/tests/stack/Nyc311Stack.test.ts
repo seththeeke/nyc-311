@@ -203,19 +203,21 @@ describe("Nyc311Stack", () => {
     template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "Nyc311OrderPipelineFailures-Test" });
   });
 
-  it("wires the data-warehouse landing zone: bucket, Glue db + 8 tables (7 sources + job_results), workgroup, 7 Firehoses (7-data-warehousing.md §5-§7/§11, Leg 6; 16-resident-action-models.md §4)", () => {
+  it("wires the data-warehouse landing zone: bucket, Glue db + 9 tables (8 sources + job_results), workgroup, 8 Firehoses (7-data-warehousing.md §5-§7/§11, Leg 6; 16-resident-action-models.md §4; 20-ml-driver-assignment.md §2.4)", () => {
     const { template } = testEnv;
 
     template.hasResourceProperties("AWS::S3::Bucket", { BucketName: "nyc311-warehouse-test" });
     template.hasResourceProperties("AWS::Glue::Database", { DatabaseInput: { Name: "nyc311_warehouse_test" } });
-    template.resourceCountIs("AWS::Glue::Table", 8);
+    template.resourceCountIs("AWS::Glue::Table", 9);
+    template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "dispatch_decisions" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "public_api_calls" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "job_results" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "locations" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_events" } });
     template.hasResourceProperties("AWS::Glue::Table", { TableInput: { Name: "operator_snapshots" } });
     template.hasResourceProperties("AWS::Athena::WorkGroup", { Name: "Nyc311Analytics-Test" });
-    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 7);
+    template.resourceCountIs("AWS::KinesisFirehose::DeliveryStream", 8);
+    template.hasResourceProperties("AWS::KinesisFirehose::DeliveryStream", { DeliveryStreamName: "Nyc311Warehouse-DispatchDecisions-Test" });
     template.hasResourceProperties("AWS::KinesisFirehose::DeliveryStream", { DeliveryStreamName: "Nyc311Warehouse-PublicApiCalls-Test" });
     for (const name of [
       "Nyc311Warehouse-OrderEvents-Test",

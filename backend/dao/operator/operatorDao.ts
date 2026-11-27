@@ -9,6 +9,7 @@ import type { GpsLocation } from "../../models/gpsLocation";
 import { HOME_DEPOT_LOCATION } from "../../models/gpsLocation";
 import { ConflictError, ValidationError } from "../../models/errors";
 import { ADMIN_CAPACITY_CHANGE, type CapacityChange } from "../../models/capacityChange";
+import type { DispatchStamp } from "../../models/dispatchDecision";
 
 const ROSTER_INDEX = "gsi2-roster";
 const ROSTER_PARTITION_KEY = "OPERATOR";
@@ -164,9 +165,11 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
    * is re-checked on a fresh read and the append is conditioned on that
    * read's sequence, so overlapping runs can't both claim one vehicle.
    *
+   * `dispatch` is stamped on the payload (doc 20 §2.4).
+   *
    * @throws {@link ConflictError} if the Operator is no longer available.
    */
-  async startTransit(operatorId: string): Promise<Operator> {
+  async startTransit(operatorId: string, dispatch?: DispatchStamp): Promise<Operator> {
     const now = new Date().toISOString();
     const previous = this.requirePreviousProjection(operatorId, await this.getProjection(operatorId));
     if (previous.status !== "ACTIVE" || previous.current_activity !== "IDLE" || previous.removal_requested_at) {
@@ -185,7 +188,7 @@ export class OperatorDao extends EventSourcedDao<Operator, OperatorEvent> {
         operator_id: operatorId,
         sequence_number: nextSequence,
         event_type: "TRANSIT_STARTED",
-        payload: { location: previous.current_location },
+        payload: { location: previous.current_location, ...(dispatch ?? {}) },
         occurred_at: now,
         actor: "SYSTEM",
       }),

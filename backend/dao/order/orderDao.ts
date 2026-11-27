@@ -7,6 +7,7 @@ import type { CostModel, Order, OrderEvent, OrderEventType, OrderRejectionReason
 import { OrderSchema, OrderEventSchema, ORDER_STAGES } from "../../models/order";
 import type { OrderListResult } from "../../models/orderListResult";
 import { ValidationError } from "../../models/errors";
+import type { DispatchStamp } from "../../models/dispatchDecision";
 
 export interface CreateOrderInput {
   request_id: string;
@@ -26,6 +27,8 @@ export interface ScheduleOrderInput {
   /** Expected materials cost in USD, from the MaterialsCostEstimator (v1-prod-deployment.md Q5). */
   materialsCostEstimate: number;
   costModel: CostModel;
+  /** The policy and pass that made this dispatch (20-ml-driver-assignment.md §2.4), stamped on ORDER_SCHEDULED's payload. */
+  dispatch?: DispatchStamp;
 }
 
 export interface ListOrdersWaitingForScheduleOptions {
@@ -210,6 +213,7 @@ export class OrderDao extends EventSourcedDao<Order, OrderEvent> {
         operator_id: input.operatorId,
         materials_cost_estimate: input.materialsCostEstimate,
         cost_model: input.costModel,
+        ...(input.dispatch ?? {}),
       },
       () => ({
         current_stage: "EXECUTE",
