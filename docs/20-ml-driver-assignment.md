@@ -84,7 +84,7 @@ the baseline's days.
 | Tier | Metric | Definition |
 |---|---|---|
 | **Outcome** | **Jobs per paid driver-hour** (primary) | `WORK_COMPLETED` count ÷ paid hours. Paid hours are the deduped `operator_events` intervals, classified as in #213 (`TRANSIT_STARTED` → transit, `WORK_STARTED` → working, `OPERATOR_ADDED`/`WORK_COMPLETED`/`WORK_ABORTED`/`OPERATOR_REMOVAL_REQUESTED` → idle, `OPERATOR_REMOVED` excluded) |
-| Outcome | Implied fleet size | Daily jobs completed ÷ (jobs per paid driver-hour × 24). The number of drivers the day's work needed at that efficiency |
+| Outcome | Implied fleet for demand | Orders accepted that day ÷ (jobs per paid driver-hour × 24). The drivers the day's demand needs at that day's efficiency. Noisy day to day because orders arrive in blocks; read over a window |
 | Outcome | Fleet cost per resolved order | #213's `fleet_cost` + materials ÷ orders resolved. Reported for the WBR; not deciding, since job mix and materials add noise |
 | Driver efficiency | Non-productive share | (idle + transit) ÷ paid hours |
 | Driver efficiency | Idle hours per driver-day | Idle hours ÷ driver-days, in aggregate |
@@ -97,7 +97,7 @@ the baseline's days.
 | Resident | SLA miss rate | Share of resolved orders resolved after `sla_deadline` |
 | Resident | Backlog age p90 | p90 age of accepted, unscheduled orders, sampled hourly |
 | Guardrail | Max pass-overs | The most times any order was in a planner's considered set and not taken, from `dispatch_decisions` |
-| Guardrail | Job-type mix | Share of jobs by `descriptor`, per policy, against the accepted mix. A policy must not quietly favour short jobs |
+| Guardrail | Job-type mix | Share of long jobs (descriptors with ≥ 90 expected work minutes) among resolved orders, against the same share among accepted orders. A policy must not quietly favour short jobs |
 | Guardrail | Planner fallback rate | Share of `T2` runs that fell back to `T1` selection (§6.4) |
 | Guardrail | Double claims | Operators with two open `TRANSIT_STARTED` without a `WORK_COMPLETED`/`WORK_ABORTED` between them. Must stay 0 |
 
@@ -135,14 +135,20 @@ can be split by them:
   `WORK_ABORTED`, `OPERATOR_ADDED`, `HOLD_EXPIRED`), and `model_version`
   (null outside `T2`).
 - **A `dispatch_decisions` warehouse source.** One record per committed
-  assignment or hold, written from the scheduling service to a new
-  Firehose (`Nyc311DispatchDecisionsFirehose-<Env>`) into
-  `data/dispatch_decisions/` with a Glue table. Fields: `planner_run_id`,
+  assignment or hold, published best-effort by the scheduling service
+  (`service/scheduling/dispatchDecisionService.ts`) to the
+  `Nyc311DispatchDecisions-<Env>` SNS topic, landed by the
+  `Nyc311Warehouse-DispatchDecisions-<Env>` Firehose into
+  `data/dispatch_decisions/` with a Glue table, the same path as
+  `public_api_calls`. Fields: `planner_run_id`,
   `decided_at`, `dispatch_policy`, `model_version`, `decision_type`
   (`ASSIGN`/`HOLD`), `operator_id`, `order_id`, `considered_order_ids`,
   `predicted_transit_minutes`, `predicted_work_minutes`, `edge_cost`, and,
   for a hold, `wait_for_operator_id`, `expected_free_at`,
-  `predicted_saving_minutes`, `recheck_at`.
+  `predicted_saving_minutes`, `recheck_at`, plus `considered_count`,
+  `order_age_rank`, `location_is_fallback` and `distance_miles`. Under
+  `C` the considered set is the chosen order and the orders queued behind
+  it in the pass, capped at 30.
 - Under `C` and `T1`, the record still carries the considered set and the
   cost-to-serve predictions, made with the simulator's own formula (no
   model), so pass-overs and predicted-vs-actual are measurable at baseline.
@@ -394,8 +400,8 @@ model pin makes that pass use `T1` selection. The pass logs
 | `Nyc311DispatchPlannerLambda` (`Nyc311DispatchPlanner-<Env>`) | `Runtime.PYTHON_3_13`, `Code.fromAsset` of `ml/planner/`, no bundling. `s3:GetObject` on the artifacts prefix, `ssm:GetParameter` on the pin |
 | `Nyc311ModelArtifactsBucket` | Versioned, private |
 | `Nyc311DispatchTriggersQueue` | FIFO + DLQ + alarm |
-| `Nyc311DispatchDecisionsFirehose` + Glue table | Under `cdk/warehouse/` |
-| Scheduling Lambda grants | `lambda:InvokeFunction` on the planner, `firehose:PutRecord`, `scheduler:CreateSchedule` scoped to a hold-schedule name prefix plus `iam:PassRole` for its role, and the flag `GetItem` (#202) |
+| `Nyc311DispatchDecisionsTopic` + `Nyc311Warehouse-DispatchDecisions` Firehose + Glue table | Built in Leg 0b |
+| Scheduling Lambda grants | `lambda:InvokeFunction` on the planner, `sns:Publish` on the decisions topic (Leg 0b), `scheduler:CreateSchedule` scoped to a hold-schedule name prefix plus `iam:PassRole` for its role, and the flag `GetItem` (#202) |
 
 ---
 
@@ -474,6 +480,24 @@ affected package). Pushes may be batched. Each leg ships dark or behind
 | **4** | Location value model (on the `T1` hold's data) + `ml/planner/` (features, tree walker, value lookup, Hungarian solve, holds, hard rules); `T2` in replay; tune `α`/`γ`/`K` | ml | 1c, 3 | Replay gate (§7.2) passes |
 | **5** | Planner Lambda, artifacts bucket, SSM pin, `activity_since` on `Operator`, snapshot builder, `T2` branch in scheduling, hold wake-ups, fallback. First artifacts uploaded and pinned (confirmed) | backend, cdk, ml | 4 | Test at `T2`: plans committed, holds wake up, fallback works when the pin is missing |
 | **6** | **Dial-up `T2`:** Test 2 days → Prod 14 days | — | 5 | `T2` vs `T1` recorded; outcome written |
+
+### Leg 0 build notes (2026-11-27)
+
+- **0a:** `docs/v1-wbr.sql` gains the #213 columns. Run read-only against
+  Prod: week of Nov 2 `fleet_cost` $104,390.72 (Kid Kestrel's baseline
+  $104,373, 0.02% apart), `idle_cost` $19,952.09 ($19,946); fleet − idle
+  $84,438.63 against `labor_cost` $84,087.08 (0.4%). Existing columns:
+  the only differences from the old SQL are `median_resolution_hours`
+  (`approx_percentile`) and cent-level float sums, which differ the same
+  way between two runs of the unchanged SQL. Awaiting Seth's apply to
+  Test, then Prod.
+- **0b:** built (backend + cdk). Awaiting deploy and the two
+  `DISPATCH_POLICY` flag rows; until the rows exist, each pass logs a
+  `FLAG_MISSING` fallback to `C`, which behaves the same.
+- **0c:** `docs/20-dispatch-efficiency-daily.sql` runs read-only against
+  Prod (with an empty stand-in for `dispatch_decisions`, which doesn't
+  exist until 0b deploys). Days before the stamps show
+  `dispatch_policy = UNSTAMPED`. Awaiting Seth's apply once 0b is live.
 
 ### Verification log
 
