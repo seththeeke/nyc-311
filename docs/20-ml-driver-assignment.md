@@ -489,15 +489,19 @@ affected package). Pushes may be batched. Each leg ships dark or behind
   $84,438.63 against `labor_cost` $84,087.08 (0.4%). Existing columns:
   the only differences from the old SQL are `median_resolution_hours`
   (`approx_percentile`) and cent-level float sums, which differ the same
-  way between two runs of the unchanged SQL. Awaiting Seth's apply to
-  Test, then Prod.
-- **0b:** built (backend + cdk). Awaiting deploy and the two
-  `DISPATCH_POLICY` flag rows; until the rows exist, each pass logs a
-  `FLAG_MISSING` fallback to `C`, which behaves the same.
+  way between two runs of the unchanged SQL. Applied 2026-11-27 to Test,
+  then Prod, by overwriting `job-definitions/wbr.sql` in each warehouse
+  bucket (the admin UI can't edit a job's SQL); rollback is the previous
+  version from git (`584d67f`).
+- **0b:** built (backend + cdk), pushed 2026-11-27. `DISPATCH_POLICY`
+  rows created in Test and Prod (default `C`, no overrides or
+  allocations).
 - **0c:** `docs/20-dispatch-efficiency-daily.sql` runs read-only against
   Prod (with an empty stand-in for `dispatch_decisions`, which doesn't
   exist until 0b deploys). Days before the stamps show
-  `dispatch_policy = UNSTAMPED`. Awaiting Seth's apply once 0b is live.
+  `dispatch_policy = UNSTAMPED`. Created as a job in Test and Prod
+  2026-11-27; its runs succeed once 0b's `dispatch_decisions` table is
+  deployed.
 
 ### Verification log
 
