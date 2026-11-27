@@ -4,6 +4,14 @@
 > one at a time with Seth. Items still open for review are listed in §11.
 > No code is written until the review is done, and nothing is written into
 > `ml/` until CLAUDE.md gains its `§5.6 ml/` section (§9).
+>
+> **Progress (2026-11-27):** Leg 0a applied in Test and Prod. Leg 0b
+> pushed (`0ca153b`), deploy not yet verified. Leg 0c's job created in
+> Test and Prod, first successful run pending 0b's deploy. **Next:**
+> verify 0b in Prod (stamped `ORDER_SCHEDULED`/`TRANSIT_STARTED`,
+> `dispatch_decisions` rows, a clean `dispatch_efficiency_daily` run),
+> then start the 14-day `C` baseline (Leg 0d). §11's review items are
+> still open; none block Leg 0. Legs 1+ wait for Seth's go-ahead.
 
 BoroughSim's dispatch is replaced with a planner that sees the whole
 network: every driver (idle, driving or working, where they are, when they
