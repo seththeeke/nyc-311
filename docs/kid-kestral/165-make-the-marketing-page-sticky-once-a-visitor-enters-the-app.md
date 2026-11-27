@@ -1,6 +1,6 @@
 # 165. Make the marketing page sticky once a visitor enters the app
 
-**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline); unblocked 2026-11-20 (AWS profile set up); verified in Test 2026-11-20; Prod flag at 100% `T1` 2026-11-21 10:00 UTC. **Ticket:** #165. **Card:** Verified in Test Environment.
+**Status:** Spec created 2026-11-14; CEO-approved; development started 2026-11-15; Leg 1 merged 2026-11-18; sent for CEO intervention 2026-11-18 (no way to read the pipeline); unblocked 2026-11-20 (AWS profile set up); verified in Test 2026-11-20; Prod flag at 100% `T1` 2026-11-21 10:00 UTC; sent for CEO intervention 2026-11-27 (V1 can't be run against Prod). **Ticket:** #165. **Card:** Requires CEO Intervention.
 
 ## 1. Ticket
 
@@ -140,6 +140,10 @@ can't reach the marketing page through the button or after 7 days.
 | 2026-11-21 10:00 UTC | Guardrails before the flip | Latest pipeline run, on `f4caae7` (contains `69b2374`, checked with `merge-base --is-ancestor`): `BrowserSmokeTestsTest` ✅ (11-20 21:09 PT), `IntegrationTestsTest` ✅, `Nyc311-Prod.Deploy` ✅, `IntegrationTestsProd` ✅ (21:12 PT). `MARKETING_PAGE` Prod: default `T1` (v6) | All green |
 | 2026-11-21 10:00 UTC | **Dial-up step 3: Prod 100% `T1`** | `update_flag PROD MARKETING_STICKY_ENTRY` allocations `[T1 100%]` → v2. V3: `get_flag` now returns allocation `T1` 100% | Allocation 100% `T1` |
 | 2026-11-21 10:01 UTC | V1 right after the flip | `marketingEntry.spec.ts` against **Test**: 3/3 tests (steps 1–6) ✅ in 14.3 s. **Not run against Prod:** `SMOKE_BASE_URL=https://boroughsim.com` needs approval in a headless run, so it was denied. No guardrail has been seen past its threshold, so this isn't an abort. Asked the CEO (ticket) for an allowlist entry or a manual run before the 24 h check | Test 3/3. Prod not run |
+| 2026-11-21 15:00 UTC | Session parked | The scheduled run exited 1 with the card in verified-test. Nothing changed. The CEO resumed it on 2026-11-27 | — |
+| 2026-11-27 15:00 UTC | Final window check: V3 and guardrails | `get_flag PROD MARKETING_STICKY_ENTRY`: default `C`, allocation `T1` 100% (v2, unchanged since 11-21). `MARKETING_PAGE` Prod: `T1` (v6). Latest pipeline run (`ac4ee60`, 11-25): `Nyc311-Prod.Deploy` ✅, `IntegrationTestsProd` ✅, `DeployCustomer` ✅. **`Nyc311-Test.Deploy` failed** on that run, so `BrowserSmokeTestsTest` didn't run. That failure isn't from #165: every run after `69b2374` through `f4caae7` passed | No guardrail past its threshold |
+| 2026-11-27 15:00 UTC | V1 against Test, again | `marketingEntry.spec.ts`: steps 1–5 ✅ on the first try. Step 6 (About → Back to the intro) timed out on the first try: the click on a visible, stable button hung for 90 s. It passed on retry in 6.8 s. Playwright reports the suite as passing, with 1 flaky test | 2 passed, 1 flaky |
+| 2026-11-27 15:00 UTC | **V1 against Prod (the deciding check)** | **Not run.** `env SMOKE_BASE_URL=https://boroughsim.com npm run test:smoke -- marketingEntry` still needs approval in a headless run, and nobody answered the 11-21 request. Without it the Outcome can't be recorded. Sent to CEO intervention. The flag stays at 100% `T1`: no guardrail is past its threshold | Prod not run |
 
 ## 7. Outcome
 
@@ -157,6 +161,9 @@ Not yet.
   `env SMOKE_BASE_URL=https://boroughsim.com npm run test:smoke -- marketingEntry`
   in `.claude/agent-settings/gen-purpose-dev.json`, or run it yourself and
   post the result on #165. Needed before the 24 h check (from 2026-11-22 10:00 UTC).
+  **Still open on 2026-11-27.** This blocks the Outcome (CEO intervention).
+- Look at the `Nyc311-Test.Deploy` failure on `ac4ee60` (2026-11-25). It isn't
+  from #165, but it stops `BrowserSmokeTestsTest` from running.
 
 ## Appendix: decisions
 
