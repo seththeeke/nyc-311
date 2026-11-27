@@ -21,6 +21,15 @@
 --   rate_per_hour; materials = ORDER_RESOLVED's materials_cost_actual (0
 --   before F5). total_cost = labor + materials. Idle fleet time isn't a job
 --   cost, so it isn't counted here.
+-- * Fleet time (#213, 20-ml-driver-assignment.md Leg 0a; additive, every
+--   column above is unchanged): paid fleet hours from deduped
+--   operator_events. Each interval runs from an event to the operator's next
+--   event (or now), classed by its opening event: TRANSIT_STARTED -> transit,
+--   WORK_STARTED -> working, OPERATOR_ADDED / WORK_COMPLETED / WORK_ABORTED /
+--   OPERATOR_REMOVAL_REQUESTED -> idle; OPERATOR_REMOVED intervals are
+--   excluded. Intervals are split at Monday (UTC) week boundaries.
+--   fleet_cost = hours x the operator's latest rate_per_hour.
+--   cost_per_resolved_order = (fleet_cost + materials_cost) / orders_resolved.
 WITH
 events AS (
   SELECT DISTINCT order_id, sequence_number, event_type, occurred_at, payload
@@ -143,6 +152,55 @@ weeks AS (
   UNION
   SELECT resolved_week FROM resolution_stats
 ),
+op_events AS (
+  SELECT DISTINCT operator_id, sequence_number, event_type, occurred_at
+  FROM operator_events
+),
+fleet_intervals AS (
+  SELECT
+    operator_id,
+    CASE event_type
+      WHEN 'TRANSIT_STARTED' THEN 'TRANSIT'
+      WHEN 'WORK_STARTED' THEN 'WORKING'
+      WHEN 'OPERATOR_REMOVED' THEN NULL
+      ELSE 'IDLE'
+    END AS activity,
+    to_unixtime(from_iso8601_timestamp(occurred_at)) AS started_s,
+    COALESCE(
+      to_unixtime(from_iso8601_timestamp(LEAD(occurred_at) OVER (PARTITION BY operator_id ORDER BY sequence_number))),
+      to_unixtime(current_timestamp)
+    ) AS ended_s
+  FROM op_events
+),
+fleet_week_slices AS (
+  SELECT
+    w.week_start,
+    i.activity,
+    (LEAST(i.ended_s, w.week_start_s + 604800) - GREATEST(i.started_s, w.week_start_s)) / 3600.0 AS hours,
+    op.rate_per_hour
+  FROM fleet_intervals i
+  CROSS JOIN (
+    SELECT DISTINCT week_start, to_unixtime(with_timezone(CAST(week_start AS timestamp), 'UTC')) AS week_start_s
+    FROM weekly_events
+    WHERE week_start IS NOT NULL
+  ) w
+  JOIN operator_latest op ON op.operator_id = i.operator_id
+  WHERE i.activity IS NOT NULL
+    AND i.started_s < w.week_start_s + 604800
+    AND i.ended_s > w.week_start_s
+),
+fleet_stats AS (
+  SELECT
+    week_start,
+    ROUND(SUM(hours), 2) AS paid_fleet_hours,
+    ROUND(SUM(CASE WHEN activity = 'WORKING' THEN hours ELSE 0 END), 2) AS working_hours,
+    ROUND(SUM(CASE WHEN activity = 'TRANSIT' THEN hours ELSE 0 END), 2) AS transit_hours,
+    ROUND(SUM(CASE WHEN activity = 'IDLE' THEN hours ELSE 0 END), 2) AS idle_hours,
+    ROUND(SUM(hours * rate_per_hour), 2) AS fleet_cost,
+    ROUND(SUM(CASE WHEN activity = 'IDLE' THEN hours * rate_per_hour ELSE 0 END), 2) AS idle_cost
+  FROM fleet_week_slices
+  GROUP BY week_start
+),
 -- "Operators live during the week": latest snapshot per operator whose
 -- [start_datetime, end_datetime] overlaps the week (end NULL = still active).
 -- Shift isn't warehoused, so lifecycle windows are the best available proxy.
@@ -182,7 +240,17 @@ SELECT
   CAST(COALESCE(r.labor_cost, 0) AS varchar) AS labor_cost,
   CAST(COALESCE(r.materials_cost, 0) AS varchar) AS materials_cost,
   CAST(COALESCE(r.total_cost, 0) AS varchar) AS total_cost,
-  CAST(COALESCE(cap.operators_live, 0) AS varchar) AS operators_live
+  CAST(COALESCE(cap.operators_live, 0) AS varchar) AS operators_live,
+  CAST(COALESCE(fs.paid_fleet_hours, 0) AS varchar) AS paid_fleet_hours,
+  CAST(COALESCE(fs.working_hours, 0) AS varchar) AS working_hours,
+  CAST(COALESCE(fs.transit_hours, 0) AS varchar) AS transit_hours,
+  CAST(COALESCE(fs.idle_hours, 0) AS varchar) AS idle_hours,
+  CAST(COALESCE(fs.fleet_cost, 0) AS varchar) AS fleet_cost,
+  CAST(COALESCE(fs.idle_cost, 0) AS varchar) AS idle_cost,
+  CAST(
+    ROUND((COALESCE(fs.fleet_cost, 0) + COALESCE(r.materials_cost, 0)) / NULLIF(r.orders_resolved, 0), 2)
+    AS varchar
+  ) AS cost_per_resolved_order
 FROM weeks w
 LEFT JOIN created c ON c.week_start = w.week_start
 LEFT JOIN accepted a ON a.week_start = w.week_start
@@ -190,5 +258,6 @@ LEFT JOIN rejected rj ON rj.week_start = w.week_start
 LEFT JOIN failures f ON f.week_start = w.week_start
 LEFT JOIN resolution_stats r ON r.resolved_week = w.week_start
 LEFT JOIN capacity_counts cap ON cap.week_start = w.week_start
+LEFT JOIN fleet_stats fs ON fs.week_start = w.week_start
 WHERE w.week_start >= date_trunc('week', current_date - INTERVAL '83' DAY)
 ORDER BY week_start
