@@ -10,13 +10,12 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   waiting (skip cap K=3, SLA-overdue first). 8.09 mi actual vs 2.89 top-10.
   ~$9-10/acc. Refined (cpo+cto approved). Depends on #202.
 - **#244 (11-18, bug):** window too short; W=2.0 env/SSM. 2/2 Rex replies
-  used. Intake, cpo-approved, no cto-approved. Stays in Intake.
+  used. Intake, cpo-approved, no cto-approved (still 11-27). Stays in Intake.
 - **#234** dup linking, **#227** repair feedback (21+ contacts), **#166**
-  status visibility (69+ contacts, +2 on 11-27): all Refined.
+  status visibility (69+ contacts): all Refined.
 - **#170** event-driven dispatch, **#194** nearest idle op: Spec Created.
-  #170 evidence comments: 11-19 thru 11-24 (fleet 11). 11-25/27: same
-  regime, chat/report only. Comment again only on a new regime (e.g.
-  fleet 9 steady for days, or after #253 ships).
+  #170 evidence comments: 11-19 thru 11-24 (fleet 11). Comment again only on
+  a new regime (e.g. fleet 9 steady for days, or after #253 ships).
 - **#181 (bug):** intake stall. cto-escalated, waiting on Seth. Don't ping.
 - **#213 (measurement):** idle in WBR. Refined. Watch first post-ship WBR vs
   fleet-time-budget-daily within 2%.
@@ -32,8 +31,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Crowd-sourced status updates: ours are operator-tracked; -> #166.
 - Hazard reporting / detection / apps / photo / hardware / route-safety /
   navigation alerts / real-time hazard map: report via 311 (911 if
-  danger); own-report status -> #166; citywide map declined (now 7x,
-  all Dogwood, incl. 4 more on 11-27).
+  danger); own-report status -> #166; citywide map declined (7x, Dogwood).
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
 - Self-service mark-complete / live chat / phone: none (incl. "mark
@@ -63,7 +61,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Fleet: 21 -> 3 (Nov 19) -> 7 -> 9 -> 10 -> 11 (Nov 22) -> 9 (Nov 24
   23:00, Brogan released idle Trucks 9, 10; backlog 13). Told him 11-25 the
   idle he sees is mostly scheduler-caused (#170). No newer WBR/fleet read
-  since 11-25 (none fetched 11-27, conversation run).
+  since 11-25.
 - Intake bursty; normal again Nov 24-25 (~4.6k created/day).
 - Run time: "07:00" audit runs ~13:00 UTC; WBR job 07:00 UTC.
 
@@ -88,7 +86,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   poller 44h floor; 40% searches fail; scheduled->dispatch queue (0 h);
   removal drain waste (code).
 
-## Saved queries (folder writes STILL BLOCKED, sensitive-file; 11-25/27 too)
+## Saved queries (folder writes STILL BLOCKED, sensitive-file; through 11-27)
 
 Shapes (rebuild from these):
 - backlog+sla daily (1 query): per order min ACC / min RESOLVED|FAILED /
@@ -110,8 +108,7 @@ Shapes (rebuild from these):
 - Operator event payloads have `$.location`; don't rely on `$.order_id`.
 - Satisfaction lives customer-side; never read it.
 - Use Write, not Edit, sed or python; rewrite whole files. Write creates
-  report folders; mkdir is blocked (approval needed even with -p, still
-  true 11-27).
+  report folders; mkdir is blocked (approval needed even with -p).
 - Don't run a gh command in parallel with the Write of its body file.
 - `gh issue view` takes --comments OR --json, not both; `gh api` blocked.
 - Don't assert unmeasured facts in a ticket body; measure first.
@@ -120,7 +117,7 @@ Shapes (rebuild from these):
 - `gh`: one call per issue; for-loops blocked.
 - All gh comments show seththeeke; tell agents apart by marker.
 - `list_contacts`: page once with cursor; stop at empty/null (an empty
-  page with a non-null cursor still means stop, 11-25/27).
+  page with a non-null cursor still means stop).
 - Read the simulation code before blaming the product.
 - Board has no remove command; off-board bugs stay in Intake harmlessly.
 - New evidence on an existing ticket = comment; same regime = chat only.
@@ -133,11 +130,9 @@ Shapes (rebuild from these):
 - 11-25 (audit + 4 conv): no new ticket; #170/#227 comments; Brogan
   pinged on idle-is-scheduler; last: 0 contacts, inbox empty, no Seth
   mentions, Dogwood hazard decline (3rd); CPO_DAILY 01M89CSDA3DAC3SKNBKZADEKDQ.
-- 11-27 13:00 (conv): inbox empty; no new Seth mentions (11 of mine all
-  updatedAt <=11-24; #165 is Turing's, not mine); no new Rex comments on
-  any open ticket; 13 contacts triaged (2 tracked -> #166, 11 declined:
-  3 feature-request-tracking/suggestion-box, 1 mark-complete, 4 hazard
-  detection/reporting (Dogwood, now 7x total), 2 crew-performance-API,
-  1 public-map); no new tickets (all matched existing decline reasoning
-  or #166); board unchanged (#181, #244 Intake); 0/2 queries used.
-  Chat post: none.
+- 11-27 13:00 (conv): 13 contacts triaged (2 -> #166, 11 declined); no new
+  tickets; board unchanged; 0/2 queries used. Chat post: none.
+- 11-27 16:00 (conv): inbox empty; no new Seth mentions (all my issues
+  updatedAt <=11-24); no new Rex comments; 0 new contacts (empty page,
+  stopped); board unchanged (#181 cto-escalated, #244 still no
+  cto-approved); 0/2 queries used (nothing to verify). Chat post: none.
