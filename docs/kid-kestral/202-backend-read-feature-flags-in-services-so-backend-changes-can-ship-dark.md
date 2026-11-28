@@ -1,6 +1,6 @@
 # 202. backend: read feature flags in services, so backend changes can ship dark
 
-**Status:** Spec created 2026-11-14. Development started 2026-11-18. Leg 1 merged 2026-11-19. Verified in Test 2026-11-27. **Ticket:** #202. **Card:** Verified in Test Environment.
+**Status:** Spec created 2026-11-14. Development started 2026-11-18. Leg 1 merged 2026-11-19. Verified in Test 2026-11-27. V4 aborted 2026-11-28. **Ticket:** #202. **Card:** Requires CEO Intervention.
 
 ## 1. Ticket
 
@@ -123,6 +123,10 @@ inside the first caller's own `C` → 100% `T1` step:
 | 2026-11-27 | Test step 1: deployed? | Pass | `get-pipeline-state`: the latest run (`7db201d`, which contains `fcf13a3`) succeeded through Source, Build, UpdatePipeline, Assets, DeployTest, DeployProd and DeployCustomer |
 | 2026-11-27 | Test step 2: flag | n/a | #202 has no flag of its own (§3) |
 | 2026-11-27 | Test step 3: V1, V2 on the deployed revision `7db201d` | Pass | `featureFlagService.test.ts`: 27/27. `FeatureFlagReadMetricFilters.test.ts` + `FeatureFlagsTable.test.ts`: 10/10. V3 and V4 run in the first caller's hold (§5) |
+| 2026-11-28 | Prod step 1: deployed? | Pass | `DeployProd` succeeded on `7db201d` (2026-11-27 17:36 PT), which contains `fcf13a3` |
+| 2026-11-28 | First caller found | n/a | Not #194 or #170. `dispatchPolicyService.ts` (commit `0a331a4`, doc 20, deployed in `7db201d`) reads `DISPATCH_POLICY` from `Nyc311OrderScheduling-<Env>`, with `grantFlagRead` and the metric filters wired in. Prod `DISPATCH_POLICY`: default `C`, no allocations, v1. The ticket's 7-day window runs from 2026-11-28 |
+| 2026-11-28 | V3: success rate, Logs Insights `filter message = "FeatureFlagRead" \| stats count(*), pct(durationMs,50/99) by @log, outcome, reason, treatment`, 2026-11-27 19:00Z → 2026-11-28 08:30Z | **Pass so far** | Prod: 8/8 `TREATMENT` / `DEFAULT` / `C`. Test: 8/8 `TREATMENT` / `DEFAULT` / `C`. The caller's Test row is `C`, so the `T1` cross-check doesn't apply. 0 fallbacks |
+| 2026-11-28 | V4: added latency, from the same query | **Fail → abort** | `durationMs` p50 461 ms / p99 479 ms in Prod (Test: 460 / 500), against < 20 ms. Scheduler `REPORT` lines, Prod: 9 of 9 invocations cold (init avg 315 ms), duration p50 638 ms / p99 2,533 ms. Each read builds a new client and connection on an hourly cold start. Abort rule (§5): the caller's flag must stay at `C`. It is already `C` (not this project's flag, so I didn't change it) → Requires CEO Intervention |
 
 ## 7. Outcome
 
@@ -136,6 +140,11 @@ Not yet.
   V3 and V4 both need it. **As of 2026-11-19 it also blocks Verified in
   Test**: without it I can't confirm `DeployTest` ran on `fcf13a3` or later.
   Until then, the CEO can confirm that run instead. **Done 2026-11-20.**
+- **2026-11-28, V4 aborted:** the read adds about 460 ms per call in Prod,
+  against a 20 ms target, because every hourly scheduler run is a cold start.
+  Choose: (1) revise V4's target for cold-start callers and keep the code
+  (my pick), (2) a fix PR to the read, or (3) something else. Until then,
+  `DISPATCH_POLICY` stays at `C` (§5 abort rule).
 
 ## Appendix: decisions
 
