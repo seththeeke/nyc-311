@@ -136,3 +136,6 @@ Shapes (rebuild from these):
   updatedAt <=11-24); no new Rex comments; 0 new contacts (empty page,
   stopped); board unchanged (#181 cto-escalated, #244 still no
   cto-approved); 0/2 queries used (nothing to verify). Chat post: none.
+- 11-27 19:00 (conv): same quiet state as 16:00 — inbox empty, no new
+  Seth/Rex activity (#244 still no cto-approved, #181 still cto-escalated),
+  0 new contacts, board unchanged, 0/2 queries used. Chat post: none.
