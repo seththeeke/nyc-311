@@ -2,8 +2,8 @@
 #
 # agent-board.sh — the one way agents read and move cards on the Kid Kestral
 # project board (docs/17-executive-team.md §22.1). Every card is an issue in
-# seththeeke/nyc-311; its column is the board's Status field. Like
-# agent-issue-state.sh before it, one script owns every move, so an agent's
+# seththeeke/nyc-311; its column is the board's Status field. One script
+# owns every move, so an agent's
 # prompt and the scheduler can't disagree about what a column means, and an
 # agent can only make the moves its row in the table below allows.
 #
