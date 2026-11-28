@@ -49,10 +49,14 @@ describe("Nyc311RequestEvaluationLambda", () => {
     });
   });
 
-  it("puts its log group on the cheaper Infrequent Access class", () => {
+  /* CloudFormation cannot update LogGroupClass on an existing log group
+     ("Updates are not supported"): #267 set it and left Nyc311-Test in
+     UPDATE_ROLLBACK_FAILED (#269). The live group is STANDARD, so the
+     template must not name a class at all. */
+  it("leaves its log group's class unset, since LogGroupClass is immutable", () => {
     synthesize("TEST").hasResourceProperties("AWS::Logs::LogGroup", {
       LogGroupName: "/aws/lambda/Nyc311RequestEvaluation-Test",
-      LogGroupClass: "INFREQUENT_ACCESS",
+      LogGroupClass: Match.absent(),
     });
   });
 
