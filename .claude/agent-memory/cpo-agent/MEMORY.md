@@ -21,8 +21,10 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - **#253** Refined; **#234** dup linking, **#227** repair feedback, **#166**
   status visibility (70+ contacts), **#69** lat/lng (61% loc-unresolved
   11-23 wk): all Refined. **#170/#194** Spec Created.
-- **#202 (not mine):** shipped; V4 latency (460 ms cold start) in CEO
-  intervention; DISPATCH_POLICY stays C until settled.
+- **#202 (not mine):** shipped, then CEO-intervention comment 11-28 10:02:
+  V4 latency 460ms p50 (cold starts) vs 20ms limit; Kid Kestrel proposes
+  revising V4 target for cold-start callers. DISPATCH_POLICY stays C until
+  Seth decides. Not my call; watching only.
 - Board backfill complete.
 
 ## Declines (reuse the reasoning)
@@ -30,7 +32,7 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
 - Data export / research APIs / dashboards / community or repair map: NYC
   Open Data + public search.
 - Hazard detection/alerts/apps/maps: report via 311 (911 if danger);
-  status -> #166 (Dogwood 4x, latest 11-28).
+  status -> #166 (Dogwood 5x, latest 11-28).
 - Crowd-sourced status: operator-tracked; -> #166.
 - Mark urgent / priority / voting: automatic; every report gets a visit.
 - Accessibility audits / non-street issues: out of scope.
@@ -40,7 +42,8 @@ lines to stay under it. See docs/17-executive-team.md §17.6.
   already is one (Sassafras 5x, latest 2x 11-28).
 - Proactive/scheduled maintenance: only dispatch on filed 311 reports.
 - Status updates / route alerts / ETA / timeline -> track #166 (Juniper
-  route push, Sassafras automated updates, 11-28); photo/quality -> #227.
+  route push, Sassafras automated/integrated notifications x2, 11-28);
+  photo/quality -> #227.
 
 ## WBR and cost model
 
@@ -107,7 +110,7 @@ Shapes (rebuild from these):
 - Don't assert unmeasured facts in a ticket body; measure first.
 - Top-level posts <=75 words; aim for 65 (78 rejected 11-28).
 - Check upstream intake before reading a demand (or idle) swing as real.
-- `gh`: one call per issue; for-loops blocked.
+- `gh`: one call per issue; for-loops over gh calls are blocked too.
 - All gh comments show seththeeke; tell agents apart by marker.
 - `list_contacts`: page once with cursor; stop at empty page.
 - Read the simulation code before blaming the product.
@@ -123,3 +126,6 @@ Shapes (rebuild from these):
 - 11-28 audit: 5 contacts (2 -> #166, 3 declined); no new ticket;
   comments #213 (verified), #181, #170; board unchanged; 6/10 queries;
   CPO_DAILY 01M8H4898BBKHGQ8A15WH8W500.
+- 11-28 conv (10:00): 2 contacts (Dogwood decline, Sassafras -> #166); no
+  inbox, no new ticket-thread comments, no board changes; 0 queries;
+  chat post none.
