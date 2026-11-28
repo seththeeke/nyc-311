@@ -839,13 +839,15 @@ copied in.
   `chief-of-staff-agent` (§15) is another operating agent: once a day it
   reads all of Team Chat and posts the CEO's morning brief, and changes
   nothing.
-  `cto-agent` (§16) reviews open `devx/` PRs twice a day with signed
+  `cto-agent` (§16) reviews open `devx/`, `cost/` and `gen-purpose-dev/`
+  PRs on the slots in `scripts/agent-schedules/cto-agent.env` with signed
   comments, labels and a `cto-review` status, and never changes code
   (`.claude/hooks/cto-agent-guard.sh`); its rubric is
   `.claude/review/cto-code-review.md`.
   `aws-cost-agent` (§18) works like `devx-agent` on `cost/` branches to
   lower the AWS bill; Rex reviews and only a human merges.
-  `software-analyzer-agent` (§19) audits one package twice a week, files
+  `software-analyzer-agent` (§19) audits one package per run, on the
+  schedule in `scripts/agent-schedules/software-analyzer-agent.env`, files
   tickets for Rex and never changes code.
   `cpo-agent` (§17) triages Contacts, reads the WBR and files `cpo-agent`
   feature and bug issues; it never changes code
