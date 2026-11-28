@@ -1,6 +1,6 @@
 # 202. backend: read feature flags in services, so backend changes can ship dark
 
-**Status:** Spec created 2026-11-14. Development started 2026-11-18. Leg 1 merged 2026-11-19. **Ticket:** #202. **Card:** Requires CEO Intervention (2026-11-19: I can't confirm `DeployTest` without the AWS profile, §8).
+**Status:** Spec created 2026-11-14. Development started 2026-11-18. Leg 1 merged 2026-11-19. Verified in Test 2026-11-27. **Ticket:** #202. **Card:** Verified in Test Environment.
 
 ## 1. Ticket
 
@@ -119,6 +119,10 @@ inside the first caller's own `C` → 100% `T1` step:
 | 2026-11-18 | V1, V2 (unit and template tests, in #246) | Pass | V1: 10 `getTreatment` cases (OVERRIDE, ALLOCATION, DEFAULT, no list, FLAG_MISSING, READ_FAILED ×4, UNKNOWN_TREATMENT), all resolve, one `FeatureFlagRead` line each. V2: grant is one `dynamodb:GetItem` statement on the table ARN; 3 filters with the patterns and dimensions in §3 |
 | 2026-11-19 | V1, V2 re-run on `main` (`b24e69d`, which contains merge `fcf13a3`) | Pass | `featureFlagService.test.ts`: 27/27. `FeatureFlagReadMetricFilters.test.ts` + `FeatureFlagsTable.test.ts`: 10/10 |
 | 2026-11-19 | Test step 1: deployed? | **Blocked** | `aws --profile nyc311-gen-purpose-dev` → "config profile could not be found". The merge commit has 0 GitHub statuses (the pipeline posts none). `DeployTest` can't be confirmed → Requires CEO Intervention |
+| 2026-11-20 | CEO answer | Profile set up | The CEO set up `nyc311-gen-purpose-dev` and moved the card back to Spec Created |
+| 2026-11-27 | Test step 1: deployed? | Pass | `get-pipeline-state`: the latest run (`7db201d`, which contains `fcf13a3`) succeeded through Source, Build, UpdatePipeline, Assets, DeployTest, DeployProd and DeployCustomer |
+| 2026-11-27 | Test step 2: flag | n/a | #202 has no flag of its own (§3) |
+| 2026-11-27 | Test step 3: V1, V2 on the deployed revision `7db201d` | Pass | `featureFlagService.test.ts`: 27/27. `FeatureFlagReadMetricFilters.test.ts` + `FeatureFlagsTable.test.ts`: 10/10. V3 and V4 run in the first caller's hold (§5) |
 
 ## 7. Outcome
 
@@ -131,7 +135,7 @@ Not yet.
   `Nyc311EngineerAgentRole`) on the Mac mini before the first caller's hold.
   V3 and V4 both need it. **As of 2026-11-19 it also blocks Verified in
   Test**: without it I can't confirm `DeployTest` ran on `fcf13a3` or later.
-  Until then, the CEO can confirm that run instead.
+  Until then, the CEO can confirm that run instead. **Done 2026-11-20.**
 
 ## Appendix: decisions
 
